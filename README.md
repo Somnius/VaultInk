@@ -23,8 +23,8 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Early days.** Version 0.3.0 opens your vaults and reads their notes, links and images, Greek
-> included. Search and sync aren't in yet. Nothing has been tested on real hardware so far. All the screenshots below
+> **Early days.** Version 0.4.0 opens your vaults, reads their notes, links and images, Greek
+> included, and searches them. Sync isn't in yet. Nothing has been tested on real hardware so far. All the screenshots below
 > come from the simulator. Please don't flash this onto your daily reader yet.
 
 ## Screenshots
