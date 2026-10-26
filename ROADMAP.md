@@ -34,7 +34,7 @@ and host tests.
   CrossNext and KOReader SimpleUI), thanks to kos25k for testing.
 * ✅ Welcome guide on the first start (five pages with pictures), again once after an update that
   changes it (switch in Settings → System), and any time from Settings → System → Welcome Guide.
-* ⏳ README: the welcome guide's pages as illustrated instructions.
+* ✅ README: the welcome guide's pages as illustrated instructions.
 * ⏳ Translation guide in the repo, a GitHub issue form to request a new language, and a way for
   translators to work from the English strings file.
 * ⏳ Web installer on GitHub Pages (somnius.github.io/VaultInk): ESP Web Tools, factory image and
