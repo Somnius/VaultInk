@@ -56,12 +56,15 @@ and host tests.
 * 🚧 `lib/Vault`: Markdown parser. Done: `MarkdownToHtml` (headings, emphasis, highlight, strike,
   code, lists, tasks, quotes, callouts, tables, rules, frontmatter and comments hidden, block ids,
   wikilinks, Markdown and bare links, image embeds), 17 host tests, wired into the reader's `.md`
-  path so notes render with the book reader. To do: resolve `vault:` links and images, note
+  path so notes render with the book reader. ✅ Links between notes (Obsidian resolution,
+  headings, same-note jumps, Back through 16 notes, "Note not found") and embedded images found
+  anywhere in the vault. To do: note
   embeds, footnotes, nested list indent, Greek in notes without an SD font (fall back to the UI
   font).
   Also: lists and quotes inside each other, numbered lists that start above 1.
 * Note reader with links, back stack, image and note embeds, block refs.
-* Index on SD, incremental, for vaults of 60 MB and more.
+* Index on SD, incremental, for vaults of 60 MB and more. Also replaces the SD scan that links and images
+  use today (fine for small vaults, slow for thousands of notes).
 * Search with Greek folding, tags, backlinks.
 
 **Done when:** synthetic test vaults pass the host tests, and Lef's own vaults (tested locally only,

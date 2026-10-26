@@ -23,8 +23,8 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Early days.** Version 0.1.0 has the new home screen, menus and Greek support, but the vault
-> reader isn't in yet. Nothing has been tested on real hardware so far. All the screenshots below
+> **Early days.** Version 0.2.0 reads Obsidian notes and follows their links, but the vault picker,
+> search and sync aren't in yet. Nothing has been tested on real hardware so far. All the screenshots below
 > come from the simulator. Please don't flash this onto your daily reader yet.
 
 ## Screenshots
@@ -66,6 +66,10 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
 - **Reading.** Everything CrossPoint Reader offers: EPUB, TXT and XTC books, SD-card fonts,
   hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS catalogs, Calibre wireless
   transfer and SD-card plugins.
+- **Obsidian notes.** Open a `.md` note from a vault and it reads like a book: headings, bold and
+  italic, highlights, lists and tasks, quotes and callouts, tables, code, and embedded images found
+  anywhere in the vault. Tap a `[[link]]` to open the other note (or jump to its heading), and press
+  Back to return. A vault picker, search and the Vaults row on the home screen are next.
 - **A new home screen.** The book you're reading sits at the top, followed by Books and Vaults, then
   Files, Transfer, Plugins and Settings. Every row says in one line what's behind it. You can use
   touch or the buttons. CrossPoint's own home styles are still there under Settings → Display.
