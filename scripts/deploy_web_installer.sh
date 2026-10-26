@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build the X4 Pro release firmware on this machine and publish the web installer
-# (site/ plus the full image and manifest) to the gh-pages branch. GitHub only serves the files.
+# (site/ plus the full image and manifest) to the gh-pages branch, then make the GitHub release
+# for this version (tag plus bins; the device's update check reads it). GitHub only serves the files.
 #
 #   scripts/deploy_web_installer.sh            # build, then publish
 #   PIO=/path/to/pio scripts/deploy_web_installer.sh
@@ -43,4 +44,21 @@ git add -A
 git commit -q -m "Web installer ${VERSION} ($(git -C "$ROOT" rev-parse --short HEAD))"
 git push -q -f "$REMOTE" gh-pages
 echo "Published web installer ${VERSION}: https://somnius.github.io/VaultInk/"
-sha256sum vaultink-x4pro-factory.bin
+SHA=$(sha256sum vaultink-x4pro-factory.bin | cut -d' ' -f1)
+echo "$SHA  vaultink-x4pro-factory.bin"
+
+# The release: the full image for USB flashing, and the app image the update check downloads
+# (vaultink-<version>-x4pro.bin, see src/network/OtaUpdater.cpp).
+cd "$ROOT"
+cp .pio/build/x4pro-gh_release/firmware.factory.bin "$OUT/vaultink-${VERSION}-x4pro-factory.bin"
+cp .pio/build/x4pro-gh_release/firmware.bin "$OUT/vaultink-${VERSION}-x4pro.bin"
+if gh release view "$VERSION" >/dev/null 2>&1; then
+  gh release upload "$VERSION" --clobber "$OUT/vaultink-${VERSION}-x4pro-factory.bin" "$OUT/vaultink-${VERSION}-x4pro.bin"
+else
+  git tag -a "$VERSION" -m "VaultInk ${VERSION}" HEAD 2>/dev/null || true
+  git push -q origin "$VERSION"
+  gh release create "$VERSION" --title "VaultInk ${VERSION}" \
+    --notes "Not tested on real hardware yet. Install from https://somnius.github.io/VaultInk/ or flash the factory bin at 0x0. sha256 of the factory bin: ${SHA}" \
+    "$OUT/vaultink-${VERSION}-x4pro-factory.bin" "$OUT/vaultink-${VERSION}-x4pro.bin"
+  echo "Release ${VERSION} created; edit its notes on GitHub if you want more than the default text."
+fi
