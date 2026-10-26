@@ -85,6 +85,9 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Home is one vertical list: a Continue card (cover, title, progress, today's reading time and
   streak), then Books and Vaults as the two big rows, then Search, Files, Transfer, Plugins,
   Settings. Each row has an icon, a title and a one-line status. It fits on one screen.
+- Continue covers vaults too: the card shows whatever was open last, a book or a vault note.
+  Each vault also remembers its last note, shown on its row in the vault picker ("continue in
+  <vault>: <note>").
 - Buttons: up/down move one focus highlight (thick outline and a bar on the left; only the two
   changed rows are redrawn), OK opens, Back goes back. A hint line shows the keys.
 - No large black areas (they ghost on 4-level e-ink).
