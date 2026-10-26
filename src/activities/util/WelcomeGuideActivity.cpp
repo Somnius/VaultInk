@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
@@ -109,6 +110,14 @@ void WelcomeGuideActivity::onEnter() {
   Activity::onEnter();
   page = 0;
   confirmSkip = false;
+  otherLanguages.clear();
+  for (const uint8_t index : SORTED_LANGUAGE_INDICES) {
+    const auto lang = static_cast<Language>(index);
+    if (lang == Language::EN || lang == Language::EL) continue;               // already on the card
+    if (std::strcmp(I18N.getLanguageName(lang), "Orangutan") == 0) continue;  // CrossPoint's joke language
+    if (!otherLanguages.empty()) otherLanguages += " · ";
+    otherLanguages += I18N.getLanguageName(lang);
+  }
   resetUi();
   app.on(ACTION_NEXT, &WelcomeGuideActivity::onAction, this);
   app.on(ACTION_PREV, &WelcomeGuideActivity::onAction, this);
@@ -230,12 +239,18 @@ void WelcomeGuideActivity::drawPicture(UiScreen& screen, const fui::Rect a) {
   switch (page) {
     case 0: {  // What VaultInk does: three cards
       const int16_t w = static_cast<int16_t>((a.width - 2 * 12) / 3);
-      const int16_t y = static_cast<int16_t>(a.y + (a.height - 140) / 2);
-      iconCard(screen, fui::Rect{a.x, y, w, 140}, icon_book_open_32, tr(STR_HOME_BOOKS));
-      iconCard(screen, fui::Rect{static_cast<int16_t>(a.x + w + 12), y, w, 140}, icon_vault_32,
+      const auto y = a.y;  // the language list goes under the cards
+      iconCard(screen, fui::Rect{a.x, y, w, 112}, icon_book_open_32, tr(STR_HOME_BOOKS));
+      iconCard(screen, fui::Rect{static_cast<int16_t>(a.x + w + 12), y, w, 112}, icon_vault_32,
                tr(STR_GUIDE_VAULTS_SOON));
-      iconCard(screen, fui::Rect{static_cast<int16_t>(a.x + 2 * (w + 12)), y, w, 140}, icon_file_text_32,
+      iconCard(screen, fui::Rect{static_cast<int16_t>(a.x + 2 * (w + 12)), y, w, 112}, icon_file_text_32,
                "English · Ελληνικά");
+      auto list = screen.theme().smallText;
+      list.align = fui::TextAlign::Center;
+      list.maxLines = 9;
+      const auto listY = static_cast<int16_t>(y + 112 + 10);
+      const std::string text = std::string(tr(STR_GUIDE_ALSO_IN)) + " " + otherLanguages;
+      t.text(fui::Rect{a.x, listY, a.width, static_cast<int16_t>(a.bottom() - listY)}, text.c_str(), list);
       break;
     }
     case 1: {  // Reading: a page, the swipe arrows and the menu tap zone

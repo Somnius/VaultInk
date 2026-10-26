@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "activities/Activity.h"
 #include "components/UiAppHost.h"
 
@@ -22,6 +24,8 @@ class WelcomeGuideActivity final : public Activity, private UiAppHost {
 
  private:
   int page = 0;
+  // Every other UI language by its own name, for the first page's small print.
+  std::string otherLanguages;
   bool confirmSkip = false;
   int pendingAction = 0;
 

@@ -47,7 +47,7 @@ The first time VaultInk starts, it shows a short welcome guide. The five pages a
   <img src="docs/images/vaultink/guide-5.png" width="150" alt="Last page">
 </p>
 
-1. **Welcome.** VaultInk is for your books now, and for your Obsidian vaults soon. The menus are in English and Greek.
+1. **Welcome.** VaultInk is for your books now, and for your Obsidian vaults soon. The menus are in English, Greek and many other languages, listed on this page.
 2. **Reading.** Swipe left for the next page and right for the previous one, or use the side buttons. Tap the middle of the page to open the reading menu.
 3. **Quick settings.** Swipe down from the top of the screen, or tap the battery. You get the light, night mode, sleep, and a full refresh (to clear ghost images).
 4. **Adding books.** Copy books into the `books` folder on the SD card, or send them from your computer with File Transfer (Wi-Fi, USB or Calibre).
