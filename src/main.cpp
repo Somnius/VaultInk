@@ -43,6 +43,7 @@
 #include "activities/Activity.h"
 #include "activities/ActivityManager.h"
 #include "activities/settings/SdFirmwareUpdateActivity.h"
+#include "activities/util/WelcomeGuideActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "platform/UsbSerialJtagHandoff.h"
@@ -802,8 +803,13 @@ void setup() {
   } else if (APP_STATE.openEpubPath.empty() || !APP_STATE.lastSleepFromReader ||
              mappedInputManager.isPressed(MappedInputManager::Button::Back) || APP_STATE.readerActivityLoadCount > 0) {
     // Boot to home screen if no book is open, last sleep was not from reader, back button is held, or reader activity
-    // crashed (indicated by readerActivityLoadCount > 0)
-    activityManager.goHome(HomeMenuItem::NONE, needsWakeRefresh);
+    // crashed (indicated by readerActivityLoadCount > 0). A new or changed welcome guide comes first; finishing it
+    // leaves the stack empty, which lands on home.
+    if (WelcomeGuideActivity::shouldShowAtBoot()) {
+      activityManager.goToWelcomeGuide();
+    } else {
+      activityManager.goHome(HomeMenuItem::NONE, needsWakeRefresh);
+    }
   } else {
     // Clear app state to avoid getting into a boot loop if the epub doesn't load
     const auto path = APP_STATE.openEpubPath;

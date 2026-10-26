@@ -105,6 +105,7 @@ class ActivityManager {
     return requested;
   }
   void goToBoot();
+  void goToWelcomeGuide();
   void goToFullScreenMessage(std::string message, EpdFontFamily::Style style = EpdFontFamily::REGULAR);
   void goToCrashReport();
   void goHome(HomeMenuItem initialMenuItem = HomeMenuItem::NONE, bool cleanInitialRefresh = false);
