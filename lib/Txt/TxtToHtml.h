@@ -29,6 +29,13 @@ class TxtToHtml {
   }
 
   static const char* cacheVersionTag(std::string_view filename);
+
+ private:
+  static bool streamMarkdown(std::string_view filename, void* readerCtx,
+                             int (*readFn)(void* ctx, uint8_t* buf, size_t size), uint8_t* inBuf, size_t inBufSize,
+                             Print& out);
+
+ public:
   static size_t escapedHtmlSize(std::string_view text);
   static void appendEscapedHtml(std::string& out, std::string_view text);
   static bool stream(std::string_view filename, void* readerCtx, int (*readFn)(void* ctx, uint8_t* buf, size_t size),

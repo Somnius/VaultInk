@@ -53,7 +53,12 @@ and host tests.
 * Home: **Vaults** right after **Books**. Vault picker, folder browser, recent notes, Greek paths.
 * Continue card covers vault notes too; each vault remembers its last note.
 * Settings: a Vaults group.
-* `lib/Vault`: Markdown parser (spans, tables, callouts, tasks, code, links, embeds, frontmatter).
+* 🚧 `lib/Vault`: Markdown parser. Done: `MarkdownToHtml` (headings, emphasis, highlight, strike,
+  code, lists, tasks, quotes, callouts, tables, rules, frontmatter and comments hidden, block ids,
+  wikilinks, Markdown and bare links, image embeds), 17 host tests, wired into the reader's `.md`
+  path so notes render with the book reader. To do: resolve `vault:` links and images, note
+  embeds, footnotes, nested list indent, Greek in notes without an SD font (fall back to the UI
+  font).
 * Note reader with links, back stack, image and note embeds, block refs.
 * Index on SD, incremental, for vaults of 60 MB and more.
 * Search with Greek folding, tags, backlinks.

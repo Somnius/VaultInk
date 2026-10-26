@@ -2,13 +2,14 @@
 
 #include <FsHelpers.h>
 #include <Logging.h>
+#include <MarkdownToHtml.h>
 #include <Memory.h>
 
 #include <algorithm>
 #include <cstring>
 
 const char* TxtToHtml::cacheVersionTag(std::string_view filename) {
-  return FsHelpers::hasMarkdownExtension(filename) ? "<!-- MD_CACHE_VERSION: 1 -->" : "<!-- TXT_CACHE_VERSION: 1 -->";
+  return FsHelpers::hasMarkdownExtension(filename) ? "<!-- MD_CACHE_VERSION: 2 -->" : "<!-- TXT_CACHE_VERSION: 1 -->";
 }
 
 size_t TxtToHtml::escapedHtmlSize(const std::string_view text) {
@@ -33,6 +34,10 @@ bool TxtToHtml::stream(std::string_view filename, void* readerCtx, int (*readFn)
   if (!inBuf || !outBuf) {
     LOG_ERR("TXT", "OOM: TXT/MD HTML streaming buffers");
     return false;
+  }
+
+  if (FsHelpers::hasMarkdownExtension(filename)) {
+    return streamMarkdown(filename, readerCtx, readFn, inBuf.get(), IN_BUF_SIZE, out);
   }
 
   size_t outPos = 0;
@@ -149,4 +154,35 @@ bool TxtToHtml::stream(std::string_view filename, std::string_view content, Prin
         return static_cast<int>(n);
       },
       out);
+}
+
+// v2 of the .md cache: Obsidian Markdown rendered by lib/Vault instead of shown as plain text.
+bool TxtToHtml::streamMarkdown(std::string_view filename, void* readerCtx,
+                               int (*readFn)(void* ctx, uint8_t* buf, size_t size), uint8_t* inBuf,
+                               const size_t inBufSize, Print& out) {
+  struct PrintSink final : MarkdownToHtml::Sink {
+    Print& out;
+    bool ok = true;
+    explicit PrintSink(Print& out) : out(out) {}
+    void write(std::string_view text) override {
+      ok = ok && out.write(reinterpret_cast<const uint8_t*>(text.data()), text.size()) == text.size();
+    }
+  } sink(out);
+  MarkdownToHtml converter(sink);
+  converter.begin(FsHelpers::getFileNameWithoutExtension(filename), cacheVersionTag(filename));
+  bool first = true;
+  int bytesRead = 0;
+  while ((bytesRead = readFn(readerCtx, inBuf, inBufSize)) > 0) {
+    std::string_view chunk(reinterpret_cast<const char*>(inBuf), static_cast<size_t>(bytesRead));
+    if (first && chunk.size() >= 3 && chunk.compare(0, 3, "\xEF\xBB\xBF") == 0) chunk.remove_prefix(3);
+    first = false;
+    converter.feed(chunk);
+  }
+  if (bytesRead < 0) {
+    LOG_ERR("TXT", "Read error while streaming MD: %.*s", static_cast<int>(filename.size()), filename.data());
+    return false;
+  }
+  converter.finish();
+  if (!sink.ok) LOG_ERR("TXT", "Failed to stream complete MD HTML (write error or disk full)");
+  return sink.ok;
 }
