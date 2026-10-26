@@ -91,6 +91,8 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Quick settings: opened by tapping the status group (light, Wi-Fi, sync, battery) at the top, by
   swiping down, or by a button hold (which button is decided on the device). Tiles: Light, Wi-Fi,
   Sync now, Rotate, Sleep, Transfer. Brightness and warmth use - / + steps, not sliders.
+- In a book, the swipe-down panel puts the book card on top (cover, title, page, progress,
+  time left) above the quick-settings tiles, plus an Exit button (idea from KOReader SimpleUI).
 - Reading menu: OK or a swipe up opens a bottom sheet with title, progress, Contents, Bookmark,
   Search, Highlights, a text-size stepper, and Font / Spacing / Margins. Buttons step through it.
 - Settings are grouped by task: Reading, Vaults, Device. Each row shows its current value.

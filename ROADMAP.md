@@ -83,6 +83,13 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 ## 💤 Phase 5 - Bluetooth keyboard
 
 * BLE HID host (NimBLE), US and Greek layouts.
+* Remote buttons on top of CrossPoint's BLE page turner (`lib/BlePageTurner`: up to 4 remotes,
+  learned buttons, tap and hold): camera shutter remotes and page turners already work as BLE
+  HID (volume / arrow keys). Add actions beyond page turns (open quick note, sync, home).
+* Flic 2: pair directly in Flic's "Universal" (HID keyboard) mode, which needs no Flic app at
+  run time; hold-to-repeat isn't supported by Flic in that mode. Or through a Flic Hub: a hub SDK
+  package (JavaScript on the hub) sends clicks to VaultInk's web server on the LAN.
+* Research and test list of other BLE buttons and remotes before claiming support.
 
 ## 💤 Phase 6 - Android companion
 
