@@ -37,8 +37,8 @@ and host tests.
 * ✅ README: the welcome guide's pages as illustrated instructions.
 * ✅ Translation guide (`docs/translating.md`), a GitHub issue form to request a language, and
   `scripts/i18n_status.py` to see what each language is missing.
-* ✅ Web installer on GitHub Pages (somnius.github.io/VaultInk): ESP Web Tools 10.4.0; the Pages
-  workflow builds the release firmware and publishes the full image beside the page (release
+* ✅ Web installer on GitHub Pages (somnius.github.io/VaultInk): ESP Web Tools 10.4.0; the page and
+  the locally built full image are pushed to the `gh-pages` branch (nothing is built on GitHub) (release
   assets have no CORS headers). Marked as a test build; the button unlocks after ticking "I
   understand this is untested".
 * ⏳ First release (0.1.0), once the X4 Pro arrives and passes the hardware checks below.

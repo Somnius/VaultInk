@@ -78,7 +78,14 @@
     firmware if something goes wrong.
   </div>
 
-  <div class="card">
+  <div class="warn" id="browserBlock" hidden>
+    <strong>This browser can't install VaultInk.</strong> Installing needs Web Serial, which only
+    desktop <strong>Chrome</strong>, <strong>Edge</strong> and other Chromium-based browsers (Brave,
+    Opera, Vivaldi) have. Firefox, Safari and phone browsers don't. Please open this page in one of
+    those on a computer.
+  </div>
+
+  <div class="card" id="installCard">
     <h2 style="margin-top:0">Install</h2>
     <ol>
       <li>Use Chrome, Edge or another browser with Web Serial, on a computer (not a phone).</li>
@@ -122,9 +129,19 @@
   </footer>
 </main>
 <script>
+  // Flashing needs Web Serial (desktop Chromium). Without it, stop here instead of letting the
+  // install button fail later.
+  if (!("serial" in navigator)) {
+    document.getElementById("browserBlock").hidden = false;
+    document.getElementById("installCard").classList.add("disabled");
+    document.getElementById("agree").disabled = true;
+  }
   const agree = document.getElementById("agree");
   const box = document.getElementById("installBox");
-  agree.addEventListener("change", () => box.classList.toggle("disabled", !agree.checked));
+  agree.addEventListener("change", () => {
+    if (!("serial" in navigator)) return;
+    box.classList.toggle("disabled", !agree.checked);
+  });
   fetch("manifest.json").then(r => r.json()).then(m => {
     document.getElementById("version").textContent = "Version " + m.version + " · built " + (m.built || "");
   }).catch(() => {});
