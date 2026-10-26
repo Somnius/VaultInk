@@ -613,7 +613,8 @@ void HomeActivity::activateVaultInkItem(const int index) {
       onLibraryOpen();
       break;
     case VaultInkHomeUi::Row::Vaults:
-      break;  // the vault reader arrives in Phase 1; the row says so
+      activityManager.goToVaults();
+      break;
     case VaultInkHomeUi::Row::Files:
       onFileBrowserOpen();
       break;

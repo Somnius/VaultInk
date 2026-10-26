@@ -50,7 +50,8 @@ and host tests.
 * ✅ Bigger app slots: `spiffs` partition dropped (nothing used it), 7.94 MiB per slot
   (`partitions_vaultink.csv`). Firmware now uses 67% of a slot. Done before the first test build,
   so nobody needs an extra USB flash.
-* Home: **Vaults** right after **Books**. Vault picker, folder browser, recent notes, Greek paths.
+* ✅ Home: **Vaults** right after **Books**; vault picker (`/Vaults/*` and top-level folders with
+  `.obsidian`), each vault opens in the folder browser. ⏳ Recent notes, Greek path checks on device.
 * Continue card covers vault notes too; each vault remembers its last note.
 * Settings: a Vaults group.
 * 🚧 `lib/Vault`: Markdown parser. Done: `MarkdownToHtml` (headings, emphasis, highlight, strike,

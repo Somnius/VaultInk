@@ -64,6 +64,9 @@ int VaultInkHomeUi::indexFor(const HomeMenuItem item) const {
     case HomeMenuItem::SETTINGS_MENU:
       target = Row::Settings;
       break;
+    case HomeMenuItem::VAULTS:
+      target = Row::Vaults;
+      break;
     default:
       return 0;
   }

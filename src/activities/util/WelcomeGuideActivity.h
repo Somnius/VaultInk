@@ -11,7 +11,7 @@
 class WelcomeGuideActivity final : public Activity, private UiAppHost {
  public:
   // Bump when the guide's content changes, so it shows once more after the update.
-  static constexpr uint8_t VERSION = 1;
+  static constexpr uint8_t VERSION = 2;  // 2: vaults are no longer "soon"
   static constexpr int PAGE_COUNT = 5;
 
   // True when the guide should open at boot instead of the home screen.
