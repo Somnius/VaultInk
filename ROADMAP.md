@@ -29,6 +29,9 @@ and host tests.
 * ✅ "Updating for new version..." message when a book's cache is rebuilt after an update.
 * ✅ VaultInk logo (open book with a V) on boot, sleep and the web UI.
 * ✅ Public repo Somnius/VaultInk.
+* ⏳ Web installer on GitHub Pages (somnius.github.io/VaultInk): ESP Web Tools, factory image and
+  manifest published to Pages by the release workflow (release assets have no CORS headers).
+  Install button off until a release is tested on hardware.
 
 ## ⏳ Phase 1 - Vault reader
 
