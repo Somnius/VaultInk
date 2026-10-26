@@ -41,7 +41,7 @@ and host tests.
   the locally built full image are pushed to the `gh-pages` branch (nothing is built on GitHub) (release
   assets have no CORS headers). Marked as a test build; the button unlocks after ticking "I
   understand this is untested".
-* ✅ Test builds 0.2.0 to 0.6.0 published (web installer and GitHub releases, marked untested); the
+* ✅ Test builds 0.2.0 to 0.7.0 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
 * ⏳ First hardware-tested release, once the X4 Pro arrives and passes the hardware checks below.
 
@@ -50,7 +50,7 @@ and host tests.
 **Goal:** open a real vault from the SD card and read it like in Obsidian.
 
 * ✅ Bigger app slots: `spiffs` partition dropped (nothing used it), 7.94 MiB per slot
-  (`partitions_vaultink.csv`). Firmware now uses 71% of a slot (0.6.0). Done before the first test build,
+  (`partitions_vaultink.csv`). Firmware now uses 71% of a slot (0.7.0). Done before the first test build,
   so nobody needs an extra USB flash.
 * ✅ Home: **Vaults** right after **Books**; vault picker (`/Vaults/*` and top-level folders with
   `.obsidian`), each vault opens in the folder browser. ⏳ Recent notes, Greek path checks on device.
