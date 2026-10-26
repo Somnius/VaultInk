@@ -9,6 +9,12 @@
 
 <p align="center">Books and Obsidian vaults on the Xteink X4 Pro.</p>
 
+<p align="center">
+  <a href="https://somnius.github.io/VaultInk/"><b>Install from your browser</b></a> ·
+  <a href="https://lefteros.com/apps/vaultink">Project page</a> ·
+  <a href="https://github.com/Somnius/VaultInk/releases">Releases</a>
+</p>
+
 VaultInk is firmware for the Xteink X4 Pro e-reader. It keeps everything
 [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) does for books, and adds
 a way to carry your [Obsidian](https://obsidian.md) notes with you. You can read them, search them
@@ -91,15 +97,19 @@ The full feature list is in [SPECS.md](SPECS.md), and what is in and out of scop
 
 ## Installing
 
-There's no release yet. When there is one, you'll find it under
-[Releases](https://github.com/Somnius/VaultInk/releases), and the device will offer it through
-**Settings → System → Check for Updates**.
+The easiest way is the **web installer** at **https://somnius.github.io/VaultInk/**. Open it in
+Chrome or Edge on a computer, connect the X4 Pro over USB, and press Install. It writes the whole
+image, so it also works the first time you move from the stock firmware.
 
-Until then you can build it yourself (see below) and flash it over USB with
+Once VaultInk is on the device, it finds new versions itself under
+**Settings → System → Check for Updates**. Releases also appear under
+[Releases](https://github.com/Somnius/VaultInk/releases).
+
+You can also build it yourself (see below) and flash it over USB with
 [`esptool`](https://github.com/espressif/esptool):
 
 ```sh
-esptool.py --chip esp32s3 --port /dev/ttyACM0 --baud 921600 write_flash 0x10000 .pio/build/x4pro/firmware.bin
+esptool.py --chip esp32s3 --port /dev/ttyACM0 --baud 921600 write_flash 0x0 .pio/build/x4pro/firmware.factory.bin
 ```
 
 ## Building
