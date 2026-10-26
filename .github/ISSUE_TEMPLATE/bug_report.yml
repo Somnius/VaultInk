@@ -7,29 +7,14 @@ body:
     attributes:
       value: |
         Thanks for taking the time to report this bug! Please fill out the details below.
-
-  - type: dropdown
-    id: device
-    attributes:
-      label: Device
-      description: Which device does this happen on? Pick "Other" for boards CrossPoint does not release firmware for — those are maintained in their own port repositories.
-      options:
-        - Xteink X3
-        - Xteink X4
-        - Xteink X4 Classic
-        - Xteink X4 Pro
-        - Seeed Sticky
-        - M5Stack Paper Mono
-        - Other / not listed
-    validations:
-      required: true
+        VaultInk runs on the Xteink X4 Pro only.
 
   - type: input
     id: version
     attributes:
       label: Affected Version
-      description: What version of the project/library are you using? (e.g., v1.2.3, master branch commit SHA)
-      placeholder: Ex. v1.2.3
+      description: The version shown on the boot screen or in Settings (e.g. 0.1.0), or a commit SHA.
+      placeholder: Ex. 0.1.0
     validations:
       required: true
 

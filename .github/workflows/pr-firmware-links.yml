@@ -60,16 +60,7 @@ jobs:
               return;
             }
 
-            const builds = [
-              { name: 'firmware.bin', device: 'X3 / X4' },
-              { name: 'firmware-sticky.bin', device: 'Sticky' },
-              { name: 'firmware-x4pro.bin', device: 'X4 Pro' },
-              { name: 'firmware-x4c.bin', device: 'X4 Classic' },
-              { name: 'firmware-papermono.bin', device: 'Paper Mono' },
-              { name: 'firmware-metalio_eink4.bin', device: 'MetalIO EInk4' },
-              { name: 'firmware-eego_a4.bin', device: 'EEGO A4' },
-              { name: 'firmware-picco.bin', device: 'BOOX Picco' },
-            ];
+            const builds = [{ name: 'firmware-x4pro.bin', device: 'X4 Pro' }];
             const { data: artifactResponse } =
               await github.rest.actions.listWorkflowRunArtifacts({
                 owner,

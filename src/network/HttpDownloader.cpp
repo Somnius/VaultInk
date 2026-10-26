@@ -30,7 +30,7 @@ void applyCommonClientSetup(freeink::SecureHttpClient& http) {
   // setUserAgent replaces SecureHttpClient's built-in UA; addHeader would
   // append a second User-Agent header, which strict servers reject (aiohttp
   // answers 400 "Duplicate 'User-Agent' header found").
-  http.setUserAgent("CrossPoint-ESP32-" CROSSPOINT_VERSION);
+  http.setUserAgent("VaultInk-ESP32-" CROSSPOINT_VERSION);
 }
 
 // Written after every request, and read by the UI right after a failure.
