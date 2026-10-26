@@ -123,6 +123,12 @@ mkdir -p fs_/books && cp some-book.epub fs_/books/
 
 Arrow keys are the buttons, Enter is OK, Escape is Back, and the mouse works as touch.
 
+## Translating
+
+The menus are in English and Greek, and many other languages from CrossPoint Reader are partly
+there. To ask for your language or help translate it, see [docs/translating.md](docs/translating.md),
+or open a [translation request](https://github.com/Somnius/VaultInk/issues/new?template=translation_request.yml).
+
 ## Credits
 
 VaultInk stands on other people's work:

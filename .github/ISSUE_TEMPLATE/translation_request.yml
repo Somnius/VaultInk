@@ -1,0 +1,58 @@
+name: Translation request
+description: Ask for VaultInk in your language, or offer to translate it
+title: "Translation: <language>"
+labels: ["translation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! How translating works is explained in
+        [docs/translating.md](https://github.com/Somnius/VaultInk/blob/main/docs/translating.md).
+        You don't need to build anything; a text editor is enough.
+
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: The language's name in English and in itself, e.g. "Welsh / Cymraeg".
+    validations:
+      required: true
+
+  - type: input
+    id: code
+    attributes:
+      label: Language code (if you know it)
+      placeholder: e.g. cy, pt-BR
+    validations:
+      required: false
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: Can you translate it?
+      options:
+        - Yes, I'll translate it
+        - I can review someone else's translation
+        - No, I'm asking for it
+    validations:
+      required: true
+
+  - type: dropdown
+    id: existing
+    attributes:
+      label: Is the language already in the list on the device?
+      description: Settings → System → Language. Many languages from CrossPoint Reader are there but miss VaultInk's newer texts.
+      options:
+        - Yes, but parts are still in English
+        - No, it's not there
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Attach your translated file here if you have one, or mention words that need care (for example terms you'd rather keep in English).
+    validations:
+      required: false

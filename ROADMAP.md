@@ -35,8 +35,8 @@ and host tests.
 * ✅ Welcome guide on the first start (five pages with pictures), again once after an update that
   changes it (switch in Settings → System), and any time from Settings → System → Welcome Guide.
 * ✅ README: the welcome guide's pages as illustrated instructions.
-* ⏳ Translation guide in the repo, a GitHub issue form to request a new language, and a way for
-  translators to work from the English strings file.
+* ✅ Translation guide (`docs/translating.md`), a GitHub issue form to request a language, and
+  `scripts/i18n_status.py` to see what each language is missing.
 * ⏳ Web installer on GitHub Pages (somnius.github.io/VaultInk): ESP Web Tools, factory image and
   manifest published to Pages by the release workflow (release assets have no CORS headers).
   Install button off until a release is tested on hardware.
