@@ -263,8 +263,25 @@ reports AES key recovery on the S3 with voltage fault injection.
   Esplora-compatible server is recommended. A public server learns which addresses belong together,
   so the screen says so. Public servers rate-limit (HTTP 429): query a small gap of addresses
   (default 20) slowly, and cache results on the SD card.
-- Wallet data on the SD card is public data only (xpub, cached balances). Users are told that an
-  xpub reveals their whole address history to anyone who reads the card.
+- Wallet data (xpub, descriptor, labels, cached balances) is stored on the SD card **encrypted**
+  as one file, `wallet.vik`: AES-256-GCM with a random 96-bit nonce per save (mbedTLS GCM, in the
+  pinned core). It is decrypted into RAM only while the wallet screen is open, re-encrypted on
+  save, and the RAM copy is wiped on close, sleep and timeout. No plaintext is ever written to SD.
+- The file key comes from two parts, so a copied SD card alone is useless:
+  - **PIN or passphrase** typed on the device, stretched with PBKDF2-HMAC-SHA256 (mbedTLS
+    `PKCS5_C`, in the core) using a per-file random salt; iterations set from a device timing
+    (about 1 s).
+  - **Phone share**: a random 256-bit key held by the paired companion app (Android keystore,
+    unlocked with the phone's fingerprint or screen lock), sent over the paired BLE link when the
+    phone is near. File key = HKDF(PIN key || phone share).
+  - Modes the user picks: PIN + phone (default, strongest), passphrase only (long passphrase
+    required), phone only (convenient; anyone with the unlocked phone and device can open it).
+  - A button combo is not offered as the only secret: it has too few possibilities, and the file
+    can be copied and guessed offline.
+  - Recovery: the xpub can always be re-imported (it isn't a secret that controls funds), so a lost
+    phone or forgotten PIN means re-adding the wallet, never losing money.
+- Companion app: scans xpub/descriptor/address QR codes with the phone camera and sends them to
+  the paired device; the device has no camera.
 - Later, if asked: other chains with plain addresses (e.g. Ethereum, balance from a user RPC).
 - Never: signing, storing seeds, or sending.
 

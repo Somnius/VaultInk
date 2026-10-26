@@ -105,6 +105,8 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 
 * Bitcoin xpub/descriptor or address list; receive address QR; opt-in balances from a server the
   user picks (self-hosted recommended). No keys or seeds on the device, ever (SPECS.md 11a).
+* Wallet file encrypted on the SD card; unlock with PIN plus the paired phone (companion app over
+  BLE), or a passphrase. Companion scans wallet QR codes. Needs Phase 5 (BLE) and Phase 6.
 * Done when: BIP84 test vectors pass on the host, and the simulator shows addresses and a QR.
 
 ## 💤 SD-card plugins
