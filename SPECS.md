@@ -241,6 +241,33 @@ iterations off.
 - Spike: render one page of a small PDF on the ESP32-S3 with PSRAM, measure time and memory.
 - Go/no-go decision written to the roadmap. If go: page images, fit width, pan, page cache on SD.
 
+## 11a. Watch-only wallet (Phase 9)
+
+Watch-only means the device holds **no secrets**: no private keys, seeds or recovery phrases, ever.
+It can show receive addresses and balances, but it can't spend. Storing keys was ruled out: the SD
+card is unencrypted, flash encryption and secure boot are off (turning them on is a one-time eFuse
+change), the ESP32-S3 has no secure element, and Espressif advisory AR2026-005 (2026-06-10)
+reports AES key recovery on the S3 with voltage fault injection.
+
+- Bitcoin first. Input: an extended public key or output descriptor (BIP84 `zpub`/`wpkh(...)`
+  first), or a plain list of addresses. Entered through the web UI or a file on the SD card.
+  The firmware refuses anything that looks like a private key or seed (`xprv`, WIF, 12/24 words).
+- Receive addresses are derived on the device with public BIP32 derivation only. mbedTLS in the
+  pinned Arduino core has secp256k1 enabled (`CONFIG_MBEDTLS_ECP_DP_SECP256K1_ENABLED=y`); bech32
+  encoding is small. Tested against the BIP84 test vectors on the host.
+- Show the next unused address as a QR code (the `ricmoo/QRCode` library is already a dependency)
+  and as text. Mark addresses as used after a balance check.
+- Balances are opt-in, off by default, and only on request. They use the mempool.space REST API
+  format (`GET /api/address/:address`, confirmed balance = `chain_stats.funded_txo_sum -
+  chain_stats.spent_txo_sum`), against a server the user picks. A self-hosted mempool or another
+  Esplora-compatible server is recommended. A public server learns which addresses belong together,
+  so the screen says so. Public servers rate-limit (HTTP 429): query a small gap of addresses
+  (default 20) slowly, and cache results on the SD card.
+- Wallet data on the SD card is public data only (xpub, cached balances). Users are told that an
+  xpub reveals their whole address history to anyone who reads the card.
+- Later, if asked: other chains with plain addresses (e.g. Ethereum, balance from a user RPC).
+- Never: signing, storing seeds, or sending.
+
 ## 12. Updates, settings and privacy
 
 - OTA update check points at Somnius/VaultInk GitHub releases. No other network calls unless the

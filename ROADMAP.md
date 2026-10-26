@@ -101,6 +101,12 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 
 * lefteros.com/apps/vaultink and a VaultInk donation page (separate from CrossInk's).
 
+## 💤 Phase 9 - Watch-only wallet
+
+* Bitcoin xpub/descriptor or address list; receive address QR; opt-in balances from a server the
+  user picks (self-hosted recommended). No keys or seeds on the device, ever (SPECS.md 11a).
+* Done when: BIP84 test vectors pass on the host, and the simulator shows addresses and a QR.
+
 ## 💤 SD-card plugins
 
 * Extend VaultInk with SD-card plugins instead of adding to the firmware.
