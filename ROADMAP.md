@@ -167,6 +167,17 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   redistribution (e.g. OFL); many Windows fonts that Wine setups install (Microsoft core fonts)
   don't, so each font is checked first.
 * Mark fonts that cover polytonic Greek.
+* How: VaultInk publishes its own fonts catalog (the `.cpfont` format and manifest that Manage
+  Fonts already reads, built by a fonts workflow into a separate VaultInk fonts repo), and the
+  device's manifest URL points there instead of CrossPoint's.
+* Checked 2026-10-26 by opening each font file (Google Fonts copies): full Greek **and polytonic**
+  in Literata, Noto Serif, Noto Sans, Gentium Book Plus, Gentium Plus, Cardo, EB Garamond,
+  Alegreya, GFS Didot, GFS Neohellenic, Fira Sans, Ubuntu. Monotonic Greek only: Source Serif 4,
+  Vollkorn, Open Sans, Roboto, Commissioner. Little or no Greek in the Google Fonts copies:
+  Charis SIL, Andika, PT Serif, Cormorant Garamond, Old Standard TT, Roboto Serif.
+* Still to check: the other GFS families from the Greek Font Society's own site (OFL), and
+  Liberation and Droid fonts (from the Winetricks list; redistributable, unlike the Microsoft
+  fonts there). Variable fonts need static instances first (the converter can't set axes).
 
 ## 💤 Languages on the SD card
 
