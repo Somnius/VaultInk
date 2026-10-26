@@ -35,6 +35,26 @@ It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or C
 From left to right: the home screen, the same in Greek, quick settings pulled down over a book, the
 reading toolbar, settings, and About.
 
+## Getting started
+
+The first time VaultInk starts, it shows a short welcome guide. The five pages are below.
+
+<p>
+  <img src="docs/images/vaultink/guide-1.png" width="150" alt="Welcome page">
+  <img src="docs/images/vaultink/guide-2.png" width="150" alt="Reading page">
+  <img src="docs/images/vaultink/guide-3.png" width="150" alt="Quick settings page">
+  <img src="docs/images/vaultink/guide-4.png" width="150" alt="Adding books page">
+  <img src="docs/images/vaultink/guide-5.png" width="150" alt="Last page">
+</p>
+
+1. **Welcome.** VaultInk is for your books now, and for your Obsidian vaults soon. The menus are in English and Greek.
+2. **Reading.** Swipe left for the next page and right for the previous one, or use the side buttons. Tap the middle of the page to open the reading menu.
+3. **Quick settings.** Swipe down from the top of the screen, or tap the battery. You get the light, night mode, sleep, and a full refresh (to clear ghost images).
+4. **Adding books.** Copy books into the `books` folder on the SD card, or send them from your computer with File Transfer (Wi-Fi, USB or Calibre).
+5. **That's it.** Open the guide again from **Settings → System → Welcome Guide**. It also comes back once after an update that changes it. To stop that, turn off **Show Welcome Guide After Updates** in the same place.
+
+In the guide, Next (or OK, or the right and down keys) moves on. Back goes back a page. On the first page, Back asks whether you want to skip.
+
 ## What works now
 
 - **Reading.** Everything CrossPoint Reader offers: EPUB, TXT and XTC books, SD-card fonts,
@@ -51,6 +71,7 @@ reading toolbar, settings, and About.
   hyphenation for both. For reading Greek books, add a font that covers Greek from
   **Settings → Reader → Manage Fonts**. Literata, Noto Serif Extended and Gentium Book Plus cover
   polytonic Greek too.
+- **A welcome guide** on the first start, described [above](#getting-started).
 - **Updates.** The device checks this repository's releases for new versions.
 
 ## What's coming
