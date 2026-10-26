@@ -23,8 +23,8 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Early days.** Version 0.2.0 reads Obsidian notes and follows their links, but the vault picker,
-> search and sync aren't in yet. Nothing has been tested on real hardware so far. All the screenshots below
+> **Early days.** Version 0.3.0 opens your vaults and reads their notes, links and images, Greek
+> included. Search and sync aren't in yet. Nothing has been tested on real hardware so far. All the screenshots below
 > come from the simulator. Please don't flash this onto your daily reader yet.
 
 ## Screenshots
@@ -78,9 +78,9 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   title and how far you've read.
 - **Settings by task.** Settings are grouped under Reading and Device. Each group says what's in it.
 - **Greek.** A full Greek interface, monotonic and polytonic Greek in the interface fonts, and Greek
-  hyphenation for both. For reading Greek books, add a font that covers Greek from
-  **Settings → Reader → Manage Fonts**. Literata, Noto Serif Extended and Gentium Book Plus cover
-  polytonic Greek too.
+  hyphenation for both. The built-in reading font has Greek too, polytonic included, so Greek books
+  and notes read out of the box. SD-card fonts with Greek (Literata, Noto Serif, Gentium Book Plus)
+  work as well.
 - **A welcome guide** on the first start, described [above](#getting-started).
 - **Updates.** The device checks this repository's releases for new versions.
 

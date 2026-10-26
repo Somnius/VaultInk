@@ -44,9 +44,9 @@ Hardware testing waits for Lef's device. Until then, testing uses
 - UI languages: all CrossPoint languages stay; English and Greek are the ones VaultInk maintains.
 - Built-in UI fonts (Ubuntu 8/10/12) include Greek and Coptic (U+0370-03FF) and Greek Extended
   (U+1F00-1FFF), so menus, file names and note names show monotonic and polytonic Greek.
-- Reading text (books and notes) uses a font from the SD card that has Greek, for example Literata,
-  Source Serif 4 or Noto Serif Extended from **Settings > Reader > Manage Fonts**, or any TTF/OTF
-  copied to `/.fonts/` (the X4 Pro has PSRAM, so TTF loads directly).
+- Reading text: the built-in reading font (Noto Sans, 12-18 pt) includes Greek and Greek Extended,
+  so Greek books and notes read with no extra font (about 300 KB of flash, affordable since the
+  partition change). SD-card fonts with Greek (Literata, Noto Serif, Gentium...) work as well.
 - Hyphenation: monotonic Greek patterns (`hyph-el-monoton`) and polytonic patterns
   (`hyph-el-polyton`, built with typst/hypher's generator). A word with any polytonic letter uses
   the polytonic patterns; other Greek words use monotonic; this ignores the book's language tag.

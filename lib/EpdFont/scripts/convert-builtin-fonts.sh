@@ -12,7 +12,9 @@ for size in ${NOTOSANS_FONT_SIZES[@]}; do
     font_name="notosans_${size}_$(echo $style | tr '[:upper:]' '[:lower:]')"
     font_path="../builtinFonts/source/NotoSans/NotoSans-${style}.ttf"
     output_path="../builtinFonts/${font_name}.h"
-    python fontconvert.py $font_name $size $font_path --2bit --compress --pnum --zopfli > $output_path
+    # Greek, monotonic and polytonic, so Greek books and notes read without an SD-card font.
+    python fontconvert.py $font_name $size $font_path --2bit --compress --pnum --zopfli \
+      --additional-intervals 0x0370,0x03FF --additional-intervals 0x1F00,0x1FFF > $output_path
     echo "Generated $output_path"
   done
 done

@@ -60,8 +60,8 @@ and host tests.
   path so notes render with the book reader. ✅ Links between notes (Obsidian resolution,
   headings, same-note jumps, Back through 16 notes, "Note not found") and embedded images found
   anywhere in the vault. To do: note
-  embeds, footnotes, nested list indent, Greek in notes without an SD font (fall back to the UI
-  font).
+  embeds, footnotes, nested list indent. ✅ Greek and polytonic in the built-in reading font, so
+  notes and books read Greek without an SD font.
   Also: lists and quotes inside each other, numbered lists that start above 1.
 * Note reader with links, back stack, image and note embeds, block refs.
 * Index on SD, incremental, for vaults of 60 MB and more. Also replaces the SD scan that links and images
