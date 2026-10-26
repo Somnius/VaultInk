@@ -125,6 +125,10 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 
 ## 💤 Phase 6 - Android companion
 
+**When:** starts right after Phase 1 (it needs the vault picker, index and search on the device).
+The first versions talk to the device over Wi-Fi through its existing web server; Bluetooth comes
+with Phase 5. Kotlin, Android only.
+
 * Separate repo Somnius/VaultInk-Companion (`com.lefteros.vaultink`).
 * Type into the device, quick notes, settings, signed APKs with an in-app update checker.
 * Bring notes in: convert to Markdown into a vault folder (e.g. `Imported/Keep/`). Order:
