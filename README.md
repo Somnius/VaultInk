@@ -1,4 +1,9 @@
-<p align="center"><img src="src/images/logo.svg" width="96" alt="VaultInk logo"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/vaultink/logo-dark.svg">
+    <img src="docs/images/vaultink/logo-light.svg" width="96" alt="VaultInk logo">
+  </picture>
+</p>
 
 <h1 align="center">VaultInk</h1>
 
