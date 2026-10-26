@@ -1125,6 +1125,27 @@ bool Epub::readItemContentsToStream(const std::string& itemHref, Print& out, con
   }
 
   if (Txt::isTxtOrMd(filepath)) {
+    // A note's embedded images are files on the SD card (MarkdownToHtml wrote their full paths).
+    const auto isImage = [](const std::string& href) {
+      for (const char* ext : {".png", ".jpg", ".jpeg", ".gif", ".bmp"}) {
+        if (FsHelpers::checkFileExtension(href, ext)) return true;
+      }
+      return false;
+    };
+    if (isImage(itemHref)) {
+      std::string sdPath = FsHelpers::normalisePath(itemHref);
+      if (sdPath.empty() || sdPath[0] != '/') sdPath.insert(0, "/");
+      LOG_DBG("EBP", "Note image %s -> %s", itemHref.c_str(), sdPath.c_str());
+      HalFile image;
+      if (!Storage.openFileForRead("EBP", sdPath, image)) return false;
+      uint8_t buf[512];
+      int n = 0;
+      while ((n = image.read(buf, sizeof(buf))) > 0) {
+        // A header probe stops taking bytes once it has what it needs.
+        if (out.write(buf, static_cast<size_t>(n)) != static_cast<size_t>(n)) return allowEarlyStop;
+      }
+      return n >= 0;
+    }
     return Txt::streamTxtToHtml(filepath, out);
   }
 

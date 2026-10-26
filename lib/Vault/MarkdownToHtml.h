@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -25,7 +26,12 @@ class MarkdownToHtml {
   static constexpr size_t MAX_PARAGRAPH = 64 * 1024;
   static constexpr size_t MAX_TABLE_ROWS = 400;
 
+  // Maps an embedded image name to its path on the SD card ("" when not found). Without one,
+  // images keep their "vault:" source.
+  using ImageResolver = std::function<std::string(std::string_view name)>;
+
   explicit MarkdownToHtml(Sink& sink) : sink(sink) {}
+  void setImageResolver(ImageResolver resolver) { imageResolver = std::move(resolver); }
 
   // Writes the XHTML head; title is the note name. `prolog` goes right after the XML declaration
   // (the reader's cache-version comment).
@@ -35,7 +41,7 @@ class MarkdownToHtml {
   void finish();
 
   // Inline Markdown (emphasis, code, links, tags...) to escaped XHTML. Public for tests.
-  static void inlineToHtml(std::string_view text, std::string& out);
+  static void inlineToHtml(std::string_view text, std::string& out, const ImageResolver* images = nullptr);
   // Heading text to its anchor id: spaces become '-', case is kept (links match it case-insensitively).
   static std::string headingId(std::string_view text);
 
@@ -60,6 +66,8 @@ class MarkdownToHtml {
   void writeEscaped(std::string_view text);
 
   Sink& sink;
+  ImageResolver imageResolver;
+  const ImageResolver* images() const { return imageResolver ? &imageResolver : nullptr; }
   std::string pendingLine;
   std::string paragraph;
   Block block = Block::None;

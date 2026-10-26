@@ -113,7 +113,13 @@ std::string MarkdownToHtml::headingId(std::string_view text) {
   return id;
 }
 
-void MarkdownToHtml::inlineToHtml(std::string_view text, std::string& out) {
+void MarkdownToHtml::inlineToHtml(std::string_view text, std::string& out, const ImageResolver* images) {
+  // Writes an image source: the SD path when the resolver finds it, else the vault: name.
+  auto imageSrc = [&out, images](std::string_view name) {
+    const std::string path = images ? (*images)(name) : std::string();
+    if (path.empty()) out += "vault:";
+    appendEscaped(out, path.empty() ? name : std::string_view(path));
+  };
   std::vector<const Emphasis*> open;
   auto closeTag = [&out](const Emphasis* e) {
     out += "</";
@@ -161,8 +167,8 @@ void MarkdownToHtml::inlineToHtml(std::string_view text, std::string& out) {
         std::string_view target, alias;
         splitAlias(text.substr(start, end - start), target, alias);
         if (embed && isImageName(target.substr(0, target.find('#')))) {
-          out += "<img src=\"vault:";
-          appendEscaped(out, target);
+          out += "<img src=\"";
+          imageSrc(target.substr(0, target.find('#')));
           out += "\" alt=\"";
           appendEscaped(out, target);
           out += '"';
@@ -214,8 +220,8 @@ void MarkdownToHtml::inlineToHtml(std::string_view text, std::string& out) {
               appendEscaped(out, label.empty() ? url : label);
               out += "</i>";
             } else {
-              out += "<img src=\"vault:";
-              appendEscaped(out, url);
+              out += "<img src=\"";
+              imageSrc(url);
               out += "\" alt=\"";
               appendEscaped(out, label);
               out += "\"/>";
@@ -226,7 +232,7 @@ void MarkdownToHtml::inlineToHtml(std::string_view text, std::string& out) {
             appendEscaped(out, url);
             out += "\">";
             std::string inner;
-            inlineToHtml(label, inner);
+            inlineToHtml(label, inner, images);
             out += inner;
             out += "</a>";
           }
@@ -438,7 +444,8 @@ void MarkdownToHtml::closeParagraph() {
   while (start <= text.size()) {
     const size_t nl = text.find('\n', start);
     if (start > 0) html += "<br/>";
-    inlineToHtml(std::string_view(text).substr(start, nl == std::string::npos ? std::string::npos : nl - start), html);
+    inlineToHtml(std::string_view(text).substr(start, nl == std::string::npos ? std::string::npos : nl - start), html,
+                 images());
     if (nl == std::string::npos) break;
     start = nl + 1;
   }
@@ -483,7 +490,7 @@ void MarkdownToHtml::heading(const int level, std::string_view text) {
   std::string html = "<h" + std::to_string(level) + " id=\"";
   appendEscaped(html, headingId(text));
   html += "\">";
-  inlineToHtml(text, html);
+  inlineToHtml(text, html, images());
   html += "</h" + std::to_string(level) + ">\n";
   sink.write(html);
 }
@@ -584,7 +591,7 @@ void MarkdownToHtml::flushTable(const bool more) {
     html += "<tr>";
     for (const auto cell : cells(*it)) {
       html += header ? "<th>" : "<td>";
-      inlineToHtml(cell, html);
+      inlineToHtml(cell, html, images());
       html += header ? "</th>" : "</td>";
     }
     html += "</tr>\n";
@@ -715,7 +722,7 @@ void MarkdownToHtml::line(std::string_view text) {
             if (!name.empty()) name[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(name[0])));
             appendEscaped(html, name);
           } else {
-            inlineToHtml(title, html);
+            inlineToHtml(title, html, images());
           }
           html += "</b></p>\n";
           sink.write(html);

@@ -647,6 +647,7 @@ STR_SETTINGS_DISPLAY_DESC: "Οθόνη ύπνου, ανανέωση, αρχικ�
 STR_SETTINGS_CONTROLS_DESC: "Κουμπιά, αφή, χειρονομίες"
 STR_SETTINGS_NETWORK_DESC: "Wi-Fi, συγχρονισμός, OPDS, πρόσθετα"
 STR_SETTINGS_SYSTEM_DESC: "Γλώσσα, ώρα, ενημερώσεις, σχετικά"
+STR_NOTE_NOT_FOUND: "Η σημείωση δεν βρέθηκε"
 STR_QS_SLEEP: "Ύπνος"
 STR_QS_TRANSFER: "Μεταφορά"
 STR_QS_HOME: "Αρχική"

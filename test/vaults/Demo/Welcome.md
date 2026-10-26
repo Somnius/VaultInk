@@ -8,6 +8,9 @@ This vault is **made up** for testing VaultInk. It shows the Markdown that *Obsi
 ==highlights==, ~~strikethrough~~, `inline code` and a #demo tag.
 
 See [[Reading list]] and the section [[Reading list#Next up|next up]].
+This link goes nowhere: [[Missing note]].
+
+![[sample.png|300]]
 
 > [!tip] Callouts work
 > They look like quotes with a title.

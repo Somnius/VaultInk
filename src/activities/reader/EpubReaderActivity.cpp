@@ -60,6 +60,7 @@
 #include "util/BookmarkUtil.h"
 #include "util/ButtonNavigator.h"
 #include "util/ScreenshotUtil.h"
+#include "util/VaultNavigation.h"
 
 namespace {
 // The X4 Pro and X4 Classic carry the X4's panel but sit outside isXteinkDevice()
@@ -308,6 +309,9 @@ bool EpubReaderActivity::loadBook() {
 
   loadLinkStack();
   loadCachedBookmarks();
+  // Vault notes: keep or reset the note history, and jump to the heading a [[link#heading]] named.
+  vaultnav::opened(bookPath);
+  if (std::string anchor = vaultnav::takeAnchor(); !anchor.empty()) pendingAnchor = std::move(anchor);
   if (!CLIPPINGS.loadForBook(epub->getPath(), epub->getTitle(), epub->getAuthor(), "epub")) {
     LOG_ERR("CLIP", "Failed to load clippings for %s", epub->getPath().c_str());
   }
@@ -934,6 +938,12 @@ void EpubReaderActivity::loop() {
   if (footnoteDepth > 0 && mappedInput.wasReleased(MappedInputManager::Button::Back) &&
       mappedInput.getHeldTime() < ReaderUtils::GO_BACK_OR_HOME_MS) {
     restoreSavedPosition();
+    return;
+  }
+
+  // Back in a note opened from a link returns to the note before it.
+  if (mappedInput.wasReleased(MappedInputManager::Button::Back) &&
+      mappedInput.getHeldTime() < ReaderUtils::GO_BACK_OR_HOME_MS && vaultnav::goBack()) {
     return;
   }
 
@@ -3209,6 +3219,22 @@ void EpubReaderActivity::activateMoreRow(int row) {
 
 void EpubReaderActivity::navigateToHref(const std::string& hrefStr, const bool savePosition) {
   if (!epub) return;
+
+  // [[Links]] in vault notes open another note in a new reader.
+  std::string sameNoteAnchor;
+  if (const auto followed = vaultnav::follow(bookPath, hrefStr, &sameNoteAnchor);
+      followed != vaultnav::Follow::NotVaultLink) {
+    if (followed == vaultnav::Follow::SameNote) {
+      // [[ThisNote#Heading]]: jump inside the note, like [[#Heading]].
+      if (!sameNoteAnchor.empty()) navigateToHref("#" + sameNoteAnchor, savePosition);
+      return;
+    }
+    if (followed == vaultnav::Follow::NotFound) {
+      RenderLock lock;
+      GUI.drawPopup(renderer, tr(STR_NOTE_NOT_FOUND));
+    }
+    return;
+  }
 
   std::string anchor;
   const auto hashPos = hrefStr.find('#');

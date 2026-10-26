@@ -1,5 +1,6 @@
 #pragma once
 
+#include <MarkdownToHtml.h>
 #include <Print.h>
 
 #include <cstddef>
@@ -33,12 +34,13 @@ class TxtToHtml {
  private:
   static bool streamMarkdown(std::string_view filename, void* readerCtx,
                              int (*readFn)(void* ctx, uint8_t* buf, size_t size), uint8_t* inBuf, size_t inBufSize,
-                             Print& out);
+                             Print& out, const MarkdownToHtml::ImageResolver* images);
 
  public:
   static size_t escapedHtmlSize(std::string_view text);
   static void appendEscapedHtml(std::string& out, std::string_view text);
+  // `images` (Markdown only) maps embedded image names to SD paths.
   static bool stream(std::string_view filename, void* readerCtx, int (*readFn)(void* ctx, uint8_t* buf, size_t size),
-                     Print& out);
+                     Print& out, const MarkdownToHtml::ImageResolver* images = nullptr);
   static bool stream(std::string_view filename, std::string_view content, Print& out);
 };

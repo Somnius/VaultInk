@@ -9,8 +9,10 @@
 #include <PngToBmpConverter.h>
 #include <Serialization.h>
 #include <Utf8.h>
+#include <VaultLink.h>
 
 #include <cstring>
+#include <vector>
 
 #include "TxtToHtml.h"
 
@@ -105,9 +107,34 @@ bool Txt::streamTxtToHtml(const std::string& filepath, Print& out) {
   const size_t srcSize = src.size();
   LOG_DBG("TXT", "Converting TXT/MD to HTML: %s (%zu bytes)", filepath.c_str(), srcSize);
 
+  // Notes find embedded images anywhere in their vault, like Obsidian.
+  // One lookup per image name per note: a name embedded twice doesn't scan the vault twice.
+  std::vector<std::pair<std::string, std::string>> resolved;
+  const MarkdownToHtml::ImageResolver images = [&filepath, &resolved](std::string_view name) {
+    for (const auto& [seen, path] : resolved) {
+      if (seen == name) return path;
+    }
+    vaultlink::Fs fs;
+    fs.exists = [](const std::string& path) { return Storage.exists(path.c_str()); };
+    fs.list = [](const std::string& dir, const std::function<void(const std::string&, bool)>& entry) {
+      HalFile root = Storage.open(dir.c_str());
+      if (!root || !root.isDirectory()) return;
+      char entryName[256];
+      for (auto file = root.openNextFile(); file; file = root.openNextFile()) {
+        file.getName(entryName, sizeof(entryName));
+        entry(entryName, file.isDirectory());
+      }
+    };
+    vaultlink::Target target{std::string(name), ""};
+    const size_t slash = filepath.find_last_of('/');
+    const std::string folder = slash == std::string::npos || slash == 0 ? "/" : filepath.substr(0, slash);
+    std::string path = vaultlink::resolve(vaultlink::vaultRoot(filepath, fs), folder, target, fs);
+    resolved.emplace_back(std::string(name), path);
+    return path;
+  };
   const bool ok = TxtToHtml::stream(
       filepath, &src, [](void* ctx, uint8_t* buf, size_t size) { return static_cast<HalFile*>(ctx)->read(buf, size); },
-      out);
+      out, FsHelpers::hasMarkdownExtension(filepath) ? &images : nullptr);
 
   LOG_DBG("TXT", "Converted TXT/MD to HTML in %lu ms (%zu bytes in)", millis() - t0, srcSize);
   return ok;

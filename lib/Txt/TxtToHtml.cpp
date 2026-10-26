@@ -25,7 +25,7 @@ void TxtToHtml::appendEscapedHtml(std::string& out, const std::string_view text)
 }
 
 bool TxtToHtml::stream(std::string_view filename, void* readerCtx, int (*readFn)(void* ctx, uint8_t* buf, size_t size),
-                       Print& out) {
+                       Print& out, const MarkdownToHtml::ImageResolver* images) {
   constexpr size_t IN_BUF_SIZE = 8192;
   constexpr size_t OUT_BUF_SIZE = 8192;
 
@@ -37,7 +37,7 @@ bool TxtToHtml::stream(std::string_view filename, void* readerCtx, int (*readFn)
   }
 
   if (FsHelpers::hasMarkdownExtension(filename)) {
-    return streamMarkdown(filename, readerCtx, readFn, inBuf.get(), IN_BUF_SIZE, out);
+    return streamMarkdown(filename, readerCtx, readFn, inBuf.get(), IN_BUF_SIZE, out, images);
   }
 
   size_t outPos = 0;
@@ -159,7 +159,7 @@ bool TxtToHtml::stream(std::string_view filename, std::string_view content, Prin
 // v2 of the .md cache: Obsidian Markdown rendered by lib/Vault instead of shown as plain text.
 bool TxtToHtml::streamMarkdown(std::string_view filename, void* readerCtx,
                                int (*readFn)(void* ctx, uint8_t* buf, size_t size), uint8_t* inBuf,
-                               const size_t inBufSize, Print& out) {
+                               const size_t inBufSize, Print& out, const MarkdownToHtml::ImageResolver* images) {
   struct PrintSink final : MarkdownToHtml::Sink {
     Print& out;
     bool ok = true;
@@ -169,6 +169,7 @@ bool TxtToHtml::streamMarkdown(std::string_view filename, void* readerCtx,
     }
   } sink(out);
   MarkdownToHtml converter(sink);
+  if (images) converter.setImageResolver(*images);
   converter.begin(FsHelpers::getFileNameWithoutExtension(filename), cacheVersionTag(filename));
   bool first = true;
   int bytesRead = 0;
