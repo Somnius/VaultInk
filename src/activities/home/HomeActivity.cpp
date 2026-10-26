@@ -615,6 +615,9 @@ void HomeActivity::activateVaultInkItem(const int index) {
     case VaultInkHomeUi::Row::Vaults:
       activityManager.goToVaults();
       break;
+    case VaultInkHomeUi::Row::Search:
+      activityManager.goToSearch();
+      break;
     case VaultInkHomeUi::Row::Files:
       onFileBrowserOpen();
       break;

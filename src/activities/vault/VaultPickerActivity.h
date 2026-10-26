@@ -12,14 +12,11 @@ class VaultPickerActivity final : public UiListActivity {
   explicit VaultPickerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput);
   void onEnter() override;
 
-  static constexpr const char* VAULTS_ROOT = "/Vaults";
-
  private:
   struct Vault {
     std::string name;
     std::string path;
   };
-  static constexpr size_t MAX_VAULTS = 32;
 
   int listCount() const override { return static_cast<int>(vaults.size()); }
   void buildScreen(UiScreen& screen) override;

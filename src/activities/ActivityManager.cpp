@@ -36,6 +36,7 @@
 #include "util/FullScreenMessageActivity.h"
 #include "util/WelcomeGuideActivity.h"
 #include "vault/VaultPickerActivity.h"
+#include "vault/VaultSearchActivity.h"
 
 static portMUX_TYPE activityManagerSpinlock = portMUX_INITIALIZER_UNLOCKED;
 
@@ -307,6 +308,8 @@ void ActivityManager::goToFileBrowser(std::string path) {
 
 void ActivityManager::goToVaults() { replaceActivity(std::make_unique<VaultPickerActivity>(renderer, mappedInput)); }
 
+void ActivityManager::goToSearch() { replaceActivity(std::make_unique<VaultSearchActivity>(renderer, mappedInput)); }
+
 void ActivityManager::goToLibrary() {
   auto activity = makeUniqueNoThrow<LibraryListActivity>(renderer, mappedInput);
   if (!activity) {
@@ -383,6 +386,8 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem, bool cleanInitialRefr
       initialMenuItem = HomeMenuItem::SETTINGS_MENU;
     } else if (activityName == "VaultPicker") {
       initialMenuItem = HomeMenuItem::VAULTS;
+    } else if (activityName == "VaultSearch") {
+      initialMenuItem = HomeMenuItem::SEARCH;
     }
   }
   replaceActivity(std::make_unique<HomeActivity>(renderer, mappedInput, initialMenuItem, cleanInitialRefresh));

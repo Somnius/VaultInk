@@ -64,9 +64,11 @@ and host tests.
   notes and books read Greek without an SD font.
   Also: lists and quotes inside each other, numbered lists that start above 1.
 * Note reader with links, back stack, image and note embeds, block refs.
-* Index on SD, incremental, for vaults of 60 MB and more. Also replaces the SD scan that links and images
-  use today (fine for small vaults, slow for thousands of notes).
-* Search with Greek folding, tags, backlinks.
+* 🚧 Index on SD, incremental, for vaults of 60 MB and more. ✅ Search index per vault (title,
+  aliases, tags, words), updated by size and modification time. To do: use it for links and images
+  too, instead of the SD scan they use today (fine for small vaults, slow for thousands of notes).
+* 🚧 Search: ✅ Search row on home, all vaults at once, Greek and accent folding, tags and aliases,
+  exact words ranked first. To do: backlinks, a Greek keyboard layout.
 
 **Done when:** synthetic test vaults pass the host tests, and Lef's own vaults (tested locally only,
 never in the repo) open and render every feature they use (SPECS.md 5.1) in the simulator.
@@ -81,7 +83,8 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 
 * ✅ Home with Books and Vaults first, then the rest, as the new default style.
 * ✅ Settings grouped by task (Reading, Device).
-* ⏳ Counts on the home rows (e.g. "128 books"), a Search row, current values in the settings rows.
+* ✅ Search row on home.
+* ⏳ Counts on the home rows (e.g. "128 books"), current values in the settings rows.
 * Built as a new home style and made the default; CrossPoint's styles stay selectable for now.
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:

@@ -11,6 +11,7 @@
 #include "activities/ActivityManager.h"
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
+#include "util/VaultFiles.h"
 
 namespace fui = freeink::ui;
 
@@ -21,23 +22,7 @@ const char* VaultPickerActivity::headerTitle() const { return tr(STR_VAULTS); }
 
 void VaultPickerActivity::findVaults() {
   vaults.clear();
-  char name[256];
-  auto scan = [&](const char* dir, const bool needObsidian) {
-    HalFile root = Storage.open(dir);
-    if (!root || !root.isDirectory()) return;
-    for (auto file = root.openNextFile(); file && vaults.size() < MAX_VAULTS; file = root.openNextFile()) {
-      if (!file.isDirectory()) continue;
-      file.getName(name, sizeof(name));
-      if (name[0] == '.' || std::strcmp(name, "System Volume Information") == 0) continue;
-      const std::string path = std::string(std::strcmp(dir, "/") == 0 ? "" : dir) + "/" + name;
-      if (needObsidian && !Storage.exists((path + "/.obsidian").c_str())) continue;
-      if (path == VAULTS_ROOT) continue;
-      vaults.push_back({name, path});
-    }
-  };
-  scan(VAULTS_ROOT, false);
-  scan("/", true);
-  std::sort(vaults.begin(), vaults.end(), [](const Vault& a, const Vault& b) { return a.name < b.name; });
+  for (auto& v : vaultfiles::findVaults()) vaults.push_back({std::move(v.name), std::move(v.path)});
   LOG_DBG("VLT", "Found %u vaults", static_cast<unsigned>(vaults.size()));
 }
 

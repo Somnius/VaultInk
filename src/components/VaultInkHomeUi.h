@@ -16,8 +16,8 @@
 // then the rows in Row order.
 class VaultInkHomeUi final : public UiAppHost {
  public:
-  enum class Row : uint8_t { Books, Vaults, Files, Transfer, Library, Settings };
-  static constexpr int MAX_ROWS = 6;
+  enum class Row : uint8_t { Books, Vaults, Search, Files, Transfer, Library, Settings };
+  static constexpr int MAX_ROWS = 7;
 
   explicit VaultInkHomeUi(GfxRenderer& renderer);
   // hasLibrarySlot adds the Plugins (or OPDS) row; usePlugins picks which.

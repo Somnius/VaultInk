@@ -13,6 +13,7 @@
 #include "UITheme.h"
 #include "icons/customListIcons.h"
 #include "icons/listIcons.h"
+#include "icons/search32.h"
 #include "util/BookProgress.h"
 
 namespace fui = freeink::ui;
@@ -33,7 +34,7 @@ void VaultInkHomeUi::begin(const std::vector<RecentBook>& recent, const bool con
   hasContinueReading = continuing && !recent.empty();
   usePlugins = plugins;
   rowCount = 0;
-  for (const Row row : {Row::Books, Row::Vaults, Row::Files, Row::Transfer, Row::Library, Row::Settings}) {
+  for (const Row row : {Row::Books, Row::Vaults, Row::Search, Row::Files, Row::Transfer, Row::Library, Row::Settings}) {
     if (row == Row::Library && !librarySlot) continue;
     rows[rowCount++] = row;
   }
@@ -66,6 +67,9 @@ int VaultInkHomeUi::indexFor(const HomeMenuItem item) const {
       break;
     case HomeMenuItem::VAULTS:
       target = Row::Vaults;
+      break;
+    case HomeMenuItem::SEARCH:
+      target = Row::Search;
       break;
     default:
       return 0;
@@ -184,6 +188,11 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
         item.label = tr(STR_VAULTS);
         item.subtitle = tr(STR_HOME_VAULTS_DESC);
         item.icon = fui::bitmapFromIcon(icon_vault_32);
+        break;
+      case Row::Search:
+        item.label = tr(STR_SEARCH_NOTES);
+        item.subtitle = tr(STR_HOME_SEARCH_DESC);
+        item.icon = fui::bitmapFromIcon(icon_search_32);
         break;
       case Row::Files:
         item.label = tr(STR_BROWSE_FILES);
