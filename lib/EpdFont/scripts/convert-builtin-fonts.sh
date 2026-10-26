@@ -50,6 +50,9 @@ ARABIC_INTERVALS=(
   --additional-intervals 0xFE80,0xFEFC  # Presentation Forms-B: core Arabic + Lam-Alef
 )
 
+# Greek, monotonic and polytonic, for UI text and Greek file and note names.
+GREEK_INTERVALS=(--additional-intervals 0x0370,0x03FF --additional-intervals 0x1F00,0x1FFF)
+
 for size in ${UI_FONT_SIZES[@]}; do
   for style in ${UI_FONT_STYLES[@]}; do
     font_name="ubuntu_${size}_$(echo $style | tr '[:upper:]' '[:lower:]')"
@@ -64,7 +67,7 @@ for size in ${UI_FONT_SIZES[@]}; do
     viet_path="../builtinFonts/source/Ubuntu/Ubuntu-Vietnamese-${style}.ttf"
     output_path="../builtinFonts/${font_name}.h"
     python fontconvert.py $font_name $size $font_path $latin_fallback_path $hebrew_path $arabic_path $viet_path \
-      --additional-intervals 0x05D0,0x05EA "${ARABIC_INTERVALS[@]}" > $output_path
+      --additional-intervals 0x05D0,0x05EA "${ARABIC_INTERVALS[@]}" "${GREEK_INTERVALS[@]}" > $output_path
     echo "Generated $output_path"
   done
 done
@@ -76,7 +79,7 @@ python fontconvert.py ubuntu_8_regular 8 \
   ../builtinFonts/source/NotoSansHebrew/NotoSansHebrew-Regular.ttf \
   ../builtinFonts/source/NotoSansArabic/NotoSansArabic-Regular.ttf \
   ../builtinFonts/source/Ubuntu/Ubuntu-Vietnamese-Regular.ttf \
-  --additional-intervals 0x05D0,0x05EA "${ARABIC_INTERVALS[@]}" > ../builtinFonts/ubuntu_8_regular.h
+  --additional-intervals 0x05D0,0x05EA "${ARABIC_INTERVALS[@]}" "${GREEK_INTERVALS[@]}" > ../builtinFonts/ubuntu_8_regular.h
 
 echo ""
 echo "Running compression verification..."
