@@ -27,7 +27,6 @@ class WelcomeGuideActivity final : public Activity, private UiAppHost {
   // Every other UI language by its own name, for the first page's small print.
   std::string otherLanguages;
   bool confirmSkip = false;
-  int pendingAction = 0;
 
   static void screenFn(UiScreen& screen, void* user);
   static void onAction(const freeink::ui::ActionEvent& event, void* user);

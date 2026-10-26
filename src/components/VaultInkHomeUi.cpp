@@ -67,10 +67,9 @@ int VaultInkHomeUi::indexFor(const HomeMenuItem item) const {
     default:
       return 0;
   }
-  for (int i = 0; i < rowCount; ++i) {
-    if (rows[i] == target) return cardCount() + i;
-  }
-  return 0;
+  const auto* end = rows.begin() + rowCount;
+  const auto* it = std::find(rows.begin(), end, target);
+  return it != end ? cardCount() + static_cast<int>(it - rows.begin()) : 0;
 }
 
 const VaultInkHomeUi::Row* VaultInkHomeUi::rowAt(const int index) const {

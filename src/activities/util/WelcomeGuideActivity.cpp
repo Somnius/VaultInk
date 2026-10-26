@@ -130,7 +130,6 @@ void WelcomeGuideActivity::onEnter() {
 
 void WelcomeGuideActivity::onAction(const fui::ActionEvent& event, void* user) {
   auto& self = *static_cast<WelcomeGuideActivity*>(user);
-  self.pendingAction = event.action;
   self.app.clearTapFlash();
 }
 
@@ -160,9 +159,8 @@ void WelcomeGuideActivity::finishGuide() {
 }
 
 void WelcomeGuideActivity::loop() {
-  pendingAction = 0;
   const auto touch = routeTouch(mappedInput);
-  int action = touch.snap.touchReleased ? pendingAction : 0;
+  int action = touch.snap.touchReleased && touch.event ? static_cast<int>(touch.event.action) : 0;
 
   if (confirmSkip) {
     if (action == ACTION_SKIP_YES || mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
