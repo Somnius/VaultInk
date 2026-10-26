@@ -47,8 +47,9 @@ and host tests.
 
 **Goal:** open a real vault from the SD card and read it like in Obsidian.
 
-* Bigger app slots: drop the `spiffs` partition if nothing uses it, for about 1.7 MiB more
-  firmware space. Needs one USB flash.
+* ✅ Bigger app slots: `spiffs` partition dropped (nothing used it), 7.94 MiB per slot
+  (`partitions_vaultink.csv`). Firmware now uses 67% of a slot. Done before the first test build,
+  so nobody needs an extra USB flash.
 * Home: **Vaults** right after **Books**. Vault picker, folder browser, recent notes, Greek paths.
 * Continue card covers vault notes too; each vault remembers its last note.
 * Settings: a Vaults group.
@@ -217,7 +218,7 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 
 * The LiveSync database format is not a stable API (generation 12 to 13 this autumn). We pin tested
   versions and refuse unknown ones.
-* Flash: the x4pro build uses 85.1% of the app slot (~1.0 MB free). Vault, canvas, sync and
+* Flash: the x4pro build uses 67% of the (bigger) app slot (~1.0 MB free). Vault, canvas, sync and
   editor code must fit in that, or flash is freed (e.g. built-in fonts or UI languages to SD).
 * Big vaults and canvases must be streamed; nothing loads whole into RAM.
 * E-ink canvas pan/zoom needs partial refresh to feel usable.

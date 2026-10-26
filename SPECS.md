@@ -27,7 +27,7 @@ graph view, audio, video, writing back canvas files.
 | --- | --- | --- |
 | MCU | ESP32-S3 | `platformio.ini` env `x4pro` |
 | Flash / PSRAM | 16 MB / 8 MB octal | board `esp32-s3-devkitc1-n16r8` |
-| App partition | 6.25 MiB (0x640000) per OTA slot | `partitions.csv` |
+| App partition | 7.94 MiB (0x7F0000) per OTA slot, no SPIFFS (was 6.25 MiB at fork) | `partitions_vaultink.csv` |
 | Flash used at fork | 5,411,710 B (82.6%), ~1.1 MB free for VaultInk | `pio run -e x4pro`, 2026-10-26 |
 | Flash after Phase 0 | 5,548,982 B (84.7%), ~1.0 MB free | `pio run -e x4pro`, 2026-10-26 |
 | Panel | 800x480 e-ink (SSD1677, UC8179 or UC8279) | `freeink-sdk/.../BoardConfig.h` |
