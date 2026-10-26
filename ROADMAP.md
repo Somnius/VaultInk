@@ -218,7 +218,7 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 
 * The LiveSync database format is not a stable API (generation 12 to 13 this autumn). We pin tested
   versions and refuse unknown ones.
-* Flash: the x4pro build uses 67% of the (bigger) app slot (~1.0 MB free). Vault, canvas, sync and
+* Flash: the x4pro build uses 67% of the (bigger) app slot (~2.7 MB free). Vault, canvas, sync and
   editor code must fit in that, or flash is freed (e.g. built-in fonts or UI languages to SD).
 * Big vaults and canvases must be streamed; nothing loads whole into RAM.
 * E-ink canvas pan/zoom needs partial refresh to feel usable.
