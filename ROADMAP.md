@@ -18,8 +18,7 @@ and host tests.
 * ✅ Fork from CrossPoint `develop` (116195b4).
 * ✅ Specs, roadmap and scope written.
 * ✅ NOTICE (CrossPoint copyright kept, third-party licences).
-* ⏳ README rebuilt as VaultInk: real simulator screenshots, honest feature list. Waits until the simulator
-  can take screenshots.
+* ✅ README rebuilt as VaultInk, with simulator screenshots and an honest feature list.
 * ✅ Rename to VaultInk (USB names, version 0.1.0, boot and sleep screens, web UI).
 * ✅ OTA update check pointed at Somnius/VaultInk releases (`vaultink-<version>-x4pro.bin`, tags
   without "v").
@@ -29,7 +28,7 @@ and host tests.
 * ✅ Greek monotonic and polytonic in the UI fonts and hyphenation.
 * ✅ "Updating for new version..." message when a book's cache is rebuilt after an update.
 * ✅ VaultInk logo (open book with a V) on boot, sleep and the web UI.
-* ⏳ Public repo Somnius/VaultInk.
+* ✅ Public repo Somnius/VaultInk.
 
 ## ⏳ Phase 1 - Vault reader
 
