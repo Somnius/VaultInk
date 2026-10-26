@@ -99,6 +99,13 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Reading menu: OK or a swipe up opens a bottom sheet with title, progress, Contents, Bookmark,
   Search, Highlights, a text-size stepper, and Font / Spacing / Margins. Buttons step through it.
 - Settings are grouped by task: Reading, Vaults, Device. Each row shows its current value.
+- Page backgrounds (kos25k's idea, mostly for fun): plain, paper, sandpaper, papyrus soft/medium/
+  hard, toilet paper, kitchen paper, bath towel. Drawn as dots under the text in the B/W frame,
+  computed from the pixel position (no memory, same on every page). Settings → Reader → Page
+  Background, and a quick-settings tile that names the current one. EPUB and notes; not XTC.
+- On-screen keyboard: English and Greek (from the FreeInk SDK, Greek layout added in Lef's fork
+  until upstream takes it). Opens in the UI language's layout; the globe key switches. Greek vowels
+  hold for tonos, ϊ/ϋ keys hold for ΐ/ΰ.
 
 ## 4. Vaults on the SD card
 
@@ -113,16 +120,20 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 
 ### 4.1 Index
 
-- Stored outside the vault in `/.vaultink/<vault-id>/` (versioned binary files, rebuilt when the version
-  changes), so it is never synced or seen by Obsidian.
-- Contents: note table (path, title, mtime, size), aliases, tags, outgoing links, backlinks,
-  heading and block-id anchors, search token table.
-- Incremental: on open, compare mtime and size per file; re-index only changed files. Full rebuild
-  runs in a background task with progress and can be cancelled.
+- Stored outside the vault in `/.vaultink/<vault-id>/`, so it is never synced or seen by Obsidian.
+  The first line names the format version; a different version means a rebuild.
+- Built (0.4.0): `index.tsv`, one text line per note: path, stamp (size and modification time),
+  title, aliases, tags, folded words (up to 1,500 per note, lines under 60 KB). Searched by
+  streaming the file, so memory stays bounded.
+- Planned: outgoing links, backlinks, heading and block-id anchors, so links and images can use the
+  index instead of scanning the SD card.
+- Incremental: compare the stamp per file; re-read only changed or new files, copy the rest.
+  Runs when Search opens, with a progress popup. Not yet: a background task that can be cancelled.
 - Search: case and accent folding for Latin and Greek, monotonic and polytonic (`ά`/`ἄ`/`ᾄ`→`α`,
   final `ς`→`σ`, diaeresis dropped),
-  prefix match on titles, aliases and body tokens. Results page through the index; no full scan of
-  note bodies at query time.
+  prefix match on titles, aliases and body tokens; every word must match. Ranking: title > alias >
+  tag > body, exact word above prefix; all vaults ranked together (top 50). No note bodies are read
+  at query time.
 
 ## 5. Notes (Phase 1)
 
@@ -304,7 +315,9 @@ reports AES key recovery on the S3 with voltage fault injection.
   vaults in `test/` written for VaultInk. No real vault content in the repo.
 - Simulator runs for every screen in X4 Pro mode, English and Greek UI.
 - LiveSync tests against the local Docker CouchDB, plus recorded test vectors for decryption.
-- Builds: `x4pro` firmware and simulator in CI. Local builds follow the CPU limits (nice, capped jobs).
+- Builds: shipped firmware is built on Lef's machine (CPU limits: nice, capped jobs) and uploaded by
+  `scripts/deploy_web_installer.sh` (web installer plus GitHub release). GitHub CI only runs checks,
+  on release tags and manual runs.
 - Hardware tests are done by Lef on the device before a release.
 
 ## 14. Licences and credits

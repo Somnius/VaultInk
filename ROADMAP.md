@@ -41,14 +41,16 @@ and host tests.
   the locally built full image are pushed to the `gh-pages` branch (nothing is built on GitHub) (release
   assets have no CORS headers). Marked as a test build; the button unlocks after ticking "I
   understand this is untested".
-* ⏳ First release (0.1.0), once the X4 Pro arrives and passes the hardware checks below.
+* ✅ Test builds 0.2.0 to 0.6.0 published (web installer and GitHub releases, marked untested); the
+  deploy script makes the release too, so the device's update check sees each one.
+* ⏳ First hardware-tested release, once the X4 Pro arrives and passes the hardware checks below.
 
-## ⏳ Phase 1 - Vault reader
+## 🚧 Phase 1 - Vault reader
 
 **Goal:** open a real vault from the SD card and read it like in Obsidian.
 
 * ✅ Bigger app slots: `spiffs` partition dropped (nothing used it), 7.94 MiB per slot
-  (`partitions_vaultink.csv`). Firmware now uses 67% of a slot. Done before the first test build,
+  (`partitions_vaultink.csv`). Firmware now uses 71% of a slot (0.6.0). Done before the first test build,
   so nobody needs an extra USB flash.
 * ✅ Home: **Vaults** right after **Books**; vault picker (`/Vaults/*` and top-level folders with
   `.obsidian`), each vault opens in the folder browser. ⏳ Recent notes, Greek path checks on device.
@@ -62,7 +64,9 @@ and host tests.
   anywhere in the vault. To do: note
   embeds, footnotes, nested list indent. ✅ Greek and polytonic in the built-in reading font, so
   notes and books read Greek without an SD font.
-  Also: lists and quotes inside each other, numbered lists that start above 1.
+  Also: lists and quotes inside each other, numbered lists that start above 1. Seen in the
+  simulator: callouts show only a bold title (no frame), `==highlight==` shows as an underline;
+  check whether the reader can draw better before changing the converter.
 * Note reader with links, back stack, image and note embeds, block refs.
 * 🚧 Index on SD, incremental, for vaults of 60 MB and more. ✅ Search index per vault (title,
   aliases, tags, words), updated by size and modification time. To do: use it for links and images
@@ -117,7 +121,7 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 
 ## 💤 Phase 4 - Editing and LiveSync push
 
-* Touch keyboard editor (English + Greek), atomic save, task toggles, new/rename/delete.
+* Touch keyboard editor (English + Greek; the Greek layout is done, 0.5.0), atomic save, task toggles, new/rename/delete.
 * Push with the plugin's chunker, conflict copies.
 * Rough effort from research: 2-4 weeks for push.
 
