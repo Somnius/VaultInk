@@ -80,6 +80,13 @@ never in the repo) open and render every feature they use (SPECS.md 5.1) in the 
 
 * lefteros.com/apps/vaultink and a VaultInk donation page (separate from CrossInk's).
 
+## 💤 Battery (needs the device)
+
+* Already in (from CrossPoint): CPU drops to 80 MHz after 3 s idle, deep sleep with the panel off
+  after the auto-sleep time (Settings, 1-30 min or never).
+* Light sleep between page turns and while a page is shown. Measure current on the X4 Pro before
+  and after; keep it only if it saves power without slowing page turns.
+
 ## 💤 Later
 
 * Audio attachments, Excalidraw drawings.
