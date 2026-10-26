@@ -53,7 +53,8 @@ void appendEscaped(std::string& out, const std::string_view text) {
         out += "&quot;";
         break;
       default:
-        out += c;
+        // XML 1.0 forbids C0 controls other than tab and newline.
+        out += (static_cast<unsigned char>(c) < 0x20 && c != '\t' && c != '\n') ? ' ' : c;
     }
   }
 }
@@ -165,18 +166,25 @@ void MarkdownToHtml::inlineToHtml(std::string_view text, std::string& out) {
           out += "\" alt=\"";
           appendEscaped(out, target);
           out += '"';
-          if (!alias.empty() && std::all_of(alias.begin(), alias.end(), [](char d) {
-                return std::isdigit(static_cast<unsigned char>(d)) || d == 'x';
-              })) {
+          // "|300" or "|300x200" sets the width; "|x200" (height only) is ignored.
+          const std::string_view width = alias.substr(0, alias.find('x'));
+          if (!width.empty() && std::all_of(width.begin(), width.end(),
+                                            [](char d) { return std::isdigit(static_cast<unsigned char>(d)); })) {
             out += " width=\"";
-            appendEscaped(out, alias.substr(0, alias.find('x')));
+            appendEscaped(out, width);
             out += '"';
           }
           out += "/>";
         } else {
-          // Note embeds are drawn as links until the reader can inline them.
-          out += "<a href=\"vault:";
-          appendEscaped(out, target);
+          // Note embeds are drawn as links until the reader can inline them. [[#Heading]] stays
+          // inside the note, using the heading's anchor id.
+          if (!target.empty() && target.front() == '#') {
+            out += "<a href=\"#";
+            appendEscaped(out, headingId(target.substr(1)));
+          } else {
+            out += "<a href=\"vault:";
+            appendEscaped(out, target);
+          }
           out += "\">";
           if (alias.empty()) {
             appendEscaped(out, linkDisplay(target));
@@ -366,8 +374,16 @@ void MarkdownToHtml::feed(std::string_view chunk) {
     } else if (c != '\r') {
       pendingLine += c;
       if (pendingLine.size() >= MAX_LINE) {
-        line(pendingLine);
-        pendingLine.clear();
+        // Cut at a UTF-8 boundary and pass the rest on as a continuation of the same line, so a
+        // long line is never re-read as a new block.
+        size_t cut = pendingLine.size();
+        while (cut > 0 && (static_cast<unsigned char>(pendingLine[cut - 1]) & 0xC0) == 0x80) --cut;
+        if (cut > 0 && static_cast<unsigned char>(pendingLine[cut - 1]) >= 0xC0) --cut;
+        if (cut == 0) cut = pendingLine.size();
+        const std::string tail = pendingLine.substr(cut);
+        pendingLine.resize(cut);
+        continuation(pendingLine);
+        pendingLine = tail;
       }
     }
   }
@@ -382,6 +398,26 @@ void MarkdownToHtml::finish() {
   block = Block::None;
   closeAll();
   sink.write("</body>\n</html>\n");
+}
+
+void MarkdownToHtml::continuation(std::string_view text) {
+  if (block == Block::Code) {
+    writeEscaped(text);
+    inContinuation = true;
+    return;
+  }
+  if (block == Block::Frontmatter || block == Block::Comment) {
+    inContinuation = true;
+    return;
+  }
+  if (inContinuation) {
+    paragraph += text;
+    if (paragraph.size() >= MAX_PARAGRAPH) closeParagraph();
+    return;
+  }
+  // First piece of a long line: classify it normally, the rest joins the same paragraph.
+  line(text);
+  inContinuation = true;
 }
 
 void MarkdownToHtml::closeParagraph() {
@@ -482,11 +518,19 @@ void MarkdownToHtml::listItem(const int indent, const bool ordered, std::string_
   paragraph.assign(content);
 }
 
-void MarkdownToHtml::flushTable() {
+void MarkdownToHtml::flushTable(const bool more) {
   if (tableRows.empty()) return;
   std::vector<std::string> rows;
   rows.swap(tableRows);
-  if (block == Block::Table) block = Block::None;
+  tableBytes = 0;
+  if (block == Block::Table && !more) block = Block::None;
+  if (more) {
+    // Keep the header and separator rows for the next part.
+    for (size_t r = 0; r < rows.size() && r < 2; ++r) {
+      tableRows.push_back(rows[r]);
+      tableBytes += rows[r].size();
+    }
+  }
 
   auto isSeparator = [](std::string_view row) {
     row = trim(row);
@@ -550,6 +594,17 @@ void MarkdownToHtml::flushTable() {
 }
 
 void MarkdownToHtml::line(std::string_view text) {
+  if (inContinuation) {
+    // The end of a long line: it belongs to the paragraph (or code block) it started.
+    inContinuation = false;
+    if (block == Block::Code) {
+      writeEscaped(text);
+      sink.write("\n");
+    } else if (block != Block::Frontmatter && block != Block::Comment) {
+      paragraph += text;
+    }
+    return;
+  }
   if (firstLine) {
     firstLine = false;
     if (trim(text) == "---") {
@@ -604,12 +659,15 @@ void MarkdownToHtml::line(std::string_view text) {
   }
 
   if (block == Block::Table || (startsWith(trimmed, "|") && paragraph.empty() && !quoteOpen)) {
-    if (startsWith(trimmed, "|") && tableRows.size() < MAX_TABLE_ROWS) {
+    if (startsWith(trimmed, "|")) {
       if (block != Block::Table) {
         closeLists(0);
         block = Block::Table;
       }
       tableRows.emplace_back(trimmed);
+      tableBytes += trimmed.size();
+      // Big tables are written out in parts (each part keeps the header) to bound memory.
+      if (tableRows.size() >= MAX_TABLE_ROWS || tableBytes >= MAX_PARAGRAPH) flushTable(true);
       return;
     }
     flushTable();
@@ -702,6 +760,7 @@ void MarkdownToHtml::line(std::string_view text) {
       // Continuation line of the open list item.
       if (!paragraph.empty()) paragraph += '\n';
       paragraph += trimmed;
+      if (paragraph.size() >= MAX_PARAGRAPH) closeParagraph();
       return;
     }
   }

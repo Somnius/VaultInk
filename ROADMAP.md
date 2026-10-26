@@ -59,6 +59,7 @@ and host tests.
   path so notes render with the book reader. To do: resolve `vault:` links and images, note
   embeds, footnotes, nested list indent, Greek in notes without an SD font (fall back to the UI
   font).
+  Also: lists and quotes inside each other, numbered lists that start above 1.
 * Note reader with links, back stack, image and note embeds, block refs.
 * Index on SD, incremental, for vaults of 60 MB and more.
 * Search with Greek folding, tags, backlinks.

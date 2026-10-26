@@ -53,7 +53,9 @@ class MarkdownToHtml {
   void closeQuote();
   void closeAll();
   void listItem(int indent, bool ordered, std::string_view content);
-  void flushTable();
+  // more = the table goes on: write what is buffered and keep the header for the next part.
+  void flushTable(bool more = false);
+  void continuation(std::string_view text);
   void heading(int level, std::string_view text);
   void writeEscaped(std::string_view text);
 
@@ -68,4 +70,6 @@ class MarkdownToHtml {
   bool quoteOpen = false;
   bool quoteParagraph = false;
   std::vector<std::string> tableRows;
+  size_t tableBytes = 0;
+  bool inContinuation = false;
 };

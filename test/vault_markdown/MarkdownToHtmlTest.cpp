@@ -154,3 +154,44 @@ TEST(VaultMarkdown, OutputIsAlwaysWellFormed) {
     EXPECT_TRUE(wellFormed(html)) << html;
   }
 }
+
+TEST(VaultMarkdown, LongLinesStayOneParagraph) {
+  // A line longer than MAX_LINE, cut right before a two-byte letter, then text that looks like a
+  // heading: still one paragraph, still valid UTF-8 and XML.
+  const std::string longLine = std::string(MarkdownToHtml::MAX_LINE - 1, 'a') + "é# Hi";
+  const std::string html = convert(longLine + "\n");
+  EXPECT_TRUE(wellFormed(html));
+  EXPECT_EQ(html.find("<h1"), std::string::npos);
+  EXPECT_NE(html.find("é# Hi</p>"), std::string::npos);
+  // Inside a code block a long line doesn't close the block early.
+  const std::string code = convert("```\n" + std::string(MarkdownToHtml::MAX_LINE, 'x') + "```\nafter\n```\n");
+  EXPECT_TRUE(wellFormed(code));
+  EXPECT_NE(code.find("```\nafter\n</pre>"), std::string::npos);
+}
+
+TEST(VaultMarkdown, ControlCharactersBecomeSpaces) {
+  const std::string html =
+      convert(std::string("a\x01"
+                          "b\x0B"
+                          "c\n"));
+  EXPECT_TRUE(wellFormed(html));
+  EXPECT_NE(html.find("<p>a b c</p>"), std::string::npos);
+}
+
+TEST(VaultMarkdown, EmbedSizes) {
+  EXPECT_EQ(inlineHtml("![[a.png|300x200]]"), "<img src=\"vault:a.png\" alt=\"a.png\" width=\"300\"/>");
+  EXPECT_EQ(inlineHtml("![[a.png|x200]]"), "<img src=\"vault:a.png\" alt=\"a.png\"/>");
+}
+
+TEST(VaultMarkdown, SameNoteHeadingLink) { EXPECT_EQ(inlineHtml("[[#Next up]]"), "<a href=\"#Next-up\">Next up</a>"); }
+
+TEST(VaultMarkdown, BigTablesAreWrittenInParts) {
+  std::string md = "| a | b |\n|---|---|\n";
+  for (size_t r = 0; r < MarkdownToHtml::MAX_TABLE_ROWS + 10; ++r) md += "| " + std::to_string(r) + " | x |\n";
+  const std::string html = convert(md);
+  EXPECT_TRUE(wellFormed(html));
+  size_t tables = 0;
+  for (size_t p = html.find("<table>"); p != std::string::npos; p = html.find("<table>", p + 1)) ++tables;
+  EXPECT_EQ(tables, 2u);
+  EXPECT_NE(html.find("<td>409</td>"), std::string::npos);
+}
