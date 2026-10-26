@@ -169,8 +169,10 @@ void HomeActivity::loadRecentCovers(int coverHeight) {
   for (RecentBook& book : recentBooks) {
     // The cover grid shares one slot size; generating at any other height
     // would rescale the dithered thumb at draw time and alias badly.
-    const int thumbHeight = coverGridUi ? coverGridUi->thumbHeightFor() : coverHeight;
-    if (coverGridUi) {
+    const int thumbHeight = coverGridUi  ? coverGridUi->thumbHeightFor()
+                            : vaultInkUi ? vaultInkUi->thumbHeightFor()
+                                         : coverHeight;
+    if (coverGridUi || vaultInkUi) {
       loadGridCover(book, thumbHeight, showingLoading, popupRect);
       ++progress;
       if (showingLoading) GUI.fillPopupProgress(renderer, popupRect, progress * 100 / recentBooks.size());
@@ -236,6 +238,18 @@ void HomeActivity::onEnter() {
   hasPlugins = SETTINGS.pluginsEnabled != 0;
 
   const auto& metrics = UITheme::getInstance().getMetrics();
+  if (UITheme::hasVaultInkHome()) {
+    vaultInkUi = makeUniqueNoThrow<VaultInkHomeUi>(renderer);
+    if (!vaultInkUi) LOG_ERR("HOME", "OOM: VaultInk home UI; using standard home");
+  }
+  if (vaultInkUi) {
+    loadRecentBooks(1);
+    hasContinueReading = !recentBooks.empty();
+    vaultInkUi->begin(recentBooks, hasContinueReading, hasLibrarySlot(), hasPlugins);
+    selectorIndex = vaultInkUi->indexFor(initialMenuItem);
+    requestUpdate();
+    return;
+  }
   if (UITheme::getInstance().hasCoverGridHome()) {
     // Screen-lifetime interaction tables and component properties exceed the stack budget.
     coverGridUi = makeUniqueNoThrow<CoverGridHomeUi>(renderer);
@@ -260,6 +274,7 @@ void HomeActivity::onExit() {
   Activity::onExit();
 
   coverGridUi.reset();
+  vaultInkUi.reset();
 
   // Free the stored cover buffer if any
   freeCoverBuffer();
@@ -302,6 +317,10 @@ void HomeActivity::freeCoverBuffer() {
 }
 
 void HomeActivity::loop() {
+  if (vaultInkUi) {
+    loopVaultInkHome();
+    return;
+  }
   const int menuCount = getMenuItemCount();
   const auto& metrics = UITheme::getInstance().getMetrics();
 
@@ -472,6 +491,10 @@ void HomeActivity::render(RenderLock&&) {
   const Rect content = UITheme::getInstance().getContentArea(renderer);
 
   renderer.clearScreen();
+  if (vaultInkUi) {
+    renderVaultInkHome();
+    return;
+  }
   if (coverGridUi) {
     coverGridUi->setSelection(selectorIndex);
     UITheme::getInstance().drawCoverGridHome(*coverGridUi);
@@ -578,3 +601,76 @@ void HomeActivity::onFileTransferOpen() { activityManager.goToFileTransfer(); }
 void HomeActivity::onOpdsBrowserOpen() { activityManager.goToBrowser(); }
 
 void HomeActivity::onPluginsOpen() { activityManager.goToPlugins(hasOpdsServers); }
+
+void HomeActivity::activateVaultInkItem(const int index) {
+  const VaultInkHomeUi::Row* row = vaultInkUi->rowAt(index);
+  if (!row) {
+    if (!recentBooks.empty()) onRecentBookSelected(recentBooks[0].path);
+    return;
+  }
+  switch (*row) {
+    case VaultInkHomeUi::Row::Books:
+      onLibraryOpen();
+      break;
+    case VaultInkHomeUi::Row::Vaults:
+      break;  // the vault reader arrives in Phase 1; the row says so
+    case VaultInkHomeUi::Row::Files:
+      onFileBrowserOpen();
+      break;
+    case VaultInkHomeUi::Row::Transfer:
+      onFileTransferOpen();
+      break;
+    case VaultInkHomeUi::Row::Library:
+      hasPlugins ? onPluginsOpen() : onOpdsBrowserOpen();
+      break;
+    case VaultInkHomeUi::Row::Settings:
+      onSettingsOpen();
+      break;
+  }
+}
+
+void HomeActivity::loopVaultInkHome() {
+  const int count = vaultInkUi->itemCount();
+  const int touched = vaultInkUi->selectedAction(mappedInput);
+  if (touched >= 0 && touched < count) {
+    selectorIndex = touched;
+    haptic_feedback::touchAction();
+    activateVaultInkItem(touched);
+    return;
+  }
+  buttonNavigator.onNext([this, count] {
+    selectorIndex = ButtonNavigator::nextIndex(selectorIndex, count);
+    requestUpdate();
+  });
+  buttonNavigator.onPrevious([this, count] {
+    selectorIndex = ButtonNavigator::previousIndex(selectorIndex, count);
+    requestUpdate();
+  });
+  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+    activateVaultInkItem(selectorIndex);
+    return;
+  }
+  // Back reopens the last book, as on the other home styles.
+  if (mappedInput.wasReleased(MappedInputManager::Button::Back) && hasContinueReading && !recentBooks.empty()) {
+    onRecentBookSelected(recentBooks[0].path);
+  }
+}
+
+void HomeActivity::renderVaultInkHome() {
+  vaultInkUi->setSelection(selectorIndex);
+  vaultInkUi->renderUi();
+  const auto labels =
+      mappedInput.mapLabels(hasContinueReading ? tr(STR_RESUME) : "", tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  renderer.displayBuffer(cleanInitialRefresh && !firstRenderDone ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH);
+  // The card records its cover size during the draw; generate that thumb, then repaint.
+  if (vaultInkUi->takeThumbHeightChanged()) recentsLoaded = false;
+  if (!firstRenderDone) {
+    firstRenderDone = true;
+    requestUpdate();
+  } else if (!recentsLoaded && !recentsLoading && hasContinueReading) {
+    loadRecentCovers(vaultInkUi->thumbHeightFor());
+    vaultInkUi->refreshCoverPath();
+    requestUpdate();
+  }
+}

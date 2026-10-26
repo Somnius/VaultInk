@@ -266,9 +266,12 @@ inline SettingInfo buildShortPowerButtonSetting() {
 }
 
 inline std::vector<StrId> homeThemeValues() {
-  static constexpr StrId VALUES[] = {StrId::STR_THEME_CLASSIC, StrId::STR_THEME_LYRA, StrId::STR_THEME_LYRA_EXTENDED,
-                                     StrId::STR_THEME_ROUNDEDRAFF, StrId::STR_THEME_COVER_GRID};
-  const size_t count = UITheme::supportsCoverGrid() ? std::size(VALUES) : std::size(VALUES) - 1;
+  static constexpr StrId VALUES[] = {StrId::STR_THEME_CLASSIC,       StrId::STR_THEME_LYRA,
+                                     StrId::STR_THEME_LYRA_EXTENDED, StrId::STR_THEME_ROUNDEDRAFF,
+                                     StrId::STR_THEME_COVER_GRID,    StrId::STR_THEME_VAULTINK};
+  // Values are indexed by UI_THEME, so without PSRAM the list stops before COVER_GRID and
+  // VAULTINK (VaultInk targets PSRAM boards only).
+  const size_t count = UITheme::supportsCoverGrid() ? std::size(VALUES) : CrossPointSettings::COVER_GRID;
   return {VALUES, VALUES + count};
 }
 
