@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VaultInk installer</title>
+  <meta name="description" content="Install VaultInk on the Xteink X4 Pro from your browser.">
+  <script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+  <style>
+    :root {
+      --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --line: #d1d9e0; --card: #f6f8fa;
+      --warn-bg: #fff8c5; --warn-line: #d4a72c; --accent: #1f2328; --accent-fg: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --line: #3d444d; --card: #151b23;
+        --warn-bg: #2b2111; --warn-line: #9e6a03; --accent: #e6edf3; --accent-fg: #0d1117;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--fg);
+      font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Ubuntu, sans-serif;
+    }
+    main { max-width: 680px; margin: 0 auto; padding: 32px 16px 64px; }
+    header { text-align: center; margin-bottom: 28px; }
+    header img { width: 88px; height: auto; }
+    h1 { margin: 8px 0 4px; font-size: 2rem; }
+    h2 { font-size: 1.2rem; margin: 28px 0 8px; }
+    .lead { color: var(--muted); margin: 0; }
+    .warn {
+      background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 10px;
+      padding: 14px 16px; margin: 20px 0;
+    }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+    ol { padding-left: 22px; margin: 8px 0; }
+    li { margin: 6px 0; }
+    label { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0 18px; cursor: pointer; }
+    input[type=checkbox] { margin-top: 5px; width: 18px; height: 18px; flex: none; }
+    .install { display: flex; justify-content: center; min-height: 48px; }
+    esp-web-install-button button[slot=activate], .button {
+      appearance: none; border: 0; border-radius: 10px; padding: 12px 22px; cursor: pointer;
+      background: var(--accent); color: var(--accent-fg); font: 600 1rem system-ui, sans-serif;
+    }
+    .disabled { opacity: .45; pointer-events: none; }
+    .note { color: var(--muted); font-size: .92rem; }
+    code { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+    a { color: inherit; }
+    footer { margin-top: 40px; color: var(--muted); font-size: .9rem; text-align: center; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="logo-dark.svg">
+      <img src="logo-light.svg" alt="VaultInk logo">
+    </picture>
+    <h1>VaultInk</h1>
+    <p class="lead">Books and Obsidian vaults on the Xteink X4 Pro.</p>
+  </header>
+
+  <div class="warn">
+    <strong>Test build.</strong> This version hasn't been tested on real hardware yet. Back up your SD
+    card first, and only install it if you're comfortable flashing your reader back to the official
+    firmware if something goes wrong.
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">Install</h2>
+    <ol>
+      <li>Use Chrome, Edge or another browser with Web Serial, on a computer (not a phone).</li>
+      <li>Connect the X4 Pro with a USB-C data cable and turn it on.</li>
+      <li>Press <strong>Install VaultInk</strong>, choose the device in the list, and wait until it
+        says it's done. It takes about a minute.</li>
+    </ol>
+    <label>
+      <input type="checkbox" id="agree">
+      <span>I understand this is an untested build and I've backed up my SD card.</span>
+    </label>
+    <div class="install disabled" id="installBox">
+      <esp-web-install-button manifest="manifest.json">
+        <button slot="activate">Install VaultInk</button>
+        <span slot="unsupported">Your browser can't flash devices. Please use Chrome or Edge on a computer.</span>
+        <span slot="not-allowed">Flashing needs a secure (https) page.</span>
+      </esp-web-install-button>
+    </div>
+    <p class="note" id="version"></p>
+  </div>
+
+  <h2>Not working?</h2>
+  <ul>
+    <li><strong>The device isn't in the list.</strong> Try another cable (some only charge), another
+      USB port, and make sure the reader is on.</li>
+    <li><strong>It connects but won't flash.</strong> Some units sold by third-party shops have USB
+      flashing locked at the factory. They have to be unlocked with Xteink's tool before any custom
+      firmware can be installed.</li>
+    <li><strong>Going back.</strong> Install the official Xteink firmware the same way you installed
+      this one.</li>
+  </ul>
+
+  <h2>Updating later</h2>
+  <p>Once VaultInk is on the device, it checks for new versions itself under
+    <strong>Settings → System → Check for Updates</strong>.</p>
+
+  <footer>
+    <a href="https://github.com/Somnius/VaultInk">VaultInk on GitHub</a> ·
+    Based on <a href="https://github.com/crosspoint-reader/crosspoint-reader">CrossPoint Reader</a> ·
+    MIT licence
+  </footer>
+</main>
+<script>
+  const agree = document.getElementById("agree");
+  const box = document.getElementById("installBox");
+  agree.addEventListener("change", () => box.classList.toggle("disabled", !agree.checked));
+  fetch("manifest.json").then(r => r.json()).then(m => {
+    document.getElementById("version").textContent = "Version " + m.version + " · built " + (m.built || "");
+  }).catch(() => {});
+</script>
+</body>
+</html>
