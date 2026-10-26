@@ -98,9 +98,18 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * Extend VaultInk with SD-card plugins instead of adding to the firmware.
 * Plugins are web pages and on-device catalogs (download, sign in, reading events); they can't run
   code on the device, so games and timers can't be plugins.
-* VaultInk plugins to write: vault upload from the browser, quick note from the phone into a vault
-  inbox, export highlights to a vault note, Anki deck download.
-* Suggested existing plugins in the docs: Dictionaries, WebDAV, Reading Statistics, wallpapers.
+* Bundled from CrossPoint's Plugin Hub (licences checked before bundling): Dictionaries, WebDAV,
+  Send2Ereader. Later: a wallpaper plugin.
+* Reading Statistics: built into the firmware (Phase 1b) instead of the plugin; read the plugin's
+  history format so existing stats can be imported.
+* VaultInk plugins to write:
+  * Vault upload from the browser, then hand the vault to LiveSync so only changes travel later
+    (saves battery and data on big vaults).
+  * Quick note from the phone into a vault inbox.
+  * Highlights from books exported to a vault note.
+  * Vault from a Git repo, public or private, with a fine-grained GitHub token (read-only,
+    one repo), stored only on the SD card.
+  * Anki deck download.
 
 ## 💤 Later from CrossNext
 
