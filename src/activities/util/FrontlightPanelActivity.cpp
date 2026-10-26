@@ -20,6 +20,7 @@
 #include "components/icons/listIcons.h"
 #include "components/icons/readerToolbarIcons.h"
 #include "util/BookProgress.h"
+#include "util/PaperTexture.h"
 #include "util/SlideSwitch.h"
 
 namespace fui = freeink::ui;
@@ -185,7 +186,12 @@ void FrontlightPanelActivity::runTile(const int idx) {
     case kTileCount + 1:  // File transfer
       activityManager.goToFileTransfer();
       break;
-    case kTileCount + 2:  // Home (leaves the book too)
+    case kTileCount + 2:  // Next page background; the reader redraws the page when the panel closes
+      SETTINGS.readingPaper = static_cast<uint8_t>((SETTINGS.readingPaper + 1) % paper_texture::STYLE_COUNT);
+      SETTINGS.saveToFile();
+      requestUpdate();
+      break;
+    case kTileCount + 3:  // Home (leaves the book too)
       activityManager.goHome();
       break;
     case 3:  // Touch reader controls (for reading with the palm on the glass)
@@ -486,8 +492,12 @@ void FrontlightPanelActivity::addBookCard(UiScreen& screen) {
 void FrontlightPanelActivity::addActionTiles(UiScreen& screen) {
   const auto& theme = screen.theme();
   const fui::BitmapRef icons[kActionTileCount] = {
-      fui::bitmapFromIcon(icon_power_32), fui::bitmapFromIcon(icon_download_32), fui::bitmapFromIcon(icon_house_32)};
-  const char* labels[kActionTileCount] = {tr(STR_QS_SLEEP), tr(STR_QS_TRANSFER), tr(STR_QS_HOME)};
+      fui::bitmapFromIcon(icon_power_32), fui::bitmapFromIcon(icon_download_32), fui::bitmapFromIcon(icon_file_text_32),
+      fui::bitmapFromIcon(icon_house_32)};
+  // The paper tile names the current background, so each tap shows what it picked.
+  const uint8_t paper = SETTINGS.readingPaper % paper_texture::STYLE_COUNT;
+  const char* labels[kActionTileCount] = {tr(STR_QS_SLEEP), tr(STR_QS_TRANSFER), I18N.get(paper_texture::SHORT_NAMES[paper]),
+                                          tr(STR_QS_HOME)};
   const int16_t labelHeight = screen.target().lineHeight(theme.smallText.font);
   screen.spacer(theme.spaceMd);
   const fui::Rect row = screen.takeTop(kQuickControlSize + theme.spaceSm + labelHeight);

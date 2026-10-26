@@ -223,6 +223,7 @@ class EpubReaderActivity final : public ReaderActivity {
   // the activity stack, and Pop restores it without onEnter(), so the drift has
   // to be noticed here rather than assumed away.
   uint8_t appliedOrientation = 0;
+  uint8_t appliedPaper = 0;  // background of the page last drawn
 
   // Modal shown when a protected book refuses to open (loan expired /
   // date unverified); OK exits, "Sync time" (when offered) verifies the

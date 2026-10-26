@@ -61,6 +61,7 @@
 #include "util/ButtonNavigator.h"
 #include "util/ScreenshotUtil.h"
 #include "util/VaultNavigation.h"
+#include "util/PaperTexture.h"
 
 namespace {
 // The X4 Pro and X4 Classic carry the X4's panel but sit outside isXteinkDevice()
@@ -671,6 +672,14 @@ void EpubReaderActivity::loop() {
   // would be drawn with a layout built for the previous frame size.
   if (appliedOrientation != SETTINGS.orientation) {
     applyOrientation(SETTINGS.orientation);
+    requestUpdate();
+    return;
+  }
+  // Same for the paper tile: the page in the framebuffer has the old background.
+  if (appliedPaper != SETTINGS.readingPaper) {
+    appliedPaper = SETTINGS.readingPaper;
+    pageBufferStale = true;
+    overlayPageStored = false;
     requestUpdate();
     return;
   }
@@ -2123,6 +2132,8 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     renderer.clearScreen();
   }
 
+  paper_texture::draw(renderer, SETTINGS.readingPaper);
+  appliedPaper = SETTINGS.readingPaper;
   drawClippingHighlights(*page, fontId, orientedMarginTop, orientedMarginLeft);
   page->render(renderer, fontId, orientedMarginLeft, orientedMarginTop);
   renderStatusBar();

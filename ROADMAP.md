@@ -90,6 +90,10 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:
   progress from the XTC/TXT readers, Sync tile (Phase 3).
+* ✅ Page backgrounds (kos25k's idea, mostly for fun): plain, paper, sandpaper, papyrus soft/medium/
+  hard, toilet paper, kitchen paper, bath towel. In Settings → Reader and as a quick-settings tile.
+  EPUB and notes only for now; XTC pages are pre-rendered. Ideas for more: parchment, linen,
+  graph paper, kraft, newsprint, rice paper, cardboard, denim.
 * ✅ Reader menu: CrossPoint's toolbar sheet (default on touch) kept; tool names added under the
   icons.
 * ✅ Swipe down from the top for quick settings. ⏳ Swipe up from the bottom for the reading menu.
