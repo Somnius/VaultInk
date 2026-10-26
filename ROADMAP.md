@@ -46,7 +46,10 @@ and host tests.
 **Done when:** synthetic test vaults pass the host tests, and Lef's own vaults (tested locally only,
 never in the repo) open and render every feature they use (SPECS.md 5.1) in the simulator.
 
-## 💤 Phase 1b - New home, menus and reading stats
+## ⏳ Phase 1b - New home, menus and reading stats
+
+**Order:** the home and menu design comes first, before Phase 1's screens, so vault screens are
+built once in the new style.
 
 **Goal:** a home screen and menus that are clear to use on touch and buttons, not CrossPoint's
 menus with a new name. Designed as screens first (simulator mock-ups), then built.
@@ -98,8 +101,9 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * Extend VaultInk with SD-card plugins instead of adding to the firmware.
 * Plugins are web pages and on-device catalogs (download, sign in, reading events); they can't run
   code on the device, so games and timers can't be plugins.
-* Bundled from CrossPoint's Plugin Hub (licences checked before bundling): Dictionaries, WebDAV,
-  Send2Ereader. Later: a wallpaper plugin.
+* Bundled from CrossPoint's Plugin Hub releases (not copied into this repo; licences checked
+  first): Dictionaries, WebDAV, Send2Ereader. Send2Ereader uses a third-party server, so it is
+  off until the user turns it on. Later: a wallpaper plugin. Check for a Greek dictionary.
 * Reading Statistics: built into the firmware (Phase 1b) instead of the plugin; read the plugin's
   history format so existing stats can be imported.
 * VaultInk plugins to write:
@@ -128,6 +132,7 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * Indic and Burmese text shaping and fonts.
 * More devices: M5Stack PaperMono / PaperMono Lite first, then Seeed reTerminal Sticky, then other
   Xteink models. Same 800x480 screen and 8 MB PSRAM; each needs UI checks and hardware tests.
+  No test devices yet, so these stay simulator-only and unreleased until someone can test them.
 
 ---
 
