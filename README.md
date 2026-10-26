@@ -10,6 +10,18 @@
 <p align="center">Books and Obsidian vaults on the Xteink X4 Pro.</p>
 
 <p align="center">
+  <a href="https://github.com/Somnius/VaultInk/releases"><img src="https://img.shields.io/github/v/release/Somnius/VaultInk?label=version" alt="Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT licence"></a>
+  <img src="https://img.shields.io/badge/device-Xteink%20X4%20Pro-555" alt="Xteink X4 Pro">
+  <img src="https://img.shields.io/badge/ESP32--S3-E7352C?logo=espressif&logoColor=white" alt="ESP32-S3">
+  <img src="https://img.shields.io/badge/C%2B%2B20-00599C?logo=cplusplus&logoColor=white" alt="C++20">
+  <img src="https://img.shields.io/badge/PlatformIO-F5822A?logo=platformio&logoColor=white" alt="PlatformIO">
+  <img src="https://img.shields.io/badge/Arduino%20%2B%20FreeRTOS-00878F?logo=arduino&logoColor=white" alt="Arduino and FreeRTOS">
+  <img src="https://img.shields.io/badge/Obsidian-7C3AED?logo=obsidian&logoColor=white" alt="Obsidian">
+  <img src="https://img.shields.io/badge/UI-English%20%C2%B7%20%CE%95%CE%BB%CE%BB%CE%B7%CE%BD%CE%B9%CE%BA%CE%AC-0A7BBB" alt="English and Greek">
+</p>
+
+<p align="center">
   <a href="https://somnius.github.io/VaultInk/"><b>Install from your browser</b></a> ·
   <a href="https://lefteros.com/apps/vaultink">Project page</a> ·
   <a href="https://github.com/Somnius/VaultInk/releases">Releases</a>
@@ -28,6 +40,32 @@ It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or C
 > come from the simulator. Please don't flash this onto your daily reader yet.
 
 ## Screenshots
+
+### Vaults, notes and search
+
+<p>
+  <img src="docs/images/vaultink/vaults.png" width="190" alt="Vault picker">
+  <img src="docs/images/vaultink/note.png" width="190" alt="A note with links, a callout, tasks and a table">
+  <img src="docs/images/vaultink/search.png" width="190" alt="Search results">
+</p>
+
+The vault picker finds every vault on the SD card. A note reads like a book page, with links,
+callouts, tasks and tables. Search looks through every vault at once. These show a small demo
+vault.
+
+### Greek and English keyboard
+
+<p>
+  <img src="docs/images/vaultink/keyboard-el.png" width="190" alt="Greek keyboard">
+  <img src="docs/images/vaultink/keyboard-el-upper.png" width="190" alt="Greek keyboard with Shift">
+  <img src="docs/images/vaultink/keyboard-en.png" width="190" alt="English keyboard">
+</p>
+
+The on-screen keyboard types Greek and English. The globe key switches between them. Hold a vowel
+for its accent (ά έ ή ί ό ύ ώ); ϊ and ϋ have their own keys, and holding them gives ΐ and ΰ. With
+the Greek interface the keyboard opens in Greek.
+
+### Home, reading and settings
 
 <p>
   <img src="docs/images/vaultink/home.png" width="190" alt="Home screen">
@@ -53,7 +91,7 @@ The first time VaultInk starts, it shows a short welcome guide. The five pages a
   <img src="docs/images/vaultink/guide-5.png" width="150" alt="Last page">
 </p>
 
-1. **Welcome.** VaultInk is for your books now, and for your Obsidian vaults soon. The menus are in English, Greek and many other languages, listed on this page.
+1. **Welcome.** VaultInk is for your books and your Obsidian vaults. The menus are in English, Greek and many other languages, listed on this page.
 2. **Reading.** Swipe left for the next page and right for the previous one, or use the side buttons. Tap the middle of the page to open the reading menu.
 3. **Quick settings.** Swipe down from the top of the screen, or tap the battery. You get the light, night mode, sleep, and a full refresh (to clear ghost images).
 4. **Adding books.** Copy books into the `books` folder on the SD card, or send them from your computer with File Transfer (Wi-Fi, USB or Calibre).
@@ -69,7 +107,11 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
 - **Obsidian notes.** Open a `.md` note from a vault and it reads like a book: headings, bold and
   italic, highlights, lists and tasks, quotes and callouts, tables, code, and embedded images found
   anywhere in the vault. Tap a `[[link]]` to open the other note (or jump to its heading), and press
-  Back to return. A vault picker, search and the Vaults row on the home screen are next.
+  Back to return.
+- **Vaults and search.** The Vaults row lists every vault on the SD card (folders under `Vaults/`
+  and any folder with `.obsidian` in it). Search looks through all of them by title, alias, tag and
+  text. Accents don't matter, so `καλημερα` finds `Καλημέρα`.
+- **Greek and English keyboard** on screen, switched with the globe key.
 - **A new home screen.** The book you're reading sits at the top, followed by Books and Vaults, then
   Files, Transfer, Plugins and Settings. Every row says in one line what's behind it. You can use
   touch or the buttons. CrossPoint's own home styles are still there under Settings → Display.
@@ -115,6 +157,18 @@ You can also build it yourself (see below) and flash it over USB with
 ```sh
 esptool.py --chip esp32s3 --port /dev/ttyACM0 --baud 921600 write_flash 0x0 .pio/build/x4pro/firmware.factory.bin
 ```
+
+## Tech stack
+
+| | |
+| --- | --- |
+| Device | Xteink X4 Pro: ESP32-S3, 480×800 e-ink touch screen, SD card |
+| Firmware | C++20 on Arduino and FreeRTOS (ESP-IDF underneath), built with PlatformIO |
+| Base | [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) and the [FreeInk SDK](https://freeink.org) (drivers, UI, keyboard) |
+| Notes | A streaming Markdown to XHTML converter, so notes render through the book reader |
+| Search | A per-vault index file on the SD card, updated incrementally, with Greek and accent folding |
+| Desktop | An SDL2 simulator that runs the same code, and host tests with CMake and GoogleTest |
+| Installer | ESP Web Tools on GitHub Pages; the firmware is built locally, not on CI |
 
 ## Building
 
