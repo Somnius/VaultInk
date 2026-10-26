@@ -1,0 +1,22 @@
+VaultInk
+https://github.com/Somnius/VaultInk
+
+VaultInk is a fork of CrossPoint Reader
+(https://github.com/crosspoint-reader/crosspoint-reader),
+Copyright (c) 2025 CrossPoint Reader organization, MIT License.
+The CrossPoint copyright and licence are kept in LICENSE.
+
+VaultInk is not affiliated with Obsidian (Dynalist Inc.), with the
+Self-hosted LiveSync project, or with Xteink.
+
+Third-party code and assets in this repository keep their own licences:
+
+- FreeInk SDK (freeink-sdk/): MIT License, Copyright (c) 2026 FreeInk.
+- Expat (lib/expat): MIT License.
+- miniz (lib/miniz): Unlicense (see the end of miniz.h).
+- uzlib (lib/uzlib): zlib License.
+- Noto Sans, Noto Serif, Noto Sans Arabic, Noto Sans Hebrew, OpenDyslexic
+  (built-in fonts): SIL Open Font License 1.1.
+- Ubuntu font (built-in UI fonts): Ubuntu Font Licence 1.0.
+
+See the licence files and headers inside each directory for the full terms.

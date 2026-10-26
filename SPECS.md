@@ -1,0 +1,249 @@
+# VaultInk specification
+
+VaultInk is e-reader firmware for the Xteink X4 Pro that reads books and works with Obsidian vaults.
+It is a fork of [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) (MIT).
+
+- Works with Obsidian vaults.
+- Supports Sync with Self-hosted LiveSync plugin.
+- VaultInk is not affiliated with Obsidian (Dynalist Inc.) or with the Self-hosted LiveSync project.
+
+Status words used below: **must** (needed for the phase to be done), **should** (wanted, can slip),
+**later** (not planned for a phase yet). "Unverified" marks facts that still need a test.
+
+## 1. Goals
+
+1. A portable note device: read, search and edit an Obsidian vault away from the desktop.
+2. Keep everything CrossPoint already does for books (EPUB, TXT, XTC).
+3. English and Greek, for the UI and for vault content.
+4. Fully free. No licences, device lock, accounts or payments. Donations go through a VaultInk page
+   on lefteros.com.
+
+Non-goals for now: other devices than the X4 Pro, iOS, Obsidian plugins (Dataview, Excalidraw, Bases),
+graph view, audio, video, writing back canvas files.
+
+## 2. Target hardware
+
+| Item | Value | Source |
+| --- | --- | --- |
+| MCU | ESP32-S3 | `platformio.ini` env `x4pro` |
+| Flash / PSRAM | 16 MB / 8 MB octal | board `esp32-s3-devkitc1-n16r8` |
+| App partition | 6.25 MiB (0x640000) per OTA slot | `partitions.csv` |
+| Flash used at fork | 5,411,710 B (82.6%), ~1.1 MB free for VaultInk | `pio run -e x4pro`, 2026-10-26 |
+| Flash after Phase 0 | 5,548,982 B (84.7%), ~1.0 MB free | `pio run -e x4pro`, 2026-10-26 |
+| Panel | 800x480 e-ink (SSD1677, UC8179 or UC8279) | `freeink-sdk/.../BoardConfig.h` |
+| SD | SDMMC 1-bit, SdFat block device | `platformio.ini` |
+| Input | buttons + touch | handover, unverified on hardware |
+| Radio | Wi-Fi + BLE | ESP32-S3 |
+
+Hardware testing waits for Lef's device. Until then, testing uses
+[crosspoint-simulator](https://github.com/crosspoint-reader/crosspoint-simulator) with
+`-DSIMULATOR_DEVICE_X4_PRO` plus host unit tests.
+
+### 2.1 Languages and fonts
+
+- UI languages: all CrossPoint languages stay; English and Greek are the ones VaultInk maintains.
+- Built-in UI fonts (Ubuntu 8/10/12) include Greek and Coptic (U+0370-03FF) and Greek Extended
+  (U+1F00-1FFF), so menus, file names and note names show monotonic and polytonic Greek.
+- Reading text (books and notes) uses a font from the SD card that has Greek, for example Literata,
+  Source Serif 4 or Noto Serif Extended from **Settings > Reader > Manage Fonts**, or any TTF/OTF
+  copied to `/.fonts/` (the X4 Pro has PSRAM, so TTF loads directly).
+- Hyphenation: monotonic Greek patterns (`hyph-el-monoton`) and polytonic patterns
+  (`hyph-el-polyton`, built with typst/hypher's generator). A word with any polytonic letter uses
+  the polytonic patterns; other Greek words use monotonic; this ignores the book's language tag.
+  Text with combining accents (not precomposed) is not hyphenated.
+- After a firmware update that changes the page cache format, the first open of each chapter shows
+  "Updating for new version..." while it is rebuilt.
+- Later, on request: Indic and Burmese text shaping and fonts.
+
+## 3. Architecture
+
+- `lib/Vault/`: all vault logic, no UI and no Arduino includes, so it builds and tests on the host.
+  - `Markdown`: line and span parser that produces a block/run stream for the renderer.
+  - `Frontmatter`: YAML subset (scalars, lists, `aliases`/`alias`, `tags`/`tag`).
+  - `Index`: note table, links, tags, aliases, search terms, stored on SD.
+  - `Canvas`: streaming `.canvas` (JSON Canvas 1.0) reader into a compact node/edge model.
+  - JSON for Canvas and CouchDB responses. Two parsers are already in the build: ArduinoJson 7.4.2
+    (`platformio.ini:171`, DOM with stream filters) and the SDK's SAX `StreamingJsonParser`
+    (`freeink-sdk/libs/network/JsonSax`). The SAX parser drops any string longer than its 2 KB token
+    buffer, while card text and chunk `data` can be far longer, so it needs a mode that streams long
+    string values out in pieces (or a VaultInk wrapper that does). Decided in Phase 2.
+  - `LiveSync`: document model, chunk assembly, E2EE, path de-obfuscation. HTTP/TLS is behind a
+    small transport interface, implemented in `src/` on the device and faked in host tests.
+- `src/activities/vault/`: thin screens (picker, browser, note reader, search, tags, backlinks,
+  canvas, editor, sync). Built on `UiListActivity` / `UiTabListActivity` and the shared UI.
+- Book code stays as it is. The Library and Home screens gain a "Vaults" entry.
+- MicroMarkD's MIT parser (`lib/MicroMarkDMarkdown`, Daniil Pankov) may be reused as a base for
+  `Markdown`, with credit in NOTICE. Its `esp32-git` dependency has no licence and is not used.
+- Big buffers go in PSRAM. Every allocation has a fixed cap and a failure path (see
+  `.agents/rules/hardware-resources.md`). Nothing loads a whole note, vault or canvas into RAM.
+
+## 4. Vaults on the SD card
+
+- A vault is any folder that contains `.obsidian/`, or a folder the user picks. Default root: `/Vaults/`.
+- Several vaults; the last one opened is remembered.
+- Paths are UTF-8 and can be Greek and long (exFAT/FAT long names). Must handle names up to the
+  file-system limit (255 UTF-16 units, so up to ~765 UTF-8 bytes) and paths up to 1024 bytes. What the
+  SdFat stack in this tree really supports is unverified; test it in Phase 0.
+- `.obsidian/`, `.trash/` and dot folders are hidden in the browser and skipped by the index.
+- Sizes to support: 300 notes, 60 attachments, 60 MB per vault (largest known test vault: 53 MB,
+  241 notes). Design limit: 5,000 notes per vault.
+
+### 4.1 Index
+
+- Stored outside the vault in `/.vaultink/<vault-id>/` (versioned binary files, rebuilt when the version
+  changes), so it is never synced or seen by Obsidian.
+- Contents: note table (path, title, mtime, size), aliases, tags, outgoing links, backlinks,
+  heading and block-id anchors, search token table.
+- Incremental: on open, compare mtime and size per file; re-index only changed files. Full rebuild
+  runs in a background task with progress and can be cancelled.
+- Search: case and accent folding for Latin and Greek, monotonic and polytonic (`ά`/`ἄ`/`ᾄ`→`α`,
+  final `ς`→`σ`, diaeresis dropped),
+  prefix match on titles, aliases and body tokens. Results page through the index; no full scan of
+  note bodies at query time.
+
+## 5. Notes (Phase 1)
+
+### 5.1 Markdown support
+
+| Feature | Phase 1 | Notes |
+| --- | --- | --- |
+| Headings `#`..`######` | must | anchors for `[[note#heading]]` |
+| Bold, italic, bold-italic, strike, inline code | must | per span, not per line |
+| Highlight `==text==` | should | drawn as underline or inverted run |
+| Paragraphs, line breaks | must | reflow, hyphenation per language |
+| Bullet, numbered, nested lists | must | |
+| Task lists `- [ ]` / `- [x]` | must | read only in Phase 1, toggle in Phase 4 |
+| Block quotes | must | |
+| Callouts `> [!type] title` | must | icon + title |
+| Foldable callouts `+`/`-` | should | Phase 1 shows them open; tap-to-fold needs re-pagination |
+| Bare URLs and `<https://…>` | must | shown as links |
+| Block ids `^id` on paragraphs, list items, tables | must | hidden, used as anchors |
+| Escapes `\[[`, `\*` | must | |
+| Fenced and indented code | must | monospace, no syntax colours |
+| Tables | must | column widths fitted to screen, wide tables scroll sideways |
+| Horizontal rule | must | |
+| Wikilinks `[[note]]`, `[[note\|alias]]`, `[[path/note]]`, `[[note#heading]]`, `[[note#^block]]` | must | resolve like Obsidian: shortest unique path, then aliases |
+| Markdown links `[text](url)` and `[text](note.md)` | must | external URLs show the address, are not opened |
+| Embeds `![[image.png]]`, `![[image.png\|300]]` | must | PNG, JPEG, GIF (first frame), scaled and dithered |
+| WebP embeds | should | no WebP decoder in the tree yet (`ImageProbe.h:29`); needs a new library |
+| Note embeds `![[note]]`, `![[note#heading]]`, `![[note#^block]]` | must | depth limit 2, loops shown as a link |
+| Frontmatter | must | hidden from the text; `aliases`, `tags` used by the index; a small "Properties" view |
+| Tags `#tag`, `#nested/tag` | must | |
+| Footnotes | should | |
+| Comments `%%...%%` | must | hidden |
+| HTML | later | tags stripped, text kept |
+| Math, Mermaid | later | shown as code |
+
+### 5.2 Note screens
+
+- Vault picker, folder browser (folders first, sorted by name with Greek collation), recent notes.
+- Note reader: paged, same fonts and settings as the book reader. Saves position per note.
+- Link following: tap a link (touch) or select it with buttons. A back stack of at least 16 notes.
+- Unresolved links are drawn differently and say "note not found".
+- Search, tag list, backlinks for the current note, outgoing links.
+- Attachments other than images (PDF, docx, audio) are listed but not opened until their phase.
+
+## 6. Canvas (Phase 2, read only)
+
+- Format: [JSON Canvas 1.0](https://jsoncanvas.org/). Streamed from SD, never parsed as one DOM.
+- Nodes: `text` (Markdown, rendered with the note renderer), `file` (note or image), `link` (URL shown
+  as text), `group` (box with label). Colours (preset `"1"`-`"6"` or `#hex`) map to grey levels or
+  patterns.
+- Edges: lines with arrow heads (`fromEnd`/`toEnd`), side anchors (`fromSide`/`toSide`), one `label`.
+- View: fit-to-screen on open, pan, zoom in/out in steps, tap a card to open its note or image.
+  Pan and zoom draw a low-detail frame (boxes and lines) with partial refresh, then the full frame.
+- Card text stays in the file on SD (offset + length, JSON-unescaped while reading); only geometry
+  and ids are kept in memory, in fixed-size records in PSRAM with a budget set in Phase 2.
+- Limits: 2,000 nodes and 4,000 edges per canvas. A spatial grid on SD or PSRAM decides which cards
+  are on screen.
+
+## 7. LiveSync pull (Phase 3)
+
+Target: Self-hosted LiveSync over CouchDB 3.x only. Object storage and P2P are not supported.
+The format is "not a stable API" (`docs/datastructure.md` in obsidian-livesync); VaultInk pins the
+generations it has been tested against and refuses others with a clear message.
+
+- Setup: import a Setup URI (`obsidian://setuplivesync?settings=...`) from a file on SD, the web UI
+  or QR code(s), unlock with its passphrase. How the plugin splits settings over QR codes is unverified.
+- TLS: public CA certificates by default; the user can add their own CA certificate for a self-signed
+  server (should). The user chooses to keep the decrypted settings on the
+  device (encrypted with a device key) or to forget them after the sync.
+- Wire: HTTPS, `GET _changes?since=…` with a checkpoint saved per vault, `_bulk_get` or
+  `_all_docs?keys=…&include_docs=true` for metadata and chunks.
+- Documents: metadata docs (`type` `plain` / `newnote`, `children` chunk ids; legacy `notes` with
+  inline `data`), chunks `h:`/`h:+`, obfuscated ids `f:`. Skip control docs and the `i:`, `ix:`, `ps:`
+  namespaces. Reconstruct a file by streaming its chunks in order to a temp file on SD, then rename;
+  binary chunks are Base64.
+- Encryption: E2EE V2 (master key PBKDF2 from passphrase + salt in `_local/obsidian_livesync_sync_parameters`,
+  HKDF + AES-256-GCM per chunk). Obfuscated ids come from the passphrase or the newer id-derivation key;
+  the obfuscated `path` is decrypted from the metadata doc.
+  Exact KDF parameters, cipher and chunk formats are to be confirmed from `livesync-commonlib`
+  and pinned with test vectors before coding. Unverified.
+- Scope: choose which vault (database) to sync. Text first; attachments on demand or by size limit.
+- Deletes and conflicts: a remote delete moves the local file to `/.vaultink/<vault-id>/trash/`.
+  Remote conflicts (`_conflicts`) are resolved by taking CouchDB's winning revision, like the plugin
+  shows by default. Local edits are kept and shown as "local changes".
+- Test setup: local CouchDB in Docker (`--cpus 4`), filled by the real plugin with a throw-away vault.
+  Real vaults are never used for automated tests and never sent to external tools.
+
+Phase 3 must at least support: E2EE V2, path obfuscation, compression off, `customChunkSize`
+60, `hashAlg` xxhash64, `chunkSplitterVersion` v3-rabin-karp, `useEden` off, dynamic
+iterations off.
+
+## 8. Editing (Phase 4)
+
+- Editor: line-based, touch keyboard (English + Greek layouts), cursor keys, select line, undo.
+- Toggle task checkboxes from the reader.
+- New note, rename, delete (to `/.vaultink/<vault-id>/trash/`). Links are not rewritten on rename in Phase 4.
+- Save is atomic: write `name.md.tmp`, sync, rename; recover an orphaned `.tmp` on boot.
+- `update-time-on-edit` style: if frontmatter has an `updated`/`modified` key, set it on save (should).
+- LiveSync push: split with the same chunker as the plugin (v3 rabin-karp, xxhash64), encrypt,
+  `_bulk_docs`, with `_rev` handling. If a pull finds that a note with local changes also changed
+  remotely, keep both: the remote version is saved as `note (conflict YYYY-MM-DD).md` and the user is
+  told. Conflicts only between remote revisions still follow §7 (winning revision).
+
+## 9. Bluetooth keyboard (Phase 5)
+
+- BLE HID host (NimBLE, Apache-2.0). Pair, reconnect, US and Greek layouts, toggle with a key combo.
+- Works in the editor, search and any text field. `lib/BlePageTurner` is checked for reuse first.
+- Wi-Fi and BLE share one radio. Whether a keyboard stays usable during a sync is tested in Phase 5;
+  if not, sync pauses keyboard input and says so.
+
+## 10. Android companion (Phase 6)
+
+- Separate repo Somnius/VaultInk-Companion, Kotlin, app ID `com.lefteros.vaultink`, Android only.
+- BLE link to the device: type into the device, send a quick note, change settings, show sync status.
+- Signed APKs on GitHub releases. The app checks the latest release, downloads it and starts the
+  install. Whether Android allows a silent install for this case is unverified; the fallback is the
+  normal install prompt.
+- The signing keystore is kept offline by the maintainer, never in the repo.
+
+## 11. PDF trial (Phase 7)
+
+- Spike: render one page of a small PDF on the ESP32-S3 with PSRAM, measure time and memory.
+- Go/no-go decision written to the roadmap. If go: page images, fit width, pan, page cache on SD.
+
+## 12. Updates, settings and privacy
+
+- OTA update check points at Somnius/VaultInk GitHub releases. No other network calls unless the
+  user starts a sync.
+- No telemetry, no analytics, no accounts.
+- Secrets (CouchDB credentials, passphrases, Setup URIs, APK keystore) are never in the repo, logs
+  or crash dumps.
+
+## 13. Testing
+
+- Host unit tests for every `lib/Vault` module (GTest, existing `test/` setup), with small synthetic
+  vaults in `test/` written for VaultInk. No real vault content in the repo.
+- Simulator runs for every screen in X4 Pro mode, English and Greek UI.
+- LiveSync tests against the local Docker CouchDB, plus recorded test vectors for decryption.
+- Builds: `x4pro` firmware and simulator in CI. Local builds follow the CPU limits (nice, capped jobs).
+- Hardware tests are done by Lef on the device before a release.
+
+## 14. Licences and credits
+
+- VaultInk: MIT, keeping CrossPoint's copyright notice.
+- Third-party: CrossPoint Reader (MIT), FreeInk SDK, MicroMarkD parser (MIT, Daniil Pankov) if used,
+  fonts (OFL), NimBLE (Apache-2.0). All listed in NOTICE.
+- The LiveSync wire format is implemented from the public source; no LiveSync code is copied unless
+  its licence allows it and it is credited.

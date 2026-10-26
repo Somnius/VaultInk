@@ -1,98 +1,104 @@
-# CrossPoint Reader Roadmap
+# VaultInk roadmap
 
-This roadmap describes how CrossPoint is moving through the tighter scope defined in [SCOPE.md](SCOPE.md). It is
-intentionally phased: Phase 0 closed out the commitments already in flight before locking down to the stricter
-"fill gaps the stock firmware leaves" delineator.
+VaultInk is built in phases. Details for each feature are in [SPECS.md](SPECS.md); what is in and out of
+scope is in [SCOPE.md](SCOPE.md). VaultInk is a fork of CrossPoint Reader; its upstream roadmap is at
+[crosspoint-reader/crosspoint-reader](https://github.com/crosspoint-reader/crosspoint-reader/blob/develop/ROADMAP.md).
 
-Phases are sequential. We do not start the next phase until the prior one is wrapped or explicitly carried over.
+Status: ✅ done · 🚧 in progress · ⏳ next · 💤 later · ❌ dropped
 
-Status: ✅ done · 🚧 in progress · ❌ shelved
-
----
-
-## ✅ Phase 0 - Close Out Legacy Scope Items
-
-**Goal:** Land the work that was already in motion under the prior, broader scope so contributors are not left
-hanging, and so we enter the stricter phases with a clean slate.
-
-* ✅ **RTL support PRs.** The in-flight right-to-left work was reviewed, iterated, and merged.
-* ✅ **Dictionary PR.** The offline dictionary lookup work was reviewed and merged.
-* ✅ **Bookmarks** feature. First-class navigation markers in EPUBs.
-* ✅ **Transparent sleep screens.**
-
-Phase 0 is closed. The tighter scope in [SCOPE.md](SCOPE.md) is now fully enforced. "But it was on the old roadmap"
-is not a valid argument for accepting a PR.
+Target device: Xteink X4 Pro only. Until the device arrives, testing is in the simulator (X4 Pro mode)
+and host tests.
 
 ---
 
-## 🚧 Phase 1 - Consolidation, Footprint, and Multi-Device Support
+## 🚧 Phase 0 - Setup
 
-**Goal:** Reduce memory and flash usage, clean up the codebase, and land the SDK / HAL generalization work so
-CrossPoint runs cleanly on ESP32-based e-reader hardware beyond Xteink (X3 / X4), including ESP32-S3 class devices.
+**Goal:** a VaultInk build that runs, with the project name, docs and update channel in place.
 
-**Focus areas:**
+* ✅ Fork from CrossPoint `develop` (116195b4).
+* ✅ Specs, roadmap and scope written.
+* ✅ NOTICE (CrossPoint copyright kept, third-party licences).
+* ⏳ README rebuilt as VaultInk: real simulator screenshots, honest feature list. Waits until the simulator
+  can take screenshots.
+* ✅ Rename to VaultInk (USB names, version 0.1.0, boot and sleep screens, web UI).
+* ✅ OTA update check pointed at Somnius/VaultInk releases (`vaultink-<version>-x4pro.bin`, tags
+  without "v").
+* ✅ Simulator build with `-DSIMULATOR_DEVICE_X4_PRO` (touch).
+* ✅ CI and release workflows for `x4pro` firmware and simulator only; issue templates for VaultInk.
+* ✅ Greek UI strings (new strings need Lef's review).
+* ✅ Greek monotonic and polytonic in the UI fonts and hyphenation.
+* ✅ "Updating for new version..." message when a book's cache is rebuilt after an update.
+* ⏳ VaultInk logo for boot, sleep and web UI (Lef picks from drafts).
+* ⏳ Public repo Somnius/VaultInk.
 
-* DRAM and heap fragmentation reduction across the reader core.
-* Flash footprint reduction (dead code, redundant strings, oversized tables).
-* Refactors that tighten the HAL / SDK boundary.
-* ✅ Pluggable per-device SDK layers (display, input, storage, battery) and per-device build configuration without
-  forking the reader core. CrossPoint now builds for and runs on multiple device targets beyond the
-  Xteink X3 / X4, including ESP32-S3 class hardware (X4 Pro, PaperMono, Seeed Sticky).
-* Adding support for a new device is done in the [FreeInk SDK](https://freeink.org) first (display, input,
-  storage, battery drivers), followed by a commit to this repo adding board support (build environment and
-  device configuration).
-* E-ink driver refinement (ghosting, partial update behavior).
+## ⏳ Phase 1 - Vault reader
 
-**Closed during this phase:** new themes built into firmware, new external network connectors (sync engines, cloud
-storage, remote file access).
+**Goal:** open a real vault from the SD card and read it like in Obsidian.
+
+* Vault picker, folder browser, recent notes, Greek paths.
+* `lib/Vault`: Markdown parser (spans, tables, callouts, tasks, code, links, embeds, frontmatter).
+* Note reader with links, back stack, image and note embeds, block refs.
+* Index on SD, incremental, for vaults of 60 MB and more.
+* Search with Greek folding, tags, backlinks.
+
+**Done when:** synthetic test vaults pass the host tests, and Lef's own vaults (tested locally only,
+never in the repo) open and render every feature they use (SPECS.md 5.1) in the simulator.
+
+## 💤 Phase 2 - Canvas, read only
+
+* Streaming `.canvas` reader, cards, groups, arrows with labels.
+* Fit, pan, zoom, low-detail drag frame, tap a card to open it.
+
+## 💤 Phase 3 - LiveSync pull
+
+* Setup URI import, E2EE V2, path obfuscation.
+* CouchDB `_changes` with checkpoints, chunk assembly, attachments on demand.
+* Local Docker CouchDB test setup and decryption test vectors.
+* Rough effort from research: 1-2 weeks, plus about 1 week for encryption. Not reliable until the
+  encryption details are pinned with test vectors.
+
+## 💤 Phase 4 - Editing and LiveSync push
+
+* Touch keyboard editor (English + Greek), atomic save, task toggles, new/rename/delete.
+* Push with the plugin's chunker, conflict copies.
+* Rough effort from research: 2-4 weeks for push.
+
+## 💤 Phase 5 - Bluetooth keyboard
+
+* BLE HID host (NimBLE), US and Greek layouts.
+
+## 💤 Phase 6 - Android companion
+
+* Separate repo Somnius/VaultInk-Companion (`com.lefteros.vaultink`).
+* Type into the device, quick notes, settings, signed APKs with an in-app update checker.
+
+## 💤 Phase 7 - PDF trial
+
+* Render one PDF page on the ESP32-S3 with PSRAM; go/no-go. Can run early as a spike.
+
+## 💤 Phase 8 - Website
+
+* lefteros.com/apps/vaultink and a VaultInk donation page (separate from CrossInk's).
+
+## 💤 Later
+
+* Audio attachments, Excalidraw drawings.
+* Indic and Burmese text shaping and fonts.
+* Other devices.
 
 ---
 
-## Phase 2 - Languages, Fonts, and Themes
+## Risks
 
-**Goal:** With the codebase smaller and portable, make reading great in every language: multi-language support,
-better font support with custom fonts, UI translations, and themes loaded from the SD card instead of consuming
-flash.
+* The LiveSync database format is not a stable API (generation 12 to 13 this autumn). We pin tested
+  versions and refuse unknown ones.
+* Flash: the x4pro build uses 84.7% of the app slot after Phase 0 (~1.0 MB free). Vault, canvas, sync and
+  editor code must fit in that, or flash is freed (e.g. built-in fonts or UI languages to SD).
+* Big vaults and canvases must be streamed; nothing loads whole into RAM.
+* E-ink canvas pan/zoom needs partial refresh to feel usable.
+* Android silent self-update and PDF speed are unverified until tried.
 
-**Focus areas:**
+## How this roadmap changes
 
-* Multi-language reading support (underserved languages, complex script support where realistic on ESP32 hardware).
-  Substantial progress has already landed: RTL reading (Arabic, Hebrew) and CJK via SD card fonts.
-* ✅ Better font support and custom fonts. **Landed early.** SD card fonts with a downloader and font manager,
-  script grouping, and CJK support are shipped (see [docs/sd-card-fonts.md](docs/sd-card-fonts.md)).
-* ✅ UI languages and localization. **Landed early.** The UI ships with 30+ translations, including RTL languages,
-  and continues to receive improvements.
-* Moving themes off-firmware to SD-loaded assets (see SCOPE.md Section 6).
-* **SD-loaded plugins.** Extend the device from the SD card without growing the firmware: plugin packages that add
-  integrations and connectors, running through the web server and a whitelisted job queue instead of compiled-in
-  code. This is how new "talk to a server" functionality gets added without paying the flash and RAM cost in the
-  core firmware, keeping the connector freeze in SCOPE.md intact.
-* **Moving hyphenation files off-firmware.** Hyphenation rules vary per language and the files are large (German
-  alone is ~200KB). Today these eat flash budget that should be available for the reader core. The plan is to build
-  a downloader analogous to the existing font downloader and store the hyphenation files on SD, loading on
-  demand. This unlocks better hyphenation for long-word languages (German, Finnish, Norwegian, etc.) without paying
-  the flash cost up front.
-
-This phase depends on Phase 1 cleanup landing first; otherwise we generalize a moving target.
-
----
-
-## Out of Roadmap
-
-The following are explicitly *not* on the roadmap. They may live in other CrossPoint forks; they will not be picked
-up here:
-
-* Interactive apps (games, calculators, notepads).
-* Writing / authoring tools.
-* Active connectivity features (RSS, news, browsers).
-* PDF rendering as a first-class format.
-
-See [SCOPE.md](SCOPE.md) for the full rationale.
-
----
-
-## How This Roadmap Changes
-
-* Phase boundaries are decided by maintainers, not by individual PRs.
-* If a phase needs to be extended or an item carried over, that is documented here with a short note.
-* Proposals for new phases or reordering should go through a Discussion first.
+* A phase starts when the previous one is done or an item is carried over with a note here.
+* Changes are made by Lef.
