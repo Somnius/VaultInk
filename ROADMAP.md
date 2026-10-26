@@ -55,7 +55,8 @@ built once in the new style.
 menus with a new name. Designed as screens first (simulator mock-ups), then built.
 
 * 🚧 Home with Books and Vaults first, then the rest (done: list home, new default style; to do:
-  status line counts, Search row). Settings grouped by task: to do.
+  status line counts, Search row). Settings grouped by task: done (Reading, Device; Vaults group
+  comes with Phase 1).
 * Built as a new home style and made the default; CrossPoint's styles stay selectable for now.
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title over a book. To do: live reading progress
