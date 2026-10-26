@@ -99,13 +99,14 @@ void ReaderToolbarUi::screenFn(UiScreen& screen, void* user) {
 
 // The Contents / Text / More row: three equal slots, an icon centred in each,
 // the active one inside an outline pill (the theme's control radius). Each
-// slot is registered as one tap target, so the row stays light (no filled
-// tiles, no labels -- the glyphs carry the meaning).
+// slot is registered as one tap target. A small name under each icon makes the three tools
+// findable without trying them (VaultInk).
 void ReaderToolbarUi::buildToolRow(UiScreen& screen, const fui::LayoutAnchor anchor, const int16_t sideInset) {
   const auto& tokens = screen.theme();
   const fui::BitmapRef icons[kToolCount] = {fui::bitmapFromIcon(icon_reader_contents_24),
                                             fui::bitmapFromIcon(icon_reader_text_24),
                                             fui::bitmapFromIcon(icon_reader_more_24)};
+  const char* labels[kToolCount] = {tr(STR_TOOL_CONTENTS), tr(STR_TOOL_TEXT), tr(STR_TOOL_MORE)};
   // sideInset absorbs the difference between the two hosts' content bands
   // (the toolbar's is spaceLg-inset, the panel's is full width): the slots
   // must land on the same x either way, or the icons jump when a tap swaps
@@ -121,9 +122,14 @@ void ReaderToolbarUi::buildToolRow(UiScreen& screen, const fui::LayoutAnchor anc
       screen.target().stroke(slot.inset(fui::Insets{4, kToolPillInset, 4, kToolPillInset}),
                              fui::Paint::solid(fui::Color::Black), 2, pillRadius);
     }
-    const fui::Rect iconRect{static_cast<int16_t>(slot.x + (slot.width - 24) / 2),
-                             static_cast<int16_t>(slot.y + (slot.height - 24) / 2), 24, 24};
+    const int16_t labelH = screen.target().lineHeight(tokens.smallText.font);
+    const int16_t top = static_cast<int16_t>(slot.y + (slot.height - 24 - 4 - labelH) / 2);
+    const fui::Rect iconRect{static_cast<int16_t>(slot.x + (slot.width - 24) / 2), top, 24, 24};
     screen.target().bitmap(iconRect, icons[i], fui::BitmapMode::Center);
+    fui::TextStyle label = tokens.smallText;
+    label.align = fui::TextAlign::Center;
+    label.maxLines = 1;
+    screen.target().text(fui::Rect{slot.x, static_cast<int16_t>(top + 24 + 4), slot.width, labelH}, labels[i], label);
     screen.frame().hit(slot, ACTION_TOOL, static_cast<int16_t>(i), fui::InputTouch);
   }
 }

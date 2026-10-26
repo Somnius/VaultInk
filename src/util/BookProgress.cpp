@@ -8,6 +8,7 @@
 #include <Xtc.h>
 
 #include <algorithm>
+#include <atomic>
 
 namespace {
 uint32_t readLe32(const uint8_t* p) {
@@ -55,3 +56,12 @@ int loadBookProgress(const std::string& path) {
   }
   return -1;
 }
+
+namespace {
+// Written by the reader's render task, read by the loop task.
+std::atomic<int> liveProgress{-1};
+}  // namespace
+
+void publishLiveBookProgress(const int percent) { liveProgress.store(percent, std::memory_order_relaxed); }
+
+int liveBookProgress() { return liveProgress.load(std::memory_order_relaxed); }

@@ -56,6 +56,7 @@
 #include "clippings/ClippingsManager.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/BookProgress.h"
 #include "util/BookmarkUtil.h"
 #include "util/ButtonNavigator.h"
 #include "util/ScreenshotUtil.h"
@@ -214,6 +215,7 @@ bool buttonContactClosed() { return gpio.rawInputActive(); }
 }  // namespace
 
 EpubReaderActivity::~EpubReaderActivity() {
+  publishLiveBookProgress(-1);
   ImageBlock::setExtractor(nullptr, nullptr);
   // ActivityManager destroys activities with its RenderLock already held;
   // taking another here self-deadlocks (renderingMutex is non-recursive).
@@ -2427,6 +2429,7 @@ void EpubReaderActivity::renderStatusBar() const {
   const float pageCount = section ? section->estimatedTotalPages() : 1;
   const float sectionChapterProg = (pageCount > 0) ? (static_cast<float>(currentPage) / pageCount) : 0;
   const float bookProgress = epub ? (epub->calculateProgress(currentSpineIndex, sectionChapterProg) * 100) : 0;
+  publishLiveBookProgress(epub ? clampPercent(static_cast<int>(bookProgress + 0.5f)) : -1);
 
   std::string title;
   int textYOffset = 0;

@@ -59,8 +59,10 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   comes with Phase 1).
 * Built as a new home style and made the default; CrossPoint's styles stay selectable for now.
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
-  done: Sleep / Transfer / Home tiles, book title over a book. To do: live reading progress
-  from the reader, Sync tile (Phase 3).
+  done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:
+  progress from the XTC/TXT readers, Sync tile (Phase 3).
+* Reader menu: CrossPoint's toolbar sheet (default on touch) kept; tool names added under the
+  icons.
 * Swipe up from the bottom for reading settings, swipe down from the top for quick settings.
 * Reading statistics on the device: time, sessions, streaks, calendar, finished books; notes count too.
 * Library speed: build covers when idle so key presses stay fast.

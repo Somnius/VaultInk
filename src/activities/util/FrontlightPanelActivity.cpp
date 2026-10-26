@@ -19,6 +19,7 @@
 #include "components/icons/customListIcons.h"
 #include "components/icons/listIcons.h"
 #include "components/icons/readerToolbarIcons.h"
+#include "util/BookProgress.h"
 #include "util/SlideSwitch.h"
 
 namespace fui = freeink::ui;
@@ -40,7 +41,7 @@ constexpr int16_t kGrabberHeight = 5;     // fui::SheetProps default, mirrored h
 constexpr int16_t kSliderRowHeight = 56;  // the pill itself (finger-sized)
 constexpr int16_t kQuickControlSize = 48;
 constexpr int16_t kQuickIconSize = 32;
-constexpr int16_t kBookCardHeight = 44;  // one title line
+constexpr int16_t kBookCardHeight = 64;  // title line, progress bar
 // One percent per press, on the -/+ buttons and on the physical Left/Right keys
 // alike (both repeat while held), so a level can be set exactly.
 constexpr int BRIGHTNESS_STEP = 1;
@@ -77,11 +78,14 @@ void FrontlightPanelActivity::onEnter() {
     touchModeRestore = SETTINGS.touchReaderControls;
   }
 
-  // Title only: reading progress would need a second copy of the book's metadata in RAM while
-  // the reader is open, and its saved position can lag the page on screen.
+  // The reader publishes the percentage of the page on screen; no second load of the book.
   bookTitle.clear();
+  bookProgress = -1;
   const auto& recent = RECENT_BOOKS.getBooks();
-  if (activityManager.isReaderActivity() && !recent.empty()) bookTitle = recent.front().title;
+  if (activityManager.isReaderActivity() && !recent.empty()) {
+    bookTitle = recent.front().title;
+    bookProgress = liveBookProgress();
+  }
 
   resetUi();
   app.on(ACTION_BRIGHTNESS, &FrontlightPanelActivity::onBrightnessEvent, this);
@@ -459,10 +463,24 @@ void FrontlightPanelActivity::addBookCard(UiScreen& screen) {
   auto title = theme.bodyText;
   title.bold = true;
   title.maxLines = 1;
-  screen.target().text(
-      fui::Rect{static_cast<int16_t>(rect.x + pad), static_cast<int16_t>(rect.y + (rect.height - line) / 2),
-                static_cast<int16_t>(rect.width - 2 * pad), line},
-      bookTitle.c_str(), title);
+  screen.target().text(fui::Rect{static_cast<int16_t>(rect.x + pad), static_cast<int16_t>(rect.y + pad / 2),
+                                 static_cast<int16_t>(rect.width - 2 * pad), line},
+                       bookTitle.c_str(), title);
+  if (bookProgress >= 0) {
+    char percent[8];
+    snprintf(percent, sizeof(percent), "%d%%", bookProgress);
+    const int16_t textW = 56;
+    const fui::Rect bar{static_cast<int16_t>(rect.x + pad), static_cast<int16_t>(rect.bottom() - pad - 8),
+                        static_cast<int16_t>(rect.width - 3 * pad - textW), 8};
+    screen.target().stroke(bar, ink, 2, 4);
+    screen.target().fill(fui::Rect{bar.x, bar.y, static_cast<int16_t>(bar.width * bookProgress / 100), bar.height}, ink,
+                         4);
+    auto small = theme.smallText;
+    small.align = fui::TextAlign::Right;
+    screen.target().text(fui::Rect{static_cast<int16_t>(rect.right() - pad - textW),
+                                   static_cast<int16_t>(bar.y - (line - bar.height) / 2), textW, line},
+                         percent, small);
+  }
 }
 
 void FrontlightPanelActivity::addActionTiles(UiScreen& screen) {

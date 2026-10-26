@@ -39,8 +39,9 @@ class FrontlightPanelActivity final : public Activity, private UiAppHost {
   static constexpr int kTileCount = 4;
   // Second row, actions that leave the panel: sleep, file transfer, home.
   static constexpr int kActionTileCount = 3;
-  // Opened over a book: its title heads the panel (empty otherwise).
+  // Opened over a book: its title and progress head the panel (title empty otherwise).
   std::string bookTitle;
+  int bookProgress = -1;
 
   // SliderRowProps embeds a StyleSet, so keep it off the render stack.
   freeink::ui::SliderRowProps rowProps;
