@@ -24,14 +24,23 @@ and host tests.
   without "v").
 * ✅ Simulator build with `-DSIMULATOR_DEVICE_X4_PRO` (touch).
 * ✅ CI and release workflows for `x4pro` firmware and simulator only; issue templates for VaultInk.
-* ✅ Greek UI strings (new strings need Lef's review).
+* ✅ Greek UI strings. ⏳ Lef reviews the strings written for VaultInk.
 * ✅ Greek monotonic and polytonic in the UI fonts and hyphenation.
 * ✅ "Updating for new version..." message when a book's cache is rebuilt after an update.
 * ✅ VaultInk logo (open book with a V) on boot, sleep and the web UI.
-* ✅ Public repo Somnius/VaultInk.
+* ✅ Public repo Somnius/VaultInk, history starting from an import of CrossPoint (credited in the
+  first commit, LICENSE and NOTICE); CrossPoint's agent, governance and contributing files left out.
+* ✅ About screen: logo, what VaultInk is based on (CrossPoint Reader, FreeInk SDK, ideas from
+  CrossNext and KOReader SimpleUI), thanks to kos25k for testing.
+* ✅ Welcome guide on the first start (five pages with pictures), again once after an update that
+  changes it (switch in Settings → System), and any time from Settings → System → Welcome Guide.
+* ⏳ README: the welcome guide's pages as illustrated instructions.
+* ⏳ Translation guide in the repo, a GitHub issue form to request a new language, and a way for
+  translators to work from the English strings file.
 * ⏳ Web installer on GitHub Pages (somnius.github.io/VaultInk): ESP Web Tools, factory image and
   manifest published to Pages by the release workflow (release assets have no CORS headers).
   Install button off until a release is tested on hardware.
+* ⏳ First release (0.1.0), once the X4 Pro arrives and passes the hardware checks below.
 
 ## ⏳ Phase 1 - Vault reader
 
@@ -40,6 +49,8 @@ and host tests.
 * Bigger app slots: drop the `spiffs` partition if nothing uses it, for about 1.7 MiB more
   firmware space. Needs one USB flash.
 * Home: **Vaults** right after **Books**. Vault picker, folder browser, recent notes, Greek paths.
+* Continue card covers vault notes too; each vault remembers its last note.
+* Settings: a Vaults group.
 * `lib/Vault`: Markdown parser (spans, tables, callouts, tasks, code, links, embeds, frontmatter).
 * Note reader with links, back stack, image and note embeds, block refs.
 * Index on SD, incremental, for vaults of 60 MB and more.
@@ -48,7 +59,7 @@ and host tests.
 **Done when:** synthetic test vaults pass the host tests, and Lef's own vaults (tested locally only,
 never in the repo) open and render every feature they use (SPECS.md 5.1) in the simulator.
 
-## ⏳ Phase 1b - New home, menus and reading stats
+## 🚧 Phase 1b - New home, menus and reading stats
 
 **Order:** the home and menu design comes first, before Phase 1's screens, so vault screens are
 built once in the new style.
@@ -56,18 +67,19 @@ built once in the new style.
 **Goal:** a home screen and menus that are clear to use on touch and buttons, not CrossPoint's
 menus with a new name. Designed as screens first (simulator mock-ups), then built.
 
-* 🚧 Home with Books and Vaults first, then the rest (done: list home, new default style; to do:
-  status line counts, Search row). Settings grouped by task: done (Reading, Device; Vaults group
-  comes with Phase 1).
+* ✅ Home with Books and Vaults first, then the rest, as the new default style.
+* ✅ Settings grouped by task (Reading, Device).
+* ⏳ Counts on the home rows (e.g. "128 books"), a Search row, current values in the settings rows.
 * Built as a new home style and made the default; CrossPoint's styles stay selectable for now.
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:
   progress from the XTC/TXT readers, Sync tile (Phase 3).
-* Reader menu: CrossPoint's toolbar sheet (default on touch) kept; tool names added under the
+* ✅ Reader menu: CrossPoint's toolbar sheet (default on touch) kept; tool names added under the
   icons.
-* Swipe up from the bottom for reading settings, swipe down from the top for quick settings.
+* ✅ Swipe down from the top for quick settings. ⏳ Swipe up from the bottom for the reading menu.
 * Reading statistics on the device: time, sessions, streaks, calendar, finished books; notes count too.
 * Library speed: build covers when idle so key presses stay fast.
+* Greek name for the cover-grid style: Εξώφυλλα (done).
 * Ideas taken from CrossNext (MIT) are credited in NOTICE.
 
 ## 💤 Phase 2 - Canvas, read only
@@ -148,6 +160,28 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 
 * Flashcards built from vault notes (spaced repetition), Habits, Pomodoro.
 
+## 💤 Fonts
+
+* A "Suggested fonts" list in Settings → Reader → Manage Fonts, with English and Greek reading
+  fonts the device downloads into `/.fonts/` on the SD card. Only fonts whose licence allows
+  redistribution (e.g. OFL); many Windows fonts that Wine setups install (Microsoft core fonts)
+  don't, so each font is checked first.
+* Mark fonts that cover polytonic Greek.
+
+## 💤 Languages on the SD card
+
+* Indic languages and Burmese as UI languages loaded from the SD card, not built into the
+  firmware (they need their own fonts and text shaping). Check first whether the firmware can load
+  a UI language from the SD card at all; if not, design that.
+
+## 💤 Hardware checks (when the X4 Pro arrives)
+
+* Boot screen, home rows, focus outline and ghosting, cover on the Continue card.
+* A Greek folder name, Greek and polytonic books with an SD font, the cache "Updating" message.
+* Quick settings tiles, welcome guide, About.
+* Update check once a release exists.
+* Scan the I2C bus for a motion sensor the stock firmware doesn't use (none expected).
+
 ## 💤 Battery (needs the device)
 
 * Already in (from CrossPoint): CPU drops to 80 MHz after 3 s idle, deep sleep with the panel off
@@ -159,8 +193,10 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 
 * Audio attachments, Excalidraw drawings.
 * Indic and Burmese text shaping and fonts.
+* XTC and TXT readers share their live progress like the EPUB reader.
 * More devices: M5Stack PaperMono / PaperMono Lite first, then Seeed reTerminal Sticky, then other
-  Xteink models. Same 800x480 screen and 8 MB PSRAM; each needs UI checks and hardware tests.
+  Xteink models (the X3 and X4 Classic have a motion sensor: face-down sleep, lift to wake, tilt
+  page turns). Same 800x480 screen and 8 MB PSRAM; each needs UI checks and hardware tests.
   No test devices yet, so these stay simulator-only and unreleased until someone can test them.
 
 ---
@@ -169,7 +205,7 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 
 * The LiveSync database format is not a stable API (generation 12 to 13 this autumn). We pin tested
   versions and refuse unknown ones.
-* Flash: the x4pro build uses 84.7% of the app slot after Phase 0 (~1.0 MB free). Vault, canvas, sync and
+* Flash: the x4pro build uses 85.1% of the app slot (~1.0 MB free). Vault, canvas, sync and
   editor code must fit in that, or flash is freed (e.g. built-in fonts or UI languages to SD).
 * Big vaults and canvases must be streamed; nothing loads whole into RAM.
 * E-ink canvas pan/zoom needs partial refresh to feel usable.
