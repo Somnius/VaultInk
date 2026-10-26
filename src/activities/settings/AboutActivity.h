@@ -3,7 +3,7 @@
 
 #include "activities/UiListActivity.h"
 
-// Read-only device information: detected hardware (device profile, display
+// VaultInk logo and credits, then read-only device information: detected hardware (device profile, display
 // controller, touch, frontlight, RTC, IMU), firmware version, and MAC address.
 // Rows are informational; activating one does nothing.
 class AboutActivity final : public UiListActivity {
@@ -17,6 +17,7 @@ class AboutActivity final : public UiListActivity {
  private:
   int listCount() const override { return ITEM_COUNT; }
   void buildScreen(UiScreen& screen) override;
+  void buildCredits(UiScreen& screen);
   void activateIndex(int) override {}
   const char* headerTitle() const override;
 

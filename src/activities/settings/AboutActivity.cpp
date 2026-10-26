@@ -5,12 +5,14 @@
 #include <HalClock.h>
 #include <HalFrontlight.h>
 #include <HalTiltSensor.h>
+#include <I18n.h>
 #include <esp_mac.h>
 
 #include <cstdio>
 
 #include "MappedInputManager.h"
 #include "components/UITheme.h"
+#include "images/Logo120.h"
 
 namespace fui = freeink::ui;
 
@@ -122,6 +124,7 @@ void AboutActivity::buildScreen(UiScreen& screen) {
   screen.setContentMarginFromScreen(fui::Insets{static_cast<int16_t>(metrics.topPadding + metrics.headerHeight), 0,
                                                 static_cast<int16_t>(metrics.buttonHintsHeight), 0});
   screen.spacer(static_cast<int16_t>(metrics.verticalSpacing));
+  buildCredits(screen);
 
   for (int i = 0; i < ITEM_COUNT; i++) {
     rowItems_[i].value = rowValues_[i].c_str();
@@ -137,4 +140,35 @@ void AboutActivity::buildScreen(UiScreen& screen) {
   props.labelText.maxLines = 1;
   syncListViewport(screen, props);
   screen.list(props);
+}
+
+// Logo, name and credits above the hardware rows. These lines are for the reader, so unlike the
+// support labels below they are translated.
+void AboutActivity::buildCredits(UiScreen& screen) {
+  const auto& theme = screen.theme();
+  constexpr int16_t LOGO = 120;
+  const fui::Rect top = screen.takeTop(LOGO, theme.spaceSm);
+  renderer.drawImage(Logo120, top.x + (top.width - LOGO) / 2, top.y, LOGO, LOGO);
+
+  auto name = theme.titleText;
+  name.bold = true;
+  name.align = fui::TextAlign::Center;
+  screen.target().text(screen.takeTop(screen.target().lineHeight(name.font), theme.spaceSm),
+                       "VaultInk " CROSSPOINT_VERSION, name);
+
+  auto body = theme.smallText;
+  body.align = fui::TextAlign::Center;
+  body.maxLines = 3;
+  const int16_t line = screen.target().lineHeight(body.font);
+  // Line budget per text: the credits line runs to three lines on a 480px-wide screen.
+  const struct {
+    const char* text;
+    int lines;
+  } texts[] = {{tr(STR_ABOUT_TAGLINE), 2}, {tr(STR_ABOUT_BASED_ON), 3}, {tr(STR_ABOUT_THANKS), 2}};
+  for (const auto& entry : texts) {
+    const fui::Rect rect = screen.takeTop(static_cast<int16_t>(line * entry.lines), theme.spaceSm)
+                               .inset(fui::Insets{0, theme.spaceLg, 0, theme.spaceLg});
+    screen.target().text(rect, entry.text, body);
+  }
+  screen.spacer(theme.spaceMd);
 }
