@@ -1,9 +1,10 @@
 name: CI (build)
 
+# Release tags only (plus a manual run): day-to-day builds and tests run locally.
 on:
   push:
-    branches: [main]
-  pull_request:
+    tags: ["*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
