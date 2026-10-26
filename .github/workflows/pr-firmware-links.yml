@@ -86,7 +86,7 @@ jobs:
               body += `Automatically generated for the latest commit of this PR (\`${shortSha}\`).\n\n`;
               body += `${links.join('\n')}\n\n`;
               body += 'Download the file for your device, extract the `.bin` from the ZIP, then flash it with ';
-              body += '[CrossPoint Reader Flash Tools](https://crosspointreader.com/#flash-tools). ';
+              body += '`esptool` as shown in the README. ';
               body += '**Make sure you use the correct firmware file for your device.**';
 
               if (run.conclusion !== 'success') {

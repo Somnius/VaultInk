@@ -60,7 +60,7 @@ jobs:
           echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
           echo "BRANCH_SUFFIX=${GITHUB_REF_NAME#release/}" >> $GITHUB_ENV
 
-      - name: Build CrossPoint Release Candidate
+      - name: Build VaultInk Release Candidate
         env:
           CROSSPOINT_RC_HASH: ${{ env.SHORT_SHA }}
         run: pio run -e ${{ matrix.pio_env }} -j1

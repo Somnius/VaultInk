@@ -71,7 +71,7 @@ jobs:
           uv pip install --python ~/.platformio/penv/bin/python "pioarduino==6.1.19"
           ~/.platformio/penv/bin/pio --version
 
-      - name: Build CrossPoint
+      - name: Build VaultInk
         env:
           PIO_ENV: ${{ github.event.release.prerelease && matrix.rc_env || matrix.release_env }}
           # Enrollment gate for the LCP service: official releases carry this
