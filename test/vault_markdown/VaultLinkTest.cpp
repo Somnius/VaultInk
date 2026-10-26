@@ -1,0 +1,92 @@
+#include <gtest/gtest.h>
+
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
+
+#include "VaultLink.h"
+
+namespace {
+
+// A small in-memory file tree: paths of files and folders.
+struct FakeFs {
+  std::set<std::string> files;
+  std::set<std::string> dirs;
+  vaultlink::Fs fs() {
+    vaultlink::Fs out;
+    out.exists = [this](const std::string& p) { return files.count(p) > 0 || dirs.count(p) > 0; };
+    out.list = [this](const std::string& dir, const std::function<void(const std::string&, bool)>& entry) {
+      const std::string prefix = dir == "/" ? "/" : dir + "/";
+      for (const auto* set : {&dirs, &files}) {
+        for (const auto& p : *set) {
+          if (p.rfind(prefix, 0) == 0 && p.size() > prefix.size() && p.find('/', prefix.size()) == std::string::npos) {
+            entry(p.substr(prefix.size()), set == &dirs);
+          }
+        }
+      }
+    };
+    return out;
+  }
+};
+
+FakeFs demoVault() {
+  FakeFs f;
+  f.dirs = {"/Vaults",
+            "/Vaults/Demo",
+            "/Vaults/Demo/.obsidian",
+            "/Vaults/Demo/Books",
+            "/Vaults/Demo/Books/Old",
+            "/Vaults/Demo/.trash"};
+  f.files = {"/Vaults/Demo/Welcome.md",    "/Vaults/Demo/Books/Reading list.md", "/Vaults/Demo/Books/Old/Notes.md",
+             "/Vaults/Demo/Notes.md",      "/Vaults/Demo/.trash/Gone.md",        "/Vaults/Demo/Books/cover.png",
+             "/Vaults/Demo/Books/Ιθάκη.md"};
+  return f;
+}
+
+}  // namespace
+
+TEST(VaultLink, Parse) {
+  vaultlink::Target t;
+  ASSERT_TRUE(vaultlink::parse("vault:Note#Heading", t));
+  EXPECT_EQ(t.note, "Note");
+  EXPECT_EQ(t.anchor, "Heading");
+  ASSERT_TRUE(vaultlink::parse("vault:other%20note.md", t));
+  EXPECT_EQ(t.note, "other note.md");
+  EXPECT_EQ(t.anchor, "");
+  EXPECT_FALSE(vaultlink::parse("https://example.com", t));
+  EXPECT_FALSE(vaultlink::parse("vault:", t));
+}
+
+TEST(VaultLink, FileNames) {
+  EXPECT_EQ(vaultlink::fileNameFor("Note"), "Note.md");
+  EXPECT_EQ(vaultlink::fileNameFor("pic.png"), "pic.png");
+  EXPECT_EQ(vaultlink::fileNameFor("v1.2 notes/Plan"), "v1.2 notes/Plan.md");
+  EXPECT_TRUE(vaultlink::sameName("Reading List.md", "reading list.md"));
+}
+
+TEST(VaultLink, VaultRoot) {
+  auto f = demoVault();
+  EXPECT_EQ(vaultlink::vaultRoot("/Vaults/Demo/Books/Old/Notes.md", f.fs()), "/Vaults/Demo");
+  EXPECT_EQ(vaultlink::vaultRoot("/books/x.md", f.fs()), "/books");
+}
+
+TEST(VaultLink, ResolvesLikeObsidian) {
+  auto f = demoVault();
+  const auto fs = f.fs();
+  auto resolve = [&](const std::string& note, const std::string& from) {
+    vaultlink::Target t{note, ""};
+    return vaultlink::resolve("/Vaults/Demo", from, t, fs);
+  };
+  // Same folder first, then the shortest path in the vault.
+  EXPECT_EQ(resolve("Notes", "/Vaults/Demo/Books/Old"), "/Vaults/Demo/Books/Old/Notes.md");
+  EXPECT_EQ(resolve("Notes", "/Vaults/Demo/Books"), "/Vaults/Demo/Notes.md");
+  EXPECT_EQ(resolve("reading list", "/Vaults/Demo"), "/Vaults/Demo/Books/Reading list.md");
+  // Paths, attachments, Greek names.
+  EXPECT_EQ(resolve("Books/Old/Notes", "/Vaults/Demo"), "/Vaults/Demo/Books/Old/Notes.md");
+  EXPECT_EQ(resolve("cover.png", "/Vaults/Demo"), "/Vaults/Demo/Books/cover.png");
+  EXPECT_EQ(resolve("Ιθάκη", "/Vaults/Demo"), "/Vaults/Demo/Books/Ιθάκη.md");
+  // Dot folders are not searched; missing notes resolve to nothing.
+  EXPECT_EQ(resolve("Gone", "/Vaults/Demo"), "");
+  EXPECT_EQ(resolve("Missing", "/Vaults/Demo"), "");
+}

@@ -1,6 +1,8 @@
 add_executable(VaultMarkdownTest
   MarkdownToHtmlTest.cpp
+  VaultLinkTest.cpp
   ${REPO_ROOT}/lib/Vault/MarkdownToHtml.cpp
+  ${REPO_ROOT}/lib/Vault/VaultLink.cpp
 )
 
 target_include_directories(VaultMarkdownTest PRIVATE
