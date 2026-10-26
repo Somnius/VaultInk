@@ -12,6 +12,8 @@
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
+#include "RecentBooksStore.h"
+#include "activities/ActivityManager.h"
 #include "components/UITheme.h"
 #include "components/UIThemeTokens.h"
 #include "components/icons/customListIcons.h"
@@ -38,6 +40,7 @@ constexpr int16_t kGrabberHeight = 5;     // fui::SheetProps default, mirrored h
 constexpr int16_t kSliderRowHeight = 56;  // the pill itself (finger-sized)
 constexpr int16_t kQuickControlSize = 48;
 constexpr int16_t kQuickIconSize = 32;
+constexpr int16_t kBookCardHeight = 44;  // one title line
 // One percent per press, on the -/+ buttons and on the physical Left/Right keys
 // alike (both repeat while held), so a level can be set exactly.
 constexpr int BRIGHTNESS_STEP = 1;
@@ -73,6 +76,12 @@ void FrontlightPanelActivity::onEnter() {
   if (SETTINGS.touchReaderControls != CrossPointSettings::TOUCH_READER_OFF) {
     touchModeRestore = SETTINGS.touchReaderControls;
   }
+
+  // Title only: reading progress would need a second copy of the book's metadata in RAM while
+  // the reader is open, and its saved position can lag the page on screen.
+  bookTitle.clear();
+  const auto& recent = RECENT_BOOKS.getBooks();
+  if (activityManager.isReaderActivity() && !recent.empty()) bookTitle = recent.front().title;
 
   resetUi();
   app.on(ACTION_BRIGHTNESS, &FrontlightPanelActivity::onBrightnessEvent, this);
@@ -164,6 +173,16 @@ void FrontlightPanelActivity::runTile(const int idx) {
       // Only the setting changes: turning the renderer cropped the portrait-only
       // screens the panel opens over. The reader reflows on its next loop().
       requestUpdate();
+      break;
+    case kTileCount:  // Sleep now
+      close();
+      activityManager.requestSleep();
+      break;
+    case kTileCount + 1:  // File transfer
+      activityManager.goToFileTransfer();
+      break;
+    case kTileCount + 2:  // Home (leaves the book too)
+      activityManager.goHome();
       break;
     case 3:  // Touch reader controls (for reading with the palm on the glass)
       // Toggles the existing Settings -> Controls option, nothing lower-level:
@@ -279,6 +298,7 @@ int FrontlightPanelActivity::computePanelBottom() const {
   // Slim battery band + the air around it (mirrors buildPanelScreen).
   const int y0 = std::max<int>(metrics.batteryHeight, lineHeight);
   int y = tokens.spaceMd + y0 + tokens.spaceMd;
+  if (!bookTitle.empty()) y += kBookCardHeight + tokens.spaceMd;  // addBookCard()
   if (Frontlight.present()) {
     // Screen::sliderRow reserves caption + spaceMd + control band, then a
     // spaceMd gap; addSliderRow() adds one more spaceMd of air after each row.
@@ -290,7 +310,7 @@ int FrontlightPanelActivity::computePanelBottom() const {
   }
   // Icons are touch targets, so a buttons-only board gets no row and the
   // sheet is exactly the frontlight controls.
-  if (mappedInput.hasTouch()) y += kQuickControlSize + tokens.spaceSm + lineHeight;
+  if (mappedInput.hasTouch()) y += 2 * (kQuickControlSize + tokens.spaceSm + lineHeight) + tokens.spaceMd;
   // The sheet's grabber band: content margin + grabber + air to the edge.
   // buildPanelScreen() feeds the same theme spacings into SheetProps.
   y += tokens.spaceLg + kGrabberHeight + tokens.spaceLg + tokens.spaceMd;
@@ -366,6 +386,8 @@ void FrontlightPanelActivity::buildPanelScreen(UiScreen& screen) {
         nullptr);
   }
 
+  if (!bookTitle.empty()) addBookCard(screen);
+
   if (Frontlight.present()) {
     addSliderRow(screen, tr(STR_BRIGHTNESS), brightness, ACTION_BRIGHTNESS, ACTION_BRIGHTNESS_STEP,
                  /*showToggle=*/!slideSwitchOwnsLight());
@@ -423,6 +445,56 @@ void FrontlightPanelActivity::buildPanelScreen(UiScreen& screen) {
       }
       screen.frame().hit(slot, ACTION_TILE, static_cast<int16_t>(id), fui::InputTouch);
     }
+  }
+  if (mappedInput.hasTouch()) addActionTiles(screen);
+}
+
+void FrontlightPanelActivity::addBookCard(UiScreen& screen) {
+  const auto& theme = screen.theme();
+  const fui::Rect rect = screen.takeTop(kBookCardHeight, theme.spaceMd);
+  const fui::Paint ink = fui::Paint::solid(fui::Color::Black);
+  screen.target().stroke(rect, ink, 2, 10);
+  const int16_t pad = theme.spaceMd;
+  const int16_t line = screen.target().lineHeight(theme.bodyText.font);
+  auto title = theme.bodyText;
+  title.bold = true;
+  title.maxLines = 1;
+  screen.target().text(
+      fui::Rect{static_cast<int16_t>(rect.x + pad), static_cast<int16_t>(rect.y + (rect.height - line) / 2),
+                static_cast<int16_t>(rect.width - 2 * pad), line},
+      bookTitle.c_str(), title);
+}
+
+void FrontlightPanelActivity::addActionTiles(UiScreen& screen) {
+  const auto& theme = screen.theme();
+  const fui::BitmapRef icons[kActionTileCount] = {
+      fui::bitmapFromIcon(icon_power_32), fui::bitmapFromIcon(icon_download_32), fui::bitmapFromIcon(icon_house_32)};
+  const char* labels[kActionTileCount] = {tr(STR_QS_SLEEP), tr(STR_QS_TRANSFER), tr(STR_QS_HOME)};
+  const int16_t labelHeight = screen.target().lineHeight(theme.smallText.font);
+  screen.spacer(theme.spaceMd);
+  const fui::Rect row = screen.takeTop(kQuickControlSize + theme.spaceSm + labelHeight);
+  const fui::Paint ink = fui::Paint::solid(fui::Color::Black);
+  // Same slot width as the first row, so the circles line up in columns.
+  // Home only matters over a book; on the home screen the panel is already one Back away.
+  const int count = bookTitle.empty() ? kActionTileCount - 1 : kActionTileCount;
+  for (int id = 0; id < count; ++id) {
+    const int16_t left = static_cast<int16_t>(row.x + row.width * id / kTileCount);
+    const int16_t right = static_cast<int16_t>(row.x + row.width * (id + 1) / kTileCount);
+    const fui::Rect slot{left, row.y, static_cast<int16_t>(right - left), row.height};
+    const fui::Rect circle{static_cast<int16_t>(slot.x + (slot.width - kQuickControlSize) / 2), row.y,
+                           kQuickControlSize, kQuickControlSize};
+    screen.target().stroke(circle, ink, 2, kQuickControlSize / 2);
+    const fui::Rect iconRect{static_cast<int16_t>(circle.x + (circle.width - kQuickIconSize) / 2),
+                             static_cast<int16_t>(circle.y + (circle.height - kQuickIconSize) / 2), kQuickIconSize,
+                             kQuickIconSize};
+    screen.target().bitmap(iconRect, icons[id], fui::BitmapMode::Center, ink, fui::Rotation::None);
+    fui::TextStyle text = theme.smallText;
+    text.align = fui::TextAlign::Center;
+    text.maxLines = 1;
+    screen.target().text(
+        fui::Rect{slot.x, static_cast<int16_t>(row.y + kQuickControlSize + theme.spaceSm), slot.width, labelHeight},
+        labels[id], text);
+    screen.frame().hit(slot, ACTION_TILE, static_cast<int16_t>(kTileCount + id), fui::InputTouch);
   }
 }
 

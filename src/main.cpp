@@ -994,6 +994,11 @@ void loop() {
     return;
   }
 
+  if (activityManager.takeSleepRequest()) {
+    enterDeepSleep();
+    return;
+  }
+
   const unsigned long sleepTimeoutMs = SETTINGS.getSleepTimeoutMs();
   if (sleepTimeoutMs > 0 && millis() - lastActivityTime >= sleepTimeoutMs) {
     LOG_DBG("SLP", "Auto-sleep triggered after %lu ms of inactivity", sleepTimeoutMs);

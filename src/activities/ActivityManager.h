@@ -41,6 +41,7 @@ class ActivityManager {
   GfxRenderer& renderer;
   MappedInputManager& mappedInput;
   std::vector<std::unique_ptr<Activity>> stackActivities;
+  bool sleepRequested = false;
   std::unique_ptr<Activity> currentActivity;
 
   void exitActivity(const RenderLock& lock);
@@ -95,6 +96,14 @@ class ActivityManager {
   void goToPlugins(bool showOpds);
   void goToReader(std::string path, bool allowFastInitialRefresh = false);
   void goToSleep(bool fromTimeout = false);
+  // A screen asks for deep sleep (e.g. the quick-settings Sleep tile); main's loop takes the
+  // request and runs the normal sleep path.
+  void requestSleep() { sleepRequested = true; }
+  bool takeSleepRequest() {
+    const bool requested = sleepRequested;
+    sleepRequested = false;
+    return requested;
+  }
   void goToBoot();
   void goToFullScreenMessage(std::string message, EpdFontFamily::Style style = EpdFontFamily::REGULAR);
   void goToCrashReport();

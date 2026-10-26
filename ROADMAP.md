@@ -57,7 +57,9 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * 🚧 Home with Books and Vaults first, then the rest (done: list home, new default style; to do:
   status line counts, Search row). Settings grouped by task: to do.
 * Built as a new home style and made the default; CrossPoint's styles stay selectable for now.
-* Quick settings build on CrossPoint's control centre (status-bar tap or top swipe).
+* 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
+  done: Sleep / Transfer / Home tiles, book title over a book. To do: live reading progress
+  from the reader, Sync tile (Phase 3).
 * Swipe up from the bottom for reading settings, swipe down from the top for quick settings.
 * Reading statistics on the device: time, sessions, streaks, calendar, finished books; notes count too.
 * Library speed: build covers when idle so key presses stay fast.

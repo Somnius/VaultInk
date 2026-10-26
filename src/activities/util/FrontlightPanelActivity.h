@@ -37,6 +37,10 @@ class FrontlightPanelActivity final : public Activity, private UiAppHost {
 
   // Quick settings, left to right: night mode, refresh, orientation, touch.
   static constexpr int kTileCount = 4;
+  // Second row, actions that leave the panel: sleep, file transfer, home.
+  static constexpr int kActionTileCount = 3;
+  // Opened over a book: its title heads the panel (empty otherwise).
+  std::string bookTitle;
 
   // SliderRowProps embeds a StyleSet, so keep it off the render stack.
   freeink::ui::SliderRowProps rowProps;
@@ -50,6 +54,8 @@ class FrontlightPanelActivity final : public Activity, private UiAppHost {
   static void onTileEvent(const freeink::ui::ActionEvent& event, void* user);
 
   void buildPanelScreen(UiScreen& screen);
+  void addBookCard(UiScreen& screen);
+  void addActionTiles(UiScreen& screen);
   // One slider row: a caption line (name + live percentage) above
   // [-] [draggable 1-bit capsule] [+], plus a lamp on/off button after the +
   // when showToggle is set (the brightness row).
