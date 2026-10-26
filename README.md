@@ -35,7 +35,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Early days.** Version 0.5.0 opens your vaults, reads their notes, links and images, Greek
+> **Early days.** Version 0.6.0 opens your vaults, reads their notes, links and images, Greek
 > included, and searches them. Sync isn't in yet. Nothing has been tested on real hardware so far. All the screenshots below
 > come from the simulator. Please don't flash this onto your daily reader yet.
 
@@ -64,6 +64,17 @@ vault.
 The on-screen keyboard types Greek and English. The globe key switches between them. Hold a vowel
 for its accent (ά έ ή ί ό ύ ώ); ϊ and ϋ have their own keys, and holding them gives ΐ and ΰ. With
 the Greek interface the keyboard opens in Greek.
+
+### Page backgrounds
+
+<p><img src="docs/images/vaultink/paper.gif" width="240" alt="Swiping down quick settings and tapping the paper tile to change the page background"></p>
+
+Swipe down from the top for quick settings, then tap the paper tile to change the page background
+under the text. It's also under **Settings → Reader → Page Background**. The choices are plain,
+paper, sandpaper, papyrus (soft, medium and hard), toilet paper, kitchen paper and bath towel.
+
+This one is mostly for fun 😄. Plain is the default and the easiest to read, but the papyrus ones
+are actually nice for a long read. The idea came from kos25k.
 
 ### Home, reading and settings
 
@@ -112,6 +123,7 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   and any folder with `.obsidian` in it). Search looks through all of them by title, alias, tag and
   text. Accents don't matter, so `καλημερα` finds `Καλημέρα`.
 - **Greek and English keyboard** on screen, switched with the globe key.
+- **Page backgrounds**, from plain to papyrus to bath towel, [mostly for fun](#page-backgrounds).
 - **A new home screen.** The book you're reading sits at the top, followed by Books and Vaults, then
   Files, Transfer, Plugins and Settings. Every row says in one line what's behind it. You can use
   touch or the buttons. CrossPoint's own home styles are still there under Settings → Display.
