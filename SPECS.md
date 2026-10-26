@@ -77,6 +77,24 @@ Hardware testing waits for Lef's device. Until then, testing uses
 - Big buffers go in PSRAM. Every allocation has a fixed cap and a failure path (see
   `.agents/rules/hardware-resources.md`). Nothing loads a whole note, vault or canvas into RAM.
 
+### 3.1 Home and menus (Phase 1b)
+
+Approved design: `docs/design/` (home, quick settings, reading menu, settings; drawn by
+`docs/design/mockups.py`).
+
+- Home is one vertical list: a Continue card (cover, title, progress, today's reading time and
+  streak), then Books and Vaults as the two big rows, then Search, Files, Transfer, Plugins,
+  Settings. Each row has an icon, a title and a one-line status. It fits on one screen.
+- Buttons: up/down move one focus highlight (thick outline and a bar on the left; only the two
+  changed rows are redrawn), OK opens, Back goes back. A hint line shows the keys.
+- No large black areas (they ghost on 4-level e-ink).
+- Quick settings: opened by tapping the status group (light, Wi-Fi, sync, battery) at the top, by
+  swiping down, or by a button hold (which button is decided on the device). Tiles: Light, Wi-Fi,
+  Sync now, Rotate, Sleep, Transfer. Brightness and warmth use - / + steps, not sliders.
+- Reading menu: OK or a swipe up opens a bottom sheet with title, progress, Contents, Bookmark,
+  Search, Highlights, a text-size stepper, and Font / Spacing / Margins. Buttons step through it.
+- Settings are grouped by task: Reading, Vaults, Device. Each row shows its current value.
+
 ## 4. Vaults on the SD card
 
 - A vault is any folder that contains `.obsidian/`, or a folder the user picks. Default root: `/Vaults/`.
