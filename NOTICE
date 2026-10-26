@@ -18,5 +18,6 @@ Third-party code and assets in this repository keep their own licences:
 - Noto Sans, Noto Serif, Noto Sans Arabic, Noto Sans Hebrew, OpenDyslexic
   (built-in fonts): SIL Open Font License 1.1.
 - Ubuntu font (built-in UI fonts): Ubuntu Font Licence 1.0.
+- Lucide icons (src/components/icons): ISC License, Copyright (c) Lucide Contributors.
 
 See the licence files and headers inside each directory for the full terms.
