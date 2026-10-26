@@ -55,6 +55,7 @@ built once in the new style.
 menus with a new name. Designed as screens first (simulator mock-ups), then built.
 
 * Home with Books and Vaults first, then the rest; settings grouped by task.
+* Built as a new home style and made the default; CrossPoint's styles stay selectable for now.
 * Swipe up from the bottom for reading settings, swipe down from the top for quick settings.
 * Reading statistics on the device: time, sessions, streaks, calendar, finished books; notes count too.
 * Library speed: build covers when idle so key presses stay fast.
@@ -87,6 +88,10 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 
 * Separate repo Somnius/VaultInk-Companion (`com.lefteros.vaultink`).
 * Type into the device, quick notes, settings, signed APKs with an in-app update checker.
+* Bring notes in: convert to Markdown into a vault folder (e.g. `Imported/Keep/`). Order:
+  Android share target (any app) -> Google Keep (Takeout) -> Samsung Notes (`.sdocx` export) ->
+  contacts (one note per contact plus a `.vcf` backup) -> formats Obsidian's Importer handles.
+  Other apps' private databases can't be read without root, so only exports and sharing.
 
 ## 💤 Phase 7 - PDF trial
 
