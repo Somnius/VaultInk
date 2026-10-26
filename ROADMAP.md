@@ -28,7 +28,7 @@ and host tests.
 * ✅ Greek UI strings (new strings need Lef's review).
 * ✅ Greek monotonic and polytonic in the UI fonts and hyphenation.
 * ✅ "Updating for new version..." message when a book's cache is rebuilt after an update.
-* ⏳ VaultInk logo for boot, sleep and web UI (Lef picks from drafts).
+* ✅ VaultInk logo (open book with a V) on boot, sleep and the web UI.
 * ⏳ Public repo Somnius/VaultInk.
 
 ## ⏳ Phase 1 - Vault reader
