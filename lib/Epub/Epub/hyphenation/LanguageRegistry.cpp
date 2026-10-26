@@ -5,6 +5,8 @@
 
 #include "HyphenationCommon.h"
 #include "generated/hyph-de.trie.h"
+#include "generated/hyph-el-polyton.trie.h"
+#include "generated/hyph-el.trie.h"
 #include "generated/hyph-en.trie.h"
 #include "generated/hyph-es.trie.h"
 #include "generated/hyph-fi.trie.h"
@@ -30,8 +32,10 @@ LanguageHyphenator ukrainianHyphenator(uk_patterns, isCyrillicLetter, toLowerCyr
 LanguageHyphenator polishHyphenator(pl_patterns, isLatinLetter, toLowerLatin);
 LanguageHyphenator finnishHyphenator(fi_patterns, isLatinLetter, toLowerLatin);
 LanguageHyphenator portugueseHyphenator(pt_patterns, isLatinLetter, toLowerLatin);
+LanguageHyphenator greekHyphenator(el_patterns, isGreekLetter, toLowerGreek);
+LanguageHyphenator polytonicGreekHyphenator(el_polyton_patterns, isGreekLetter, toLowerGreek);
 
-using EntryArray = std::array<LanguageEntry, 11>;
+using EntryArray = std::array<LanguageEntry, 13>;
 
 const EntryArray& entries() {
   static const EntryArray kEntries = {{{"english", "en", &englishHyphenator},
@@ -44,7 +48,9 @@ const EntryArray& entries() {
                                        {"swedish", "sv", &swedishHyphenator},
                                        {"ukrainian", "uk", &ukrainianHyphenator},
                                        {"finnish", "fi", &finnishHyphenator},
-                                       {"portuguese", "pt", &portugueseHyphenator}}};
+                                       {"portuguese", "pt", &portugueseHyphenator},
+                                       {"greek", "el", &greekHyphenator},
+                                       {"ancient-greek", "grc", &polytonicGreekHyphenator}}};
   return kEntries;
 }
 

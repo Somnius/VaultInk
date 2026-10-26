@@ -64,6 +64,7 @@ class Section {
   // A partial section file (suspended build from a previous session) is loaded at filePath.
   // Its pages 0..partialPageCount_-1 are readable while a rebuild extends past them.
   bool partial_ = false;
+  bool staleVersion_ = false;
   uint16_t partialPageCount_ = 0;
   // Parse watermark from the partial's trailer, for estimating the total page count.
   uint32_t partialBytesConsumed_ = 0;
@@ -120,6 +121,8 @@ class Section {
   void suspendBuild();
   // True when a partial file was loaded: pageCount is a watermark, not the chapter total.
   bool isPartial() const { return partial_; }
+  // The last load found a cache written by an older firmware version.
+  bool hadStaleCache() const { return staleVersion_; }
 
   // Unified page read: from the active build if it has reached the page, otherwise from
   // the on-disk file (finalized section, or a partial the rebuild hasn't caught up to).

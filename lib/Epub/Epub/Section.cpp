@@ -76,7 +76,9 @@ namespace {
 // v66: Omit carried no-break spaces at the start of wrapped lines.
 // v67: Count only stretchable literal spaces after visual text reordering.
 // v68: Leave text below drop caps unsplit until it is laid out at full width.
-constexpr uint8_t SECTION_FILE_VERSION = 68;
+// v69: Greek words hyphenate with the Greek patterns whatever the book language says.
+// v70: polytonic Greek words hyphenate with the polytonic patterns.
+constexpr uint8_t SECTION_FILE_VERSION = 70;
 // Written into the version field while a build is in progress; patched to
 // SECTION_FILE_VERSION only when the build is finalized. An abandoned /
 // crash-interrupted .bin therefore carries version 0, which loadSectionFile rejects
@@ -175,6 +177,7 @@ void Section::writeSectionFileHeader(const ReaderRenderSpec& spec) {
 }
 
 bool Section::loadSectionFile(const ReaderRenderSpec& spec) {
+  staleVersion_ = false;
   if (!Storage.openFileForRead("SCT", filePath, file)) {
     return false;
   }
@@ -185,6 +188,8 @@ bool Section::loadSectionFile(const ReaderRenderSpec& spec) {
     uint8_t version;
     serialization::readPod(file, version);
     if (version != SECTION_FILE_VERSION && version != SECTION_FILE_PARTIAL_VERSION) {
+      // Version 0 is an unfinished build, not an older firmware's cache.
+      staleVersion_ = version != 0;
       // Explicit close() required: member variable persists beyond function scope
       file.close();
       LOG_ERR("SCT", "Deserialization failed: Unknown version %u", version);

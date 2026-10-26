@@ -12,9 +12,13 @@ struct CodepointInfo {
 
 uint32_t toLowerLatin(uint32_t cp);
 uint32_t toLowerCyrillic(uint32_t cp);
+uint32_t toLowerGreek(uint32_t cp);
 
 bool isLatinLetter(uint32_t cp);
 bool isCyrillicLetter(uint32_t cp);
+bool isGreekLetter(uint32_t cp);
+// Greek Extended letters that only polytonic text uses (the oxia letters count as monotonic).
+bool isPolytonicGreek(uint32_t cp);
 
 bool isAlphabetic(uint32_t cp);
 bool isPunctuation(uint32_t cp);
