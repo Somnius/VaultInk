@@ -35,7 +35,9 @@ and host tests.
 
 **Goal:** open a real vault from the SD card and read it like in Obsidian.
 
-* Vault picker, folder browser, recent notes, Greek paths.
+* Bigger app slots: drop the `spiffs` partition if nothing uses it, for about 1.7 MiB more
+  firmware space. Needs one USB flash.
+* Home: **Vaults** right after **Books**. Vault picker, folder browser, recent notes, Greek paths.
 * `lib/Vault`: Markdown parser (spans, tables, callouts, tasks, code, links, embeds, frontmatter).
 * Note reader with links, back stack, image and note embeds, block refs.
 * Index on SD, incremental, for vaults of 60 MB and more.
@@ -43,6 +45,17 @@ and host tests.
 
 **Done when:** synthetic test vaults pass the host tests, and Lef's own vaults (tested locally only,
 never in the repo) open and render every feature they use (SPECS.md 5.1) in the simulator.
+
+## 💤 Phase 1b - New home, menus and reading stats
+
+**Goal:** a home screen and menus that are clear to use on touch and buttons, not CrossPoint's
+menus with a new name. Designed as screens first (simulator mock-ups), then built.
+
+* Home with Books and Vaults first, then the rest; settings grouped by task.
+* Swipe up from the bottom for reading settings, swipe down from the top for quick settings.
+* Reading statistics on the device: time, sessions, streaks, calendar, finished books; notes count too.
+* Library speed: build covers when idle so key presses stay fast.
+* Ideas taken from CrossNext (MIT) are credited in NOTICE.
 
 ## 💤 Phase 2 - Canvas, read only
 
@@ -79,6 +92,19 @@ never in the repo) open and render every feature they use (SPECS.md 5.1) in the 
 ## 💤 Phase 8 - Website
 
 * lefteros.com/apps/vaultink and a VaultInk donation page (separate from CrossInk's).
+
+## 💤 SD-card plugins
+
+* Extend VaultInk with SD-card plugins instead of adding to the firmware.
+* Plugins are web pages and on-device catalogs (download, sign in, reading events); they can't run
+  code on the device, so games and timers can't be plugins.
+* VaultInk plugins to write: vault upload from the browser, quick note from the phone into a vault
+  inbox, export highlights to a vault note, Anki deck download.
+* Suggested existing plugins in the docs: Dictionaries, WebDAV, Reading Statistics, wallpapers.
+
+## 💤 Later from CrossNext
+
+* Flashcards built from vault notes (spaced repetition), Habits, Pomodoro.
 
 ## 💤 Battery (needs the device)
 
