@@ -117,7 +117,8 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 
 * Audio attachments, Excalidraw drawings.
 * Indic and Burmese text shaping and fonts.
-* Other devices.
+* More devices: M5Stack PaperMono / PaperMono Lite first, then Seeed reTerminal Sticky, then other
+  Xteink models. Same 800x480 screen and 8 MB PSRAM; each needs UI checks and hardware tests.
 
 ---
 
