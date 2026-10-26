@@ -46,7 +46,18 @@ void open(const std::string& path) {
   activityManager.goToReader(path);
 }
 
+void pushHistory(const std::string& from) {
+  if (history.size() == MAX_HISTORY) history.erase(history.begin());
+  history.push_back(from);
+}
+
 }  // namespace
+
+void openFrom(const std::string& currentPath, const std::string& path) {
+  pushHistory(currentPath);
+  pendingAnchor.clear();
+  open(path);
+}
 
 Follow follow(const std::string& currentPath, const std::string& href, std::string* sameNoteAnchor) {
   vaultlink::Target target;
@@ -64,8 +75,7 @@ Follow follow(const std::string& currentPath, const std::string& href, std::stri
     if (sameNoteAnchor) *sameNoteAnchor = anchor;
     return Follow::SameNote;
   }
-  if (history.size() == MAX_HISTORY) history.erase(history.begin());
-  history.push_back(currentPath);
+  pushHistory(currentPath);
   // Headings are linked by their text; the note's anchors use MarkdownToHtml's ids.
   pendingAnchor = anchor;
   LOG_DBG("VLT", "Following %s -> %s", href.c_str(), path.c_str());

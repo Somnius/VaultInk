@@ -123,10 +123,15 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Stored outside the vault in `/.vaultink/<vault-id>/`, so it is never synced or seen by Obsidian.
   The first line names the format version; a different version means a rebuild.
 - Built (0.4.0): `index.tsv`, one text line per note: path, stamp (size and modification time),
-  title, aliases, tags, folded words (up to 1,500 per note, lines under 60 KB). Searched by
-  streaming the file, so memory stays bounded.
-- Planned: outgoing links, backlinks, heading and block-id anchors, so links and images can use the
-  index instead of scanning the SD card.
+  title, aliases, tags, outgoing links (0.7.0: `[[...]]`, `![[...]]` and `[..](x.md)` targets
+  without alias or heading, up to 200 per note), folded words (up to 1,500 per note, lines under
+  60 KB). Searched by streaming the file, so memory stays bounded.
+- Backlinks (0.7.0): one pass over the index; a note links here when a link equals this note's
+  name, or is a path (with `./` and `../`) that leads to it from the vault root or from the linking
+  note's folder. Case and accents are ignored (search folding, Greek too); `.md` in any case.
+  Links take at most half of an index line.
+- Planned: heading and block-id anchors, and resolving links and images from the index instead of
+  scanning the SD card.
 - Incremental: compare the stamp per file; re-read only changed or new files, copy the rest.
   Runs when Search opens, with a progress popup. Not yet: a background task that can be cancelled.
 - Search: case and accent folding for Latin and Greek, monotonic and polytonic (`ά`/`ἄ`/`ᾄ`→`α`,
@@ -174,7 +179,7 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Note reader: paged, same fonts and settings as the book reader. Saves position per note.
 - Link following: tap a link (touch) or select it with buttons. A back stack of at least 16 notes.
 - Unresolved links are drawn differently and say "note not found".
-- Search, tag list, backlinks for the current note, outgoing links.
+- Search (done), backlinks for the current note (done: More → Backlinks), tag list, outgoing links.
 - Attachments other than images (PDF, docx, audio) are listed but not opened until their phase.
 
 ## 6. Canvas (Phase 2, read only)

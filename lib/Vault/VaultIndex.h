@@ -14,10 +14,11 @@
 // file line by line, so memory stays bounded. File access goes through callbacks for host tests.
 namespace vaultindex {
 
-constexpr const char* INDEX_VERSION = "vaultink-index 2";  // 2: stamp = size and modification time
+constexpr const char* INDEX_VERSION = "vaultink-index 3";  // 3: outgoing links
 // Per note: words kept for search and bytes read from the note.
 constexpr size_t MAX_TERMS_PER_NOTE = 1500;
 constexpr size_t MAX_NOTE_BYTES = 256 * 1024;
+constexpr size_t MAX_LINKS_PER_NOTE = 200;
 // Longest index line written; the reader's line buffer must be at least this big.
 constexpr size_t MAX_LINE_BYTES = 60 * 1024;
 
@@ -27,6 +28,7 @@ struct Note {
   std::string title;   // file name without .md
   std::vector<std::string> aliases;
   std::vector<std::string> tags;   // without '#', as written
+  std::vector<std::string> links;  // link targets as written, without |alias, #heading or .md
   std::vector<std::string> terms;  // folded words, unique
 };
 
@@ -68,6 +70,11 @@ struct Hit {
   std::string title;
   int score = 0;
 };
+// Notes that link to the note at `notePath` in the vault at `root`: by name, or by a path from the
+// vault root or the linking note's folder. Case and accents are ignored. Sorted by title.
+std::vector<Hit> backlinks(const std::string& indexPath, const std::string& root, const std::string& notePath,
+                           const IndexFs& fs, size_t maxResults = 100);
+
 // Notes matching every word of `query` (folded, prefix match), best first.
 std::vector<Hit> search(const std::string& indexPath, std::string_view query, const IndexFs& fs,
                         size_t maxResults = 50);

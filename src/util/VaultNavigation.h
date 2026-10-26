@@ -13,6 +13,9 @@ enum class Follow { NotVaultLink, NotFound, Opened, SameNote };
 // `currentPath` is the note on screen. Opens the target note in a new reader when it resolves.
 Follow follow(const std::string& currentPath, const std::string& href, std::string* sameNoteAnchor = nullptr);
 
+// Opens `path` as if followed from a link in `currentPath` (Back returns to it).
+void openFrom(const std::string& currentPath, const std::string& path);
+
 // Back in a note: true (and the previous note reopens) when there is a note to go back to.
 bool goBack();
 

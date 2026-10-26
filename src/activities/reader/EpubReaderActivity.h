@@ -224,6 +224,11 @@ class EpubReaderActivity final : public ReaderActivity {
   // to be noticed here rather than assumed away.
   uint8_t appliedOrientation = 0;
   uint8_t appliedPaper = 0;  // background of the page last drawn
+  // A Markdown note (opened from a vault or Files): the menu offers backlinks.
+  bool isVaultNote() const {
+    return bookPath.size() > 3 && (bookPath.compare(bookPath.size() - 3, 3, ".md") == 0 ||
+                                   bookPath.compare(bookPath.size() - 3, 3, ".MD") == 0);
+  }
 
   // Modal shown when a protected book refuses to open (loan expired /
   // date unverified); OK exits, "Sync time" (when offered) verifies the

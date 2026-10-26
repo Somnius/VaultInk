@@ -13,13 +13,19 @@
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
 #include "util/VaultFiles.h"
+#include "util/VaultNavigation.h"
 
 namespace fui = freeink::ui;
 
-VaultSearchActivity::VaultSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-    : UiListActivity("VaultSearch", renderer, mappedInput) {}
+VaultSearchActivity::VaultSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
+                                         std::string backlinksOf)
+    : UiListActivity("VaultSearch", renderer, mappedInput),
+      backlinksOf(std::move(backlinksOf)),
+      askPending(this->backlinksOf.empty()) {}
 
-const char* VaultSearchActivity::headerTitle() const { return tr(STR_SEARCH_NOTES); }
+const char* VaultSearchActivity::headerTitle() const {
+  return backlinkMode() ? tr(STR_BACKLINKS) : tr(STR_SEARCH_NOTES);
+}
 
 void VaultSearchActivity::onEnter() {
   UiListActivity::onEnter();
@@ -32,6 +38,7 @@ void VaultSearchActivity::loop() {
   if (!indexed) {
     indexed = true;
     updateIndexes();
+    if (backlinkMode()) findBacklinks();
   }
   if (askPending) {
     askPending = false;
@@ -42,7 +49,13 @@ void VaultSearchActivity::loop() {
 }
 
 void VaultSearchActivity::updateIndexes() {
-  const auto vaults = vaultfiles::findVaults();
+  auto vaults = vaultfiles::findVaults();
+  // Backlinks only need the note's own vault.
+  if (backlinkMode()) {
+    vaults.erase(std::remove_if(vaults.begin(), vaults.end(),
+                                [&](const vaultfiles::Vault& v) { return backlinksOf.rfind(v.path + "/", 0) != 0; }),
+                 vaults.end());
+  }
   const auto fs = vaultfiles::sdFs();
   Rect popup{};
   bool shown = false;
@@ -108,7 +121,38 @@ void VaultSearchActivity::runSearch(const std::string& text) {
   requestUpdate();
 }
 
+void VaultSearchActivity::findBacklinks() {
+  results.clear();
+  const auto fs = vaultfiles::sdFs();
+  for (const auto& vault : vaultfiles::findVaults()) {
+    if (backlinksOf.rfind(vault.path + "/", 0) != 0) continue;
+    for (auto& hit : vaultindex::backlinks(vaultfiles::indexPathFor(vault.path), vault.path, backlinksOf, fs, MAX_RESULTS)) {
+      std::string folder = hit.path.substr(vault.path.size());
+      folder = folder.substr(0, folder.find_last_of('/'));
+      if (!folder.empty() && folder.front() == '/') folder.erase(0, 1);
+      std::string where = vault.name;
+      if (!folder.empty()) where += " · " + folder;
+      results.push_back({0, std::move(hit.path), std::move(hit.title), std::move(where)});
+    }
+  }
+  LOG_DBG("VLT", "Backlinks of %s: %u", backlinksOf.c_str(), static_cast<unsigned>(results.size()));
+  rebuildRows();
+  nav.selected = 0;
+  requestUpdate();
+}
+
 void VaultSearchActivity::rebuildRows() {
+  if (backlinkMode()) {
+    rows.assign(std::max<size_t>(results.size(), 1), fui::ListItem{});
+    if (results.empty()) rows[0].label = indexed ? tr(STR_NO_BACKLINKS) : tr(STR_UPDATING_SEARCH);
+    for (size_t i = 0; i < results.size(); ++i) {
+      rows[i].label = results[i].title.c_str();
+      rows[i].subtitle = results[i].where.c_str();
+      rows[i].icon = fui::bitmapFromIcon(icon_file_text_32);
+      rows[i].actionValue = static_cast<int16_t>(i);
+    }
+    return;
+  }
   queryLabel = std::string(tr(STR_SEARCH_NOTES)) + ": " + query;
   rows.assign(results.size() + 1, fui::ListItem{});
   rows[0].label = queryLabel.c_str();
@@ -139,12 +183,24 @@ void VaultSearchActivity::buildScreen(UiScreen& screen) {
 
 void VaultSearchActivity::activateIndex(const int index) {
   app.clearTapFlash();
-  if (index == 0) {
+  if (!backlinkMode() && index == 0) {
     askForQuery();
     return;
   }
-  const size_t i = static_cast<size_t>(index - 1);
-  if (i < results.size()) activityManager.goToReader(results[i].path);
+  const int i = index - resultOffset();
+  if (i < 0 || i >= static_cast<int>(results.size())) return;
+  // From a note's backlinks, Back in the opened note returns to that note.
+  if (backlinkMode()) {
+    vaultnav::openFrom(backlinksOf, results[i].path);
+  } else {
+    activityManager.goToReader(results[i].path);
+  }
 }
 
-void VaultSearchActivity::onBackButton() { onGoHome(); }
+void VaultSearchActivity::onBackButton() {
+  if (backlinkMode()) {
+    finish();
+  } else {
+    onGoHome();
+  }
+}

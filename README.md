@@ -121,7 +121,8 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   Back to return.
 - **Vaults and search.** The Vaults row lists every vault on the SD card (folders under `Vaults/`
   and any folder with `.obsidian` in it). Search looks through all of them by title, alias, tag and
-  text. Accents don't matter, so `καλημερα` finds `Καλημέρα`.
+  text. Accents don't matter, so `καλημερα` finds `Καλημέρα`. In a note, **More → Backlinks** lists
+  the notes that link to it.
 - **Greek and English keyboard** on screen, switched with the globe key.
 - **Page backgrounds**, from plain to papyrus to bath towel, [mostly for fun](#page-backgrounds).
 - **A new home screen.** The book you're reading sits at the top, followed by Books and Vaults, then

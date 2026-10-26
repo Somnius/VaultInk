@@ -69,11 +69,13 @@ and host tests.
   check whether the reader can draw better before changing the converter.
 * Note reader with links, back stack, image and note embeds, block refs.
 * 🚧 Index on SD, incremental, for vaults of 60 MB and more. ✅ Search index per vault (title,
-  aliases, tags, words), updated by size and modification time. To do: use it for links and images
-  too, instead of the SD scan they use today (fine for small vaults, slow for thousands of notes).
+  aliases, tags, outgoing links, words), updated by size and modification time. To do: use it to
+  resolve links and images too, instead of the SD scan they use today (fine for small vaults, slow
+  for thousands of notes), and store heading anchors.
 * 🚧 Search: ✅ Search row on home, all vaults at once, Greek and accent folding, tags and aliases,
   exact words ranked first. ✅ Greek on-screen keyboard (with English, switched by the globe
-  key; offered to the FreeInk SDK upstream). To do: backlinks.
+  key; offered to the FreeInk SDK upstream). ✅ Backlinks: More → Backlinks in a note lists the
+  notes that link to it; Back from one returns to the note (0.7.0).
 
 **Done when:** synthetic test vaults pass the host tests, and Lef's own vaults (tested locally only,
 never in the repo) open and render every feature they use (SPECS.md 5.1) in the simulator.

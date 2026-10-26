@@ -1,6 +1,7 @@
 #include "VaultIndex.h"
 
 #include <algorithm>
+#include <cctype>
 #include <deque>
 #include <map>
 #include <set>
@@ -140,6 +141,44 @@ Note scanNote(const std::string& path, std::string_view text) {
     i = end;
   }
 
+  // Outgoing links: [[Target|alias]], ![[Target#heading]] and [text](Target.md).
+  auto addLink = [&](std::string_view target) {
+    target = trim(target.substr(0, target.find_first_of("|#")));
+    if (target.size() > 3 && (target.substr(target.size() - 3) == ".md" || target.substr(target.size() - 3) == ".MD")) {
+      target.remove_suffix(3);
+    }
+    std::string link;
+    for (size_t k = 0; k < target.size(); ++k) {  // Markdown links write spaces as %20
+      if (target.substr(k, 3) == "%20") {
+        link += ' ';
+        k += 2;
+      } else {
+        link += target[k];
+      }
+    }
+    if (link.empty() || note.links.size() >= MAX_LINKS_PER_NOTE) return;
+    if (std::find(note.links.begin(), note.links.end(), link) == note.links.end()) note.links.push_back(link);
+  };
+  for (size_t i = body.find("[["); i != std::string_view::npos; i = body.find("[[", i)) {
+    const size_t end = body.find("]]", i + 2);
+    const size_t nl = body.find('\n', i + 2);
+    if (end == std::string_view::npos || (nl != std::string_view::npos && nl < end)) {
+      i += 2;
+      continue;
+    }
+    addLink(body.substr(i + 2, end - i - 2));
+    i = end + 2;
+  }
+  for (size_t i = body.find("]("); i != std::string_view::npos; i = body.find("](", i + 2)) {
+    const size_t end = body.find(')', i + 2);
+    if (end == std::string_view::npos) break;
+    const std::string_view target = body.substr(i + 2, end - i - 2);
+    if (target.find("://") == std::string_view::npos && target.find('\n') == std::string_view::npos &&
+        target.find(".md") != std::string_view::npos) {
+      addLink(target);
+    }
+  }
+
   std::set<std::string> seen;
   auto addTerms = [&](std::string_view s) {
     for (auto& w : textfold::words(s)) {
@@ -164,6 +203,14 @@ std::string toLine(const Note& note) {
   };
   std::string line = clean(note.path) + FIELD + std::to_string(note.stamp) + FIELD + clean(note.title) + FIELD +
                      joinItems(note.aliases, ITEM) + FIELD + joinItems(note.tags, ITEM) + FIELD;
+  // Links take at most half the line budget, terms fill the rest, so every line reads back whole.
+  for (const auto& link : note.links) {
+    const std::string item = clean(link);
+    if (line.size() + item.size() + 1 > MAX_LINE_BYTES / 2) break;
+    if (line.back() != FIELD) line += ITEM;
+    line += item;
+  }
+  line += FIELD;
   // Terms fill what is left of the line budget, so every line reads back whole.
   for (const auto& term : note.terms) {
     if (line.size() + term.size() + 1 > MAX_LINE_BYTES) break;
@@ -176,9 +223,9 @@ std::string toLine(const Note& note) {
 bool fromLine(std::string_view line, Note& note) {
   std::vector<std::string> fields;
   size_t start = 0;
-  for (int f = 0; f < 6; ++f) {
-    const size_t tab = f < 5 ? line.find(FIELD, start) : std::string_view::npos;
-    if (f < 5 && tab == std::string_view::npos) return false;
+  for (int f = 0; f < 7; ++f) {
+    const size_t tab = f < 6 ? line.find(FIELD, start) : std::string_view::npos;
+    if (f < 6 && tab == std::string_view::npos) return false;
     fields.emplace_back(line.substr(start, tab == std::string_view::npos ? std::string_view::npos : tab - start));
     start = tab + 1;
   }
@@ -188,7 +235,8 @@ bool fromLine(std::string_view line, Note& note) {
   note.title = fields[2];
   splitInto(fields[3], ITEM, note.aliases);
   splitInto(fields[4], ITEM, note.tags);
-  splitInto(fields[5], ' ', note.terms);
+  splitInto(fields[5], ITEM, note.links);
+  splitInto(fields[6], ' ', note.terms);
   return !note.path.empty();
 }
 
@@ -280,6 +328,62 @@ bool build(const std::string& root, const std::string& indexPath, const IndexFs&
     stats->rescanned = rescanned;
   }
   return ok;
+}
+
+std::vector<Hit> backlinks(const std::string& indexPath, const std::string& root, const std::string& notePath,
+                           const IndexFs& fs, const size_t maxResults) {
+  // Compared folded (case and accents, Greek too), with ".md" dropped in any case.
+  auto key = [](std::string_view path) {
+    std::string k = textfold::fold(path);
+    if (k.size() > 3 && k.compare(k.size() - 3, 3, ".md") == 0) k.resize(k.size() - 3);
+    return k;
+  };
+  // "a/./b/../c" -> "a/c"; false when ".." climbs above the start.
+  auto normalize = [](const std::string& path, std::string& out) {
+    std::vector<std::string> parts;
+    std::vector<std::string> pieces;
+    splitInto(path, '/', pieces);
+    for (const auto& p : pieces) {
+      if (p.empty() || p == ".") continue;
+      if (p == "..") {
+        if (parts.empty()) return false;
+        parts.pop_back();
+      } else {
+        parts.push_back(p);
+      }
+    }
+    out.clear();
+    for (const auto& p : parts) out += "/" + p;
+    return true;
+  };
+  const std::string title = key(titleOf(notePath));
+  const std::string target = key(notePath);
+  std::vector<Hit> hits;
+  bool header = true;
+  fs.lines(indexPath, [&](std::string_view line) {
+    if (header) {
+      header = false;
+      return line == INDEX_VERSION;
+    }
+    Note note;
+    if (!fromLine(line, note) || note.path == notePath) return true;
+    const std::string dir = note.path.substr(0, note.path.find_last_of('/'));
+    // A bare name matches by title; a path is relative to the vault root or the linking note, as
+    // vaultlink::resolve does.
+    auto pointsHere = [&](const std::string& link) {
+      if (link.find('/') == std::string::npos) return key(link) == title;
+      std::string resolved;
+      for (const std::string& base : {root, dir}) {
+        if (normalize(base + "/" + link, resolved) && key(resolved) == target) return true;
+      }
+      return false;
+    };
+    if (std::any_of(note.links.begin(), note.links.end(), pointsHere)) hits.push_back({note.path, note.title, 0});
+    return true;
+  });
+  std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) { return a.title < b.title; });
+  if (hits.size() > maxResults) hits.resize(maxResults);
+  return hits;
 }
 
 std::vector<Hit> search(const std::string& indexPath, std::string_view query, const IndexFs& fs,

@@ -9,9 +9,10 @@
 
 // Search across every vault: brings each vault's index up to date (with a progress popup), asks
 // for the words with the on-screen keyboard, lists the matching notes and opens the picked one.
+// Given a note path instead, lists the notes in its vault that link to it (backlinks).
 class VaultSearchActivity final : public UiListActivity {
  public:
-  explicit VaultSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput);
+  explicit VaultSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string backlinksOf = {});
   void onEnter() override;
   void loop() override;
 
@@ -34,7 +35,12 @@ class VaultSearchActivity final : public UiListActivity {
   void askForQuery();
   void runSearch(const std::string& text);
   void rebuildRows();
+  void findBacklinks();
+  bool backlinkMode() const { return !backlinksOf.empty(); }
+  // Rows before the first result: the query row in search mode, none for backlinks.
+  int resultOffset() const { return backlinkMode() ? 0 : 1; }
 
+  std::string backlinksOf;
   bool indexed = false;
   bool askPending = true;
   std::string query;

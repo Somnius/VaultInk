@@ -151,3 +151,49 @@ TEST(VaultIndex, SearchFoldsGreekAndRanksTitles) {
   EXPECT_TRUE(vaultindex::search(INDEX, "milk zebra", m.fs()).empty());
   EXPECT_EQ(vaultindex::search(INDEX, "guide", m.fs()).size(), 1u);  // inline tag
 }
+
+TEST(VaultIndex, LinksAndBacklinks) {
+  const auto note = vaultindex::scanNote("/V/A.md",
+                                         "See [[Target|the target]], ![[Pics/cat.png]], [[Deep/Note#Part]] and "
+                                         "[md](Other%20Note.md) and [web](https://x.org/a.md). [[Target]] again.");
+  EXPECT_EQ(note.links, (std::vector<std::string>{"Target", "Pics/cat.png", "Deep/Note", "Other Note"}));
+  vaultindex::Note back;
+  ASSERT_TRUE(vaultindex::fromLine(vaultindex::toLine(note), back));
+  EXPECT_EQ(back.links, note.links);
+
+  MemFs m;
+  m.dirs = {"/V", "/V/Deep", "/V/Other"};
+  m.files["/V/A.md"] = "Links to [[target]] and [[Deep/Note]].";
+  m.files["/V/B.md"] = "Only [[Note]].";
+  m.files["/V/C.md"] = "Nothing here, [[Otherdeep/Note]] is a different folder.";
+  m.files["/V/Target.md"] = "Back to [[A]].";
+  m.files["/V/Deep/Note.md"] = "x";
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  auto hits = vaultindex::backlinks(INDEX, "/V", "/V/Target.md", m.fs());
+  ASSERT_EQ(hits.size(), 1u);  // case doesn't matter
+  EXPECT_EQ(hits[0].title, "A");
+  hits = vaultindex::backlinks(INDEX, "/V", "/V/Deep/Note.md", m.fs());
+  ASSERT_EQ(hits.size(), 2u);  // by name and by path, not by a look-alike folder
+  EXPECT_EQ(hits[0].title, "A");
+  EXPECT_EQ(hits[1].title, "B");
+  EXPECT_EQ(vaultindex::backlinks(INDEX, "/V", "/V/A.md", m.fs()).size(), 1u);
+}
+
+TEST(VaultIndex, BacklinksByRelativePathAndGreekCase) {
+  MemFs m;
+  m.dirs = {"/V", "/V/Deep", "/V/Other", "/V/Other/Deep"};
+  m.files["/V/Deep/Note.md"] = "x";
+  m.files["/V/Other/Deep/Note.md"] = "y";
+  m.files["/V/Other/Sib.md"] = "Up: [[../Deep/Note]] and [[./Deep/Note]].";  // the second is Other/Deep/Note
+  m.files["/V/Root.md"] = "[[Deep/Note]] from the root, and [[ΚΑΛΗΜΕΡΑ]].";
+  m.files["/V/Καλημέρα.md"] = "z";
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  auto hits = vaultindex::backlinks(INDEX, "/V", "/V/Deep/Note.md", m.fs());
+  ASSERT_EQ(hits.size(), 2u);
+  EXPECT_EQ(hits[0].title, "Root");
+  EXPECT_EQ(hits[1].title, "Sib");
+  hits = vaultindex::backlinks(INDEX, "/V", "/V/Other/Deep/Note.md", m.fs());
+  ASSERT_EQ(hits.size(), 1u);  // [[Deep/Note]] from the root is the other one
+  EXPECT_EQ(hits[0].title, "Sib");
+  EXPECT_EQ(vaultindex::backlinks(INDEX, "/V", "/V/Καλημέρα.md", m.fs()).size(), 1u);
+}
