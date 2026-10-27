@@ -62,6 +62,11 @@ TEST(VaultLink, FileNames) {
   EXPECT_EQ(vaultlink::fileNameFor("Note"), "Note.md");
   EXPECT_EQ(vaultlink::fileNameFor("pic.png"), "pic.png");
   EXPECT_EQ(vaultlink::fileNameFor("v1.2 notes/Plan"), "v1.2 notes/Plan.md");
+  EXPECT_EQ(vaultlink::fileNameFor("Dr. Smith"), "Dr. Smith.md");
+  EXPECT_EQ(vaultlink::fileNameFor("Wait. Then…"), "Wait. Then….md");
+  EXPECT_EQ(vaultlink::fileNameFor("sir).…"), "sir).….md");
+  EXPECT_EQ(vaultlink::fileNameFor("Board/a.jpeg"), "Board/a.jpeg");
+  EXPECT_EQ(vaultlink::fileNameFor("Map.canvas"), "Map.canvas");
   EXPECT_TRUE(vaultlink::sameName("Reading List.md", "reading list.md"));
 }
 
@@ -89,6 +94,23 @@ TEST(VaultLink, ResolvesLikeObsidian) {
   // Dot folders are not searched; missing notes resolve to nothing.
   EXPECT_EQ(resolve("Gone", "/Vaults/Demo"), "");
   EXPECT_EQ(resolve("Missing", "/Vaults/Demo"), "");
+}
+
+TEST(VaultLink, DottedNoteNames) {
+  auto f = demoVault();
+  f.files.insert("/Vaults/Demo/Books/Section 2.1.md");
+  f.files.insert("/Vaults/Demo/Plan v1.2.md");
+  f.files.insert("/Vaults/Demo/Books/scan.pdf");
+  const auto fs = f.fs();
+  auto resolve = [&](const std::string& note) {
+    vaultlink::Target t{note, ""};
+    return vaultlink::resolve("/Vaults/Demo", "/Vaults/Demo", t, fs);
+  };
+  EXPECT_EQ(resolve("Section 2.1"), "/Vaults/Demo/Books/Section 2.1.md");
+  EXPECT_EQ(resolve("Plan v1.2"), "/Vaults/Demo/Plan v1.2.md");
+  EXPECT_EQ(resolve("scan.pdf"), "/Vaults/Demo/Books/scan.pdf");
+  EXPECT_EQ(resolve("Books/Section 2.1"), "/Vaults/Demo/Books/Section 2.1.md");
+  EXPECT_EQ(vaultlink::fileNameFor(".profile"), ".profile.md");
 }
 
 TEST(VaultLink, IndexFileListBeforeScan) {

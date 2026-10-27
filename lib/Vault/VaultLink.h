@@ -16,7 +16,8 @@ struct Target {
 // "vault:Note#Heading" -> {"Note", "Heading"}. Returns false for anything not starting with "vault:".
 bool parse(std::string_view href, Target& out);
 
-// "Note" -> "Note.md"; names that already have an extension are kept.
+// "Note" -> "Note.md"; names that already have an extension (1-10 ASCII letters or digits after
+// the last dot) are kept, so "Dr. Smith" -> "Dr. Smith.md".
 std::string fileNameFor(std::string_view note);
 
 // Case-insensitive name compare (ASCII letters; other scripts compare exactly).

@@ -54,8 +54,14 @@ bool parse(std::string_view href, Target& out) {
 std::string fileNameFor(std::string_view note) {
   const size_t slash = note.find_last_of('/');
   const std::string_view base = slash == std::string_view::npos ? note : note.substr(slash + 1);
-  if (base.find('.') != std::string_view::npos && base.back() != '.') return std::string(note);
-  return std::string(note) + ".md";
+  // An extension is 1-10 ASCII letters or digits after the last dot ("pic.png"); "Dr. Smith" and
+  // "Wait…" or "sir)." are note names.
+  const size_t dot = base.find_last_of('.');  // a leading dot (".profile") is part of the name
+  const std::string_view ext = dot == std::string_view::npos ? std::string_view() : base.substr(dot + 1);
+  const bool hasExt = dot != 0 && !ext.empty() && ext.size() <= 10 && std::all_of(ext.begin(), ext.end(), [](char c) {
+                        return std::isalnum(static_cast<unsigned char>(c)) && static_cast<unsigned char>(c) < 0x80;
+                      });
+  return hasExt ? std::string(note) : std::string(note) + ".md";
 }
 
 bool sameName(std::string_view a, std::string_view b) {
@@ -75,9 +81,27 @@ std::string vaultRoot(const std::string& notePath, const Fs& fs) {
   return noteDir;
 }
 
+namespace {
+std::string resolveFile(const std::string& root, const std::string& currentDir, const std::string& file, const Fs& fs,
+                        size_t maxEntries);
+}
+
 std::string resolve(const std::string& root, const std::string& currentDir, const Target& target, const Fs& fs,
                     const size_t maxEntries) {
   const std::string file = fileNameFor(target.note);
+  std::string path = resolveFile(root, currentDir, file, fs, maxEntries);
+  // "Section 2.1" or "Plan v1.2" look like a file with an extension; when no such file exists,
+  // they are notes.
+  const bool kept = file.size() == target.note.size();
+  if (path.empty() && kept && !(file.size() > 3 && sameName(std::string_view(file).substr(file.size() - 3), ".md"))) {
+    path = resolveFile(root, currentDir, file + ".md", fs, maxEntries);
+  }
+  return path;
+}
+
+namespace {
+std::string resolveFile(const std::string& root, const std::string& currentDir, const std::string& file, const Fs& fs,
+                        const size_t maxEntries) {
   if (file.find('/') != std::string::npos) {
     for (const std::string& base : {root, currentDir}) {
       const std::string path = join(base, file);
@@ -124,5 +148,7 @@ std::string resolve(const std::string& root, const std::string& currentDir, cons
   }
   return {};
 }
+
+}  // namespace
 
 }  // namespace vaultlink

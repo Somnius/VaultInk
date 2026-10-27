@@ -99,6 +99,12 @@ and host tests.
 
 **Done when:** synthetic test vaults pass the host tests, and Lef's own vaults (tested locally only,
 never in the repo) open and render every feature they use (SPECS.md 5.1) in the simulator.
+✅ (0.10.1, 2026-10-27) Lef's two own vaults were checked locally (contents never leave this machine):
+every note converts, and all 3,376 links, 79 images, 7 note embeds and 126 heading/block anchors
+resolve; the simulator indexes both (281 + 38 notes) and renders their notes. The check found one
+bug, fixed in 0.10.1: link names with a dot ("Dr. Smith", titles ending in "…") were taken for
+files with an extension. Still open before this is fully done: callouts (only a bold title),
+`==highlight==` look, canvases (not shown), and a third vault (a friend's, not used without asking Lef).
 
 ## 🚧 Phase 1b - New home, menus and reading stats
 
