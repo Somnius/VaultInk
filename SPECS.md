@@ -155,7 +155,7 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 | --- | --- | --- |
 | Headings `#`..`######` | must | anchors for `[[note#heading]]` |
 | Bold, italic, bold-italic, strike, inline code | must | per span, not per line |
-| Highlight `==text==` | should | done (0.13.0): a light gray band behind the text (`<mark>`), drawn in the black-and-white pass only, so the letters stay black |
+| Highlight `==text==` | should | done (0.13.0): a light gray band behind the text (`<mark>`), drawn in the black-and-white pass only, so the letters stay black. 0.14.0: Settings → Vaults → Highlight style picks Light gray (default), Inverted (black band, white letters) or Dark gray (black band in the black-and-white pass, lightened to dark gray by the two gray passes, letters cut back out; plain black without text anti-aliasing) |
 | Paragraphs, line breaks | must | reflow, hyphenation per language; Greek with 1/1 minima (one-letter syllables may split off, as in babel-greek) |
 | Bullet, numbered, nested lists | must | done; nested levels indented, numbers keep their start (0.8.0); inside quotes as lines with the marker |
 | Task lists `- [ ]` / `- [x]` | must | read only in Phase 1, toggle in Phase 4 |

@@ -33,3 +33,7 @@ lib/EpdFont/scripts/output/
 sdkconfig.sticky
 sdkconfig.x4pro
 flake.*
+
+# Private planning notes and local scratch (vault copies, test SD cards, drafts)
+/notes/
+/.work/

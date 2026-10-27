@@ -138,6 +138,9 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                          StrId::STR_CAT_READER));
   emit(SettingInfo::Toggle(StrId::STR_VAULT_OPEN_LAST, &CrossPointSettings::vaultOpenLastNote, "vaultOpenLastNote",
                            StrId::STR_CAT_VAULTS));
+  emit(SettingInfo::Enum(StrId::STR_HIGHLIGHT_STYLE, &CrossPointSettings::highlightStyle,
+                         {StrId::STR_HIGHLIGHT_GRAY, StrId::STR_HIGHLIGHT_INVERTED, StrId::STR_HIGHLIGHT_DARK},
+                         "highlightStyle", StrId::STR_CAT_VAULTS));
   // --- Controls ---
 #if FREEINK_CAP_HAPTIC
   emit(SettingInfo::Enum(StrId::STR_VIBRATION, &CrossPointSettings::vibration,

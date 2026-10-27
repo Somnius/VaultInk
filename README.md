@@ -35,7 +35,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Early days.** Version 0.13.0 opens your vaults, reads their notes, links and images, Greek
+> **Early days.** Version 0.14.0 opens your vaults, reads their notes, links and images, Greek
 > included, and searches them. Sync isn't in yet. Every release from 0.8.2 on has been tested by kos25k
 > on his X4 Pro (UC8279 screen); the bugs he found are fixed and listed in the release notes. It's still
 > one tester on one device, so back up your SD card. The screenshots below come from the simulator.
@@ -123,13 +123,24 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS catalogs, Calibre wireless
   transfer and SD-card plugins.
 - **Obsidian notes.** Open a `.md` note from a vault and it reads like a book: headings, bold and
-  italic, highlights, lists (nested and numbered) and tasks, quotes and callouts, tables, code,
-  footnotes, embedded images found anywhere in the vault, and other notes embedded with `![[Note]]`. Tap a `[[link]]` to open the other note (or jump to its heading), and press
-  Back to return.
+  italic, lists (nested and numbered) and tasks, quotes, tables, code, footnotes, and embedded
+  images found anywhere in the vault.
+  - **Callouts** (`> [!quote] Title`) are a framed box with the title in bold.
+  - **Highlights** (`==text==`) are a light gray band behind the words. Settings → Vaults →
+    Highlight style also offers Inverted (white on black) and Dark gray (white on dark gray).
+  - **Embeds:** `![[Note]]` shows the other note inside this one, `![[Note#Heading]]` just that
+    heading's section, and `![[Note#^id]]` just that paragraph or list item.
+  - **Links:** tap a `[[link]]` to open the other note (or jump to its heading), and press Back to
+    return. Links are found the way Obsidian finds them: by name, by a path from the vault root, or
+    by the end of a path (`[[People/Anna]]` finds `Notes/People/Anna.md`), and names with dots
+    (`[[Dr. Smith]]`, `[[Section 2.1]]`) work too.
 - **Vaults and search.** The Vaults row lists every vault on the SD card (folders under `Vaults/`
-  and any folder with `.obsidian` in it). Each vault remembers the note you read last and opens on it. Search looks through all of them by title, alias, tag and
-  text. Accents don't matter, so `καλημερα` finds `Καλημέρα`. In a note, **More → Backlinks** lists
-  the notes that link to it.
+  and any folder with `.obsidian` in it), and the home screen shows how many there are. Each vault
+  remembers the note you read last and opens on it (Settings → Vaults → Open last note). Search
+  looks through all of them by title, alias, tag and text. Accents don't matter, so `καλημερα` finds `Καλημέρα`. In a note, **More → Backlinks** lists
+  the notes that link to it. The search index lives outside the vault (`/.vaultink/` on the SD
+  card) and also keeps a list of the vault's files, so links and images open without scanning the
+  card; Settings → Vaults → Rebuild Search Index starts it over.
 - **Greek and English keyboard** on screen, switched with the globe key.
 - **Page backgrounds**, from plain to papyrus to bath towel, [mostly for fun](#page-backgrounds).
 - **A new home screen.** The book you're reading sits at the top, followed by Books and Vaults, then
@@ -155,8 +166,8 @@ The [roadmap](ROADMAP.md) has the details and the order. In short:
 2. **Canvas files**, read only.
 3. **Obsidian LiveSync**, so a vault stays in step with your other devices.
 4. **Editing notes** on the device, then a **Bluetooth keyboard**.
-5. **An Android companion app** for typing into the device, quick notes and bringing in notes from
-   other apps.
+5. **An Android companion app** (in `companion/` in this repo, released separately) for typing
+   into the device, quick notes and bringing in notes from other apps.
 
 The full feature list is in [SPECS.md](SPECS.md), and what is in and out of scope is in
 [SCOPE.md](SCOPE.md).

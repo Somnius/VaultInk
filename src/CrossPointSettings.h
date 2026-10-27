@@ -241,6 +241,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t readingPaper = 0;
   // Opening a vault lands on the note read last there (1) or on the vault's top folder (0).
   uint8_t vaultOpenLastNote = 1;
+  uint8_t highlightStyle = 0;  // TextBlock::HighlightStyle: gray, inverted, dark gray
   // Sleep screen cover mode settings
   uint8_t sleepScreenCoverMode = FIT;
   // Sleep screen cover filter

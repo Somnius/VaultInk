@@ -85,7 +85,10 @@ and host tests.
   `![[Note#Heading]]` shows that heading's section, `![[Note#^id]]` the list item or paragraph
   with that block id (the whole note when the anchor isn't found). To do: a note's cache isn't rebuilt when only an
   embedded note changes. ✅ (0.13.0) `==highlight==` is a light gray band behind the text
-  (like Kindle and Kobo), not an underline, so it doesn't look like a link or cut descenders. ✅ (0.11.0)
+  (like Kindle and Kobo), not an underline, so it doesn't look like a link or cut descenders.
+  ✅ (0.14.0) Settings → Vaults → Highlight style: Light gray (default), Inverted (white on black),
+  Dark gray (white on a dark gray band, shaded by the anti-aliasing passes; black when text
+  anti-aliasing is off). ✅ (0.11.0)
   Callouts are a framed box with the title in bold.
 * Note reader with links, back stack, image and note embeds, block refs.
 * 🚧 Index on SD, incremental, for vaults of 60 MB and more. ✅ Search index per vault (title,
@@ -106,7 +109,7 @@ resolve; the simulator indexes both (281 + 38 notes) and renders their notes. Th
 bug, fixed in 0.10.1: link names with a dot ("Dr. Smith", titles ending in "…") were taken for
 files with an extension. ✅ (0.13.0) A third vault too (a friend's, with Lef's OK): its partial-path links (`Folder/Note`
 for a note several folders deeper) didn't resolve; they now match the end of any path, like
-Obsidian (2,133 unresolved -> 92, left: links to folders and old Logseq paths). Canvases are Phase 2.
+Obsidian (2,133 unresolved -> 92; left: links to folders and old Logseq paths). Canvases are Phase 2.
 
 ## 🚧 Phase 1b - New home, menus and reading stats
 

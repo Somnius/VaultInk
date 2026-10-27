@@ -47,6 +47,9 @@ class TextBlock final : public Block {
   static constexpr uint8_t SMALL_CAPS_SLOT_FLAG = 0x80;
   static constexpr uint8_t HIGHLIGHT_SLOT_FLAG = 0x40;  // also in the slot byte: the style byte is full
   static constexpr uint8_t SLOT_FLAGS = SMALL_CAPS_SLOT_FLAG | HIGHLIGHT_SLOT_FLAG;
+  // How ==highlights== are drawn; the reader sets it from its setting before each page.
+  enum class HighlightStyle : uint8_t { Gray = 0, Inverted = 1, DarkGray = 2 };
+  static HighlightStyle highlightStyle;
   struct SourceRange {
     uint32_t start = UINT32_MAX;
     uint32_t end = UINT32_MAX;
