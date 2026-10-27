@@ -182,6 +182,12 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   a folder picker), New folder and folder rename. Moving or renaming a folder doesn't carry the
   reading progress of the books inside yet. Details: docs/reading-and-files.md. Reviewed by Gemini
   and Grok (design and diff); tested in the simulator, not yet on the device.
+* Looked at (kos25k, justified Greek with wide gaps): with hyphenation on, lines are filled one at
+  a time; an optimal-fit breaker that also weighs every hyphenation point (designed with Gemini and
+  Grok, tried in the simulator) gave the same lines on his paragraph, so it was not shipped. The
+  loose lines come from long words next to short unbreakable ones ("για"); left alignment avoids
+  them. A gap cap would leave ragged lines inside justified text, which CrossPoint removed on
+  purpose. Open: a "max gap" option if readers want it.
 * To do (from 0.20.0): carry book state when a folder moves or is renamed (caches, bookmarks,
   clippings, recent books, vault index); check the sleep-screen percent over covers on the device.
 * ✅ Reader menu: CrossPoint's toolbar sheet (default on touch) kept; tool names added under the
