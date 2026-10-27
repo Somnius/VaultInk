@@ -48,6 +48,10 @@ and host tests.
   is X4 Pro only.
 * ✅ Test builds 0.2.0 to 0.8.2 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
+* 🚧 Device testing, by kos25k: 0.7.0 runs on his reader (boots, menus, quick settings, System
+  settings, language list). Found: Greek hard to find in the language list (fixed 0.8.1), paper tile
+  could rotate the book (fixed 0.8.2); both fixes not yet re-tested on the device. Not tested on the
+  device yet: vaults, notes, search, backlinks, keyboard, page backgrounds, Wi-Fi update, timing.
 * ⏳ First hardware-tested release, once the X4 Pro arrives and passes the hardware checks below.
 
 ## 🚧 Phase 1 - Vault reader

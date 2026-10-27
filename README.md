@@ -36,7 +36,9 @@ It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or C
 
 > [!WARNING]
 > **Early days.** Version 0.8.2 opens your vaults, reads their notes, links and images, Greek
-> included, and searches them. Sync isn't in yet. Nothing has been tested on real hardware so far. All the screenshots below
+> included, and searches them. Sync isn't in yet. First device test: kos25k ran 0.7.0 on his reader. It boots, and the menus
+> and quick settings work. The two issues he found are fixed in 0.8.1 and 0.8.2, not yet re-tested
+> on the device. Vaults, search and the rest are only tested in the simulator so far. All the screenshots below
 > come from the simulator. Please don't flash this onto your daily reader yet.
 
 ## Screenshots
