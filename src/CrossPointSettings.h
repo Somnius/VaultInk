@@ -316,10 +316,10 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t hyphenationEnabled = 0;
 
   // Reader screen margin settings
-  static constexpr uint8_t SCREEN_MARGIN_MIN = 5;
+  static constexpr uint8_t SCREEN_MARGIN_MIN = 0;  // 0..40 in 1 px steps (kos25k: down to 0)
   static constexpr uint8_t SCREEN_MARGIN_MAX = 40;
-  static constexpr uint8_t SCREEN_MARGIN_STEP = 5;
-  uint8_t screenMargin = SCREEN_MARGIN_MIN;
+  static constexpr uint8_t SCREEN_MARGIN_STEP = 1;
+  uint8_t screenMargin = 5;
   // OPDS download destination folder ("" = SD root). Global; edited from the
   // OPDS server list. Persisted via a category-less SettingInfo::String in
   // SettingsList.h, so it stays out of the on-device Settings screen.

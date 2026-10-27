@@ -108,6 +108,10 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:
   progress from the XTC/TXT readers, Sync tile (Phase 3).
+* ✅ Screen margins down to 0 (kos25k): 0..40 px; the reader's margin list offers 0, 1, 2, 3, 4,
+  5, 6, 8, 10, 12, 15, 20..40 (the list holds 16). Default stays 5.
+* ⏳ From kos25k: hyphenation that fills lines closer to the right edge (details asked); font sizes
+  in 1 pt steps already work with a .ttf on the SD card (8..22 pt), the built-in font has 12/14/16/18.
 * ✅ Fix (0.8.3, found by kos25k on a UC8279 X4 Pro): with a page background on, the text
   anti-aliasing pass faded the whole page, text included. AA is now skipped while a background is
   on (with AA off he saw the page stay sharp).
