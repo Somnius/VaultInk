@@ -12,6 +12,14 @@ PIO="${PIO:-pio}"
 REMOTE="${REMOTE:-https://github.com/Somnius/VaultInk.git}"
 cd "$ROOT"
 
+# Release notes are written per version (what changed, what was tested on a device); no default.
+VERSION_PRE=$(grep -m1 '^version' platformio.ini | sed 's/.*= *//')
+NOTES="$ROOT/.work/release-notes/${VERSION_PRE}.md"
+if [[ ! -s "$NOTES" ]]; then
+  echo "Write the release notes first: $NOTES" >&2
+  exit 1
+fi
+
 if [[ -n "$(git status --porcelain -- src lib platformio.ini partitions_vaultink.csv)" ]]; then
   echo "Uncommitted firmware changes; commit them first so the installer matches a commit." >&2
   exit 1
@@ -55,14 +63,20 @@ cp .pio/build/x4pro-gh_release/firmware.bin "$OUT/vaultink-${VERSION}-x4pro.bin"
 if gh release view "$VERSION" >/dev/null 2>&1; then
   gh release upload "$VERSION" --clobber "$OUT/vaultink-${VERSION}-x4pro-factory.bin" "$OUT/vaultink-${VERSION}-x4pro.bin"
 else
-  git tag -a "$VERSION" -m "VaultInk ${VERSION}" HEAD 2>/dev/null || true
-  git push -q origin "$VERSION"
-  gh release create "$VERSION" --title "VaultInk ${VERSION}" \
-    --notes "Not tested on real hardware yet. Install from https://somnius.github.io/VaultInk/ or flash the factory bin at 0x0. sha256 of the factory bin: ${SHA}
-
-Made by Lefteris Iliadis (https://lefteros.com). More about VaultInk, and donations: https://lefteros.com/en/apps/vaultink" \
+  # A tag of this name may already exist (CrossPoint's history had 0.x tags): never reuse one
+  # that points anywhere but HEAD.
+  if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+    if [[ "$(git rev-list -n1 "$VERSION")" != "$(git rev-parse HEAD)" ]]; then
+      echo "Tag $VERSION exists and is not HEAD; refusing to release on it." >&2
+      exit 1
+    fi
+  else
+    git tag -a "$VERSION" -m "VaultInk ${VERSION}" HEAD
+  fi
+  git push -q origin "refs/tags/$VERSION"
+  gh release create "$VERSION" --title "VaultInk ${VERSION}" --notes-file "$NOTES" \
     "$OUT/vaultink-${VERSION}-x4pro-factory.bin" "$OUT/vaultink-${VERSION}-x4pro.bin"
-  echo "Release ${VERSION} created; edit its notes on GitHub if you want more than the default text."
+  echo "Release ${VERSION} created."
 fi
 
 # The release must carry this machine's build. Nothing on GitHub may rebuild or replace it.
