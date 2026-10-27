@@ -7,6 +7,7 @@
 #include <HalDisplay.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <Utf8.h>
 #include <WiFi.h>
 
 #include <algorithm>
