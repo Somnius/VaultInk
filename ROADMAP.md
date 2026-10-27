@@ -178,10 +178,18 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * Greek name for the cover-grid style: Εξώφυλλα (done).
 * Ideas taken from CrossNext (MIT) are credited in NOTICE.
 
-## 💤 Phase 2 - Canvas, read only
+## 🚧 Phase 2 - Canvas, read only
 
-* Streaming `.canvas` reader, cards, groups, arrows with labels.
-* Fit, pan, zoom, low-detail drag frame, tap a card to open it.
+* ✅ (0.16.0) Streaming `.canvas` reader (`lib/Vault/Canvas`, JSON Canvas 1.0): cards, groups,
+  arrows with labels and ends, side anchors; card text stays in the file (offset and length) and
+  only a 160-byte preview is kept, so long cards aren't dropped. Up to 2,000 nodes and 4,000
+  edges. Lef's three canvases (51 to 106 nodes) parse in full.
+* ✅ (0.16.0) Viewer: fits the canvas to the screen, pans (buttons, swipes), zooms in steps of 2
+  up to 8x (Confirm; past 8x back to fit), tap a card to open it: a file card opens its note or
+  image, a text card opens as a note, Back returns to the canvas at the same pan and zoom. Canvases show in the file
+  browser, open from `[[Board.canvas]]` links, and a vault remembers one as its last note.
+* To do: card colours as grey fills (today a coloured card gets a heavier frame), a low-detail
+  frame while panning, images inside file cards, pinch zoom.
 
 ## 💤 Phase 3 - LiveSync pull
 

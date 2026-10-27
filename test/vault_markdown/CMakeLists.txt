@@ -3,10 +3,12 @@ add_executable(VaultMarkdownTest
   VaultLinkTest.cpp
   TextFoldTest.cpp
   VaultIndexTest.cpp
+  CanvasTest.cpp
   ${REPO_ROOT}/lib/Vault/MarkdownToHtml.cpp
   ${REPO_ROOT}/lib/Vault/VaultLink.cpp
   ${REPO_ROOT}/lib/Vault/TextFold.cpp
   ${REPO_ROOT}/lib/Vault/VaultIndex.cpp
+  ${REPO_ROOT}/lib/Vault/Canvas.cpp
 )
 
 target_include_directories(VaultMarkdownTest PRIVATE

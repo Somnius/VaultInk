@@ -65,6 +65,8 @@ inline bool hasTxtExtension(const String& fileName) {
 
 // Check for .md extension (case-insensitive)
 bool hasMarkdownExtension(std::string_view fileName);
+// Obsidian canvas (JSON Canvas 1.0), opened by the canvas viewer.
+bool hasCanvasExtension(std::string_view fileName);
 
 bool hasReflowableBookExtension(std::string_view fileName);
 

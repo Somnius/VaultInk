@@ -35,6 +35,7 @@
 #include "util/FrontlightPanelActivity.h"
 #include "util/FullScreenMessageActivity.h"
 #include "util/WelcomeGuideActivity.h"
+#include "vault/CanvasActivity.h"
 #include "vault/VaultPickerActivity.h"
 #include "vault/VaultSearchActivity.h"
 
@@ -336,6 +337,16 @@ void ActivityManager::goToPlugins(bool showOpds) {
 void ActivityManager::goToReader(std::string path, const bool allowFastInitialRefresh) {
   if (path.empty()) {
     goToFileBrowser("/");
+    return;
+  }
+
+  if (FsHelpers::hasCanvasExtension(path)) {
+    auto activity = makeUniqueNoThrow<CanvasActivity>(renderer, mappedInput, std::move(path));
+    if (!activity) {
+      LOG_ERR("ACT", "OOM: canvas activity");
+      return;
+    }
+    replaceActivity(std::move(activity));
     return;
   }
 

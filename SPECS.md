@@ -202,6 +202,15 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   and ids are kept in memory, in fixed-size records in PSRAM with a budget set in Phase 2.
 - Limits: 2,000 nodes and 4,000 edges per canvas. A spatial grid on SD or PSRAM decides which cards
   are on screen.
+- Built (0.16.0): `lib/Vault/Canvas` streams the file with its own small tokenizer (the SDK's JSON
+  SAX drops strings over 2 KB and gives no file offsets). Per node: id, type, geometry, colour, a
+  label (group label, file path, URL or the first 160 bytes of a text card, cut at a UTF-8
+  boundary) and the raw text's offset/length; edges keep node indexes, sides, ends, colour and
+  label, and edges to unknown nodes are dropped. The viewer (`CanvasActivity`) draws groups,
+  then edges (clipped to the screen, arrow heads, label on a white patch), then cards with
+  wrapped text clipped to the card. Every node is checked against the screen on each frame; the
+  spatial grid isn't needed yet at the sizes seen (106 nodes). A text card is written to
+  `/.vaultink/canvas-card.md` (its reader cache dropped first) and opened as a note.
 
 ## 7. LiveSync pull (Phase 3)
 
