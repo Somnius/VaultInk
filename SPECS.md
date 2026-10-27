@@ -86,8 +86,8 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   streak), then Books and Vaults as the two big rows, then Search, Files, Transfer, Plugins,
   Settings. Each row has an icon, a title and a one-line status. It fits on one screen.
 - Continue covers vaults too: the card shows whatever was open last, a book or a vault note.
-  Each vault also remembers its last note, shown on its row in the vault picker ("continue in
-  <vault>: <note>").
+  Each vault also remembers its last note, shown on its row in the vault picker ("Last: <note>";
+  built in 0.9.0, stored in `/.vaultink/<vault-id>/last.txt`). Opening the vault lands on it.
 - Buttons: up/down move one focus highlight (thick outline and a bar on the left; only the two
   changed rows are redrawn), OK opens, Back goes back. A hint line shows the keys.
 - No large black areas (they ghost on 4-level e-ink).
@@ -98,7 +98,8 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   time left) above the quick-settings tiles, plus an Exit button (idea from KOReader SimpleUI).
 - Reading menu: OK or a swipe up opens a bottom sheet with title, progress, Contents, Bookmark,
   Search, Highlights, a text-size stepper, and Font / Spacing / Margins. Buttons step through it.
-- Settings are grouped by task: Reading, Vaults, Device. Each row shows its current value.
+- Settings are grouped by task: Reading (Reader, Library, Vaults), Device. Each row shows its current
+  value. Vaults (0.9.0): Open Vault at Last Note, Rebuild Search Index.
 - Page backgrounds (kos25k's idea, mostly for fun): plain, paper, sandpaper, papyrus soft/medium/
   hard, toilet paper, kitchen paper, bath towel. Drawn as dots under the text in the B/W frame,
   computed from the pixel position (no memory, same on every page). Settings → Reader → Page

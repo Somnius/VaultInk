@@ -33,6 +33,7 @@ enum class SettingAction {
   HomeButton,
   About,
   WelcomeGuide,
+  RebuildSearchIndex,
 };
 
 struct SettingInfo {

@@ -49,6 +49,60 @@ std::string indexPathFor(const std::string& vaultPath) {
   return "/.vaultink/" + std::to_string(std::hash<std::string>{}(vaultPath)) + "/index.tsv";
 }
 
+const Vault* vaultOf(const std::vector<Vault>& vaults, const std::string& notePath) {
+  // Longest match, so a vault nested in another vault gets its own entry.
+  const Vault* best = nullptr;
+  for (const auto& v : vaults) {
+    if (notePath.size() > v.path.size() && notePath.compare(0, v.path.size(), v.path) == 0 &&
+        notePath[v.path.size()] == '/' && (!best || v.path.size() > best->path.size())) {
+      best = &v;
+    }
+  }
+  return best;
+}
+
+namespace {
+std::string lastNotePathFor(const std::string& vaultPath) {
+  std::string path = indexPathFor(vaultPath);
+  return path.substr(0, path.find_last_of('/')) + "/last.txt";
+}
+}  // namespace
+
+void rememberLastNote(const std::string& notePath) {
+  const auto vaults = findVaults();
+  const Vault* vault = vaultOf(vaults, notePath);
+  if (!vault) return;
+  const std::string file = lastNotePathFor(vault->path);
+  Storage.ensureDirectoryExists(file.substr(0, file.find_last_of('/')).c_str());
+  if (!Storage.writeFile(file.c_str(), String(notePath.c_str()))) LOG_ERR("VLT", "Could not save last note");
+}
+
+std::string lastNote(const std::string& vaultPath) {
+  std::string path;
+  if (!Storage.readFileToString("VLT", lastNotePathFor(vaultPath), 1024, path)) return {};
+  while (!path.empty() && (path.back() == '\n' || path.back() == '\r')) path.pop_back();
+  return !path.empty() && Storage.exists(path.c_str()) ? path : std::string();
+}
+
+int clearSearchIndexes() {
+  // Every /.vaultink/<id>/index.tsv, also of vaults since removed or renamed.
+  std::vector<std::string> indexes;
+  HalFile root = Storage.open("/.vaultink");
+  if (!root || !root.isDirectory()) return 0;
+  char name[NAME_LEN];
+  for (auto dir = root.openNextFile(); dir; dir = root.openNextFile()) {
+    if (!dir.isDirectory()) continue;
+    dir.getName(name, sizeof(name));
+    indexes.push_back(std::string("/.vaultink/") + name + "/index.tsv");
+  }
+  root.close();
+  int removed = 0;
+  for (const auto& index : indexes) {
+    if (Storage.exists(index.c_str()) && Storage.remove(index.c_str())) ++removed;
+  }
+  return removed;
+}
+
 vaultindex::IndexFs sdFs() {
   vaultindex::IndexFs fs;
   fs.exists = [](const std::string& path) { return Storage.exists(path.c_str()); };

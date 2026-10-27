@@ -35,7 +35,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Early days.** Version 0.8.10 opens your vaults, reads their notes, links and images, Greek
+> **Early days.** Version 0.9.0 opens your vaults, reads their notes, links and images, Greek
 > included, and searches them. Sync isn't in yet. Every release from 0.8.2 on has been tested by kos25k
 > on his X4 Pro (UC8279 screen); the bugs he found are fixed and listed in the release notes. It's still
 > one tester on one device, so back up your SD card. The screenshots below come from the simulator.
@@ -127,7 +127,7 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   footnotes, embedded images found anywhere in the vault, and other notes embedded with `![[Note]]`. Tap a `[[link]]` to open the other note (or jump to its heading), and press
   Back to return.
 - **Vaults and search.** The Vaults row lists every vault on the SD card (folders under `Vaults/`
-  and any folder with `.obsidian` in it). Search looks through all of them by title, alias, tag and
+  and any folder with `.obsidian` in it). Each vault remembers the note you read last and opens on it. Search looks through all of them by title, alias, tag and
   text. Accents don't matter, so `καλημερα` finds `Καλημέρα`. In a note, **More → Backlinks** lists
   the notes that link to it.
 - **Greek and English keyboard** on screen, switched with the globe key.

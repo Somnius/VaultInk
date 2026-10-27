@@ -8,6 +8,7 @@
 #include <cstring>
 #include <iterator>
 
+#include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "activities/ActivityManager.h"
 #include "components/UITheme.h"
@@ -25,7 +26,17 @@ void VaultPickerActivity::findVaults() {
   vaults.clear();
   auto found = vaultfiles::findVaults();
   std::transform(found.begin(), found.end(), std::back_inserter(vaults),
-                 [](vaultfiles::Vault& v) { return Vault{std::move(v.name), std::move(v.path)}; });
+                 [](vaultfiles::Vault& v) { return Vault{std::move(v.name), std::move(v.path), {}, {}}; });
+  for (auto& v : vaults) {
+    v.last = vaultfiles::lastNote(v.path);
+    if (v.last.empty()) {
+      v.subtitle = v.path;
+    } else {
+      std::string title = v.last.substr(v.last.find_last_of('/') + 1);
+      if (title.size() > 3 && title.compare(title.size() - 3, 3, ".md") == 0) title.resize(title.size() - 3);
+      v.subtitle = std::string(tr(STR_VAULT_LAST_NOTE)) + ": " + title;
+    }
+  }
   LOG_DBG("VLT", "Found %u vaults", static_cast<unsigned>(vaults.size()));
 }
 
@@ -35,7 +46,7 @@ void VaultPickerActivity::onEnter() {
   rowItems.assign(vaults.size(), fui::ListItem{});
   for (size_t i = 0; i < vaults.size(); ++i) {
     rowItems[i].label = vaults[i].name.c_str();
-    rowItems[i].subtitle = vaults[i].path.c_str();
+    rowItems[i].subtitle = vaults[i].subtitle.c_str();
     rowItems[i].icon = fui::bitmapFromIcon(icon_vault_32);
     rowItems[i].actionValue = static_cast<int16_t>(i);
   }
@@ -68,7 +79,9 @@ void VaultPickerActivity::buildScreen(UiScreen& screen) {
 void VaultPickerActivity::activateIndex(const int index) {
   if (index < 0 || index >= static_cast<int>(vaults.size())) return;
   app.clearTapFlash();
-  activityManager.goToFileBrowser(vaults[static_cast<size_t>(index)].path);
+  // Open on the note read last (its folder, with the note selected), else the vault's top.
+  const auto& v = vaults[static_cast<size_t>(index)];
+  activityManager.goToFileBrowser(v.last.empty() || !SETTINGS.vaultOpenLastNote ? v.path : v.last);
 }
 
 void VaultPickerActivity::onBackButton() { onGoHome(); }

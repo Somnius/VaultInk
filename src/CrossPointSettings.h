@@ -239,6 +239,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t screenInverted = 0;
   // Reader page background, a paper_texture::Style.
   uint8_t readingPaper = 0;
+  // Opening a vault lands on the note read last there (1) or on the vault's top folder (0).
+  uint8_t vaultOpenLastNote = 1;
   // Sleep screen cover mode settings
   uint8_t sleepScreenCoverMode = FIT;
   // Sleep screen cover filter

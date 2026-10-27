@@ -16,6 +16,8 @@ class VaultPickerActivity final : public UiListActivity {
   struct Vault {
     std::string name;
     std::string path;
+    std::string last;      // the note read last in this vault, or ""
+    std::string subtitle;  // "Last: <note>", or the path
   };
 
   int listCount() const override { return static_cast<int>(vaults.size()); }

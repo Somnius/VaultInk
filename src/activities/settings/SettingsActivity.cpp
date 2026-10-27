@@ -41,6 +41,7 @@
 #include "components/UiAppHelpers.h"
 #include "fontIds.h"
 #include "util/PluginEvents.h"
+#include "util/VaultFiles.h"
 
 namespace fui = freeink::ui;
 
@@ -78,6 +79,7 @@ SettingsSection sectionFor(const SettingInfo& setting) {
   if (setting.category == StrId::STR_CAT_READER) return SettingsSection::Reader;
   if (setting.category == StrId::STR_CAT_CONTROLS) return SettingsSection::Controls;
   if (setting.category == StrId::STR_CAT_SYSTEM) return SettingsSection::General;
+  if (setting.category == StrId::STR_CAT_VAULTS) return SettingsSection::Vaults;
   return SettingsSection::End;
 }
 
@@ -130,6 +132,7 @@ void SettingsActivity::rebuildSettings() {
   }
   addAction(SettingsSection::Reader, StrId::STR_CUSTOMISE_STATUS_BAR, SettingAction::CustomiseStatusBar);
   addAction(SettingsSection::Reader, StrId::STR_CLEAR_READING_CACHE, SettingAction::ClearCache);
+  addAction(SettingsSection::Vaults, StrId::STR_REBUILD_SEARCH_INDEX, SettingAction::RebuildSearchIndex);
 
   addAction(SettingsSection::Network, StrId::STR_WIFI_NETWORKS, SettingAction::Network);
   if (bleturner::status().compiledIn) {
@@ -343,6 +346,18 @@ void SettingsActivity::toggleSelectedSetting() {
           return;
         }
         startActivityForResult(std::move(activity), resultHandler);
+        break;
+      }
+      case SettingAction::RebuildSearchIndex: {
+        const int removed = vaultfiles::clearSearchIndexes();
+        LOG_DBG("VLT", "Cleared %d search indexes", removed);
+        {
+          RenderLock lock;
+          GUI.drawPopup(renderer, tr(STR_SEARCH_INDEX_CLEARED));
+          renderer.displayBuffer();
+        }
+        delay(1500);
+        requestUpdate();
         break;
       }
       case SettingAction::ClearCache:

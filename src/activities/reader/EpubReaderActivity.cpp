@@ -62,6 +62,7 @@
 #include "util/ButtonNavigator.h"
 #include "util/PaperTexture.h"
 #include "util/ScreenshotUtil.h"
+#include "util/VaultFiles.h"
 #include "util/VaultNavigation.h"
 
 namespace {
@@ -313,6 +314,7 @@ bool EpubReaderActivity::loadBook() {
   loadCachedBookmarks();
   // Vault notes: keep or reset the note history, and jump to the heading a [[link#heading]] named.
   vaultnav::opened(bookPath);
+  if (isVaultNote()) vaultfiles::rememberLastNote(bookPath);
   if (std::string anchor = vaultnav::takeAnchor(); !anchor.empty()) pendingAnchor = std::move(anchor);
   if (!CLIPPINGS.loadForBook(epub->getPath(), epub->getTitle(), epub->getAuthor(), "epub")) {
     LOG_ERR("CLIP", "Failed to load clippings for %s", epub->getPath().c_str());

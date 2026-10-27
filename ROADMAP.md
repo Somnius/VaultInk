@@ -51,7 +51,7 @@ and host tests.
   cancelled before it uploaded. Removed `release.yml` and `release_candidate.yml`; local builds put
   back on 0.5.0 and 0.8.2–0.8.5. The GitHub-built OTA files on 0.6.0–0.8.1 were deleted (no local
   copy of those; OTA only ever takes the latest release).
-* ✅ Test builds 0.2.0 to 0.8.10 published (web installer and GitHub releases, marked untested); the
+* ✅ Test builds 0.2.0 to 0.9.0 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
 * ✅ Device testing, by kos25k (X4 Pro, UC8279 display controller, GT911 touch): 0.7.0 booted with
   menus and quick settings working; every release from 0.8.2 to 0.8.10 tested on his reader. The bugs
@@ -69,8 +69,9 @@ and host tests.
   so nobody needs an extra USB flash.
 * ✅ Home: **Vaults** right after **Books**; vault picker (`/Vaults/*` and top-level folders with
   `.obsidian`), each vault opens in the folder browser. ⏳ Recent notes, Greek path checks on device.
-* Continue card covers vault notes too; each vault remembers its last note.
-* Settings: a Vaults group.
+* ✅ Continue card covers vault notes too; ✅ each vault remembers its last note (0.9.0): the picker
+  shows "Last: <note>" and opening the vault lands on it, selected in its folder.
+* ✅ Settings: a Vaults group (0.9.0), under Reading: Open Vault at Last Note, Rebuild Search Index.
 * 🚧 `lib/Vault`: Markdown parser. Done: `MarkdownToHtml` (headings, emphasis, highlight, strike,
   code, lists, tasks, quotes, callouts, tables, rules, frontmatter and comments hidden, block ids,
   wikilinks, Markdown and bare links, image embeds), 17 host tests, wired into the reader's `.md`

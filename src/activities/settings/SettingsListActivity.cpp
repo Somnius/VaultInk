@@ -17,20 +17,22 @@ namespace {
 constexpr int16_t ICON_SIZE = 32;
 // Row icons, indexed by SettingsSection.
 constexpr const freeink::Icon* SECTION_ICONS[SETTINGS_SECTION_COUNT] = {
-    &icon_settings_32, &icon_smartphone_32, &icon_book_open_32, &icon_pointer_32, &icon_library_32, &icon_wifi_32,
+    &icon_settings_32, &icon_smartphone_32, &icon_book_open_32, &icon_pointer_32,
+    &icon_library_32,  &icon_wifi_32,       &icon_vault_32,
 };
 // One-line contents of each section, indexed by SettingsSection.
 constexpr StrId SECTION_DESCS[SETTINGS_SECTION_COUNT] = {
     StrId::STR_SETTINGS_SYSTEM_DESC,   StrId::STR_SETTINGS_DISPLAY_DESC, StrId::STR_SETTINGS_READER_DESC,
     StrId::STR_SETTINGS_CONTROLS_DESC, StrId::STR_SETTINGS_LIBRARY_DESC, StrId::STR_SETTINGS_NETWORK_DESC,
+    StrId::STR_SETTINGS_VAULTS_DESC,
 };
 // Screen order (docs/design/settings.png): reading first, then the device. Each group's first row
 // carries its heading.
 constexpr SettingsSection ROW_ORDER[SETTINGS_SECTION_COUNT] = {
-    SettingsSection::Reader,   SettingsSection::Library, SettingsSection::Display,
+    SettingsSection::Reader,   SettingsSection::Library, SettingsSection::Vaults,  SettingsSection::Display,
     SettingsSection::Controls, SettingsSection::Network, SettingsSection::General,
 };
-constexpr int DEVICE_GROUP_FIRST_ROW = 2;
+constexpr int DEVICE_GROUP_FIRST_ROW = 3;
 
 int rowForSection(const SettingsSection section) {
   for (size_t i = 0; i < SETTINGS_SECTION_COUNT; ++i) {
