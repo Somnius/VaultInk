@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <cstring>
+#include <iterator>
+#include <iterator>
 
 #include "MappedInputManager.h"
 #include "activities/ActivityManager.h"
@@ -22,7 +24,9 @@ const char* VaultPickerActivity::headerTitle() const { return tr(STR_VAULTS); }
 
 void VaultPickerActivity::findVaults() {
   vaults.clear();
-  for (auto& v : vaultfiles::findVaults()) vaults.push_back({std::move(v.name), std::move(v.path)});
+  auto found = vaultfiles::findVaults();
+  std::transform(found.begin(), found.end(), std::back_inserter(vaults),
+                 [](vaultfiles::Vault& v) { return Vault{std::move(v.name), std::move(v.path)}; });
   LOG_DBG("VLT", "Found %u vaults", static_cast<unsigned>(vaults.size()));
 }
 

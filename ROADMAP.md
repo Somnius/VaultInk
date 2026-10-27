@@ -46,6 +46,11 @@ and host tests.
   SD card, put the app bin (not factory) on it, boot mode (Power + both page buttons, from Lef),
   what erasing wipes; X4/X3 point to CrossPoint, since VaultInk
   is X4 Pro only.
+* ✅ Fix: CrossPoint's `release.yml` was still building firmware on GitHub for every published
+  release and replacing the locally built OTA file (`--clobber`). Found on 0.8.5; that run was
+  cancelled before it uploaded. Removed `release.yml` and `release_candidate.yml`; local builds put
+  back on 0.5.0 and 0.8.2–0.8.5. The GitHub-built OTA files on 0.6.0–0.8.1 were deleted (no local
+  copy of those; OTA only ever takes the latest release).
 * ✅ Test builds 0.2.0 to 0.8.5 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
 * 🚧 Device testing, by kos25k (X4 Pro, UC8279 display controller, GT911 touch, now on 0.8.2): 0.7.0 runs on his reader (boots, menus, quick settings, System

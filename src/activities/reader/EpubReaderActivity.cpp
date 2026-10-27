@@ -52,6 +52,7 @@
 #include "SilentRestart.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/settings/TextSettingsActivity.h"
+#include "activities/vault/VaultSearchActivity.h"
 #include "clippings/ClippingText.h"
 #include "clippings/ClippingsManager.h"
 #include "components/UITheme.h"
@@ -59,10 +60,9 @@
 #include "util/BookProgress.h"
 #include "util/BookmarkUtil.h"
 #include "util/ButtonNavigator.h"
+#include "util/PaperTexture.h"
 #include "util/ScreenshotUtil.h"
 #include "util/VaultNavigation.h"
-#include "activities/vault/VaultSearchActivity.h"
-#include "util/PaperTexture.h"
 
 namespace {
 // The X4 Pro and X4 Classic carry the X4's panel but sit outside isXteinkDevice()
@@ -355,23 +355,22 @@ void EpubReaderActivity::openReaderMenu() {
   const ChapterPosition position = chapterPosition();
   const int bookProgressPercent = bookPercentFor(position);
 
-  startActivityForResult(
-      std::make_unique<EpubReaderMenuActivity>(
-          renderer, mappedInput, epub->getTitle(), position.displayPage(), position.totalPages, bookProgressPercent,
-          SETTINGS.orientation, !currentPageFootnotes.empty(), !cachedBookmarks.empty(), CLIPPINGS.hasClippings(),
-          isVaultNote()),
-      [this](const ActivityResult& result) {
-        const auto& menu = std::get<MenuResult>(result.data);
+  startActivityForResult(std::make_unique<EpubReaderMenuActivity>(
+                             renderer, mappedInput, epub->getTitle(), position.displayPage(), position.totalPages,
+                             bookProgressPercent, SETTINGS.orientation, !currentPageFootnotes.empty(),
+                             !cachedBookmarks.empty(), CLIPPINGS.hasClippings(), isVaultNote()),
+                         [this](const ActivityResult& result) {
+                           const auto& menu = std::get<MenuResult>(result.data);
 
-        if (SETTINGS.orientation != menu.orientation) {
-          applyOrientation(menu.orientation);
-        }
+                           if (SETTINGS.orientation != menu.orientation) {
+                             applyOrientation(menu.orientation);
+                           }
 
-        toggleAutoPageTurn(menu.pageTurnOption);
-        if (!result.isCancelled) {
-          onReaderMenuConfirm(static_cast<EpubReaderMenuActivity::MenuAction>(menu.action));
-        }
-      });
+                           toggleAutoPageTurn(menu.pageTurnOption);
+                           if (!result.isCancelled) {
+                             onReaderMenuConfirm(static_cast<EpubReaderMenuActivity::MenuAction>(menu.action));
+                           }
+                         });
 }
 
 // Runs on the render task, under its lock, right before every chapter build. The page turner's

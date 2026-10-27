@@ -103,7 +103,7 @@ void VaultSearchActivity::runSearch(const std::string& text) {
   for (const auto& vault : vaultfiles::findVaults()) {
     for (auto& hit : vaultindex::search(vaultfiles::indexPathFor(vault.path), query, fs, MAX_RESULTS)) {
       std::string folder = hit.path.substr(vault.path.size());
-      folder = folder.substr(0, folder.find_last_of('/'));
+      if (const size_t slash = folder.find_last_of('/'); slash != std::string::npos) folder.resize(slash);
       if (!folder.empty() && folder.front() == '/') folder.erase(0, 1);
       std::string where = vault.name;
       if (!folder.empty()) where += " · " + folder;
@@ -126,9 +126,10 @@ void VaultSearchActivity::findBacklinks() {
   const auto fs = vaultfiles::sdFs();
   for (const auto& vault : vaultfiles::findVaults()) {
     if (backlinksOf.rfind(vault.path + "/", 0) != 0) continue;
-    for (auto& hit : vaultindex::backlinks(vaultfiles::indexPathFor(vault.path), vault.path, backlinksOf, fs, MAX_RESULTS)) {
+    for (auto& hit :
+         vaultindex::backlinks(vaultfiles::indexPathFor(vault.path), vault.path, backlinksOf, fs, MAX_RESULTS)) {
       std::string folder = hit.path.substr(vault.path.size());
-      folder = folder.substr(0, folder.find_last_of('/'));
+      if (const size_t slash = folder.find_last_of('/'); slash != std::string::npos) folder.resize(slash);
       if (!folder.empty() && folder.front() == '/') folder.erase(0, 1);
       std::string where = vault.name;
       if (!folder.empty()) where += " · " + folder;
