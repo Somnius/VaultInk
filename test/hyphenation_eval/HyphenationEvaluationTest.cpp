@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "lib/Epub/Epub/hyphenation/HyphenationCommon.h"
+#include "lib/Epub/Epub/hyphenation/Hyphenator.h"
 #include "lib/Epub/Epub/hyphenation/LanguageHyphenator.h"
 #include "lib/Epub/Epub/hyphenation/LanguageRegistry.h"
 
@@ -233,3 +234,43 @@ TEST(HyphenationEval, Italian) { runLanguageEval("italian", "it", "italian_hyphe
 TEST(HyphenationEval, Polish) { runLanguageEval("polish", "pl", "polish_hyphenation_tests.txt", 98.92); }
 TEST(HyphenationEval, Swedish) { runLanguageEval("swedish", "sv", "swedish_hyphenation_tests.txt", 94.01); }
 TEST(HyphenationEval, Portuguese) { runLanguageEval("portuguese", "pt", "portuguese_hyphenation_tests.txt", 98.21); }
+TEST(HyphenationEval, Greek) { runLanguageEval("greek", "el", "greek_hyphenation_tests.txt", 99.00); }
+
+// Greek EPUBs are often tagged "en" or not tagged at all; Greek words must still use the Greek patterns.
+TEST(HyphenationEval, GreekWordsIgnoreBookLanguage) {
+  const auto hyphenated = [](const std::string& word) {
+    std::string out;
+    size_t prev = 0;
+    for (const auto& info : Hyphenator::breakOffsets(word, false)) {
+      out += word.substr(prev, info.byteOffset - prev) + "-";
+      prev = info.byteOffset;
+    }
+    return out + word.substr(prev);
+  };
+  for (const char* lang : {"en", "", "de", "el"}) {
+    Hyphenator::setPreferredLanguage(lang);
+    EXPECT_EQ(hyphenated("καλημέρα"), "κα-λη-μέ-ρα") << "book language: " << lang;
+    EXPECT_EQ(hyphenated("ηλεκτρονικός"), "η-λε-κτρο-νι-κός") << "book language: " << lang;
+  }
+  Hyphenator::setPreferredLanguage("en");
+  EXPECT_EQ(hyphenated("hyphenation"), "hyphen-ation");
+  // A mixed-script word keeps the book's hyphenator for its Latin part.
+  EXPECT_EQ(hyphenated("α-hyphenation"), "α--hyphen-ation");
+  // Polytonic words use the polytonic patterns, also in monotonic and Ancient Greek books. Greek
+  // allows a one-letter syllable at either end (1/1 minima).
+  for (const char* lang : {"en", "el", "grc"}) {
+    Hyphenator::setPreferredLanguage(lang);
+    EXPECT_EQ(hyphenated("ἀνθρώπων"), "ἀν-θρώ-πων") << "book language: " << lang;
+    EXPECT_EQ(hyphenated("ἐκκλησία"), "ἐκ-κλη-σί-α") << "book language: " << lang;
+    EXPECT_EQ(hyphenated("Ἀθηναῖοι"), "Ἀ-θη-ναῖ-οι") << "book language: " << lang;
+  }
+  // Oxia letters (U+1F71 etc.) are the monotonic tonos letters, so the word stays monotonic.
+  Hyphenator::setPreferredLanguage("en");
+  EXPECT_EQ(hyphenated("καλημ\u1F73ρα"), "κα-λη-μ\u1F73-ρα");
+  EXPECT_FALSE(isPolytonicGreek(0x1F73));
+  EXPECT_EQ(toLowerGreek(0x1F73), 0x03ADu);
+  EXPECT_EQ(toLowerGreek(0x1FC9), 0x03ADu);  // capital with oxia
+  EXPECT_TRUE(isPolytonicGreek(0x1F00));
+  EXPECT_EQ(toLowerGreek(0x1F08), 0x1F00u);
+  Hyphenator::setPreferredLanguage("");
+}

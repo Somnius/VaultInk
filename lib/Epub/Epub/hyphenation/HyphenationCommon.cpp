@@ -48,11 +48,127 @@ uint32_t toLowerCyrillicImpl(const uint32_t cp) {
   return cp;
 }
 
+// Convert Greek uppercase letters (monotonic, incl. tonos and dialytika) to lowercase.
+// Final sigma (U+03C2) is already lowercase and is left alone.
+// Greek Extended (polytonic) capitals. Most sit 8 above their small letter; the rest are
+// listed one by one.
+uint32_t toLowerPolytonic(const uint32_t cp) {
+  // Letters with oxia are the same characters as the monotonic tonos letters (Unicode canonical
+  // equivalents), so fold them to those.
+  switch (cp) {
+    case 0x1F71:
+    case 0x1FBB:
+      return 0x03AC;  // ά
+    case 0x1F73:
+    case 0x1FC9:
+      return 0x03AD;  // έ
+    case 0x1F75:
+    case 0x1FCB:
+      return 0x03AE;  // ή
+    case 0x1F77:
+    case 0x1FDB:
+      return 0x03AF;  // ί
+    case 0x1F79:
+    case 0x1FF9:
+      return 0x03CC;  // ό
+    case 0x1F7B:
+    case 0x1FEB:
+      return 0x03CD;  // ύ
+    case 0x1F7D:
+    case 0x1FFB:
+      return 0x03CE;  // ώ
+    case 0x1FD3:
+      return 0x0390;  // ΐ
+    case 0x1FE3:
+      return 0x03B0;  // ΰ
+    default:
+      break;
+  }
+  const uint32_t low = cp & 0x0F;
+  const uint32_t row = cp & 0xFFF0;
+  switch (row) {
+    case 0x1F10:
+    case 0x1F40:
+      return (low >= 0x08 && low <= 0x0D) ? cp - 8 : cp;
+    case 0x1F00:
+    case 0x1F20:
+    case 0x1F30:
+    case 0x1F60:
+    case 0x1F80:
+    case 0x1F90:
+    case 0x1FA0:
+      return low >= 0x08 ? cp - 8 : cp;
+    case 0x1F50:
+      return (low >= 0x09 && (low & 1)) ? cp - 8 : cp;  // Ὑ Ὓ Ὕ Ὗ
+    default:
+      break;
+  }
+  switch (cp) {
+    case 0x1FB8:
+    case 0x1FB9:
+    case 0x1FD8:
+    case 0x1FD9:
+    case 0x1FE8:
+    case 0x1FE9:
+      return cp - 8;  // vrachy and macron capitals
+    case 0x1FBA:
+      return 0x1F70;  // Ὰ
+    case 0x1FC8:
+    case 0x1FCA:
+      return cp - 0x56;  // Ὲ Ὴ
+    case 0x1FDA:
+      return 0x1F76;  // Ὶ
+    case 0x1FEA:
+      return 0x1F7A;  // Ὺ
+    case 0x1FF8:
+      return 0x1F78;  // Ὸ
+    case 0x1FFA:
+      return 0x1F7C;  // Ὼ
+    case 0x1FBC:
+    case 0x1FCC:
+    case 0x1FFC:
+      return cp - 9;  // ᾼ ῌ ῼ (prosgegrammeni)
+    case 0x1FEC:
+      return 0x1FE5;  // Ῥ
+    default:
+      return cp;
+  }
+}
+
+uint32_t toLowerGreekImpl(const uint32_t cp) {
+  if ((cp >= 0x0391 && cp <= 0x03A1) || (cp >= 0x03A3 && cp <= 0x03AB)) {
+    return cp + 0x20;  // Α..Ρ, Σ..Ϋ
+  }
+  if (cp >= 0x1F00 && cp <= 0x1FFF) {
+    return toLowerPolytonic(cp);
+  }
+  switch (cp) {
+    case 0x0386:      // Ά
+      return 0x03AC;  // ά
+    case 0x0388:      // Έ
+      return 0x03AD;  // έ
+    case 0x0389:      // Ή
+      return 0x03AE;  // ή
+    case 0x038A:      // Ί
+      return 0x03AF;  // ί
+    case 0x038C:      // Ό
+      return 0x03CC;  // ό
+    case 0x038E:      // Ύ
+      return 0x03CD;  // ύ
+    case 0x038F:      // Ώ
+      return 0x03CE;  // ώ
+    default:
+      return cp;
+  }
+}
+
 }  // namespace
 
 uint32_t toLowerLatin(const uint32_t cp) { return toLowerLatinImpl(cp); }
 
 uint32_t toLowerCyrillic(const uint32_t cp) { return toLowerCyrillicImpl(cp); }
+
+uint32_t toLowerGreek(const uint32_t cp) { return toLowerGreekImpl(cp); }
 
 bool isLatinLetter(const uint32_t cp) {
   if ((cp >= 'A' && cp <= 'Z') || (cp >= 'a' && cp <= 'z')) {
@@ -82,7 +198,17 @@ bool isLatinLetter(const uint32_t cp) {
 
 bool isCyrillicLetter(const uint32_t cp) { return (cp >= 0x0400 && cp <= 0x052F); }
 
-bool isAlphabetic(const uint32_t cp) { return isLatinLetter(cp) || isCyrillicLetter(cp); }
+// Greek and Coptic letters (U+0386..U+03FF, skipping the ano teleia U+0387) plus Greek Extended
+// (polytonic) letters. Unassigned codepoints inside the ranges never appear in valid text.
+bool isGreekLetter(const uint32_t cp) {
+  return (cp >= 0x0386 && cp <= 0x03FF && cp != 0x0387) || (cp >= 0x1F00 && cp <= 0x1FFF);
+}
+
+bool isPolytonicGreek(const uint32_t cp) {
+  return cp >= 0x1F00 && cp <= 0x1FFF && toLowerPolytonic(cp) >= 0x1F00;  // oxia letters are monotonic
+}
+
+bool isAlphabetic(const uint32_t cp) { return isLatinLetter(cp) || isCyrillicLetter(cp) || isGreekLetter(cp); }
 
 bool isPunctuation(const uint32_t cp) {
   switch (cp) {
@@ -114,6 +240,8 @@ bool isPunctuation(const uint32_t cp) {
     case 0x2039:  // ‹
     case 0x203A:  // ›
     case 0x2026:  // …
+    case 0x037E:  // Greek question mark
+    case 0x0387:  // Greek ano teleia
       return true;
     default:
       return false;

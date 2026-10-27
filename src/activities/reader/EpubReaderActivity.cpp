@@ -1681,12 +1681,15 @@ void EpubReaderActivity::renderBook() {
         LOG_DBG("ERS", "Cache not found, building...");
       }
 
+      // After a firmware update changes the cache format, say why the book is slow to open once.
+      const bool staleCache = section->hadStaleCache();
+      const char* buildMessage = staleCache ? tr(STR_CACHE_UPDATING) : tr(STR_INDEXING);
       const bool needsFullBuild = pendingPercentJump;
       if (needsFullBuild) {
-        GUI.drawPopup(renderer, tr(STR_INDEXING));
+        GUI.drawPopup(renderer, buildMessage);
         pagesUntilFullRefresh = 1;
-        const auto popupFn = [this]() {
-          if (renderer.hasFrameBuffer()) GUI.drawPopup(renderer, tr(STR_INDEXING));
+        const auto popupFn = [this, buildMessage]() {
+          if (renderer.hasFrameBuffer()) GUI.drawPopup(renderer, buildMessage);
         };
         if (!makeRoomForChapterBuild()) {
           section.reset();
@@ -1723,8 +1726,9 @@ void EpubReaderActivity::renderBook() {
             showPopup = !targetAvailable && ((spineBytes > BUILD_POPUP_BYTE_THRESHOLD && willInflate) ||
                                              target > BUILD_POPUP_PAGE_THRESHOLD);
           }
+          showPopup = showPopup || staleCache;
           if (showPopup) {
-            GUI.drawPopup(renderer, tr(STR_INDEXING));
+            GUI.drawPopup(renderer, buildMessage);
             pagesUntilFullRefresh = 1;
           }
           buildPopupPending = !showPopup;

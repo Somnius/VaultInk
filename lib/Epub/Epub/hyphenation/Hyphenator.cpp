@@ -22,9 +22,9 @@ struct Iso639Mapping {
   const char* iso639_2;
   const char* iso639_1;
 };
-static constexpr Iso639Mapping kIso639Mappings[] = {{"eng", "en"}, {"fra", "fr"}, {"fre", "fr"}, {"deu", "de"},
-                                                    {"ger", "de"}, {"rus", "ru"}, {"spa", "es"}, {"ita", "it"},
-                                                    {"ukr", "uk"}, {"swe", "sv"}, {"fin", "fi"}};
+static constexpr Iso639Mapping kIso639Mappings[] = {
+    {"eng", "en"}, {"fra", "fr"}, {"fre", "fr"}, {"deu", "de"}, {"ger", "de"}, {"rus", "ru"}, {"spa", "es"},
+    {"ita", "it"}, {"ukr", "uk"}, {"swe", "sv"}, {"fin", "fi"}, {"gre", "el"}, {"ell", "el"}};
 
 // Maps a BCP-47 or ISO 639-2 language tag to a language-specific hyphenator.
 const LanguageHyphenator* hyphenatorForLanguage(const std::string& langTag) {
@@ -49,6 +49,31 @@ const LanguageHyphenator* hyphenatorForLanguage(const std::string& langTag) {
   }
 
   return getLanguageHyphenatorForPrimaryTag(primary);
+}
+
+// Greek words use the Greek patterns whatever the book's dc:language says. Greek EPUBs,
+// translations especially, are often tagged "en" or not tagged at all, and the English
+// (or no) hyphenator can't break Greek letters. A word with any polytonic letter uses the
+// polytonic patterns, which also cover monotonic letters. Mixed-script words (e.g.
+// "α-helix") keep the book's hyphenator so their Latin or Cyrillic parts still break.
+const LanguageHyphenator* hyphenatorForWord(const std::vector<CodepointInfo>& cps,
+                                            const LanguageHyphenator* preferred) {
+  static const LanguageHyphenator* const greek = getLanguageHyphenatorForPrimaryTag("el");
+  static const LanguageHyphenator* const polytonic = getLanguageHyphenatorForPrimaryTag("grc");
+  const bool greekBook = preferred == greek || preferred == polytonic;
+  bool hasGreek = false;
+  bool hasPolytonic = false;
+  for (const auto& cp : cps) {
+    if (isGreekLetter(cp.value)) {
+      hasGreek = true;
+      hasPolytonic = hasPolytonic || isPolytonicGreek(cp.value);
+    } else if (!greekBook && isAlphabetic(cp.value)) {
+      return preferred;
+    }
+  }
+  if (!hasGreek) return preferred;
+  if (hasPolytonic) return polytonic;
+  return greekBook ? preferred : greek;
 }
 
 // Maps a codepoint index back to its byte offset inside the source word.
@@ -180,7 +205,7 @@ std::vector<Hyphenator::BreakInfo> Hyphenator::breakOffsets(const std::string& w
   // Convert to codepoints and normalize word boundaries.
   auto cps = collectCodepoints(word);
   trimSurroundingPunctuationAndFootnote(cps);
-  const auto* hyphenator = cachedHyphenator_;
+  const auto* hyphenator = hyphenatorForWord(cps, cachedHyphenator_);
 
   // Detect apostrophe-like separators early; used by both branches below.
   bool hasApostropheLikeSeparator = false;

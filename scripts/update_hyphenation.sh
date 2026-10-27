@@ -27,3 +27,11 @@ process pl
 process pt
 process sv
 process fi
+process el
+
+# hyph-el-polyton.trie.h is not in typst/hypher's tries. It was built from
+# tex-hyphen's hyph-el-polyton.tex with hypher's tests/generate.rs, by adding
+# ("GreekPolytonic", "elpoly", &[], "Grek", "hyph-el-polyton.tex", 1, 1) to its
+# language list (hypher d81cc50), then:
+#   python scripts/generate_hyphenation_trie.py --input tries/elpoly.bin \
+#     --output lib/Epub/Epub/hyphenation/generated/hyph-el-polyton.trie.h
