@@ -116,8 +116,8 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS catalogs, Calibre wireless
   transfer and SD-card plugins.
 - **Obsidian notes.** Open a `.md` note from a vault and it reads like a book: headings, bold and
-  italic, highlights, lists and tasks, quotes and callouts, tables, code, and embedded images found
-  anywhere in the vault. Tap a `[[link]]` to open the other note (or jump to its heading), and press
+  italic, highlights, lists (nested and numbered) and tasks, quotes and callouts, tables, code,
+  footnotes, embedded images found anywhere in the vault, and other notes embedded with `![[Note]]`. Tap a `[[link]]` to open the other note (or jump to its heading), and press
   Back to return.
 - **Vaults and search.** The Vaults row lists every vault on the SD card (folders under `Vaults/`
   and any folder with `.obsidian` in it). Search looks through all of them by title, alias, tag and

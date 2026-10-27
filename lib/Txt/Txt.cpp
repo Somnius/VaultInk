@@ -132,9 +132,37 @@ bool Txt::streamTxtToHtml(const std::string& filepath, Print& out) {
     resolved.emplace_back(std::string(name), path);
     return path;
   };
+  // ![[Note]] on its own line: the embedded note's text, read through the same lookup.
+  const MarkdownToHtml::NoteLoader notes = [&images](std::string_view name, std::string& text) {
+    std::string target(name);
+    if (!FsHelpers::hasMarkdownExtension(target)) target += ".md";  // "Dr. Smith" is "Dr. Smith.md"
+    const std::string path = images(target);
+    if (path.empty()) return false;
+    HalFile file;
+    if (!Storage.openFileForRead("TXT", path, file)) return false;
+    const size_t size = std::min<size_t>(file.size(), MarkdownToHtml::MAX_EMBED);
+    text.resize(size);
+    size_t got = 0;
+    while (got < size) {
+      const int n = file.read(reinterpret_cast<uint8_t*>(text.data()) + got, size - got);
+      if (n < 0) return false;
+      if (n == 0) break;
+      got += static_cast<size_t>(n);
+    }
+    // A note cut at the cap must not end inside a UTF-8 character.
+    if (got == MarkdownToHtml::MAX_EMBED) {
+      size_t keep = got;
+      while (keep > 0 && (static_cast<unsigned char>(text[keep - 1]) & 0xC0) == 0x80) --keep;
+      if (keep > 0 && static_cast<unsigned char>(text[keep - 1]) >= 0xC0) --keep;
+      got = keep;
+    }
+    text.resize(got);
+    return true;
+  };
   const bool ok = TxtToHtml::stream(
       filepath, &src, [](void* ctx, uint8_t* buf, size_t size) { return static_cast<HalFile*>(ctx)->read(buf, size); },
-      out, FsHelpers::hasMarkdownExtension(filepath) ? &images : nullptr);
+      out, FsHelpers::hasMarkdownExtension(filepath) ? &images : nullptr,
+      FsHelpers::hasMarkdownExtension(filepath) ? &notes : nullptr);
 
   LOG_DBG("TXT", "Converted TXT/MD to HTML in %lu ms (%zu bytes in)", millis() - t0, srcSize);
   return ok;

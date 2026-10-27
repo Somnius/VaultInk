@@ -34,13 +34,15 @@ class TxtToHtml {
  private:
   static bool streamMarkdown(std::string_view filename, void* readerCtx,
                              int (*readFn)(void* ctx, uint8_t* buf, size_t size), uint8_t* inBuf, size_t inBufSize,
-                             Print& out, const MarkdownToHtml::ImageResolver* images);
+                             Print& out, const MarkdownToHtml::ImageResolver* images,
+                             const MarkdownToHtml::NoteLoader* notes);
 
  public:
   static size_t escapedHtmlSize(std::string_view text);
   static void appendEscapedHtml(std::string& out, std::string_view text);
-  // `images` (Markdown only) maps embedded image names to SD paths.
+  // `images` (Markdown only) maps embedded image names to SD paths; `notes` reads embedded notes.
   static bool stream(std::string_view filename, void* readerCtx, int (*readFn)(void* ctx, uint8_t* buf, size_t size),
-                     Print& out, const MarkdownToHtml::ImageResolver* images = nullptr);
+                     Print& out, const MarkdownToHtml::ImageResolver* images = nullptr,
+                     const MarkdownToHtml::NoteLoader* notes = nullptr);
   static bool stream(std::string_view filename, std::string_view content, Print& out);
 };

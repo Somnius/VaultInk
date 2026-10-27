@@ -150,9 +150,9 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 | Bold, italic, bold-italic, strike, inline code | must | per span, not per line |
 | Highlight `==text==` | should | drawn as underline or inverted run |
 | Paragraphs, line breaks | must | reflow, hyphenation per language |
-| Bullet, numbered, nested lists | must | |
+| Bullet, numbered, nested lists | must | done; nested levels indented, numbers keep their start (0.8.0); inside quotes as lines with the marker |
 | Task lists `- [ ]` / `- [x]` | must | read only in Phase 1, toggle in Phase 4 |
-| Block quotes | must | |
+| Block quotes | must | done, indented |
 | Callouts `> [!type] title` | must | icon + title |
 | Foldable callouts `+`/`-` | should | Phase 1 shows them open; tap-to-fold needs re-pagination |
 | Bare URLs and `<https://…>` | must | shown as links |
@@ -165,10 +165,10 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 | Markdown links `[text](url)` and `[text](note.md)` | must | external URLs show the address, are not opened |
 | Embeds `![[image.png]]`, `![[image.png\|300]]` | must | PNG, JPEG, GIF (first frame), scaled and dithered |
 | WebP embeds | should | no WebP decoder in the tree yet (`ImageProbe.h:29`); needs a new library |
-| Note embeds `![[note]]`, `![[note#heading]]`, `![[note#^block]]` | must | depth limit 2, loops shown as a link |
+| Note embeds `![[note]]`, `![[note#heading]]`, `![[note#^block]]` | must | done (0.8.0) for a whole note on its own line: one level (an embedded note's embeds stay links, so no loops), up to 32 KB; heading/block parts later |
 | Frontmatter | must | hidden from the text; `aliases`, `tags` used by the index; a small "Properties" view |
 | Tags `#tag`, `#nested/tag` | must | |
-| Footnotes | should | |
+| Footnotes | should | done (0.8.0): `[^id]` is a raised id linking to the `[^id]: text` paragraph |
 | Comments `%%...%%` | must | hidden |
 | HTML | later | tags stripped, text kept |
 | Math, Mermaid | later | shown as code |

@@ -40,8 +40,10 @@ and host tests.
 * ✅ Web installer on GitHub Pages (somnius.github.io/VaultInk): ESP Web Tools 10.4.0; the page and
   the locally built full image are pushed to the `gh-pages` branch (nothing is built on GitHub) (release
   assets have no CORS headers). Marked as a test build; the button unlocks after ticking "I
-  understand this is untested".
-* ✅ Test builds 0.2.0 to 0.7.0 published (web installer and GitHub releases, marked untested); the
+  understand this is untested". ✅ Device picker (0.8.0): X4 Pro steps (wake it, USB-C data
+  cable, no buttons needed, as CrossPoint documents it); X4/X3 point to CrossPoint, since VaultInk
+  is X4 Pro only.
+* ✅ Test builds 0.2.0 to 0.8.0 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
 * ⏳ First hardware-tested release, once the X4 Pro arrives and passes the hardware checks below.
 
@@ -50,7 +52,7 @@ and host tests.
 **Goal:** open a real vault from the SD card and read it like in Obsidian.
 
 * ✅ Bigger app slots: `spiffs` partition dropped (nothing used it), 7.94 MiB per slot
-  (`partitions_vaultink.csv`). Firmware now uses 71% of a slot (0.7.0). Done before the first test build,
+  (`partitions_vaultink.csv`). Firmware now uses 71% of a slot (0.8.0). Done before the first test build,
   so nobody needs an extra USB flash.
 * ✅ Home: **Vaults** right after **Books**; vault picker (`/Vaults/*` and top-level folders with
   `.obsidian`), each vault opens in the folder browser. ⏳ Recent notes, Greek path checks on device.
@@ -61,12 +63,14 @@ and host tests.
   wikilinks, Markdown and bare links, image embeds), 17 host tests, wired into the reader's `.md`
   path so notes render with the book reader. ✅ Links between notes (Obsidian resolution,
   headings, same-note jumps, Back through 16 notes, "Note not found") and embedded images found
-  anywhere in the vault. To do: note
-  embeds, footnotes, nested list indent. ✅ Greek and polytonic in the built-in reading font, so
-  notes and books read Greek without an SD font.
-  Also: lists and quotes inside each other, numbered lists that start above 1. Seen in the
-  simulator: callouts show only a bold title (no frame), `==highlight==` shows as an underline;
-  check whether the reader can draw better before changing the converter.
+  anywhere in the vault. ✅ Greek and polytonic in the built-in reading font, so notes and books
+  read Greek without an SD font. ✅ (0.8.0) Nested lists indented, numbered lists keep their first
+  number (`<ol start>`, EPUBs too), lists inside quotes, quotes indented, footnotes (raised number
+  that links to the note's footnote), note embeds `![[Note]]` on their own line (the note's text
+  under its title, one level, up to 32 KB). To do: embeds of a heading or block
+  (`![[Note#Heading]]` shows the whole note for now); a note's cache isn't rebuilt when only an
+  embedded note changes; callouts show only a bold title (no frame); `==highlight==` shows as an
+  underline (same as links).
 * Note reader with links, back stack, image and note embeds, block refs.
 * 🚧 Index on SD, incremental, for vaults of 60 MB and more. ✅ Search index per vault (title,
   aliases, tags, outgoing links, words), updated by size and modification time. To do: use it to

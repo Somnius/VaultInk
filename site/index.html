@@ -56,6 +56,9 @@
     }
     .disabled { opacity: .45; pointer-events: none; }
     .note { color: var(--muted); font-size: .92rem; }
+    label.pick { display: block; margin: 4px 0 6px; font-weight: 600; cursor: default; }
+    select { width: 100%; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+      background: var(--bg); color: var(--fg); margin-bottom: 8px; }
     code { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
     a { color: inherit; }
     footer { margin-top: 40px; color: var(--muted); font-size: .9rem; text-align: center; }
@@ -87,33 +90,60 @@
 
   <div class="card" id="installCard">
     <h2 style="margin-top:0">Install</h2>
-    <ol>
-      <li>Use Chrome, Edge or another browser with Web Serial, on a computer (not a phone).</li>
-      <li>Connect the X4 Pro with a USB-C data cable and turn it on.</li>
-      <li>Press <strong>Install VaultInk</strong>, choose the device in the list, and wait until it
-        says it's done. It takes about a minute.</li>
-    </ol>
-    <label>
-      <input type="checkbox" id="agree">
-      <span>I understand this is an untested build and I've backed up my SD card.</span>
-    </label>
-    <div class="install disabled" id="installBox">
-      <esp-web-install-button manifest="manifest.json">
-        <button slot="activate">Install VaultInk</button>
-        <span slot="unsupported">Your browser can't flash devices. Please use Chrome or Edge on a computer.</span>
-        <span slot="not-allowed">Flashing needs a secure (https) page.</span>
-      </esp-web-install-button>
+    <label class="pick" for="device">Your device</label>
+    <select id="device">
+      <option value="x4pro" selected>Xteink X4 Pro</option>
+      <option value="x4">Xteink X4</option>
+      <option value="x3">Xteink X3</option>
+      <option value="other">Something else / not sure</option>
+    </select>
+
+    <div data-device="x4pro">
+      <ol>
+        <li>Use Chrome, Edge or another browser with Web Serial, on a computer (not a phone).</li>
+        <li>Turn the X4 Pro on and wake it up, so it shows the home screen or a book (not the sleep
+          screen). No buttons need to be held.</li>
+        <li>Connect it with a USB-C <strong>data</strong> cable. Some cables only charge.</li>
+        <li>Press <strong>Install VaultInk</strong>, choose the device in the list, and wait until it
+          says it's done. It takes about a minute. The whole flash is rewritten; books and notes on
+          the SD card are not touched, but back the card up anyway.</li>
+      </ol>
+      <label>
+        <input type="checkbox" id="agree">
+        <span>I understand this is an untested build and I've backed up my SD card.</span>
+      </label>
+      <div class="install disabled" id="installBox">
+        <esp-web-install-button manifest="manifest.json">
+          <button slot="activate">Install VaultInk</button>
+          <span slot="unsupported">Your browser can't flash devices. Please use Chrome or Edge on a computer.</span>
+          <span slot="not-allowed">Flashing needs a secure (https) page.</span>
+        </esp-web-install-button>
+      </div>
+      <p class="note" id="version"></p>
     </div>
-    <p class="note" id="version"></p>
+
+    <div data-device="x4 x3" hidden>
+      <p><strong>VaultInk doesn't run on the X4 or X3 yet.</strong> They use a smaller chip (ESP32-C3)
+        with less memory, and VaultInk is built for the X4 Pro only for now. The installer would
+        refuse the device anyway.</p>
+      <p>For these readers, use <a href="https://crosspointreader.com/#flash-tools">CrossPoint
+        Reader</a>, the firmware VaultInk is based on.</p>
+    </div>
+
+    <div data-device="other" hidden>
+      <p>VaultInk only supports the <strong>Xteink X4 Pro</strong> for now. The model name is on the
+        box and on the back of the reader. If you have an X4 or X3, pick it above.</p>
+    </div>
   </div>
 
   <h2>Not working?</h2>
   <ul>
     <li><strong>The device isn't in the list.</strong> Try another cable (some only charge), another
       USB port, and make sure the reader is on.</li>
-    <li><strong>It connects but won't flash.</strong> Some units sold by third-party shops have USB
-      flashing locked at the factory. They have to be unlocked with Xteink's tool before any custom
-      firmware can be installed.</li>
+    <li><strong>It connects but won't flash.</strong> Try another USB port or browser first. Some
+      units sold by third-party shops have USB flashing locked at the factory. CrossPoint's site has
+      an <a href="https://crosspointreader.com/#flash-tools">Xteink unlocker</a>; read its warnings
+      first, since it only supports CrossPoint and CrossInk officially.</li>
     <li><strong>Going back.</strong> Install the official Xteink firmware the same way you installed
       this one.</li>
   </ul>
@@ -136,6 +166,17 @@
     document.getElementById("installCard").classList.add("disabled");
     document.getElementById("agree").disabled = true;
   }
+  // Device picker: show the steps for the chosen reader, remember it for the next visit.
+  const device = document.getElementById("device");
+  const showDevice = () => {
+    document.querySelectorAll("[data-device]").forEach(el => {
+      el.hidden = !el.dataset.device.split(" ").includes(device.value);
+    });
+    try { localStorage.setItem("vaultink-device", device.value); } catch (e) {}
+  };
+  try { const saved = localStorage.getItem("vaultink-device"); if (saved) device.value = saved; } catch (e) {}
+  device.addEventListener("change", showDevice);
+  showDevice();
   const agree = document.getElementById("agree");
   const box = document.getElementById("installBox");
   agree.addEventListener("change", () => {

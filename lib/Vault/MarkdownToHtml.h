@@ -30,15 +30,22 @@ class MarkdownToHtml {
   // images keep their "vault:" source.
   using ImageResolver = std::function<std::string(std::string_view name)>;
 
+  // Reads an embedded note ("![[Note]]" on a line of its own) into `text`, at most MAX_EMBED
+  // bytes; false when it isn't found. Without one, note embeds stay links.
+  using NoteLoader = std::function<bool(std::string_view name, std::string& text)>;
+  static constexpr size_t MAX_EMBED = 32 * 1024;
+
   explicit MarkdownToHtml(Sink& sink) : sink(sink) {}
   void setImageResolver(ImageResolver resolver) { imageResolver = std::move(resolver); }
+  void setNoteLoader(NoteLoader loader) { noteLoader = std::move(loader); }
 
   // Writes the XHTML head; title is the note name. `prolog` goes right after the XML declaration
   // (the reader's cache-version comment).
   void begin(std::string_view title, std::string_view prolog = {});
   void feed(std::string_view chunk);
-  // Flushes the last line and closes every open element.
-  void finish();
+  // Flushes the last line and closes every open element; `closeDocument` = false leaves out
+  // </body></html> (an embedded note's body).
+  void finish(bool closeDocument = true);
 
   // Inline Markdown (emphasis, code, links, tags...) to escaped XHTML. Public for tests.
   static void inlineToHtml(std::string_view text, std::string& out, const ImageResolver* images = nullptr);
@@ -58,15 +65,18 @@ class MarkdownToHtml {
   void closeLists(int toDepth);
   void closeQuote();
   void closeAll();
-  void listItem(int indent, bool ordered, std::string_view content);
+  void openList(bool ordered, int number);
+  void listItem(int indent, bool ordered, int number, std::string_view content);
   // more = the table goes on: write what is buffered and keep the header for the next part.
   void flushTable(bool more = false);
   void continuation(std::string_view text);
   void heading(int level, std::string_view text);
+  bool embedNote(std::string_view trimmed);
   void writeEscaped(std::string_view text);
 
   Sink& sink;
   ImageResolver imageResolver;
+  NoteLoader noteLoader;
   const ImageResolver* images() const { return imageResolver ? &imageResolver : nullptr; }
   std::string pendingLine;
   std::string paragraph;

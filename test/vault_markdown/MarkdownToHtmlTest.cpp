@@ -107,15 +107,52 @@ TEST(VaultMarkdown, FrontmatterIsSkipped) {
 }
 
 TEST(VaultMarkdown, Lists) {
-  EXPECT_EQ(body("- a\n- b\n  - c\n- d\n"), "<ul>\n<li>a</li>\n<li>b<ul>\n<li>c</li></ul>\n</li>\n<li>d</li></ul>\n");
+  EXPECT_EQ(body("- a\n- b\n  - c\n- d\n"),
+            "<ul>\n<li>a</li>\n<li>b<ul style=\"margin-left:1.2em\">\n<li>c</li></ul>\n</li>\n<li>d</li></ul>\n");
+  EXPECT_EQ(body("3. three\n4. four\n"), "<ol start=\"3\">\n<li>three</li>\n<li>four</li></ol>\n");
   EXPECT_EQ(body("1. one\n2. two\n"), "<ol>\n<li>one</li>\n<li>two</li></ol>\n");
   EXPECT_EQ(body("- [ ] todo\n- [x] done\n"), "<ul>\n<li>[ ] todo</li>\n<li>[x] done</li></ul>\n");
 }
 
 TEST(VaultMarkdown, QuotesAndCallouts) {
-  EXPECT_EQ(body("> said\n> twice\n"), "<blockquote><p>said<br/>twice</p>\n</blockquote>\n");
-  EXPECT_EQ(body("> [!warning] Careful\n> body\n"), "<blockquote><p><b>Careful</b></p>\n<p>body</p>\n</blockquote>\n");
-  EXPECT_EQ(body("> [!note]-\n> folded\n"), "<blockquote><p><b>Note</b></p>\n<p>folded</p>\n</blockquote>\n");
+  EXPECT_EQ(body("> said\n> twice\n"), "<blockquote style=\"margin-left:1em\"><p>said<br/>twice</p>\n</blockquote>\n");
+  EXPECT_EQ(body("> [!warning] Careful\n> body\n"),
+            "<blockquote style=\"margin-left:1em\"><p><b>Careful</b></p>\n<p>body</p>\n</blockquote>\n");
+  EXPECT_EQ(body("> [!note]-\n> folded\n"),
+            "<blockquote style=\"margin-left:1em\"><p><b>Note</b></p>\n<p>folded</p>\n</blockquote>\n");
+}
+
+TEST(VaultMarkdown, ListsInQuotes) {
+  EXPECT_EQ(body("> Intro\n> - one\n> 2. two\n"),
+            "<blockquote style=\"margin-left:1em\"><p>Intro</p>\n<p>\xe2\x80\xa2 one</p>\n<p>2. two</p>\n"
+            "</blockquote>\n");
+}
+
+TEST(VaultMarkdown, NoteEmbeds) {
+  struct StringSink final : MarkdownToHtml::Sink {
+    std::string out;
+    void write(std::string_view t) override { out.append(t); }
+  } sink;
+  MarkdownToHtml md(sink);
+  md.setNoteLoader([](std::string_view name, std::string& text) {
+    if (name != "Other") return false;
+    text = "---\ntags: [x]\n---\nInner **text** and ![[Other]] again.\n";
+    return true;
+  });
+  md.feed("Before\n![[Other]]\n![[Missing]]\n");
+  md.finish(false);
+  EXPECT_EQ(sink.out,
+            "<p>Before</p>\n<blockquote style=\"margin-left:1em\"><p><b><a href=\"vault:Other\">Other</a></b></p>\n"
+            "<p>Inner <b>text</b> and <a href=\"vault:Other\">Other</a> again.</p>\n</blockquote>\n"
+            "<p><a href=\"vault:Missing\">Missing</a></p>\n");
+}
+
+TEST(VaultMarkdown, Footnotes) {
+  EXPECT_EQ(inlineHtml("word[^1] and [^note]"),
+            "word<a href=\"#fn-1\"><sup>1</sup></a> and <a href=\"#fn-note\"><sup>note</sup></a>");
+  EXPECT_EQ(body("[^1]: The *text*.\n"), "<p id=\"fn-1\"><sup>1</sup> The <i>text</i>.</p>\n");
+  EXPECT_EQ(inlineHtml("x[^α β]"), "x<a href=\"#fn-α-β\"><sup>α β</sup></a>");
+  EXPECT_EQ(body("- item\n[^1]: note\n"), "<ul>\n<li>item</li></ul>\n<p id=\"fn-1\"><sup>1</sup> note</p>\n");
 }
 
 TEST(VaultMarkdown, Tables) {

@@ -2116,6 +2116,12 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
         ctx.ordered = strcmp(name, "ol") == 0;
         ctx.styleNone = cssStyle.hasListStyleType() && cssStyle.listStyleType == CssListStyleType::None;
         ctx.depth = self->depth;
+        // <ol start="N">: the first item is numbered N.
+        if (ctx.ordered && atts != nullptr) {
+          for (int a = 0; atts[a]; a += 2) {
+            if (strcmp(atts[a], "start") == 0) ctx.counter = std::atoi(atts[a + 1]) - 1;
+          }
+        }
         self->listStack.push_back(ctx);
       }
     }

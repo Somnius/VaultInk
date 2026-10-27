@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <cstring>
 
 namespace {
@@ -18,6 +19,17 @@ std::string_view trim(std::string_view s) {
   s = trimLeft(s);
   while (!s.empty() && isSpace(s.back())) s.remove_suffix(1);
   return s;
+}
+
+// Footnote ids become anchor ids: letters, digits and non-ASCII (Greek) kept, ASCII punctuation
+// and spaces as '-'.
+std::string footnoteId(std::string_view id) {
+  std::string out;
+  for (const char c : id) {
+    const auto u = static_cast<unsigned char>(c);
+    out += u >= 0x80 || std::isalnum(u) ? c : '-';
+  }
+  return out;
 }
 
 // Leading indentation in columns (a tab counts as 4).
@@ -158,6 +170,20 @@ void MarkdownToHtml::inlineToHtml(std::string_view text, std::string& out, const
       const size_t end = text.find("%%", i + 2);
       i = end == std::string_view::npos ? n : end + 2;
       continue;
+    }
+    // Footnote reference [^id] -> a raised number linking to its definition.
+    if (startsWith(rest, "[^")) {
+      const size_t end = text.find(']', i + 2);
+      if (end != std::string_view::npos && end > i + 2 && (end + 1 >= n || text[end + 1] != ':')) {
+        const std::string_view id = text.substr(i + 2, end - i - 2);
+        out += "<a href=\"#fn-";
+        appendEscaped(out, footnoteId(id));
+        out += "\"><sup>";
+        appendEscaped(out, id);
+        out += "</sup></a>";
+        i = end + 1;
+        continue;
+      }
     }
     if (startsWith(rest, "![[") || startsWith(rest, "[[")) {
       const bool embed = c == '!';
@@ -395,7 +421,7 @@ void MarkdownToHtml::feed(std::string_view chunk) {
   }
 }
 
-void MarkdownToHtml::finish() {
+void MarkdownToHtml::finish(const bool closeDocument) {
   if (!pendingLine.empty()) {
     line(pendingLine);
     pendingLine.clear();
@@ -403,7 +429,35 @@ void MarkdownToHtml::finish() {
   if (block == Block::Code) sink.write("</pre>\n");
   block = Block::None;
   closeAll();
-  sink.write("</body>\n</html>\n");
+  if (closeDocument) sink.write("</body>\n</html>\n");
+}
+
+// "![[Note]]" alone on a line: the note's text, indented under its linked title. One level only:
+// the embedded note's own embeds stay links, so notes that embed each other can't loop.
+bool MarkdownToHtml::embedNote(std::string_view trimmed) {
+  if (!noteLoader || !startsWith(trimmed, "![[")) return false;
+  trimmed = trim(trimmed);
+  if (trimmed.size() < 6 || trimmed.substr(trimmed.size() - 2) != "]]") return false;
+  std::string_view target, alias;
+  splitAlias(trimmed.substr(3, trimmed.size() - 5), target, alias);
+  const std::string_view name = target.substr(0, target.find('#'));
+  if (name.empty() || isImageName(name) || name.find("]]") != std::string_view::npos) return false;
+  // Transient: freed when this returns; capped at MAX_EMBED by the loader.
+  std::string text;
+  if (!noteLoader(name, text)) return false;
+  closeAll();
+  std::string html = "<blockquote style=\"margin-left:1em\"><p><b><a href=\"vault:";
+  appendEscaped(html, target);
+  html += "\">";
+  appendEscaped(html, alias.empty() ? linkDisplay(name) : alias);
+  html += "</a></b></p>\n";
+  sink.write(html);
+  MarkdownToHtml inner(sink);
+  inner.imageResolver = imageResolver;
+  inner.feed(text);
+  inner.finish(false);
+  sink.write("</blockquote>\n");
+  return true;
 }
 
 void MarkdownToHtml::continuation(std::string_view text) {
@@ -495,7 +549,17 @@ void MarkdownToHtml::heading(const int level, std::string_view text) {
   sink.write(html);
 }
 
-void MarkdownToHtml::listItem(const int indent, const bool ordered, std::string_view content) {
+void MarkdownToHtml::openList(const bool ordered, const int number) {
+  // Nested lists step in; the reader adds the container margins up. A numbered list keeps the
+  // number it starts with.
+  std::string tag = ordered ? "<ol" : "<ul";
+  if (!lists.empty()) tag += " style=\"margin-left:1.2em\"";
+  if (ordered && number != 1) tag += " start=\"" + std::to_string(number) + "\"";
+  tag += ">\n";
+  sink.write(tag);
+}
+
+void MarkdownToHtml::listItem(const int indent, const bool ordered, const int number, std::string_view content) {
   closeQuote();
   flushTable();
   closeParagraph();
@@ -504,12 +568,13 @@ void MarkdownToHtml::listItem(const int indent, const bool ordered, std::string_
     lists.pop_back();
   }
   if (lists.empty() || indent > lists.back().indent) {
-    sink.write(ordered ? "<ol>\n" : "<ul>\n");
+    openList(ordered, number);
     lists.push_back({ordered, indent});
   } else if (lists.back().ordered != ordered) {
     sink.write(lists.back().ordered ? "</li></ol>\n" : "</li></ul>\n");
-    lists.back().ordered = ordered;
-    sink.write(ordered ? "<ol>\n" : "<ul>\n");
+    lists.pop_back();
+    openList(ordered, number);
+    lists.push_back({ordered, indent});
   } else {
     sink.write("</li>\n");
   }
@@ -680,6 +745,8 @@ void MarkdownToHtml::line(std::string_view text) {
     flushTable();
   }
 
+  if (block == Block::None && embedNote(trimmed)) return;
+
   if (trimmed[0] == '#') {
     size_t level = 0;
     while (level < trimmed.size() && trimmed[level] == '#') ++level;
@@ -707,7 +774,7 @@ void MarkdownToHtml::line(std::string_view text) {
     if (!quoteOpen) {
       closeLists(0);
       closeParagraph();
-      sink.write("<blockquote>");
+      sink.write("<blockquote style=\"margin-left:1em\">");
       quoteOpen = true;
       if (startsWith(content, "[!")) {
         const size_t close = content.find(']');
@@ -734,16 +801,60 @@ void MarkdownToHtml::line(std::string_view text) {
       closeParagraph();
       return;
     }
+    // A list item inside a quote: its own line with the marker as text ("•" or the number), since
+    // the quote holds paragraphs, not lists.
+    {
+      std::string_view item = content;
+      std::string marker;
+      if ((item[0] == '-' || item[0] == '*' || item[0] == '+') && item.size() > 1 && isSpace(item[1])) {
+        marker = "\xe2\x80\xa2 ";
+        item = trimLeft(item.substr(1));
+      } else {
+        size_t d = 0;
+        while (d < item.size() && d < 9 && std::isdigit(static_cast<unsigned char>(item[d]))) ++d;
+        if (d > 0 && d + 1 < item.size() && (item[d] == '.' || item[d] == ')') && isSpace(item[d + 1])) {
+          marker = std::string(item.substr(0, d + 1)) + " ";
+          item = trimLeft(item.substr(d + 1));
+        }
+      }
+      if (!marker.empty()) {
+        closeParagraph();
+        std::string html = "<p>" + marker;
+        inlineToHtml(item, html, images());
+        html += "</p>\n";
+        sink.write(html);
+        return;
+      }
+    }
     if (!paragraph.empty()) paragraph += '\n';
     paragraph += content;
     if (paragraph.size() >= MAX_PARAGRAPH) closeParagraph();
     return;
   }
+  // Footnote definition "[^id]: text": a paragraph the references jump to.
+  if (indent == 0 && startsWith(trimmed, "[^")) {
+    const size_t close = trimmed.find("]:");
+    if (close != std::string_view::npos && close > 2) {
+      closeAll();  // a definition ends any list, quote or table above it
+      const std::string_view id = trimmed.substr(2, close - 2);
+      std::string html = "<p id=\"fn-";
+      appendEscaped(html, footnoteId(id));
+      html += "\"><sup>";
+      appendEscaped(html, id);
+      html += "</sup> ";
+      inlineToHtml(trimLeft(trimmed.substr(close + 2)), html, images());
+      html += "</p>\n";
+      sink.write(html);
+      return;
+    }
+  }
+
   if (quoteOpen) closeQuote();
 
   {
     size_t markerLen = 0;
     bool ordered = false;
+    int number = 0;
     if ((trimmed[0] == '-' || trimmed[0] == '*' || trimmed[0] == '+') && trimmed.size() > 1 && isSpace(trimmed[1])) {
       markerLen = 1;
     } else {
@@ -752,10 +863,11 @@ void MarkdownToHtml::line(std::string_view text) {
       if (d > 0 && d + 1 < trimmed.size() && (trimmed[d] == '.' || trimmed[d] == ')') && isSpace(trimmed[d + 1])) {
         markerLen = d + 1;
         ordered = true;
+        number = std::atoi(std::string(trimmed.substr(0, d)).c_str());
       }
     }
     if (markerLen > 0) {
-      listItem(indent, ordered, trimLeft(trimmed.substr(markerLen)));
+      listItem(indent, ordered, number, trimLeft(trimmed.substr(markerLen)));
       return;
     }
   }

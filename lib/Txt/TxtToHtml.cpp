@@ -9,7 +9,7 @@
 #include <cstring>
 
 const char* TxtToHtml::cacheVersionTag(std::string_view filename) {
-  return FsHelpers::hasMarkdownExtension(filename) ? "<!-- MD_CACHE_VERSION: 2 -->" : "<!-- TXT_CACHE_VERSION: 1 -->";
+  return FsHelpers::hasMarkdownExtension(filename) ? "<!-- MD_CACHE_VERSION: 3 -->" : "<!-- TXT_CACHE_VERSION: 1 -->";
 }
 
 size_t TxtToHtml::escapedHtmlSize(const std::string_view text) {
@@ -25,7 +25,8 @@ void TxtToHtml::appendEscapedHtml(std::string& out, const std::string_view text)
 }
 
 bool TxtToHtml::stream(std::string_view filename, void* readerCtx, int (*readFn)(void* ctx, uint8_t* buf, size_t size),
-                       Print& out, const MarkdownToHtml::ImageResolver* images) {
+                       Print& out, const MarkdownToHtml::ImageResolver* images,
+                       const MarkdownToHtml::NoteLoader* notes) {
   constexpr size_t IN_BUF_SIZE = 8192;
   constexpr size_t OUT_BUF_SIZE = 8192;
 
@@ -37,7 +38,7 @@ bool TxtToHtml::stream(std::string_view filename, void* readerCtx, int (*readFn)
   }
 
   if (FsHelpers::hasMarkdownExtension(filename)) {
-    return streamMarkdown(filename, readerCtx, readFn, inBuf.get(), IN_BUF_SIZE, out, images);
+    return streamMarkdown(filename, readerCtx, readFn, inBuf.get(), IN_BUF_SIZE, out, images, notes);
   }
 
   size_t outPos = 0;
@@ -159,7 +160,8 @@ bool TxtToHtml::stream(std::string_view filename, std::string_view content, Prin
 // v2 of the .md cache: Obsidian Markdown rendered by lib/Vault instead of shown as plain text.
 bool TxtToHtml::streamMarkdown(std::string_view filename, void* readerCtx,
                                int (*readFn)(void* ctx, uint8_t* buf, size_t size), uint8_t* inBuf,
-                               const size_t inBufSize, Print& out, const MarkdownToHtml::ImageResolver* images) {
+                               const size_t inBufSize, Print& out, const MarkdownToHtml::ImageResolver* images,
+                               const MarkdownToHtml::NoteLoader* notes) {
   struct PrintSink final : MarkdownToHtml::Sink {
     Print& out;
     bool ok = true;
@@ -170,6 +172,7 @@ bool TxtToHtml::streamMarkdown(std::string_view filename, void* readerCtx,
   } sink(out);
   MarkdownToHtml converter(sink);
   if (images) converter.setImageResolver(*images);
+  if (notes) converter.setNoteLoader(*notes);
   converter.begin(FsHelpers::getFileNameWithoutExtension(filename), cacheVersionTag(filename));
   bool first = true;
   int bytesRead = 0;
