@@ -42,8 +42,9 @@ and host tests.
 * ✅ Web installer on GitHub Pages (somnius.github.io/VaultInk): ESP Web Tools 10.4.0; the page and
   the locally built full image are pushed to the `gh-pages` branch (nothing is built on GitHub) (release
   assets have no CORS headers). Marked as a test build; the button unlocks after ticking "I
-  understand this is untested". ✅ Device picker (0.8.0): X4 Pro steps (wake it, USB-C data
-  cable, no buttons needed, as CrossPoint documents it); X4/X3 point to CrossPoint, since VaultInk
+  understand this is untested". ✅ Device picker (0.8.0); X4 Pro steps (0.8.1): back up the
+  SD card, put the app bin (not factory) on it, boot mode (Power + both page buttons, from Lef),
+  what erasing wipes; X4/X3 point to CrossPoint, since VaultInk
   is X4 Pro only.
 * ✅ Test builds 0.2.0 to 0.8.1 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.

@@ -159,13 +159,20 @@ The full feature list is in [SPECS.md](SPECS.md), and what is in and out of scop
 
 ## Installing
 
-The easiest way is the **web installer** at **https://somnius.github.io/VaultInk/**. Open it in
-Chrome or Edge on a computer, connect the X4 Pro over USB, and press Install. It writes the whole
-image, so it also works the first time you move from the stock firmware.
+The easiest way is the **web installer** at **https://somnius.github.io/VaultInk/**. Pick your
+device there and follow its steps. For the X4 Pro, in short:
 
-Once VaultInk is on the device, it finds new versions itself under
-**Settings → System → Check for Updates**. Releases also appear under
-[Releases](https://github.com/Somnius/VaultInk/releases).
+1. Back up your SD card.
+2. Copy `vaultink-<version>-x4pro.bin` from the [latest release](https://github.com/Somnius/VaultInk/releases/latest)
+   (not the `factory` file) to the SD card, so you can reinstall from the reader under
+   **Settings → System → SD Card Firmware Update**.
+3. Put the reader in boot mode: switched off, hold **Power**, then also hold both page-turn
+   buttons.
+4. Connect it over USB-C to a computer with Chrome or Edge and press Install. Erasing the device
+   wipes the reader's own memory (settings, Wi-Fi networks), not the SD card.
+
+After that, updates come over Wi-Fi: **Settings → System → Check for Updates** downloads and
+installs the newest release.
 
 You can also build it yourself (see below) and flash it over USB with
 [`esptool`](https://github.com/espressif/esptool):

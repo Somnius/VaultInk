@@ -100,13 +100,26 @@
 
     <div data-device="x4pro">
       <ol>
-        <li>Use Chrome, Edge or another browser with Web Serial, on a computer (not a phone).</li>
-        <li>Turn the X4 Pro on and wake it up, so it shows the home screen or a book (not the sleep
-          screen). No buttons need to be held.</li>
-        <li>Connect it with a USB-C <strong>data</strong> cable. Some cables only charge.</li>
-        <li>Press <strong>Install VaultInk</strong>, choose the device in the list, and wait until it
-          says it's done. It takes about a minute. The whole flash is rewritten; books and notes on
-          the SD card are not touched, but back the card up anyway.</li>
+        <li><strong>Back up your SD card.</strong> Installing doesn't touch the card, but if anything
+          goes wrong you'll want a copy of your books and notes.</li>
+        <li><strong>Put the update file on the SD card.</strong> From the
+          <a href="https://github.com/Somnius/VaultInk/releases/latest">latest release</a>, download
+          <code id="appBin">vaultink-&lt;version&gt;-x4pro.bin</code> (the file <em>without</em>
+          "factory" in its name) and copy it to the root of the SD card. With it there, you can
+          reinstall VaultInk from the reader itself under <strong>Settings → System → SD Card
+          Firmware Update</strong>. Don't use the factory file for that; it is only for this
+          page.</li>
+        <li><strong>Put the X4 Pro into boot mode.</strong> With the reader switched off, press and
+          hold <strong>Power</strong>, then also press and hold <strong>both page-turn
+          buttons</strong>, and keep holding them.</li>
+        <li><strong>Connect it to your computer</strong> with a USB-C <em>data</em> cable (some
+          cables only charge). Use Chrome, Edge or another browser with Web Serial, on a computer,
+          not a phone.</li>
+        <li><strong>Press Install VaultInk</strong> and choose the device in the list. The installer
+          offers to <strong>erase the device</strong> first. Erasing wipes everything stored on the
+          reader itself (settings, Wi-Fi networks, the current firmware) but not the SD card. It
+          takes about a minute; wait until it says it's done, then restart the reader with
+          Power.</li>
       </ol>
       <label>
         <input type="checkbox" id="agree">
@@ -138,8 +151,8 @@
 
   <h2>Not working?</h2>
   <ul>
-    <li><strong>The device isn't in the list.</strong> Try another cable (some only charge), another
-      USB port, and make sure the reader is on.</li>
+    <li><strong>The device isn't in the list.</strong> Try another cable (some only charge) or another
+      USB port, and check the reader is still in boot mode (step 3).</li>
     <li><strong>It connects but won't flash.</strong> Try another USB port or browser first. Some
       units sold by third-party shops have USB flashing locked at the factory. CrossPoint's site has
       an <a href="https://crosspointreader.com/#flash-tools">Xteink unlocker</a>; read its warnings
@@ -149,8 +162,11 @@
   </ul>
 
   <h2>Updating later</h2>
-  <p>Once VaultInk is on the device, it checks for new versions itself under
-    <strong>Settings → System → Check for Updates</strong>.</p>
+  <p>Once VaultInk is on the device you don't need this page again. Connect the reader to Wi-Fi and
+    open <strong>Settings → System → Check for Updates</strong>: it finds the newest release,
+    downloads it and installs it. Without Wi-Fi, copy the new
+    <code>vaultink-&lt;version&gt;-x4pro.bin</code> to the SD card and use <strong>Settings → System →
+    SD Card Firmware Update</strong>.</p>
 
   <footer>
     Made by <a href="https://lefteros.com">Lefteris Iliadis</a> ·
@@ -187,6 +203,7 @@
   });
   fetch("manifest.json").then(r => r.json()).then(m => {
     document.getElementById("version").textContent = "Version " + m.version + " · built " + (m.built || "");
+    document.getElementById("appBin").textContent = "vaultink-" + m.version + "-x4pro.bin";
   }).catch(() => {});
 </script>
 </body>
