@@ -7,6 +7,7 @@
 #include <TrustedTime.h>
 #include <VaultIndex.h>
 
+#include <algorithm>
 #include <ctime>
 #include <memory>
 #include <set>
@@ -139,12 +140,9 @@ Result toggleTask(const std::string& notePath, const std::string& href) {
 bool validTitle(const std::string& title) {
   if (title.empty() || title.size() > 100 || title[0] == '.' || title[0] == ' ') return false;
   if (title.back() == ' ' || title.back() == '.') return false;
-  for (const char c : title) {
-    if (static_cast<unsigned char>(c) < 0x20 || std::string_view("\\/:*?\"<>|").find(c) != std::string_view::npos) {
-      return false;
-    }
-  }
-  return true;
+  return std::none_of(title.begin(), title.end(), [](const char c) {
+    return static_cast<unsigned char>(c) < 0x20 || std::string_view("\\/:*?\"<>|").find(c) != std::string_view::npos;
+  });
 }
 
 Result createNote(const std::string& folder, const std::string& title, std::string& outPath) {
@@ -166,10 +164,12 @@ Result renameNote(const std::string& notePath, const std::string& title, std::st
   // temporary name.
   const bool caseOnly = Storage.exists(outPath.c_str());
   if (caseOnly) {
-    std::string a = outPath, b = notePath;
-    for (auto& c : a) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
-    for (auto& c : b) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
-    if (a != b) return Result::Exists;
+    const auto lower = [](std::string text) {
+      std::transform(text.begin(), text.end(), text.begin(),
+                     [](const unsigned char c) { return static_cast<char>(tolower(c)); });
+      return text;
+    };
+    if (lower(outPath) != lower(notePath)) return Result::Exists;
     const std::string mid = notePath + ".renaming";
     if (!Storage.rename(notePath.c_str(), mid.c_str())) return Result::Failed;
     if (!Storage.rename(mid.c_str(), outPath.c_str())) {
@@ -203,7 +203,7 @@ Result trashNote(const std::string& notePath) {
     const size_t dot = target.find_last_of('.');
     const size_t slash = target.find_last_of('/');
     const size_t at = dot != std::string::npos && dot > slash + 1 ? dot : target.size();
-    target = target.substr(0, at) + timeSuffix() + target.substr(at);
+    target.insert(at, timeSuffix());
   }
   if (!markChanged(notePath)) return Result::Failed;
   Storage.ensureDirectoryExists(parentOf(target).c_str());
