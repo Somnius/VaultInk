@@ -151,7 +151,7 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 | Headings `#`..`######` | must | anchors for `[[note#heading]]` |
 | Bold, italic, bold-italic, strike, inline code | must | per span, not per line |
 | Highlight `==text==` | should | drawn as underline or inverted run |
-| Paragraphs, line breaks | must | reflow, hyphenation per language |
+| Paragraphs, line breaks | must | reflow, hyphenation per language; Greek with 1/1 minima (one-letter syllables may split off, as in babel-greek) |
 | Bullet, numbered, nested lists | must | done; nested levels indented, numbers keep their start (0.8.0); inside quotes as lines with the marker |
 | Task lists `- [ ]` / `- [x]` | must | read only in Phase 1, toggle in Phase 4 |
 | Block quotes | must | done, indented |

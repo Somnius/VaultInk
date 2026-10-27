@@ -51,7 +51,7 @@ and host tests.
   cancelled before it uploaded. Removed `release.yml` and `release_candidate.yml`; local builds put
   back on 0.5.0 and 0.8.2–0.8.5. The GitHub-built OTA files on 0.6.0–0.8.1 were deleted (no local
   copy of those; OTA only ever takes the latest release).
-* ✅ Test builds 0.2.0 to 0.8.7 published (web installer and GitHub releases, marked untested); the
+* ✅ Test builds 0.2.0 to 0.8.8 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
 * 🚧 Device testing, by kos25k (X4 Pro, UC8279 display controller, GT911 touch, now on 0.8.2): 0.7.0 runs on his reader (boots, menus, quick settings, System
   settings, language list). Found: Greek hard to find in the language list (fixed 0.8.1), paper tile
@@ -128,7 +128,10 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   into protected folder": every dot folder counted as protected). `/.fonts` is allowed now.
 * ✅ Screen margins down to 0 (kos25k): 0..40 px; the reader's margin list offers 0, 1, 2, 3, 4,
   5, 6, 8, 10, 12, 15, 20..40 (the list holds 16). Default stays 5.
-* ⏳ From kos25k: hyphenation that fills lines closer to the right edge (details asked). ✅ Font sizes
+* ✅ Fuller lines with Greek hyphenation (0.8.8, kos25k): Greek used the TeX default minima 2/2,
+  which drop every break next to a one-letter syllable (ά-νε-μος, ι-δέ-α, ω-ραί-α); on 19 sample
+  words that was 17 lost breaks. Greek and polytonic now use babel-greek's 1/1. Trade-off: a single
+  letter can end a line (ε-νώ); can be limited to 2/1 if that reads badly. ✅ Font sizes
   in 1 pt steps work with a .ttf on the SD card (8..22 pt, confirmed by kos25k); the built-in font
   has 12/14/16/18.
 * ✅ Fix (0.8.3, found by kos25k on a UC8279 X4 Pro): with a page background on, the text

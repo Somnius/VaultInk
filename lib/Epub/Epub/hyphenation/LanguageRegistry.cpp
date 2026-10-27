@@ -32,8 +32,10 @@ LanguageHyphenator ukrainianHyphenator(uk_patterns, isCyrillicLetter, toLowerCyr
 LanguageHyphenator polishHyphenator(pl_patterns, isLatinLetter, toLowerLatin);
 LanguageHyphenator finnishHyphenator(fi_patterns, isLatinLetter, toLowerLatin);
 LanguageHyphenator portugueseHyphenator(pt_patterns, isLatinLetter, toLowerLatin);
-LanguageHyphenator greekHyphenator(el_patterns, isGreekLetter, toLowerGreek);
-LanguageHyphenator polytonicGreekHyphenator(el_polyton_patterns, isGreekLetter, toLowerGreek);
+// Greek allows a one-letter syllable at either end (ά-νε-μος, ι-δέ-α), as babel-greek's 1/1 minima
+// do; the TeX default 2/2 dropped those breaks and left wide gaps at the right margin.
+LanguageHyphenator greekHyphenator(el_patterns, isGreekLetter, toLowerGreek, 1, 1);
+LanguageHyphenator polytonicGreekHyphenator(el_polyton_patterns, isGreekLetter, toLowerGreek, 1, 1);
 
 using EntryArray = std::array<LanguageEntry, 13>;
 

@@ -250,18 +250,19 @@ TEST(HyphenationEval, GreekWordsIgnoreBookLanguage) {
   for (const char* lang : {"en", "", "de", "el"}) {
     Hyphenator::setPreferredLanguage(lang);
     EXPECT_EQ(hyphenated("καλημέρα"), "κα-λη-μέ-ρα") << "book language: " << lang;
-    EXPECT_EQ(hyphenated("ηλεκτρονικός"), "ηλε-κτρο-νι-κός") << "book language: " << lang;
+    EXPECT_EQ(hyphenated("ηλεκτρονικός"), "η-λε-κτρο-νι-κός") << "book language: " << lang;
   }
   Hyphenator::setPreferredLanguage("en");
   EXPECT_EQ(hyphenated("hyphenation"), "hyphen-ation");
   // A mixed-script word keeps the book's hyphenator for its Latin part.
   EXPECT_EQ(hyphenated("α-hyphenation"), "α--hyphen-ation");
-  // Polytonic words use the polytonic patterns, also in monotonic and Ancient Greek books.
+  // Polytonic words use the polytonic patterns, also in monotonic and Ancient Greek books. Greek
+  // allows a one-letter syllable at either end (1/1 minima).
   for (const char* lang : {"en", "el", "grc"}) {
     Hyphenator::setPreferredLanguage(lang);
     EXPECT_EQ(hyphenated("ἀνθρώπων"), "ἀν-θρώ-πων") << "book language: " << lang;
-    EXPECT_EQ(hyphenated("ἐκκλησία"), "ἐκ-κλη-σία") << "book language: " << lang;
-    EXPECT_EQ(hyphenated("Ἀθηναῖοι"), "Ἀθη-ναῖ-οι") << "book language: " << lang;
+    EXPECT_EQ(hyphenated("ἐκκλησία"), "ἐκ-κλη-σί-α") << "book language: " << lang;
+    EXPECT_EQ(hyphenated("Ἀθηναῖοι"), "Ἀ-θη-ναῖ-οι") << "book language: " << lang;
   }
   // Oxia letters (U+1F71 etc.) are the monotonic tonos letters, so the word stays monotonic.
   Hyphenator::setPreferredLanguage("en");
