@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <cstring>
 #include <iterator>
-#include <iterator>
 
 #include "MappedInputManager.h"
 #include "activities/ActivityManager.h"

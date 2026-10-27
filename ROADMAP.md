@@ -51,7 +51,7 @@ and host tests.
   cancelled before it uploaded. Removed `release.yml` and `release_candidate.yml`; local builds put
   back on 0.5.0 and 0.8.2–0.8.5. The GitHub-built OTA files on 0.6.0–0.8.1 were deleted (no local
   copy of those; OTA only ever takes the latest release).
-* ✅ Test builds 0.2.0 to 0.8.5 published (web installer and GitHub releases, marked untested); the
+* ✅ Test builds 0.2.0 to 0.8.6 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
 * 🚧 Device testing, by kos25k (X4 Pro, UC8279 display controller, GT911 touch, now on 0.8.2): 0.7.0 runs on his reader (boots, menus, quick settings, System
   settings, language list). Found: Greek hard to find in the language list (fixed 0.8.1), paper tile
@@ -113,6 +113,8 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:
   progress from the XTC/TXT readers, Sync tile (Phase 3).
+* ✅ Hyphenation switch in the reading toolbar's Text panel (0.8.6, kos25k), so it can change
+  while reading; before it was only in Settings.
 * ✅ Fix (0.8.5, kos25k, from his video): option lists taller than the screen ran off the top
   (margins 0/1/2, and the in-book font sizes 8/9 with a .ttf were out of reach; it looked like a
   freeze). The popup now shows what fits around the current choice and pages through the rest with
@@ -136,7 +138,8 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   graph paper, kraft, newsprint, rice paper, cardboard, denim.
 * ✅ Reader menu: CrossPoint's toolbar sheet (default on touch) kept; tool names added under the
   icons.
-* ✅ Swipe down from the top for quick settings. ⏳ Swipe up from the bottom for the reading menu.
+* ✅ Swipe down from the top for quick settings. ✅ Swipe up for the reading menu: CrossPoint's
+  Settings → Controls → Show Reader Menu → Swipe Up (boards with a Home key, like the X4 Pro).
 * Reading statistics on the device: time, sessions, streaks, calendar, finished books; notes count too.
 * Library speed: build covers when idle so key presses stay fast.
 * Greek name for the cover-grid style: Εξώφυλλα (done).

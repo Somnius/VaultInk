@@ -2503,8 +2503,8 @@ void EpubReaderActivity::renderStatusBar() const {
 // ---------------------------------------------------------------------------
 
 namespace {
-constexpr StrId kTextRowNames[] = {StrId::STR_FONT, StrId::STR_FONT_SIZE, StrId::STR_LINE_SPACING,
-                                   StrId::STR_PARA_ALIGNMENT, StrId::STR_FOCUS_READING};
+constexpr StrId kTextRowNames[] = {StrId::STR_FONT,           StrId::STR_FONT_SIZE,     StrId::STR_LINE_SPACING,
+                                   StrId::STR_PARA_ALIGNMENT, StrId::STR_HYPHENATION, StrId::STR_FOCUS_READING};
 constexpr StrId kSpacingIds[] = {StrId::STR_TIGHT, StrId::STR_NORMAL, StrId::STR_WIDE, StrId::STR_EXTRA_WIDE};
 constexpr StrId kAlignIds[] = {StrId::STR_JUSTIFY, StrId::STR_ALIGN_LEFT, StrId::STR_CENTER, StrId::STR_ALIGN_RIGHT,
                                StrId::STR_BOOK_S_STYLE};
@@ -2771,7 +2771,8 @@ void EpubReaderActivity::renderOverlay() {
     model.rowText = [this](int i) { return textRowName(i); };
     model.rowValue = [this](int i) { return textRowValue(i); };
     model.rowCheckbox = [](void*, int i, freeink::ui::ListItem& item) {
-      if (i == 4) GUI.setCheckboxRow(item, SETTINGS.focusReadingEnabled);
+      if (i == 4) GUI.setCheckboxRow(item, SETTINGS.hyphenationEnabled);
+      if (i == 5) GUI.setCheckboxRow(item, SETTINGS.focusReadingEnabled);
     };
   } else {
     model.panelTitle = tr(STR_TOOL_MORE);
@@ -2931,6 +2932,10 @@ void EpubReaderActivity::handleOverlayInput() {
                                  requestUpdate();                    // re-render page + Text panel
                                });
       } else if (panelIndex == 4) {
+        // Hyphenation is an on/off that can change while reading (kos25k); the chapter re-paginates.
+        SETTINGS.hyphenationEnabled = SETTINGS.hyphenationEnabled ? 0 : 1;
+        applyTextSettingLive();
+      } else if (panelIndex == 5) {
         // Focus Reading is a genuine on/off: a tap toggles and applies live.
         SETTINGS.focusReadingEnabled = SETTINGS.focusReadingEnabled ? 0 : 1;
         applyTextSettingLive();
