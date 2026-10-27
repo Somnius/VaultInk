@@ -3,6 +3,7 @@
 #include <BlePageTurner.h>
 #include <FreeInkUIIcon.h>
 #include <GfxRenderer.h>
+#include <HalDisplay.h>
 #include <HalFrontlight.h>
 #include <HalGPIO.h>
 #include <I18n.h>
@@ -158,7 +159,7 @@ void FrontlightPanelActivity::runTile(const int idx) {
       // about to dismiss anyway: drop the panel first and let the repaint of
       // the screen underneath carry the clean waveform instead.
       renderer.promoteNextRefresh(HalDisplay::FULL_REFRESH);
-      close();
+      finish();  // not close(): on UC8279 that would weaken the promotion to HALF
       break;
     case 2:  // Cycle the reading orientation
       SETTINGS.orientation = static_cast<uint8_t>((SETTINGS.orientation + 1) % 4);
@@ -227,7 +228,12 @@ void FrontlightPanelActivity::toggleLight() {
   requestUpdate();
 }
 
-void FrontlightPanelActivity::close() { finish(); }
+void FrontlightPanelActivity::close() {
+  // UC8279: a fast differential repaint left the panel faintly on the glass, and every later fast
+  // paint kept it until a sleep/wake; the repaint underneath uses a ghost-cleanup waveform there.
+  if (display.getController() == HalDisplay::Controller::UC8279) renderer.promoteNextRefresh(HalDisplay::HALF_REFRESH);
+  finish();
+}
 
 bool FrontlightPanelActivity::handleHomeGesture() {
   close();
