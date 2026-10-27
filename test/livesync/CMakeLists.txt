@@ -39,3 +39,15 @@ target_compile_definitions(LiveSyncPullTest PRIVATE LIVESYNC_FIXTURE_DIR="${CMAK
                            DEMO_VAULT_DIR="${REPO_ROOT}/demo-vault/VaultInk Demo")
 target_link_libraries(LiveSyncPullTest PRIVATE livesync_mbedtls ArduinoJson GTest::gtest_main)
 gtest_discover_tests(LiveSyncPullTest)
+
+add_executable(LiveSyncEngineTest
+  LiveSyncEngineTest.cpp
+  ${REPO_ROOT}/lib/LiveSync/LiveSyncCrypto.cpp
+  ${REPO_ROOT}/lib/LiveSync/LiveSyncPull.cpp
+  ${REPO_ROOT}/lib/LiveSync/LiveSyncEngine.cpp
+)
+target_include_directories(LiveSyncEngineTest PRIVATE ${REPO_ROOT}/lib/LiveSync)
+target_compile_definitions(LiveSyncEngineTest PRIVATE LIVESYNC_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixture"
+                           DEMO_VAULT_DIR="${REPO_ROOT}/demo-vault/VaultInk Demo")
+target_link_libraries(LiveSyncEngineTest PRIVATE livesync_mbedtls ArduinoJson GTest::gtest_main)
+gtest_discover_tests(LiveSyncEngineTest)

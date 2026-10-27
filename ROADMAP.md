@@ -219,9 +219,15 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   fixture. `lib/LiveSync/LiveSyncPull` turns its docs back into all 13 files byte for byte
   (text and pictures), checks the remote version (refuses > 13 or unknown features), and fails
   cleanly with a wrong passphrase.
-* To do: the device side (HTTPS to CouchDB, `_changes` with a saved checkpoint, chunks by
-  `_all_docs?keys=`, files written to `/Vaults/<name>/` through a temp file), Setup URI import
-  on the device, a Sync screen and the quick-settings Sync tile.
+* ✅ The pull engine (`lib/LiveSync/LiveSyncEngine`, design reviewed by Gemini and Grok): version
+  and salt checks, `_changes` in pages of ids only (deletes can't be filtered away), file docs and
+  chunks by `_all_docs?keys=`, files through a temp file, deletes and renames to a trash folder,
+  the id->path map and checkpoint saved only after a whole page. Host tests against the recorded
+  database, and a local run against the live Docker CouchDB: a first pull, then an edit, a delete
+  and a rename made through the official LiveSync CLI, all landed exactly.
+* To do on the device: HTTPS transport and SD storage for the engine, the master key kept
+  obfuscated (never the passphrase), Setup URI import (web page or a file on SD), a Sync screen,
+  the quick-settings Sync tile, and timing the 310,000-round key derivation on the S3.
 
 * Setup URI import, E2EE V2, path obfuscation.
 * CouchDB `_changes` with checkpoints, chunk assembly, attachments on demand.

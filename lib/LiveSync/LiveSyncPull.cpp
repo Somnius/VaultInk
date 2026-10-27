@@ -14,7 +14,12 @@ bool knownFeature(const char* f) {
 }
 
 // Compressed payloads start with "\x0ELZ\x1D" (commonlib compress.ts); VaultInk doesn't inflate.
-bool compressed(const std::string& s) { return s.size() >= 4 && std::memcmp(s.data(), "\x0EL" "Z\x1D", 4) == 0; }
+bool compressed(const std::string& s) {
+  return s.size() >= 4 && std::memcmp(s.data(),
+                                      "\x0EL"
+                                      "Z\x1D",
+                                      4) == 0;
+}
 
 }  // namespace
 
