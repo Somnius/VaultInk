@@ -33,7 +33,8 @@ struct Fs {
   std::function<bool(const std::string& root, const std::function<void(std::string_view path)>& path)> known;
 };
 
-// The folder above `notePath` that holds ".obsidian", or the note's own folder if none does.
+// The folder above `notePath` that holds ".obsidian" or sits right under /Vaults, or the note's
+// own folder if none does.
 std::string vaultRoot(const std::string& notePath, const Fs& fs);
 
 // Full path of the file `target` points to, or "" if it doesn't exist. A target with a '/' is a

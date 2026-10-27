@@ -1603,6 +1603,8 @@
   <div class="action-buttons">
     <button class="action-btn upload-action-btn" onclick="openUploadModal()"><svg class="icon"><use href="/assets/icons.svg#upload"></use></svg> Upload</button>
     <button class="action-btn folder-action-btn" onclick="openFolderModal()"><svg class="icon"><use href="/assets/icons.svg#folder"></use></svg> New Folder</button>
+    <button class="action-btn folder-action-btn" onclick="document.getElementById('vaultZipInput').click()" title="Unpack an Obsidian vault exported as .zip into /Vaults"><svg class="icon"><use href="/assets/icons.svg#upload"></use></svg> Import Vault (.zip)</button>
+    <input type="file" id="vaultZipInput" accept=".zip,application/zip" style="display:none" onchange="importVaultZip(this.files[0]); this.value='';">
     <button class="action-btn delete-action-btn" onclick="openDeleteSelectedModal()"><svg class="icon"><use href="/assets/icons.svg#trash"></use></svg> Delete Selected</button>
   </div>
 </div>
@@ -6315,6 +6317,87 @@ function retryAllFailedUploads() {
   }
 <!--#include file="shared/PluginHost.js.inc" -->
   hydrate();
+</script>
+
+<script>
+// Import an Obsidian vault from a .zip: unpacked here in the browser (JSZip), then sent file by
+// file into /Vaults/<name>/ with the normal upload and folder endpoints. Dot files and folders
+// (.obsidian, .trash, .DS_Store) are skipped: the device finds vaults under /Vaults without them.
+async function importVaultZip(file) {
+  if (!file) return;
+  if (typeof JSZip === 'undefined') { showWebAlert('JSZip is not available, so the vault cannot be unpacked.'); return; }
+  const status = document.createElement('div');
+  status.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:8px;z-index:9999;max-width:90vw';
+  document.body.appendChild(status);
+  const say = (t) => { status.textContent = t; };
+  try {
+    if (file.size > 300 * 1024 * 1024 &&
+        !confirm('This zip is ' + Math.round(file.size / 1048576) + ' MB. The browser holds all of it in memory while importing. Go on?')) {
+      status.remove();
+      return;
+    }
+    say('Reading ' + file.name + '…');
+    const zip = await JSZip.loadAsync(file);
+    // Keep only safe file entries; drop dot parts, Mac junk and anything trying to leave the vault.
+    // Names as the SD card keeps them: NFC, and no name the card would change or refuse.
+    const clean = (p) => p.normalize('NFC');
+    const unsafe = (p) => p === '.' || p === '..' || p.startsWith('.') || p === '__MACOSX' ||
+      /[\\:*?"<>|\x00-\x1f]/.test(p) || /[. ]$/.test(p);
+    let entries = Object.values(zip.files).filter(e => !e.dir)
+      .map(e => ({ e, parts: e.name.replace(/\\/g, '/').split('/').filter(Boolean).map(clean) }))
+      .filter(x => x.parts.length && !x.parts.some(unsafe));
+    if (!entries.length) throw new Error('The zip holds no files to import.');
+    // A zip with one top folder ("My Vault/…") names the vault after it; otherwise the zip file does.
+    const tops = new Set(entries.map(x => x.parts[0]));
+    let name = file.name.replace(/\.zip$/i, '');
+    if (tops.size === 1 && entries.every(x => x.parts.length > 1)) {
+      name = [...tops][0];
+      entries = entries.map(x => ({ e: x.e, parts: x.parts.slice(1) }));
+    }
+    name = clean(name).replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').replace(/[. ]+$/, '').trim();
+    if (!name || name.startsWith('.')) name = 'Imported vault';
+    const listing = await fetch('/api/files?path=' + encodeURIComponent('/Vaults')).then(r => r.ok ? r.json() : []).catch(() => []);
+    // Never mix into an existing vault (uploads don't overwrite): pick "Name (2)", "Name (3)"…
+    const taken = new Set(Array.isArray(listing) ? listing.map(f => f.name) : []);
+    if (taken.has(name)) {
+      let n = 2;
+      while (taken.has(name + ' (' + n + ')')) n++;
+      name = name + ' (' + n + ')';
+    }
+    const made = new Set();
+    const mkdir = async (parent, child) => {
+      const key = (parent === '/' ? '' : parent) + '/' + child;
+      if (made.has(key)) return;
+      const r = await fetch('/mkdir', { method: 'POST', body: new URLSearchParams({ name: child, path: parent }) });
+      if (!r.ok) {
+        // An existing folder answers with an error too; anything else stops the import.
+        const list = await fetch('/api/files?path=' + encodeURIComponent(parent)).then(x => x.ok ? x.json() : []).catch(() => []);
+        if (!Array.isArray(list) || !list.some(f => f.name === child)) throw new Error('Could not create folder ' + key + ': ' + (await r.text()));
+      }
+      made.add(key);
+    };
+    await mkdir('/', 'Vaults');
+    await mkdir('/Vaults', name);
+    const root = '/Vaults/' + name;
+    let done = 0;
+    for (const x of entries) {
+      let dir = root;
+      for (const part of x.parts.slice(0, -1)) { await mkdir(dir, part); dir += '/' + part; }
+      const blob = await x.e.async('blob');
+      const fd = new FormData();
+      fd.append('file', new File([blob], x.parts[x.parts.length - 1]));
+      const r = await fetch('/upload?path=' + encodeURIComponent(dir), { method: 'POST', body: fd });
+      if (!r.ok) throw new Error('Upload failed for ' + x.parts.join('/') + ': ' + (await r.text()));
+      done++;
+      say('Importing ' + name + ': ' + done + ' / ' + entries.length);
+    }
+    say('Imported ' + done + ' files into /Vaults/' + name + '. Open it from Vaults on the device.');
+    setTimeout(() => { status.remove(); if (typeof currentPath !== 'undefined' && currentPath.startsWith('/Vaults')) location.reload(); }, 4000);
+  } catch (err) {
+    say('Import stopped: ' + err.message);
+    setTimeout(() => status.remove(), 8000);
+  }
+}
 </script>
 </body>
 </html>

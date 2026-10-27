@@ -96,10 +96,32 @@ The File Manager page can:
 - Move files into existing folders
 - Delete one or more selected files or empty folders, hidden ones included
   (shown when **Show Hidden Files** is on)
+- Import an Obsidian vault from a `.zip` (**Import Vault (.zip)**, see below)
 
-Existing files with the same name are overwritten by uploads. When EPUB files
-are overwritten, moved, renamed, or deleted through the web server, the matching
-book cache is cleared so stale metadata is not reused.
+An upload refuses a name that already exists in that folder ("File already
+exists"); delete or rename the old file first. When EPUB files are moved,
+renamed, or deleted through the web server, the matching book cache is cleared
+so stale metadata is not reused.
+
+#### Import Vault (.zip)
+
+Zip a vault on the computer (in Obsidian's folder, or any `.zip` of it) and pick
+it with **Import Vault (.zip)**. The browser unpacks it (JSZip, already on the
+page) and sends the files one by one with the normal folder and upload calls,
+into `/Vaults/<name>/`:
+
+- `<name>` is the zip's single top folder (`My Vault/…`), or else the zip's file
+  name. If `/Vaults/<name>` already exists, the import goes to `<name> (2)`,
+  `<name> (3)`… and never mixes into the old one.
+- Dot files and folders (`.obsidian`, `.trash`, `.DS_Store`), `__MACOSX`, and
+  entries with `..` or characters the SD card can't hold are skipped. A folder
+  right under `/Vaults` counts as a vault without `.obsidian`, so links, embeds
+  and search work as usual.
+- A line at the bottom of the page counts the files; keep the page open until it
+  says "Imported". Large vaults take a while: every file is its own upload.
+
+The demo vault (`demo-vault/VaultInk Demo` in the repository, also attached to
+the releases as `VaultInk-Demo.zip`) is a good first test.
 
 ### Settings
 

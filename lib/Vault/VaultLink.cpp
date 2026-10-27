@@ -74,11 +74,15 @@ bool sameName(std::string_view a, std::string_view b) {
 
 std::string vaultRoot(const std::string& notePath, const Fs& fs) {
   const std::string noteDir = parentOf(notePath);
+  // The nearest .obsidian wins; without one, a folder right under /Vaults is the vault (an
+  // imported ZIP, a copy without Obsidian's settings).
+  std::string vaultsChild;
   for (std::string dir = noteDir;; dir = parentOf(dir)) {
     if (fs.exists(join(dir, ".obsidian"))) return dir;
+    if (vaultsChild.empty() && parentOf(dir) == "/Vaults") vaultsChild = dir;
     if (dir == "/") break;
   }
-  return noteDir;
+  return vaultsChild.empty() ? noteDir : vaultsChild;
 }
 
 namespace {

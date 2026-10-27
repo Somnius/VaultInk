@@ -178,6 +178,11 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * Greek name for the cover-grid style: Εξώφυλλα (done).
 * Ideas taken from CrossNext (MIT) are credited in NOTICE.
 
+* ✅ (0.17.0) Import a vault from a `.zip` on the web page (Files → Import Vault (.zip)):
+  unpacked in the browser, sent into `/Vaults/<name>/`, never over an existing vault; folders
+  right under `/Vaults` count as vaults without `.obsidian`. A demo vault (`demo-vault/`, notes
+  in English and Greek, pictures, a canvas) for testers, attached to the releases as a zip.
+
 ## 🚧 Phase 2 - Canvas, read only
 
 * ✅ (0.16.0) Streaming `.canvas` reader (`lib/Vault/Canvas`, JSON Canvas 1.0): cards, groups,

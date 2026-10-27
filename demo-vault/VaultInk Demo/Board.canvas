@@ -1,0 +1,126 @@
+{
+ "nodes": [
+  {
+   "id": "g1",
+   "type": "group",
+   "x": -60,
+   "y": -80,
+   "width": 980,
+   "height": 560,
+   "label": "Garden plan"
+  },
+  {
+   "id": "t1",
+   "type": "text",
+   "x": 0,
+   "y": 0,
+   "width": 280,
+   "height": 150,
+   "text": "# Seeds\nBuy tomato and basil seeds in March.\n\nTap this card: it opens as a note."
+  },
+  {
+   "id": "t2",
+   "type": "text",
+   "x": 460,
+   "y": 0,
+   "width": 340,
+   "height": 170,
+   "color": "4",
+   "text": "## Ημερολόγιο\nΠότισμα κάθε πρωί, λίπασμα κάθε δύο εβδομάδες."
+  },
+  {
+   "id": "f1",
+   "type": "file",
+   "x": 0,
+   "y": 280,
+   "width": 280,
+   "height": 110,
+   "file": "Notes/People/Nikos.md"
+  },
+  {
+   "id": "f2",
+   "type": "file",
+   "x": 460,
+   "y": 300,
+   "width": 340,
+   "height": 110,
+   "file": "Places/Thessaloniki.md",
+   "subpath": "#Food"
+  },
+  {
+   "id": "l1",
+   "type": "link",
+   "x": 1100,
+   "y": 0,
+   "width": 300,
+   "height": 90,
+   "url": "https://lefteros.com/en/apps/vaultink"
+  },
+  {
+   "id": "t3",
+   "type": "text",
+   "x": 1100,
+   "y": 220,
+   "width": 300,
+   "height": 200,
+   "color": "2",
+   "text": "Outside the group. Pan with the buttons or swipe, Confirm zooms in."
+  },
+  {
+   "id": "i1",
+   "type": "file",
+   "x": 0,
+   "y": 520,
+   "width": 420,
+   "height": 300,
+   "file": "attachments/garden.png"
+  }
+ ],
+ "edges": [
+  {
+   "id": "e1",
+   "fromNode": "t1",
+   "fromSide": "right",
+   "toNode": "t2",
+   "toSide": "left",
+   "label": "then"
+  },
+  {
+   "id": "e2",
+   "fromNode": "t1",
+   "fromSide": "bottom",
+   "toNode": "f1",
+   "toSide": "top",
+   "label": "who"
+  },
+  {
+   "id": "e3",
+   "fromNode": "t2",
+   "fromSide": "bottom",
+   "toNode": "f2",
+   "toSide": "top"
+  },
+  {
+   "id": "e4",
+   "fromNode": "t2",
+   "fromSide": "right",
+   "toNode": "l1",
+   "toSide": "left",
+   "fromEnd": "arrow",
+   "toEnd": "arrow"
+  },
+  {
+   "id": "e5",
+   "fromNode": "l1",
+   "toNode": "t3"
+  },
+  {
+   "id": "e6",
+   "fromNode": "f1",
+   "fromSide": "bottom",
+   "toNode": "i1",
+   "toSide": "top",
+   "label": "his garden"
+  }
+ ]
+}

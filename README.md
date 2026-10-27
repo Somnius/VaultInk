@@ -35,7 +35,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Early days.** Version 0.16.0 opens your vaults, reads their notes, links and images, Greek
+> **Early days.** Version 0.17.0 opens your vaults, reads their notes, links and images, Greek
 > included, and searches them. Sync isn't in yet. Every release from 0.8.2 on has been tested by kos25k
 > on his X4 Pro (UC8279 screen); the bugs he found are fixed and listed in the release notes. It's still
 > one tester on one device, so back up your SD card. The screenshots below come from the simulator.
@@ -141,6 +141,10 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   the notes that link to it. The search index lives outside the vault (`/.vaultink/` on the SD
   card) and also keeps a list of the vault's files, so links and images open without scanning the
   card; Settings → Vaults → Rebuild Search Index starts it over.
+- **Import a vault from a ZIP** on the device's web page (File Transfer, then Files →
+  **Import Vault (.zip)**): it lands in `/Vaults/<name>/` ready to open. A
+  [demo vault](demo-vault/VaultInk%20Demo) with notes, pictures and a canvas is in this repo
+  and attached to the releases as `VaultInk-Demo.zip`.
 - **Canvases.** `.canvas` files open in a viewer: the whole board fitted to the screen, cards,
   groups and labelled arrows. Pan with the buttons or swipes, zoom with Confirm, and tap a card to
   open its note (or the card's own text). Back returns to the canvas.
