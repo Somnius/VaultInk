@@ -113,6 +113,9 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:
   progress from the XTC/TXT readers, Sync tile (Phase 3).
+* ⏳ Dimmer lowest light (kos25k): tried in 0.8.11 as 11-bit PWM at 25 kHz; on his device the light
+  then neither changed nor switched off, so 0.8.11 was withdrawn and reverted. Next: find why the
+  11-bit LEDC setup fails on the device (clock source / ledcAttach result) before trying again.
 * ✅ One menu at a time (0.8.10, kos25k's idea): the quick-settings swipe/tap does nothing while the
   reading toolbar, one of its panels, an option list or the classic reading menu is open, so two
   menus never stack and leave ghosts of each other.
