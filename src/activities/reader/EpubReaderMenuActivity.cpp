@@ -78,6 +78,7 @@ void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, const 
   items.push_back({MenuAction::GO_HOME, StrId::STR_GO_HOME_BUTTON});
   items.push_back({MenuAction::SYNC, StrId::STR_SYNC_PROGRESS});
   if (isVaultNote) {
+    items.push_back({MenuAction::EDIT_NOTE, StrId::STR_EDIT_NOTE});
     items.push_back({MenuAction::NEW_NOTE, StrId::STR_NEW_NOTE});
     items.push_back({MenuAction::RENAME_NOTE, StrId::STR_RENAME_NOTE});
     items.push_back({MenuAction::DELETE_NOTE, StrId::STR_DELETE_NOTE});

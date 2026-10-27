@@ -306,6 +306,13 @@ Done in 4a (0.22.0):
   `<name> (conflict YYYY-MM-DD).<ext>` and never trashes it; `SyncStats::conflicts` counts both.
 - A note's `.tmp` is recovered when the note is opened (`ActivityManager::goToReader`).
 
+Done in 4b (0.23.0):
+- Line editor (`src/activities/vault/NoteEditorActivity`, `lib/Vault/LineBuffer`): lines with their
+  own endings (LF/CRLF/none), BOM kept, new lines take the majority ending; undo records (20).
+  Up to 256 KB; a line over 2000 bytes makes the note read-only. Save = `vaultedit::saveNote`:
+  re-reads the file and refuses when size or FNV-1a hash differ from the load, then marks the note
+  changed and writes through `.tmp`.
+
 Planned:
 
 - Editor: line-based, touch keyboard (English + Greek layouts), cursor keys, select line, undo.

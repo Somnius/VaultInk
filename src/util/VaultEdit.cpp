@@ -137,6 +137,28 @@ Result toggleTask(const std::string& notePath, const std::string& href) {
   return Result::Ok;
 }
 
+bool readNote(const std::string& notePath, std::string& text) {
+  if (Storage.readFileToString("EDIT", notePath, 256 * 1024, text)) return true;
+  // readFileToString refuses an empty file; an empty note is fine.
+  HalFile file;
+  if (!Storage.openFileForRead("EDIT", notePath, file)) return false;
+  const bool empty = !file.isDirectory() && file.fileSize() == 0;
+  file.close();
+  text.clear();
+  return empty;
+}
+
+uint32_t contentHash(const std::string& text) { return tasktoggle::lineHash(text); }
+
+Result saveNote(const std::string& notePath, const std::string& text, const uint32_t loadedHash,
+                const size_t loadedSize) {
+  std::string current;
+  if (!readNote(notePath, current)) return Result::Failed;
+  if (current.size() != loadedSize || contentHash(current) != loadedHash) return Result::Changed;
+  if (!markChanged(notePath) || !writeAtomic(notePath, text)) return Result::Failed;
+  return Result::Ok;
+}
+
 bool validTitle(const std::string& title) {
   if (title.empty() || title.size() > 100 || title[0] == '.' || title[0] == ' ') return false;
   if (title.back() == ' ' || title.back() == '.') return false;

@@ -54,6 +54,7 @@
 #include "activities/settings/TextSettingsActivity.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
+#include "activities/vault/NoteEditorActivity.h"
 #include "activities/vault/VaultSearchActivity.h"
 #include "clippings/ClippingText.h"
 #include "clippings/ClippingsManager.h"
@@ -1271,6 +1272,17 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       if (!vaultnav::goBack()) activityManager.goToFileBrowser(bookPath);
       return;
     }
+    case EpubReaderMenuActivity::MenuAction::EDIT_NOTE:
+      if (auto editor = makeUniqueNoThrow<NoteEditorActivity>(renderer, mappedInput, bookPath)) {
+        startActivityForResult(std::move(editor), [this](const ActivityResult& result) {
+          if (result.isCancelled) {
+            requestUpdate();
+          } else {
+            reopenNote(bookPath);  // saved: lay the note out again, same page
+          }
+        });
+      }
+      return;
     case EpubReaderMenuActivity::MenuAction::NEW_NOTE:
       askNoteTitle(false);
       return;

@@ -1,7 +1,7 @@
 # Changing notes on the device
 
-From 0.22.0 you can change notes a little on the device. Typing into a note comes later; for now
-you can tick tasks, and make, rename and delete notes.
+From 0.22.0 you can tick tasks, and make, rename and delete notes on the device. From 0.23.0 you
+can also edit a note line by line.
 
 ## Tick a task
 
@@ -30,6 +30,31 @@ In a note, open the reading menu (tap the middle of the screen), then **More**:
 
 A name can't contain `\ / : * ? " < > |`, start with a dot or a space, or end with a space or a
 dot, and it can be 100 bytes at most. A name that's already there is refused.
+
+## Edit a note, line by line
+
+In a note, open the reading menu, then **More → Edit note**. The note's lines are listed with
+their numbers (a long line shows wrapped, but it's still one line). Tap a line for:
+
+- **Edit**: the keyboard opens with the line in it.
+- **Insert line above** / **Insert line below**: the keyboard opens empty.
+- **Delete line**, **Move up**, **Move down**.
+
+**Undo** at the top takes back the last change, up to 20. **Save** writes the note and shows it
+again in the reader. Back (the header arrow or the left-edge swipe) asks before throwing away
+unsaved changes.
+
+What stays as it was: every line you didn't touch keeps its exact bytes, its line ending (LF or
+CRLF, even mixed in one note), and a byte order mark at the start. A note that ended without a
+newline still does. New lines use the ending most of the note uses.
+
+Limits:
+
+- A note over 256 KB can't be opened in the editor.
+- A note with a line over 2000 characters opens to look at only (the keyboard can't hold it).
+- There's no way to split one line into two or join two lines yet: edit one, insert another.
+- If the note changed on the card while the editor was open (say a LiveSync sync), Save refuses
+  and says so. Nothing is overwritten; open it again and redo the change.
 
 ## Saving safely
 

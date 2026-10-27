@@ -32,6 +32,7 @@ class EpubReaderMenuActivity final : public UiListActivity {
     DELETE_CACHE,
     DICTIONARY,
     BACKLINKS,
+    EDIT_NOTE,    // notes: the line editor
     NEW_NOTE,     // notes: a new note next to this one
     RENAME_NOTE,  // notes: links to it are not rewritten
     DELETE_NOTE,  // notes: to the vault's .trash
@@ -62,7 +63,7 @@ class EpubReaderMenuActivity final : public UiListActivity {
   // fixed-capacity array avoids any heap allocation for the row list. Labels
   // are set once in the constructor (buildMenuRowItems()); buildScreen()
   // only refreshes rows whose values reflect live state.
-  static constexpr size_t MAX_MENU_ITEMS = 24;  // every action at once (21) fits
+  static constexpr size_t MAX_MENU_ITEMS = 28;  // every action at once (25) fits
   freeink::ui::ListItem menuRowItems[MAX_MENU_ITEMS]{};
   void buildMenuRowItems();
 

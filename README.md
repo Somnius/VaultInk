@@ -148,8 +148,8 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   deletes and renames come across, deleted files go to a trash folder. A Sync tile in quick
   settings, optional sync on wake, and the server's certificate checked by default (built-in
   roots, or your own `ca.pem`). See [docs/livesync.md](docs/livesync.md).
-- **Small changes on the device.** Tap a task box to tick it; new note, rename and delete (to the
-  vault's `.trash`) from the reading menu. Notes changed here are never overwritten by a LiveSync
+- **Changes on the device.** Tap a task box to tick it; edit a note line by line (with undo);
+  new note, rename and delete (to the vault's `.trash`) from the reading menu. Notes changed here are never overwritten by a LiveSync
   pull: a newer server copy is saved beside them. See [docs/editing.md](docs/editing.md).
 - **Debug logs**, off by default: Settings → System → Debug Logs saves the device's log to
   `/debug` on the SD card, to email to me@lefteros.com when something goes wrong. See

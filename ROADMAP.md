@@ -276,7 +276,13 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   for the toggle and the pull; tick, new, rename and delete checked in the simulator.
 * ✅ (0.22.0) Debug logs to `/debug` on the SD card, opt-in (docs/debug-logs.md), for the
   "screen turned on by itself" report from kos25k; every boot logs its wake and reset reason.
-* To do next: the line editor (4b), then push (4c), which also empties the changed list.
+* ✅ (0.23.0) 4b, the line editor (designs and diff reviewed by Gemini and Grok): More → Edit
+  note lists the source lines; Edit / Insert above / Insert below / Delete / Move up / Move down,
+  Undo (20), Save. Every untouched line keeps its bytes, ending and the BOM (`lib/Vault/LineBuffer`,
+  host tests); Save refuses when the note changed on the card since it was opened. Tested in the
+  simulator: delete + save gave the exact bytes, an edit through the keyboard kept CRLF.
+* To do next: push (4c), which also empties the changed list. Later: split/join lines, a
+  multi-line keyboard, rewriting links on rename.
 * Touch keyboard editor (English + Greek; the Greek layout is done, 0.5.0), atomic save, task toggles, new/rename/delete.
 * Push with the plugin's chunker, conflict copies.
 * Rough effort from research: 2-4 weeks for push.

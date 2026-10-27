@@ -27,6 +27,13 @@ enum class Result : uint8_t { Ok, Changed, BadName, Exists, Failed };
 // Flips the task a "task:" link points at. Changed: the note is not what was laid out any more.
 Result toggleTask(const std::string& notePath, const std::string& href);
 
+// The editor's load and save (Phase 4b). readNote fails above 256 KB. saveNote refuses (Changed)
+// when the file is no longer the bytes the editor loaded (`loadedHash`/`loadedSize` from
+// contentHash), e.g. LiveSync pulled a new version meanwhile.
+bool readNote(const std::string& notePath, std::string& text);
+uint32_t contentHash(const std::string& text);
+Result saveNote(const std::string& notePath, const std::string& text, uint32_t loadedHash, size_t loadedSize);
+
 // A title the SD card and Obsidian accept: not empty, at most 100 bytes, no \ / : * ? " < > |,
 // no leading dot.
 bool validTitle(const std::string& title);

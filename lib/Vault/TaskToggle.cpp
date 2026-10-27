@@ -66,7 +66,7 @@ Result toggle(std::string& text, const uint32_t line, const uint32_t hash) {
   if (end == std::string::npos) end = text.size();
   size_t contentEnd = end;
   if (contentEnd > start && text[contentEnd - 1] == '\r') --contentEnd;
-  const std::string_view current(text.data() + start, contentEnd - start);
+  const std::string_view current = std::string_view(text).substr(start, contentEnd - start);
   if (lineHash(current) != hash) return Result::Changed;
   const size_t mark = markOffset(current);
   if (mark == std::string_view::npos) return Result::NotATask;
