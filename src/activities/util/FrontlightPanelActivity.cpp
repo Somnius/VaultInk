@@ -453,7 +453,10 @@ void FrontlightPanelActivity::buildPanelScreen(UiScreen& screen) {
             fui::Rect{slot.x, static_cast<int16_t>(row.y + kQuickControlSize + theme.spaceSm), slot.width, labelHeight},
             enabled[id] ? tr(STR_STATE_ON) : tr(STR_STATE_OFF), text);
       }
-      screen.frame().hit(slot, ACTION_TILE, static_cast<int16_t>(id), fui::InputTouch);
+      // Unlabelled tiles (refresh, rotate) answer only on their circle, so a tap meant for the
+      // row below can't turn the screen.
+      const fui::Rect hitRect = toggle ? slot : fui::Rect{slot.x, slot.y, slot.width, kQuickControlSize};
+      screen.frame().hit(hitRect, ACTION_TILE, static_cast<int16_t>(id), fui::InputTouch);
     }
   }
   if (mappedInput.hasTouch()) addActionTiles(screen);
@@ -496,10 +499,10 @@ void FrontlightPanelActivity::addActionTiles(UiScreen& screen) {
       fui::bitmapFromIcon(icon_house_32)};
   // The paper tile names the current background, so each tap shows what it picked.
   const uint8_t paper = SETTINGS.readingPaper % paper_texture::STYLE_COUNT;
-  const char* labels[kActionTileCount] = {tr(STR_QS_SLEEP), tr(STR_QS_TRANSFER), I18N.get(paper_texture::SHORT_NAMES[paper]),
-                                          tr(STR_QS_HOME)};
+  const char* labels[kActionTileCount] = {tr(STR_QS_SLEEP), tr(STR_QS_TRANSFER),
+                                          I18N.get(paper_texture::SHORT_NAMES[paper]), tr(STR_QS_HOME)};
   const int16_t labelHeight = screen.target().lineHeight(theme.smallText.font);
-  screen.spacer(theme.spaceMd);
+  screen.spacer(static_cast<int16_t>(2 * theme.spaceMd));  // keep it clear of the row above
   const fui::Rect row = screen.takeTop(kQuickControlSize + theme.spaceSm + labelHeight);
   const fui::Paint ink = fui::Paint::solid(fui::Color::Black);
   // Same slot width as the first row, so the circles line up in columns.

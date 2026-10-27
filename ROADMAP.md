@@ -46,7 +46,7 @@ and host tests.
   SD card, put the app bin (not factory) on it, boot mode (Power + both page buttons, from Lef),
   what erasing wipes; X4/X3 point to CrossPoint, since VaultInk
   is X4 Pro only.
-* ✅ Test builds 0.2.0 to 0.8.1 published (web installer and GitHub releases, marked untested); the
+* ✅ Test builds 0.2.0 to 0.8.2 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
 * ⏳ First hardware-tested release, once the X4 Pro arrives and passes the hardware checks below.
 
@@ -103,6 +103,9 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:
   progress from the XTC/TXT readers, Sync tile (Phase 3).
+* ✅ Fix (0.8.2, reported by kos25k on the device): taps on the paper tile could land on the rotate
+  tile above it and turn the book upside down. Unlabelled tiles now answer only on their circle,
+  and the rows are further apart.
 * ✅ Page backgrounds (kos25k's idea, mostly for fun): plain, paper, sandpaper, papyrus soft/medium/
   hard, toilet paper, kitchen paper, bath towel. In Settings → Reader and as a quick-settings tile.
   EPUB and notes only for now; XTC pages are pre-rendered. Ideas for more: parchment, linen,
