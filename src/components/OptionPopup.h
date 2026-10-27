@@ -81,6 +81,12 @@ class OptionPopup {
       // first render after show() has populated the table (uiReady handshake).
       if (uiReady) {
         const freeink::ui::ActionEvent event = interactions.routePublished(snap);
+        if (event && event.action == ACTION_OPTION && event.value < 0) {
+          // "· · ·" row: page the window, keep the popup open.
+          pageBy(event.value == VALUE_PAGE_UP ? -1 : 1);
+          requestUpdate();
+          return true;
+        }
         if (event && event.action == ACTION_OPTION) {
           // Tap released on an option: select it, fire, dismiss.
           selectedIndex = event.value;
@@ -108,7 +114,7 @@ class OptionPopup {
           const int16_t idx = interactions.activeIndex();
           if (idx >= 0) {
             const freeink::ui::Interaction& hit = interactions.publishedData()[idx];
-            if (hit.action == ACTION_OPTION && selectedIndex != hit.value) {
+            if (hit.action == ACTION_OPTION && hit.value >= 0 && selectedIndex != hit.value) {
               selectedIndex = hit.value;
               requestUpdate();
             }
@@ -127,7 +133,7 @@ class OptionPopup {
   bool handleButtons(const bool previous, const bool next, const bool confirm, const bool back,
                      const std::function<void()>& requestUpdate) {
     if (!active) return false;
-    const int count = std::min<int>(ownedStrings.size(), MAX_OPTIONS);
+    const int count = static_cast<int>(ownedStrings.size());
     if (previous) {
       selectedIndex = (selectedIndex - 1 + count) % count;
       requestUpdate();
@@ -184,15 +190,24 @@ class OptionPopup {
 
     const auto& metrics = UITheme::getInstance().getMetrics();
     const int totalOptions = static_cast<int>(ownedStrings.size());
-    const uint8_t count = static_cast<uint8_t>(totalOptions > MAX_OPTIONS ? MAX_OPTIONS : totalOptions);
-
-    fui::DialogOption options[MAX_OPTIONS];
-    for (uint8_t i = 0; i < count; ++i) {
-      options[i].label = ownedStrings[i].c_str();
-      options[i].action = ACTION_OPTION;
-      options[i].value = static_cast<int16_t>(i);
-      options[i].state = (i == selectedIndex) ? fui::StateFocused : fui::StateNormal;
-    }
+    fui::DialogOption options[MAX_OPTIONS + 2];  // + the two "· · ·" rows
+    // Rows [first, first + shown) around the selection, plus a "· · ·" row where more are hidden.
+    auto fill = [&](const int shown) {
+      const int first = std::clamp(selectedIndex - shown / 2, 0, std::max(0, totalOptions - shown));
+      uint8_t n = 0;
+      if (first > 0) options[n++] = pageRow("\xc2\xb7 \xc2\xb7 \xc2\xb7", VALUE_PAGE_UP);
+      for (int i = first; i < first + shown && i < totalOptions; ++i) {
+        options[n].label = ownedStrings[i].c_str();
+        options[n].action = ACTION_OPTION;
+        options[n].value = static_cast<int16_t>(i);
+        options[n].state = (i == selectedIndex) ? fui::StateFocused : fui::StateNormal;
+        ++n;
+      }
+      if (first + shown < totalOptions) options[n++] = pageRow("\xc2\xb7 \xc2\xb7 \xc2\xb7", VALUE_PAGE_DOWN);
+      return n;
+    };
+    int shown = std::min(totalOptions, MAX_OPTIONS);
+    uint8_t count = fill(shown);
 
     fui::OptionDialogProps props;
     props.title = title.empty() ? nullptr : title.c_str();
@@ -245,6 +260,15 @@ class OptionPopup {
     const fui::Rect screen = device.screen();
     const int16_t width =
         fui::clampI16(std::min<int>(screen.width * 3 / 4, screen.width - metrics.optionPopupDialogSideMargin * 2));
+    // Fewer rows until the dialog fits on the screen (long lists page instead of running off it).
+    while (shown > 1) {
+      props.optionCount = count;
+      if (fui::optionDialogHeight(target, props, width) <= screen.height) break;
+      // Each shrink can add a "· · ·" row, so step down by one visible option at a time.
+      count = fill(--shown);
+    }
+    props.optionCount = count;
+    visibleOptions = shown;
     const int16_t height = fui::clampI16(fui::optionDialogHeight(target, props, width), 0, screen.height);
     const fui::Rect dialogRect = fui::centeredRect(screen, fui::Size{width, height});
 
@@ -271,13 +295,32 @@ class OptionPopup {
   // The dialog has no scrolling, so options past MAX_OPTIONS would render off
   // screen anyway; a fixed cap keeps the DialogOption array on the stack and
   // the interaction table small. +1 slot for the chrome guard rect.
+  // Rows on screen at once (options plus the "· · ·" rows); longer lists page.
   static constexpr int MAX_OPTIONS = 16;
-  static constexpr size_t INTERACTION_CAPACITY = MAX_OPTIONS + 1;
+  static constexpr int16_t VALUE_PAGE_UP = -1;
+  static constexpr int16_t VALUE_PAGE_DOWN = -2;
+
+  static freeink::ui::DialogOption pageRow(const char* label, const int16_t value) {
+    freeink::ui::DialogOption row;
+    row.label = label;
+    row.action = ACTION_OPTION;
+    row.value = value;
+    row.state = freeink::ui::StateNormal;
+    return row;
+  }
+
+  // Moves the selection a window's worth up or down.
+  void pageBy(const int direction) {
+    const int count = static_cast<int>(ownedStrings.size());
+    const int step = std::max(1, visibleOptions - 1);
+    selectedIndex = std::clamp(selectedIndex + direction * step, 0, count - 1);
+  }
+  static constexpr size_t INTERACTION_CAPACITY = MAX_OPTIONS + 3;  // rows, two "· · ·" rows, chrome guard
   static constexpr freeink::ui::ActionId ACTION_OPTION = 1;
   static constexpr freeink::ui::ActionId ACTION_CHROME = 2;
 
   void activate(int currentIndex, std::function<void(int)> onSelect) {
-    const int count = std::min<int>(ownedStrings.size(), MAX_OPTIONS);
+    const int count = static_cast<int>(ownedStrings.size());
     selectedIndex = currentIndex >= 0 && currentIndex < count ? currentIndex : 0;
     onSelectCallback = std::move(onSelect);
     message.clear();
@@ -291,6 +334,9 @@ class OptionPopup {
   std::string message;
   std::vector<std::string> ownedStrings;
   int selectedIndex = 0;
+  // Written by render() (render task), read by pageBy() (loop task); a stale value only changes the
+  // page step.
+  mutable int visibleOptions = MAX_OPTIONS;
   std::function<void(int)> onSelectCallback;
   // Written by the render task (frame registration), routed by the loop task;
   // uiReady closes the rebuild window exactly like UiListActivity::uiReady.

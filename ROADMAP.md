@@ -46,7 +46,7 @@ and host tests.
   SD card, put the app bin (not factory) on it, boot mode (Power + both page buttons, from Lef),
   what erasing wipes; X4/X3 point to CrossPoint, since VaultInk
   is X4 Pro only.
-* ✅ Test builds 0.2.0 to 0.8.4 published (web installer and GitHub releases, marked untested); the
+* ✅ Test builds 0.2.0 to 0.8.5 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
 * 🚧 Device testing, by kos25k (X4 Pro, UC8279 display controller, GT911 touch, now on 0.8.2): 0.7.0 runs on his reader (boots, menus, quick settings, System
   settings, language list). Found: Greek hard to find in the language list (fixed 0.8.1), paper tile
@@ -108,12 +108,17 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:
   progress from the XTC/TXT readers, Sync tile (Phase 3).
+* ✅ Fix (0.8.5, kos25k, from his video): option lists taller than the screen ran off the top
+  (margins 0/1/2, and the in-book font sizes 8/9 with a .ttf were out of reach; it looked like a
+  freeze). The popup now shows what fits around the current choice and pages through the rest with
+  a "· · ·" row (tap) or the buttons.
 * ✅ Fix (0.8.4, kos25k): the Wi-Fi file manager refused to move fonts into `/.fonts` ("Cannot move
   into protected folder": every dot folder counted as protected). `/.fonts` is allowed now.
 * ✅ Screen margins down to 0 (kos25k): 0..40 px; the reader's margin list offers 0, 1, 2, 3, 4,
   5, 6, 8, 10, 12, 15, 20..40 (the list holds 16). Default stays 5.
-* ⏳ From kos25k: hyphenation that fills lines closer to the right edge (details asked); font sizes
-  in 1 pt steps already work with a .ttf on the SD card (8..22 pt), the built-in font has 12/14/16/18.
+* ⏳ From kos25k: hyphenation that fills lines closer to the right edge (details asked). ✅ Font sizes
+  in 1 pt steps work with a .ttf on the SD card (8..22 pt, confirmed by kos25k); the built-in font
+  has 12/14/16/18.
 * ✅ Fix (0.8.3, found by kos25k on a UC8279 X4 Pro): with a page background on, the text
   anti-aliasing pass faded the whole page, text included. AA is now skipped while a background is
   on (with AA off he saw the page stay sharp).
