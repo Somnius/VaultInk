@@ -117,9 +117,15 @@ TEST(VaultMarkdown, Lists) {
 TEST(VaultMarkdown, QuotesAndCallouts) {
   EXPECT_EQ(body("> said\n> twice\n"), "<blockquote style=\"margin-left:1em\"><p>said<br/>twice</p>\n</blockquote>\n");
   EXPECT_EQ(body("> [!warning] Careful\n> body\n"),
-            "<blockquote style=\"margin-left:1em\"><p><b>Careful</b></p>\n<p>body</p>\n</blockquote>\n");
+            std::string(MarkdownToHtml::CALLOUT_OPEN) + "<p><b>Careful</b></p>\n<p>body</p>\n</blockquote>\n");
   EXPECT_EQ(body("> [!note]-\n> folded\n"),
-            "<blockquote style=\"margin-left:1em\"><p><b>Note</b></p>\n<p>folded</p>\n</blockquote>\n");
+            std::string(MarkdownToHtml::CALLOUT_OPEN) + "<p><b>Note</b></p>\n<p>folded</p>\n</blockquote>\n");
+}
+
+TEST(VaultMarkdown, CalloutNeedsTypeWord) {
+  EXPECT_EQ(body("> [![alt](x.png)](y)\n").rfind("<blockquote style=\"margin-left:1em\">", 0), 0u);
+  EXPECT_EQ(body("> [!two words] t\n").rfind("<blockquote style=\"margin-left:1em\">", 0), 0u);
+  EXPECT_EQ(body("> [!faq-2]\n").rfind(MarkdownToHtml::CALLOUT_OPEN, 0), 0u);
 }
 
 TEST(VaultMarkdown, ListsInQuotes) {

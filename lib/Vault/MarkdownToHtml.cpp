@@ -481,6 +481,9 @@ void MarkdownToHtml::finish(const bool closeDocument) {
   if (closeDocument) sink.write("</body>\n</html>\n");
 }
 
+const char* const MarkdownToHtml::CALLOUT_OPEN =
+    "<blockquote style=\"margin:0.5em 0;border:1px solid #000;padding:0.2em 0.5em\">";
+
 // "![[Note]]" alone on a line: the note's text, indented under its linked title. One level only:
 // the embedded note's own embeds stay links, so notes that embed each other can't loop.
 bool MarkdownToHtml::embedNote(std::string_view trimmed) {
@@ -828,27 +831,35 @@ void MarkdownToHtml::line(std::string_view text) {
     if (!quoteOpen) {
       closeLists(0);
       closeParagraph();
-      sink.write("<blockquote style=\"margin-left:1em\">");
       quoteOpen = true;
-      if (startsWith(content, "[!")) {
-        const size_t close = content.find(']');
-        if (close != std::string_view::npos) {
-          std::string_view type = content.substr(2, close - 2);
-          std::string_view title = content.substr(close + 1);
-          if (!title.empty() && (title[0] == '+' || title[0] == '-')) title.remove_prefix(1);
-          title = trim(title);
-          std::string html = "<p><b>";
-          if (title.empty()) {
-            std::string name(type);
-            if (!name.empty()) name[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(name[0])));
-            appendEscaped(html, name);
-          } else {
-            inlineToHtml(title, html, images());
-          }
-          html += "</b></p>\n";
-          sink.write(html);
-          return;
+      // "[!type]": a letter, then letters, digits or '-' up to ']' ("> [![alt](src)]" is no callout).
+      size_t close = std::string_view::npos;
+      if (startsWith(content, "[!") && content.size() > 3 && std::isalpha(static_cast<unsigned char>(content[2]))) {
+        size_t end = 3;
+        while (end < content.size() &&
+               (std::isalnum(static_cast<unsigned char>(content[end])) || content[end] == '-')) {
+          ++end;
         }
+        if (end < content.size() && content[end] == ']') close = end;
+      }
+      // A callout is a framed box with its title in bold; a plain quote is indented.
+      sink.write(close != std::string_view::npos ? CALLOUT_OPEN : "<blockquote style=\"margin-left:1em\">");
+      if (close != std::string_view::npos) {
+        std::string_view type = content.substr(2, close - 2);
+        std::string_view title = content.substr(close + 1);
+        if (!title.empty() && (title[0] == '+' || title[0] == '-')) title.remove_prefix(1);
+        title = trim(title);
+        std::string html = "<p><b>";
+        if (title.empty()) {
+          std::string name(type);
+          name[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(name[0])));
+          appendEscaped(html, name);
+        } else {
+          inlineToHtml(title, html, images());
+        }
+        html += "</b></p>\n";
+        sink.write(html);
+        return;
       }
     }
     if (content.empty()) {

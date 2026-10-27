@@ -160,7 +160,7 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 | Bullet, numbered, nested lists | must | done; nested levels indented, numbers keep their start (0.8.0); inside quotes as lines with the marker |
 | Task lists `- [ ]` / `- [x]` | must | read only in Phase 1, toggle in Phase 4 |
 | Block quotes | must | done, indented |
-| Callouts `> [!type] title` | must | icon + title |
+| Callouts `> [!type] title` | must | done (0.11.0): a framed box (1 px border, padding) with the title in bold, or the type ("Note") when there is no title; no per-type icon yet |
 | Foldable callouts `+`/`-` | should | Phase 1 shows them open; tap-to-fold needs re-pagination |
 | Bare URLs and `<https://…>` | must | shown as links |
 | Block ids `^id` on paragraphs, list items, tables | must | hidden, used as anchors |

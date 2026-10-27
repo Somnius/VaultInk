@@ -34,6 +34,7 @@ class MarkdownToHtml {
   // bytes; false when it isn't found. Without one, note embeds stay links.
   using NoteLoader = std::function<bool(std::string_view name, std::string& text)>;
   static constexpr size_t MAX_EMBED = 32 * 1024;
+  static const char* const CALLOUT_OPEN;  // the <blockquote> that starts a callout box
 
   explicit MarkdownToHtml(Sink& sink) : sink(sink) {}
   void setImageResolver(ImageResolver resolver) { imageResolver = std::move(resolver); }
