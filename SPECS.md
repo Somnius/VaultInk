@@ -133,8 +133,12 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   name, or is a path (with `./` and `../`) that leads to it from the vault root or from the linking
   note's folder. Case and accents are ignored (search folding, Greek too); `.md` in any case.
   Links take at most half of an index line.
-- Planned: heading and block-id anchors, and resolving links and images from the index instead of
-  scanning the SD card.
+- File list (0.9.1): `files.txt` next to `index.tsv`, every file path in the vault (dot folders
+  skipped, up to 20,000), rewritten with each index update. Links, images and note embeds with a
+  bare name look it up there first (same order as the scan: fewest folders deep, then shortest
+  path); the SD scan runs only when there is no list yet or the listed file is gone (renamed, or
+  added since the list was written). Settings → Vaults → Rebuild Search Index deletes both files.
+- Planned: heading and block-id anchors.
 - Incremental: compare the stamp per file; re-read only changed or new files, copy the rest.
   Runs when Search opens, with a progress popup. Not yet: a background task that can be cancelled.
 - Search: case and accent folding for Latin and Greek, monotonic and polytonic (`ά`/`ἄ`/`ᾄ`→`α`,

@@ -35,7 +35,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Early days.** Version 0.9.0 opens your vaults, reads their notes, links and images, Greek
+> **Early days.** Version 0.9.1 opens your vaults, reads their notes, links and images, Greek
 > included, and searches them. Sync isn't in yet. Every release from 0.8.2 on has been tested by kos25k
 > on his X4 Pro (UC8279 screen); the bugs he found are fixed and listed in the release notes. It's still
 > one tester on one device, so back up your SD card. The screenshots below come from the simulator.

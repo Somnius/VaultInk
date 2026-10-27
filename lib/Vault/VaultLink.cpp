@@ -1,5 +1,6 @@
 #include "VaultLink.h"
 
+#include <algorithm>
 #include <cctype>
 #include <deque>
 
@@ -86,6 +87,22 @@ std::string resolve(const std::string& root, const std::string& currentDir, cons
   }
   const std::string local = join(currentDir, file);
   if (fs.exists(local)) return local;
+
+  if (fs.known) {
+    // The list is in scan order, so the first name found at the fewest folders deep wins.
+    std::string best;
+    long bestDepth = 0;
+    fs.known(root, [&](std::string_view path) {
+      const size_t slash = path.find_last_of('/');
+      if (slash == std::string_view::npos || !sameName(path.substr(slash + 1), file)) return;
+      const long depth = std::count(path.begin(), path.end(), '/');
+      if (best.empty() || depth < bestDepth) {
+        best = std::string(path);
+        bestDepth = depth;
+      }
+    });
+    if (!best.empty() && fs.exists(best)) return best;
+  }
 
   // Breadth-first, so the first match is the one with the shortest path.
   std::deque<std::string> dirs{root};

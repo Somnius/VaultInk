@@ -10,6 +10,7 @@
 #include <Serialization.h>
 #include <Utf8.h>
 #include <VaultLink.h>
+#include <VaultSdFs.h>
 
 #include <cstring>
 #include <vector>
@@ -114,17 +115,7 @@ bool Txt::streamTxtToHtml(const std::string& filepath, Print& out) {
     for (const auto& [seen, path] : resolved) {
       if (seen == name) return path;
     }
-    vaultlink::Fs fs;
-    fs.exists = [](const std::string& path) { return Storage.exists(path.c_str()); };
-    fs.list = [](const std::string& dir, const std::function<void(const std::string&, bool)>& entry) {
-      HalFile root = Storage.open(dir.c_str());
-      if (!root || !root.isDirectory()) return;
-      char entryName[256];
-      for (auto file = root.openNextFile(); file; file = root.openNextFile()) {
-        file.getName(entryName, sizeof(entryName));
-        entry(entryName, file.isDirectory());
-      }
-    };
+    const auto fs = vaultsd::fs();  // finds names in the vault's index file list before scanning
     vaultlink::Target target{std::string(name), ""};
     const size_t slash = filepath.find_last_of('/');
     const std::string folder = slash == std::string::npos || slash == 0 ? "/" : filepath.substr(0, slash);

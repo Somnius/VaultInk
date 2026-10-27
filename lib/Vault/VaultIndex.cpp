@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <deque>
+#include <functional>
 #include <map>
 #include <set>
 
@@ -79,7 +80,39 @@ std::string join(const std::string& dir, const std::string& name) {
 
 bool startsWith(std::string_view s, std::string_view p) { return s.substr(0, p.size()) == p; }
 
+// Every file under `root` (dot folders skipped), breadth-first, for vaultlink's `known` lookup.
+void writeFileList(const std::string& root, const IndexFs& fs, const std::function<void(size_t, size_t)>& progress) {
+  if (!fs.begin(fileListPathFor(root))) return;
+  bool ok = true;
+  size_t listed = 0;
+  std::deque<std::string> dirs{root};
+  while (ok && !dirs.empty() && listed < MAX_LISTED_FILES) {
+    const std::string dir = dirs.front();
+    dirs.pop_front();
+    fs.list(dir, [&](const std::string& name, const bool isDir) {
+      if (!ok || name.empty() || name[0] == '.' || listed >= MAX_LISTED_FILES) return;
+      if (isDir) {
+        dirs.push_back(join(dir, name));
+      } else {
+        ok = fs.append(join(dir, name) + "\n");
+        ++listed;
+        if (progress && listed % 64 == 0) progress(0, 0);
+      }
+    });
+  }
+  fs.commit(ok);
+}
+
 }  // namespace
+
+std::string indexPathFor(const std::string& root) {
+  return "/.vaultink/" + std::to_string(std::hash<std::string>{}(root)) + "/index.tsv";
+}
+
+std::string fileListPathFor(const std::string& root) {
+  std::string path = indexPathFor(root);
+  return path.substr(0, path.find_last_of('/')) + "/files.txt";
+}
 
 Note scanNote(const std::string& path, std::string_view text) {
   Note note;
@@ -323,6 +356,8 @@ bool build(const std::string& root, const std::string& indexPath, const IndexFs&
     if (progress) progress(++done, notes.size());
   }
   if (!fs.commit(ok)) return false;
+  // A list that can't be written only costs speed: links fall back to scanning the folders.
+  writeFileList(root, fs, progress);
   if (stats) {
     stats->notes = notes.size();
     stats->rescanned = rescanned;

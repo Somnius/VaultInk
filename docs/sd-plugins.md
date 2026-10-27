@@ -205,7 +205,7 @@ download filename/username/password; and sidecar path/body.
 | Variable | Meaning | Available in |
 |---|---|---|
 | `{token}` | contents of the token file at `token.path` | template fields |
-| `{cfg.KEY}` | value of `KEY` in the flat JSON config file at `config.file` | template fields |
+| `{cfg.KEY}` | value of `KEY` in the flat JSON config file at `config.file` (a browse URL that still holds `{cfg.` stops with "Set up this plugin first" instead of being sent) | template fields |
 | `{firmware_family}` | stable firmware family (`crosspoint` on stock CrossPoint) | template fields |
 | `{firmware_version}` | current `CROSSPOINT_VERSION` value | template fields |
 | `{plugin_api}` | numeric plugin API level | template fields |

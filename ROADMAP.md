@@ -87,9 +87,10 @@ and host tests.
   underline (same as links).
 * Note reader with links, back stack, image and note embeds, block refs.
 * 🚧 Index on SD, incremental, for vaults of 60 MB and more. ✅ Search index per vault (title,
-  aliases, tags, outgoing links, words), updated by size and modification time. To do: use it to
-  resolve links and images too, instead of the SD scan they use today (fine for small vaults, slow
-  for thousands of notes), and store heading anchors.
+  aliases, tags, outgoing links, words), updated by size and modification time. ✅ (0.9.1) Links,
+  images and note embeds are found from the index's file list, so they don't scan the SD card
+  (the scan is the fallback for files added since the last index update). To do: store heading
+  anchors.
 * 🚧 Search: ✅ Search row on home, all vaults at once, Greek and accent folding, tags and aliases,
   exact words ranked first. ✅ Greek on-screen keyboard (with English, switched by the globe
   key; offered to the FreeInk SDK upstream). ✅ Backlinks: More → Backlinks in a note lists the

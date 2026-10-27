@@ -46,6 +46,12 @@ struct IndexFs : vaultlink::Fs {
   std::function<bool(bool keep)> commit;
 };
 
+// Where a vault's index lives: /.vaultink/<id>/index.tsv, outside the vault. Next to it,
+// files.txt lists every file in the vault (one path per line) for vaultlink's `known` lookup.
+std::string indexPathFor(const std::string& root);
+std::string fileListPathFor(const std::string& root);
+constexpr size_t MAX_LISTED_FILES = 20000;
+
 // Parses a note's text (frontmatter aliases/tags, inline #tags, words).
 Note scanNote(const std::string& path, std::string_view text);
 
@@ -60,7 +66,8 @@ struct BuildStats {
   size_t notes = 0;
   size_t rescanned = 0;
 };
-// Brings the index at `indexPath` up to date with the vault at `root`. `progress(done, total)`
+// Brings the index at `indexPath` up to date with the vault at `root`, and rewrites the file list
+// next to it (fileListPathFor). `progress(done, total)`
 // may be null; it is also called every few notes while checking, so a device can yield.
 bool build(const std::string& root, const std::string& indexPath, const IndexFs& fs, BuildStats* stats = nullptr,
            const std::function<void(size_t done, size_t total)>& progress = nullptr);

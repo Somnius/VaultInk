@@ -107,6 +107,18 @@ TEST(VaultIndex, BuildSkipsDotFolders) {
   EXPECT_EQ(m.files[INDEX].find("Old.md"), std::string::npos);
 }
 
+TEST(VaultIndex, BuildWritesFileList) {
+  auto m = demo();
+  m.files["/V/Books/cover.png"] = "png";
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  const std::string& list = m.files[vaultindex::fileListPathFor("/V")];
+  EXPECT_NE(list.find("/V/Welcome.md\n"), std::string::npos);
+  EXPECT_NE(list.find("/V/Books/cover.png\n"), std::string::npos);
+  EXPECT_EQ(list.find(".trash"), std::string::npos);
+  EXPECT_EQ(list.find(".obsidian"), std::string::npos);
+  EXPECT_EQ(vaultindex::fileListPathFor("/V").substr(0, 11), "/.vaultink/");
+}
+
 TEST(VaultIndex, IncrementalRebuild) {
   auto m = demo();
   ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));

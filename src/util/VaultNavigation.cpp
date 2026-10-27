@@ -4,6 +4,7 @@
 #include <Logging.h>
 #include <MarkdownToHtml.h>
 #include <VaultLink.h>
+#include <VaultSdFs.h>
 
 #include <vector>
 
@@ -13,7 +14,6 @@ namespace vaultnav {
 namespace {
 
 constexpr size_t MAX_HISTORY = 16;
-constexpr size_t NAME_LEN = 512;
 
 // Notes opened by following links, oldest first. Loop task only.
 std::vector<std::string> history;
@@ -21,20 +21,7 @@ std::string pendingAnchor;
 // The reader being opened by follow()/goBack(): opening it must not clear the history.
 std::string openingPath;
 
-vaultlink::Fs sdFs() {
-  vaultlink::Fs fs;
-  fs.exists = [](const std::string& path) { return Storage.exists(path.c_str()); };
-  fs.list = [](const std::string& dir, const std::function<void(const std::string&, bool)>& entry) {
-    HalFile root = Storage.open(dir.c_str());
-    if (!root || !root.isDirectory()) return;
-    char name[NAME_LEN];
-    for (auto file = root.openNextFile(); file; file = root.openNextFile()) {
-      file.getName(name, sizeof(name));
-      entry(name, file.isDirectory());
-    }
-  };
-  return fs;
-}
+vaultlink::Fs sdFs() { return vaultsd::fs(); }
 
 std::string folderOf(const std::string& path) {
   const size_t slash = path.find_last_of('/');

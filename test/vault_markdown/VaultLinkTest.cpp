@@ -90,3 +90,39 @@ TEST(VaultLink, ResolvesLikeObsidian) {
   EXPECT_EQ(resolve("Gone", "/Vaults/Demo"), "");
   EXPECT_EQ(resolve("Missing", "/Vaults/Demo"), "");
 }
+
+TEST(VaultLink, IndexFileListBeforeScan) {
+  auto f = demoVault();
+  auto fs = f.fs();
+  std::vector<std::string> listed;
+  bool hasList = true;
+  int scans = 0;
+  const auto list = fs.list;
+  fs.list = [&](const std::string& dir, const std::function<void(const std::string&, bool)>& entry) {
+    ++scans;
+    list(dir, entry);
+  };
+  fs.known = [&](const std::string& root, const std::function<void(std::string_view)>& path) {
+    EXPECT_EQ(root, "/Vaults/Demo");
+    for (const auto& p : listed) path(p);
+    return hasList;
+  };
+  auto resolve = [&](const std::string& note, const std::string& from) {
+    vaultlink::Target t{note, ""};
+    return vaultlink::resolve("/Vaults/Demo", from, t, fs);
+  };
+  // A match in the list is used without scanning; fewest folders deep wins, like the scan.
+  listed = {"/Vaults/Demo/Books/Old/Notes.md", "/Vaults/Demo/Books/cover.png"};
+  EXPECT_EQ(resolve("notes", "/Vaults/Demo/Books"), "/Vaults/Demo/Books/Old/Notes.md");
+  EXPECT_EQ(resolve("Cover.PNG", "/Vaults/Demo"), "/Vaults/Demo/Books/cover.png");
+  listed.push_back("/Vaults/Demo/Notes.md");
+  EXPECT_EQ(resolve("Notes", "/Vaults/Demo/Books"), "/Vaults/Demo/Notes.md");
+  EXPECT_EQ(scans, 0);
+  // A listed file that is gone, or one added after the list was written: the scan finds it.
+  listed = {"/Vaults/Demo/Deleted/Reading list.md"};
+  EXPECT_EQ(resolve("Reading list", "/Vaults/Demo"), "/Vaults/Demo/Books/Reading list.md");
+  EXPECT_GT(scans, 0);
+  hasList = false;
+  listed.clear();
+  EXPECT_EQ(resolve("Ιθάκη", "/Vaults/Demo"), "/Vaults/Demo/Books/Ιθάκη.md");
+}
