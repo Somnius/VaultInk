@@ -6,6 +6,12 @@ scope is in [SCOPE.md](SCOPE.md). VaultInk is a fork of CrossPoint Reader; its u
 
 Status: ✅ done · 🚧 in progress · ⏳ next · 💤 later · ❌ dropped
 
+**Where it stands (0.23.0, 2026-10-27):** Phases 0-3 are done in software; what is left there
+needs the device (timings, certificate checks against real servers, refresh behaviour). Phase 4 is
+two thirds done: ticking tasks, new/rename/delete notes and the line editor are out; pushing changes
+back to LiveSync (4c) is next. Phase 6 (Android companion) has not started. Everything since 0.19.0
+is tested in the simulator and on the host, and needs a device test: see each release's notes.
+
 Target device: Xteink X4 Pro only. Until the device arrives, testing is in the simulator (X4 Pro mode)
 and host tests.
 
@@ -266,7 +272,7 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * Rough effort from research: 1-2 weeks, plus about 1 week for encryption. Not reliable until the
   encryption details are pinned with test vectors.
 
-## 🚧 Phase 4 - Editing and LiveSync push
+## 🚧 Phase 4 - Editing and LiveSync push (⏳ next: 4c push)
 
 * ✅ (0.22.0) 4a, designs reviewed by Gemini and Grok: tap a task box to tick it (the converter
   writes `task:<line>:<hash>` links, checked against the file before saving; works with touch
