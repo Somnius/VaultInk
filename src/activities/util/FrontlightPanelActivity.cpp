@@ -170,7 +170,7 @@ void FrontlightPanelActivity::runTile(const int idx) {
       // about to dismiss anyway: drop the panel first and let the repaint of
       // the screen underneath carry the clean waveform instead.
       renderer.promoteNextRefresh(HalDisplay::FULL_REFRESH);
-      close();
+      finish();  // not close(): that would weaken the promotion to HALF
       break;
     case 2:  // Cycle the reading orientation
       SETTINGS.orientation = static_cast<uint8_t>((SETTINGS.orientation + 1) % 4);
@@ -246,7 +246,13 @@ void FrontlightPanelActivity::toggleLight() {
   requestUpdate();
 }
 
-void FrontlightPanelActivity::close() { finish(); }
+void FrontlightPanelActivity::close() {
+  // The repaint underneath clears the panel with a ghost-cleanup waveform: on kos25k's UC8279
+  // X4 Pro a fast differential left the panel faintly on the glass, and every later fast paint
+  // kept it until a sleep/wake.
+  renderer.promoteNextRefresh(HalDisplay::HALF_REFRESH);
+  finish();
+}
 
 bool FrontlightPanelActivity::handleHomeGesture() {
   close();
