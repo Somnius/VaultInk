@@ -51,7 +51,7 @@ and host tests.
   cancelled before it uploaded. Removed `release.yml` and `release_candidate.yml`; local builds put
   back on 0.5.0 and 0.8.2–0.8.5. The GitHub-built OTA files on 0.6.0–0.8.1 were deleted (no local
   copy of those; OTA only ever takes the latest release).
-* ✅ Test builds 0.2.0 to 0.8.11 published (web installer and GitHub releases, marked untested); the
+* ✅ Test builds 0.2.0 to 0.8.10 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
 * 🚧 Device testing, by kos25k (X4 Pro, UC8279 display controller, GT911 touch, now on 0.8.2): 0.7.0 runs on his reader (boots, menus, quick settings, System
   settings, language list). Found: Greek hard to find in the language list (fixed 0.8.1), paper tile
@@ -113,10 +113,6 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:
   progress from the XTC/TXT readers, Sync tile (Phase 3).
-* ✅ Dimmer lowest light (0.8.11, kos25k): the X4 Pro frontlight PWM goes from 10-bit to 11-bit at
-  the same 25 kHz (the S3's 80 MHz LEDC clock fits 2048 steps), so 1% is half the old dimmest
-  light and 2% sits between; 3% and up are unchanged. In the SDK fork. Not yet checked on the
-  device (dimmer? flicker?).
 * ✅ One menu at a time (0.8.10, kos25k's idea): the quick-settings swipe/tap does nothing while the
   reading toolbar, one of its panels, an option list or the classic reading menu is open, so two
   menus never stack and leave ghosts of each other.
