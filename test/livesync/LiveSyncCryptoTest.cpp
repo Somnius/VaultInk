@@ -69,3 +69,14 @@ TEST(LiveSyncCrypto, DecodesSetupUri) {
   EXPECT_EQ(json, vectors::SETTINGS_JSON);
   EXPECT_EQ(livesync::decodeSetupUri(vectors::SETUP_URI, "wrong", -1, json), livesync::Result::WrongKey);
 }
+
+TEST(LiveSyncCrypto, Base64RoundTrip) {
+  for (const std::string s : {"", "f", "fo", "foo", "foob", "fooba", "foobar", "\xce\xb1\x00\xff"}) {
+    const std::string enc = livesync::base64Encode(reinterpret_cast<const uint8_t*>(s.data()), s.size());
+    std::string dec;
+    ASSERT_TRUE(livesync::base64Decode(enc, dec));
+    EXPECT_EQ(dec, s);
+  }
+  EXPECT_EQ(livesync::base64Encode(reinterpret_cast<const uint8_t*>("foobar"), 6), "Zm9vYmFy");
+  EXPECT_EQ(livesync::base64Encode(reinterpret_cast<const uint8_t*>("fo"), 2), "Zm8=");
+}

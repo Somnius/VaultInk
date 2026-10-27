@@ -213,6 +213,14 @@
 
   <div id="wifi-container"></div>
   <div id="opds-container"></div>
+  <div class="card" id="livesync-card">
+    <h2>LiveSync</h2>
+    <p>Pull a vault from Obsidian Self-hosted LiveSync (read only). In Obsidian, open LiveSync's settings and copy the
+      Setup URI, paste it here, then finish on the device: Settings → Vaults → LiveSync, where you type the Setup URI's
+      passphrase. The URI is stored still encrypted; the passphrase never comes through this page.</p>
+    <p><textarea id="livesync-uri" rows="4" style="width:100%" placeholder="obsidian://setuplivesync?settings=..."></textarea></p>
+    <p><button class="save-btn" onclick="saveLiveSyncSetup()">Save Setup URI</button> <span id="livesync-status"></span></p>
+  </div>
   <div id="plugin-container"></div>
 
   </main>
@@ -514,6 +522,20 @@
   // Password fields are never pre-filled; when left blank during edit, existing
   // passwords remain unchanged server-side.
   let wifiNetworks = [];
+
+  async function saveLiveSyncSetup() {
+    const uri = document.getElementById('livesync-uri').value.trim();
+    const status = document.getElementById('livesync-status');
+    if (!uri.startsWith('obsidian://setuplivesync?settings=') && !uri.startsWith('%$')) {
+      status.textContent = 'That is not a LiveSync Setup URI.';
+      return;
+    }
+    const r = await fetch('/api/livesync/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uri }) }).catch(() => null);
+    status.textContent = r && r.ok ? 'Saved. Finish on the device: Settings → Vaults → LiveSync.'
+                                   : 'Could not save: ' + (r ? await r.text() : 'network error');
+    if (r && r.ok) document.getElementById('livesync-uri').value = '';
+  }
 
   function renderWifiNetwork(net, idx) {
     const isNew = idx === -1;

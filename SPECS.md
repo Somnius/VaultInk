@@ -253,7 +253,7 @@ generations it has been tested against and refuses others with a clear message.
     time-bound form hex(HMAC-SHA256(SHA256(pass), `["livesync/setup-uri","tb1","ephemeral",<week>]`)),
     week = floor(unix_ms / 604800000).
   - Version doc `obsydian_livesync_version` (sic): 12 now, 13 with newer features; refuse > 13.
-  - Built (`lib/LiveSync/LiveSyncCrypto`, mbedtls): all of the above for reading. Still unverified:
+  - Built (`lib/LiveSync/LiveSyncCrypto`, mbedtls HMAC/HKDF/GCM; PBKDF2 and base64 written out so the 310,000 rounds can yield and the simulator matches the device): all of the above for reading. Still unverified:
     PouchDB's exact replication requests, compression order with encryption (VaultInk needs
     compression off), how `couchDB_URI` and `couchDB_DBNAME` join.
 - Scope: choose which vault (database) to sync. Text first; attachments on demand or by size limit.

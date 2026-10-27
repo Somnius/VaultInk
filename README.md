@@ -35,7 +35,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Early days.** Version 0.18.1 opens your vaults, reads their notes, links and images, Greek
+> **Early days.** Version 0.19.0 opens your vaults, reads their notes, links and images, Greek
 > included, and searches them. Sync isn't in yet. Every release from 0.8.2 on has been tested by kos25k
 > on his X4 Pro (UC8279 screen); the bugs he found are fixed and listed in the release notes. It's still
 > one tester on one device, so back up your SD card. The screenshots below come from the simulator.
@@ -141,6 +141,11 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   the notes that link to it. The search index lives outside the vault (`/.vaultink/` on the SD
   card) and also keeps a list of the vault's files, so links and images open without scanning the
   card; Settings → Vaults → Rebuild Search Index starts it over.
+- **LiveSync (read only).** Pull a vault from Obsidian Self-hosted LiveSync over Wi-Fi: paste the
+  Setup URI on the device's web page, type its passphrase on the device, then Settings → Vaults →
+  LiveSync → Sync now. End-to-end encryption (V2) and path obfuscation are supported; edits,
+  deletes and renames come across, deleted files go to a trash folder. See
+  [docs/livesync.md](docs/livesync.md).
 - **Import a vault from a ZIP** on the device's web page (File Transfer, then Files →
   **Import Vault (.zip)**): it lands in `/Vaults/<name>/` ready to open. A
   [demo vault](demo-vault/VaultInk%20Demo) with notes, pictures and a canvas is in this repo
@@ -172,7 +177,8 @@ The [roadmap](ROADMAP.md) has the details and the order. In short:
 1. **The vault reader.** Open a vault from the SD card, browse folders, read notes with their links,
    embeds, callouts, tasks and tables, and search, with Greek accents taken into account.
 2. **Canvas files**, read only (the first version is in: viewing, pan, zoom, open a card).
-3. **Obsidian LiveSync**, so a vault stays in step with your other devices.
+3. **Obsidian LiveSync**, so a vault stays in step with your other devices (pull is in; push comes
+   with editing).
 4. **Editing notes** on the device, then a **Bluetooth keyboard**.
 5. **An Android companion app** (in `companion/` in this repo, released separately) for typing
    into the device, quick notes and bringing in notes from other apps.

@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <fstream>
 #include <algorithm>
+#include <fstream>
 #include <map>
 #include <sstream>
 #include <string>
@@ -20,8 +20,8 @@ std::string readFile(const std::string& path) {
 }
 
 struct FakeCouch {
-  std::vector<std::string> order;            // _changes order
-  std::map<std::string, std::string> docs;   // id -> doc JSON
+  std::vector<std::string> order;           // _changes order
+  std::map<std::string, std::string> docs;  // id -> doc JSON
   std::map<std::string, bool> deleted;
   std::string params, version;
   int requests = 0;
@@ -98,8 +98,8 @@ struct FakeCouch {
 struct MemSd {
   std::map<std::string, std::string> files;
   std::string pendingPath, pending;
-  livesync::Storage fs() {
-    livesync::Storage s;
+  livesync::FileStore fs() {
+    livesync::FileStore s;
     s.exists = [this](const std::string& p) { return files.count(p) > 0; };
     s.readAll = [this](const std::string& p, std::string& out) {
       if (!files.count(p)) return false;

@@ -1,10 +1,8 @@
 #include "LiveSyncCrypto.h"
 
-#include <mbedtls/base64.h>
 #include <mbedtls/gcm.h>
 #include <mbedtls/hkdf.h>
 #include <mbedtls/md.h>
-#include <mbedtls/pkcs5.h>
 #include <mbedtls/platform_util.h>
 
 #include <cctype>
@@ -17,6 +15,9 @@ constexpr size_t IV_LEN = 12;
 constexpr size_t HKDF_SALT_LEN = 32;
 constexpr size_t PBKDF2_SALT_LEN = 32;
 constexpr size_t TAG_LEN = 16;
+
+void (*defaultYield)(int, void*) = nullptr;
+void* defaultYieldCtx = nullptr;
 
 const mbedtls_md_info_t* sha256() { return mbedtls_md_info_from_type(MBEDTLS_MD_SHA256); }
 
@@ -86,21 +87,86 @@ std::string urlDecode(std::string_view s) {
 
 }  // namespace
 
-bool base64Decode(std::string_view in, std::string& out) {
-  size_t len = 0;
-  const auto* src = reinterpret_cast<const unsigned char*>(in.data());
-  if (mbedtls_base64_decode(nullptr, 0, &len, src, in.size()) == MBEDTLS_ERR_BASE64_INVALID_CHARACTER) return false;
-  out.assign(len, '\0');
-  if (mbedtls_base64_decode(reinterpret_cast<unsigned char*>(out.data()), out.size(), &len, src, in.size()) != 0) {
-    return false;
+std::string base64Encode(const uint8_t* data, const size_t len) {
+  static constexpr char ALPHABET[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  std::string out;
+  out.reserve((len + 2) / 3 * 4);
+  for (size_t i = 0; i < len; i += 3) {
+    const uint32_t n =
+        (static_cast<uint32_t>(data[i]) << 16) | (i + 1 < len ? data[i + 1] << 8 : 0) | (i + 2 < len ? data[i + 2] : 0);
+    out += ALPHABET[(n >> 18) & 63];
+    out += ALPHABET[(n >> 12) & 63];
+    out += i + 1 < len ? ALPHABET[(n >> 6) & 63] : '=';
+    out += i + 2 < len ? ALPHABET[n & 63] : '=';
   }
-  out.resize(len);
+  return out;
+}
+
+bool base64Decode(std::string_view in, std::string& out) {
+  // Standard alphabet with '=' padding (no whitespace, no URL-safe forms: LiveSync writes neither).
+  const auto value = [](const char c) -> int {
+    if (c >= 'A' && c <= 'Z') return c - 'A';
+    if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+    if (c >= '0' && c <= '9') return c - '0' + 52;
+    if (c == '+') return 62;
+    if (c == '/') return 63;
+    return -1;
+  };
+  out.clear();
+  if (in.size() % 4 != 0) return false;
+  out.reserve(in.size() / 4 * 3);
+  for (size_t i = 0; i < in.size(); i += 4) {
+    int v[4];
+    int pad = 0;
+    for (int k = 0; k < 4; ++k) {
+      const char c = in[i + k];
+      if (c == '=' && i + 4 == in.size() && k >= 2) {
+        v[k] = 0;
+        ++pad;
+        continue;
+      }
+      if (pad || (v[k] = value(c)) < 0) return false;
+    }
+    const uint32_t n = (v[0] << 18) | (v[1] << 12) | (v[2] << 6) | v[3];
+    out += static_cast<char>(n >> 16);
+    if (pad < 2) out += static_cast<char>((n >> 8) & 255);
+    if (pad < 1) out += static_cast<char>(n & 255);
+  }
   return true;
 }
 
-bool deriveMaster(std::string_view passphrase, const uint8_t* salt, const size_t saltLen, Key out) {
-  return mbedtls_pkcs5_pbkdf2_hmac_ext(MBEDTLS_MD_SHA256, reinterpret_cast<const unsigned char*>(passphrase.data()),
-                                       passphrase.size(), salt, saltLen, PBKDF2_ITERATIONS, 32, out) == 0;
+void setDefaultYield(void (*yield)(int, void*), void* ctx) {
+  defaultYield = yield;
+  defaultYieldCtx = ctx;
+}
+
+bool deriveMaster(std::string_view passphrase, const uint8_t* salt, const size_t saltLen, Key out,
+                  void (*yield)(int, void*), void* ctx) {
+  if (!yield) {
+    yield = defaultYield;
+    ctx = defaultYieldCtx;
+  }
+  // PBKDF2-HMAC-SHA256 for one 32-byte block (what LiveSync uses), written out so it can yield:
+  // U1 = HMAC(P, salt | 00000001), Ui = HMAC(P, Ui-1), out = U1 ^ ... ^ Uc.
+  mbedtls_md_context_t md;
+  mbedtls_md_init(&md);
+  bool ok =
+      mbedtls_md_setup(&md, sha256(), 1) == 0 &&
+      mbedtls_md_hmac_starts(&md, reinterpret_cast<const unsigned char*>(passphrase.data()), passphrase.size()) == 0;
+  uint8_t u[32];
+  static constexpr uint8_t BLOCK_1[4] = {0, 0, 0, 1};
+  ok = ok && mbedtls_md_hmac_update(&md, salt, saltLen) == 0 && mbedtls_md_hmac_update(&md, BLOCK_1, 4) == 0 &&
+       mbedtls_md_hmac_finish(&md, u) == 0;
+  if (ok) memcpy(out, u, sizeof(u));
+  for (int i = 1; ok && i < PBKDF2_ITERATIONS; ++i) {
+    ok = mbedtls_md_hmac_reset(&md) == 0 && mbedtls_md_hmac_update(&md, u, sizeof(u)) == 0 &&
+         mbedtls_md_hmac_finish(&md, u) == 0;
+    for (size_t j = 0; j < sizeof(u); ++j) out[j] ^= u[j];
+    if (yield && (i + 1) % 1000 == 0) yield(i + 1, ctx);
+  }
+  mbedtls_md_free(&md);
+  mbedtls_platform_zeroize(u, sizeof(u));
+  return ok;
 }
 
 Result decrypt(const Key master, std::string_view encrypted, std::string& plain) {

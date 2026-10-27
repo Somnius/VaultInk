@@ -34,6 +34,7 @@ enum class SettingAction {
   About,
   WelcomeGuide,
   RebuildSearchIndex,
+  LiveSync,
 };
 
 struct SettingInfo {

@@ -225,9 +225,13 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   the id->path map and checkpoint saved only after a whole page. Host tests against the recorded
   database, and a local run against the live Docker CouchDB: a first pull, then an edit, a delete
   and a rename made through the official LiveSync CLI, all landed exactly.
-* To do on the device: HTTPS transport and SD storage for the engine, the master key kept
-  obfuscated (never the passphrase), Setup URI import (web page or a file on SD), a Sync screen,
-  the quick-settings Sync tile, and timing the 310,000-round key derivation on the S3.
+* ✅ (0.19.0) On the device: the Setup URI is pasted on the web page (kept encrypted), the
+  passphrase typed on the device (never stored), the vault key derived with a PBKDF2 that yields
+  to the watchdog, the profile with its secrets obfuscated, Settings → Vaults → LiveSync with
+  Finish setup, Sync now and Forget (docs/livesync.md). Checked end to end in the simulator against
+  the Docker CouchDB: setup, then a pull into `/Vaults/vaultink-test` identical to the source.
+* To do: timing the 310,000 rounds on the S3 (hardware), the quick-settings Sync tile,
+  background/automatic sync, a CA bundle so certificates are checked by default.
 
 * Setup URI import, E2EE V2, path obfuscation.
 * CouchDB `_changes` with checkpoints, chunk assembly, attachments on demand.

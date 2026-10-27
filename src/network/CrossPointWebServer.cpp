@@ -54,6 +54,7 @@
 #include "util/BookCacheUtils.h"
 #include "util/DictionaryRegistry.h"
 #include "util/FirmwareIdentity.h"
+#include "util/LiveSyncDevice.h"
 #include "util/PluginHttp.h"
 #include "util/PluginLocations.h"
 #include "util/TaskWatchdog.h"
@@ -264,6 +265,7 @@ void CrossPointWebServer::begin() {
   server->on("/api/wifi", HTTP_GET, [this] { handleGetWifiNetworks(); });
   server->on("/api/wifi", HTTP_POST, [this] { handlePostWifiNetwork(); });
   server->on("/api/wifi/delete", HTTP_POST, [this] { handleDeleteWifiNetwork(); });
+  server->on("/api/livesync/setup", HTTP_POST, [this] { handleLiveSyncSetup(); });
 
   server->onNotFound([this] { handleNotFound(); });
   LOG_DBG("WEB", "[MEM] Free heap after route setup: %d bytes", ESP.getFreeHeap());
@@ -1797,6 +1799,30 @@ void CrossPointWebServer::handlePostWifiNetwork() {
 }
 
 // Uses POST (not HTTP DELETE) because ESP32 WebServer doesn't support DELETE with body.
+// A LiveSync Setup URI pasted on the Settings page. It stays encrypted on the SD card until the
+// device's LiveSync screen unlocks it with the passphrase typed there.
+void CrossPointWebServer::handleLiveSyncSetup() {
+  if (!server->hasArg("plain") || server->arg("plain").length() > 40 * 1024) {
+    server->send(400, "text/plain", "Missing or oversized JSON body");
+    return;
+  }
+  JsonDocument doc;
+  if (deserializeJson(doc, server->arg("plain")) != DeserializationError::Ok) {
+    server->send(400, "text/plain", "Invalid JSON");
+    return;
+  }
+  const std::string uri = doc["uri"] | "";
+  if (uri.size() > 32 * 1024 || (uri.rfind("obsidian://setuplivesync?settings=", 0) != 0 && uri.rfind("%$", 0) != 0)) {
+    server->send(400, "text/plain", "Not a LiveSync Setup URI");
+    return;
+  }
+  if (!livesyncdev::savePendingSetup(uri)) {
+    server->send(500, "text/plain", "Could not write to the SD card");
+    return;
+  }
+  server->send(200, "text/plain", "OK");
+}
+
 void CrossPointWebServer::handleDeleteWifiNetwork() {
   if (!server->hasArg("plain")) {
     server->send(400, "text/plain", "Missing JSON body");

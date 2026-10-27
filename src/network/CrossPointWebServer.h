@@ -148,6 +148,7 @@ class CrossPointWebServer {
   void handleGetWifiNetworks() const;
   void handlePostWifiNetwork();
   void handleDeleteWifiNetwork();
+  void handleLiveSyncSetup();
 
   // Missing or malformed JSON sends a 400 response and returns false.
   bool readJsonBody(JsonDocument& out) const;

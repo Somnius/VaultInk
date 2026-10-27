@@ -22,8 +22,15 @@ enum class Result : uint8_t {
   WrongKey,     // the GCM tag did not match: wrong passphrase or damaged data
 };
 
-// The E2EE master key from the passphrase and the database's pbkdf2salt (32 bytes).
-bool deriveMaster(std::string_view passphrase, const uint8_t* salt, size_t saltLen, Key out);
+// The E2EE master key from the passphrase and the database's pbkdf2salt (32 bytes). `yield`
+// (optional) is called every 1000 rounds with the rounds done: the 310,000 rounds take seconds on
+// the device, so the caller can feed the watchdog and show progress.
+bool deriveMaster(std::string_view passphrase, const uint8_t* salt, size_t saltLen, Key out,
+                  void (*yield)(int roundsDone, void* ctx) = nullptr, void* ctx = nullptr);
+
+// Called every 1000 rounds by every key derivation that has no `yield` of its own (Setup URI
+// decoding derives one or two keys); null to stop.
+void setDefaultYield(void (*yield)(int roundsDone, void* ctx), void* ctx);
 
 // A "%=" string (chunk data, metadata) with the master key.
 Result decrypt(const Key master, std::string_view encrypted, std::string& plain);
@@ -38,6 +45,9 @@ Result decryptMetaPath(const Key master, std::string_view field, std::string& js
 // passphrase as typed and the time-bound (ephemeral) form for `weekWindow`
 // (floor(unix_ms / 604800000)); pass weekWindow < 0 to skip the ephemeral form.
 Result decodeSetupUri(std::string_view uri, std::string_view passphrase, int64_t weekWindow, std::string& json);
+
+// Bytes to standard base64 with padding.
+std::string base64Encode(const uint8_t* data, size_t len);
 
 // Standard base64 (with padding) to bytes; false on bad input.
 bool base64Decode(std::string_view in, std::string& out);

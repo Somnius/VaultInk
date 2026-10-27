@@ -37,6 +37,7 @@
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/util/IntervalSelectionActivity.h"
 #include "activities/util/WelcomeGuideActivity.h"
+#include "activities/vault/LiveSyncActivity.h"
 #include "components/UITheme.h"
 #include "components/UIThemeTokens.h"
 #include "components/UiAppHelpers.h"
@@ -134,6 +135,7 @@ void SettingsActivity::rebuildSettings() {
   addAction(SettingsSection::Reader, StrId::STR_CUSTOMISE_STATUS_BAR, SettingAction::CustomiseStatusBar);
   addAction(SettingsSection::Reader, StrId::STR_CLEAR_READING_CACHE, SettingAction::ClearCache);
   addAction(SettingsSection::Vaults, StrId::STR_REBUILD_SEARCH_INDEX, SettingAction::RebuildSearchIndex);
+  addAction(SettingsSection::Vaults, StrId::STR_LIVESYNC, SettingAction::LiveSync);
 
   addAction(SettingsSection::Network, StrId::STR_WIFI_NETWORKS, SettingAction::Network);
   if (bleturner::status().compiledIn) {
@@ -361,6 +363,13 @@ void SettingsActivity::toggleSelectedSetting() {
         requestUpdate();
         break;
       }
+      case SettingAction::LiveSync:
+        if (auto activity = makeUniqueNoThrow<LiveSyncActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), resultHandler);
+        } else {
+          LOG_ERR("SETTINGS", "OOM: LiveSyncActivity");
+        }
+        break;
       case SettingAction::ClearCache:
         startActivityForResult(std::make_unique<ClearCacheActivity>(renderer, mappedInput), resultHandler);
         break;

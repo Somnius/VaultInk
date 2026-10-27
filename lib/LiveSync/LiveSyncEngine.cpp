@@ -31,7 +31,7 @@ bool skipId(const std::string& id) {
 }
 
 // The id->path map: one "id\tpath" line per file written by an earlier sync.
-std::map<std::string, std::string> loadMap(const Storage& fs, const std::string& file) {
+std::map<std::string, std::string> loadMap(const FileStore& fs, const std::string& file) {
   std::map<std::string, std::string> map;
   std::string text;
   if (!fs.readAll(file, text)) return map;
@@ -46,7 +46,7 @@ std::map<std::string, std::string> loadMap(const Storage& fs, const std::string&
   return map;
 }
 
-bool saveMap(const Storage& fs, const std::string& file, const std::map<std::string, std::string>& map) {
+bool saveMap(const FileStore& fs, const std::string& file, const std::map<std::string, std::string>& map) {
   std::string text;
   for (const auto& [id, path] : map) text += id + "\t" + path + "\n";
   return fs.writeAll(file, text);
@@ -73,7 +73,7 @@ bool fetchDocs(const Transport& net, const std::vector<std::string>& ids, JsonDo
 
 class Run {
  public:
-  Run(const Transport& net, const Storage& fs, const Key master, const SyncOptions& o, SyncStats& stats,
+  Run(const Transport& net, const FileStore& fs, const Key master, const SyncOptions& o, SyncStats& stats,
       std::string& error, const SyncProgress& progress)
       : net(net), fs(fs), master(master), o(o), stats(stats), error(error), progress(progress) {}
 
@@ -108,14 +108,14 @@ class Run {
         }
       }
       for (size_t i = 0; i < files.size(); i += static_cast<size_t>(o.docsBatch)) {
-        const std::vector<std::string> batch(files.begin() + static_cast<std::ptrdiff_t>(i),
-                                             files.begin() + static_cast<std::ptrdiff_t>(std::min(
-                                                                 files.size(), i + static_cast<size_t>(o.docsBatch))));
+        const std::vector<std::string> batch(
+            files.begin() + static_cast<std::ptrdiff_t>(i),
+            files.begin() + static_cast<std::ptrdiff_t>(std::min(files.size(), i + static_cast<size_t>(o.docsBatch))));
         if (!applyDocs(batch)) return false;
       }
       // The page is applied: only now do the map and the checkpoint move on.
       const std::string last = changes["last_seq"].is<const char*>() ? std::string(changes["last_seq"] | "")
-                                                                      : std::to_string(changes["last_seq"] | 0);
+                                                                     : std::to_string(changes["last_seq"] | 0);
       if (!saveMap(fs, mapFile, map) || !fs.writeAll(seqFile, last)) {
         error = "Could not save the sync state on the SD card.";
         return false;
@@ -258,7 +258,7 @@ class Run {
   }
 
   const Transport& net;
-  const Storage& fs;
+  const FileStore& fs;
   const uint8_t* master;
   const SyncOptions& o;
   SyncStats& stats;
@@ -287,7 +287,7 @@ bool safeVaultPath(const std::string& path) {
   return true;
 }
 
-bool syncOnce(const Transport& net, const Storage& fs, const Key master, const SyncOptions& options, SyncStats& stats,
+bool syncOnce(const Transport& net, const FileStore& fs, const Key master, const SyncOptions& options, SyncStats& stats,
               std::string& error, const SyncProgress& progress) {
   stats = SyncStats{};
   error.clear();
