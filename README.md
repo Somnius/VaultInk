@@ -172,7 +172,8 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   New folder. Move and Copy open a folder picker; nothing overwrites a file with the same name, and
   a copy that runs out of space leaves nothing half-written.
 - **Reading layout.** Line spacing in ten steps (1 to 10), a Hide Status Bar switch, and
-  hyphenation on by default. The battery percent shows on the sleep screen.
+  hyphenation on by default. The battery percent shows on the sleep screen. All of it in
+  [docs/reading-and-files.md](docs/reading-and-files.md).
 - **A welcome guide** on the first start, described [above](#getting-started).
 - **Updates.** The device checks this repository's releases for new versions.
 

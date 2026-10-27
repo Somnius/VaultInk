@@ -180,7 +180,10 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   lays the chapter out again). Hyphenation is on by default, since justified lines without it get
   wide word gaps. The file browser's long-press menu adds Move, Copy (files and folders, through
   a folder picker), New folder and folder rename. Moving or renaming a folder doesn't carry the
-  reading progress of the books inside yet.
+  reading progress of the books inside yet. Details: docs/reading-and-files.md. Reviewed by Gemini
+  and Grok (design and diff); tested in the simulator, not yet on the device.
+* To do (from 0.20.0): carry book state when a folder moves or is renamed (caches, bookmarks,
+  clippings, recent books, vault index); check the sleep-screen percent over covers on the device.
 * ✅ Reader menu: CrossPoint's toolbar sheet (default on touch) kept; tool names added under the
   icons.
 * ✅ Swipe down from the top for quick settings. ✅ Swipe up for the reading menu: CrossPoint's
