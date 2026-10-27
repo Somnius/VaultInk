@@ -53,11 +53,11 @@ and host tests.
   copy of those; OTA only ever takes the latest release).
 * ✅ Test builds 0.2.0 to 0.8.10 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
-* 🚧 Device testing, by kos25k (X4 Pro, UC8279 display controller, GT911 touch, now on 0.8.2): 0.7.0 runs on his reader (boots, menus, quick settings, System
-  settings, language list). Found: Greek hard to find in the language list (fixed 0.8.1), paper tile
-  could rotate the book (fixed 0.8.2, rotation confirmed fixed on 0.8.2); backgrounds faded the page with text
-  anti-aliasing on (fixed 0.8.3, not yet re-tested). Not tested on the
-  device yet: vaults, notes, search, backlinks, keyboard, page backgrounds, Wi-Fi update, timing.
+* ✅ Device testing, by kos25k (X4 Pro, UC8279 display controller, GT911 touch): 0.7.0 booted with
+  menus and quick settings working; every release from 0.8.2 to 0.8.10 tested on his reader. The bugs
+  he found (language list, paper tile rotating the book, faded pages with backgrounds, the /.fonts
+  move, off-screen option lists, menu ghosts, Greek hyphenation gaps) are fixed in those releases.
+  The dimmer-light try (0.8.11) failed on his device and was withdrawn.
 * ⏳ First hardware-tested release, once the X4 Pro arrives and passes the hardware checks below.
 
 ## 🚧 Phase 1 - Vault reader
@@ -121,12 +121,12 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   menus never stack and leave ghosts of each other.
 * ✅ Fix (0.8.9, kos25k's video, UC8279): closing the reading toolbar left a faint copy of it on the
   page (0.8.7 made the quick-settings case clear with a swipe, not this one). On UC8279 the page
-  redraw after the toolbar closes now uses a Half cleanup refresh. Not yet re-tested on the device.
+  redraw after the toolbar closes now uses a Half cleanup refresh. Tested by kos25k.
 * ✅ Fix (0.8.7, kos25k on UC8279, photos): after quick settings closed, a faint image of the panel
   stayed on the glass and showed under the reading menu until a sleep/wake. Closing quick settings
   now hands a Half cleanup refresh to the screen underneath, and anti-aliased pages now honour such
-  a promoted refresh too (they ignored it, so the refresh tile didn't clean them either). Not yet
-  re-tested on the device.
+  a promoted refresh too (they ignored it, so the refresh tile didn't clean them either). Tested by
+  kos25k.
 * ✅ Hyphenation switch in the reading toolbar's Text panel (0.8.6, kos25k), so it can change
   while reading; before it was only in Settings.
 * ✅ Fix (0.8.5, kos25k, from his video): option lists taller than the screen ran off the top
@@ -145,7 +145,7 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   has 12/14/16/18.
 * ✅ Fix (0.8.3, found by kos25k on a UC8279 X4 Pro): with a page background on, the text
   anti-aliasing pass faded the whole page, text included. AA is now skipped while a background is
-  on (with AA off he saw the page stay sharp).
+  on (with AA off he saw the page stay sharp). Tested by kos25k.
 * ✅ Fix (0.8.2, reported by kos25k on the device): taps on the paper tile could land on the rotate
   tile above it and turn the book upside down. Unlabelled tiles now answer only on their circle,
   and the rows are further apart.
