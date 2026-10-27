@@ -74,7 +74,7 @@ else
     git tag -a "$VERSION" -m "VaultInk ${VERSION}" HEAD
   fi
   git push -q origin "refs/tags/$VERSION"
-  gh release create "$VERSION" --title "VaultInk ${VERSION}" --notes-file "$NOTES" \
+  gh release create "$VERSION" --title "VaultInk ${VERSION}" --notes-file "$NOTES" --latest \
     "$OUT/vaultink-${VERSION}-x4pro-factory.bin" "$OUT/vaultink-${VERSION}-x4pro.bin"
   echo "Release ${VERSION} created."
 fi
