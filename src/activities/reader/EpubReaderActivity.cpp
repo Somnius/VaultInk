@@ -2718,6 +2718,9 @@ void EpubReaderActivity::closeOverlayToPage() {
     renderer.displayBuffer(HalDisplay::FAST_REFRESH);
     return;
   }
+  // UC8279 X4 Pro: the fast repaint left a faint copy of the toolbar on the glass (kos25k's
+  // video); a Half cleanup clears it without the black flash.
+  if (display.getController() == HalDisplay::Controller::UC8279) renderer.promoteNextRefresh(HalDisplay::HALF_REFRESH);
   discardOverlayPage();
   requestUpdate();  // redraw the clean page
 }
