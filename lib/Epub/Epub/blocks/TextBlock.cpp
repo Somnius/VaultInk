@@ -138,6 +138,8 @@ TextBlock::TextBlock(const std::vector<std::string>& words, const std::vector<in
   }
 }
 
+TextBlock::HighlightStyle TextBlock::highlightStyle = TextBlock::HighlightStyle::Gray;
+
 bool TextBlock::hasRuby() const {
   for (const auto& rt : rubyTexts) {
     if (!rt.empty()) return true;
@@ -159,7 +161,7 @@ int TextBlock::renderFontId(const GfxRenderer& renderer, const int fontId, const
 
 int TextBlock::wordFontId(const uint16_t i, const int sectionFontId) const {
   if (!wordFontData) return blockFontId(sectionFontId);
-  const uint8_t slot = wordFontData[sizeof(int32_t) * MAX_WORD_FONTS + i] & ~SMALL_CAPS_SLOT_FLAG;
+  const uint8_t slot = wordFontData[sizeof(int32_t) * MAX_WORD_FONTS + i] & ~SLOT_FLAGS;
   if (slot == 0) return blockFontId(sectionFontId);
   int32_t font = 0;
   memcpy(&font, wordFontData.get() + sizeof(int32_t) * (slot - 1), sizeof(font));
@@ -342,7 +344,49 @@ void TextBlock::render(const GfxRenderer& renderer, const int sectionFontId, con
 
     const int drawX = wordX;
 
-    if (boundary > 0) {
+    // Highlight: a band behind the word, and behind the space to the next highlighted word, drawn
+    // first so the text sits on top. Only in the black-and-white pass: the anti-aliasing passes
+    // would gray the letters. Gray keeps black letters; Inverted and DarkGray draw them white.
+    const bool highlighted = (currentStyle & EpdFontFamily::HIGHLIGHT) != 0;
+    const bool whiteText = highlighted && highlightStyle != HighlightStyle::Gray;
+    if (highlighted && renderer.getRenderMode() == GfxRenderer::BW) {
+      int fillWidth = renderer.getTextAdvanceX(wordFont, word, currentStyle, tracking, baseDir,
+                                               GfxRenderer::TextMeasureMode::Rendered);
+      if (i + 1 < numWords && (wordStyle(i + 1) & EpdFontFamily::HIGHLIGHT) != 0 && xposArr[i + 1] > xposArr[i]) {
+        fillWidth = std::max(fillWidth, xposArr[i + 1] - xposArr[i]);
+      }
+      // Dark gray starts black here; the gray passes lighten it (a dithered dark gray would break
+      // up the white letters).
+      const Color band = highlightStyle == HighlightStyle::Gray ? Color::LightGray : Color::Black;
+      renderer.fillRectDither(drawX, y + rubyShift, fillWidth, renderer.getLineHeight(fontId), band);
+    }
+
+    const bool ink = !whiteText;
+    if (whiteText && renderer.getRenderMode() != GfxRenderer::BW) {
+      if (highlightStyle == HighlightStyle::DarkGray) {
+        // The gray planes turn the black band dark gray; the letters are cut back out to white.
+        int bandWidth = renderer.getTextAdvanceX(wordFont, word, currentStyle, tracking, baseDir,
+                                                 GfxRenderer::TextMeasureMode::Rendered);
+        if (i + 1 < numWords && (wordStyle(i + 1) & EpdFontFamily::HIGHLIGHT) != 0 && xposArr[i + 1] > xposArr[i]) {
+          bandWidth = std::max(bandWidth, xposArr[i + 1] - xposArr[i]);
+        }
+        renderer.fillRect(drawX, y + rubyShift, bandWidth, renderer.getLineHeight(fontId), false);
+        if (boundary > 0) {
+          // Same focus split as below: bold prefix, then the suffix.
+          char prefix[40];
+          const size_t len = std::min<size_t>(
+              {static_cast<size_t>(boundary), static_cast<size_t>(wordTextLen(i)), sizeof(prefix) - 1});
+          memcpy(prefix, word, len);
+          prefix[len] = '\0';
+          renderer.drawText(wordFont, drawX, wordY, prefix, true,
+                            static_cast<EpdFontFamily::Style>(currentStyle | EpdFontFamily::BOLD), baseDir, tracking);
+          renderer.drawText(wordFont, drawX + focusSuffixXArr[i], wordY, word + len, true, currentStyle, baseDir,
+                            tracking);
+        } else {
+          renderer.drawText(wordFont, drawX, wordY, word, true, currentStyle, baseDir, tracking);
+        }
+      }
+    } else if (boundary > 0) {
       // Focus split: draw bold prefix, then the regular suffix at a pre-computed x offset.
       // The bold prefix is bounded to 9 codepoints by the clamp on targetBoldChars in
       // ParsedText::addWord; 9 UTF-8 codepoints occupy at most 9 * 4 = 36 bytes, +1 for null = 37.
@@ -356,11 +400,11 @@ void TextBlock::render(const GfxRenderer& renderer, const int sectionFontId, con
           std::min<size_t>({static_cast<size_t>(boundary), static_cast<size_t>(wordTextLen(i)), sizeof(boldBuf) - 1});
       memcpy(boldBuf, word, boldLen);
       boldBuf[boldLen] = '\0';
-      renderer.drawText(wordFont, drawX, wordY, boldBuf, true, boldStyle, baseDir, tracking);
+      renderer.drawText(wordFont, drawX, wordY, boldBuf, ink, boldStyle, baseDir, tracking);
       const int suffixX = drawX + focusSuffixXArr[i];
-      renderer.drawText(wordFont, suffixX, wordY, word + boldLen, true, currentStyle, baseDir, tracking);
+      renderer.drawText(wordFont, suffixX, wordY, word + boldLen, ink, currentStyle, baseDir, tracking);
     } else {
-      renderer.drawText(wordFont, drawX, wordY, word, true, currentStyle, baseDir, tracking);
+      renderer.drawText(wordFont, drawX, wordY, word, ink, currentStyle, baseDir, tracking);
     }
 
     // Horizontal ruby text rendering
@@ -624,7 +668,7 @@ std::unique_ptr<TextBlock> TextBlock::deserialize(HalFile& file) {
     }
     const uint8_t* slots = block->wordFontData.get() + sizeof(int32_t) * MAX_WORD_FONTS;
     for (uint16_t i = 0; i < wc; ++i) {
-      const uint8_t slot = slots[i] & ~SMALL_CAPS_SLOT_FLAG;
+      const uint8_t slot = slots[i] & ~SLOT_FLAGS;
       int32_t font = 1;
       if (slot > 0 && slot <= MAX_WORD_FONTS) {
         memcpy(&font, block->wordFontData.get() + sizeof(int32_t) * (slot - 1), sizeof(font));

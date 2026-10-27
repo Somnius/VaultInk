@@ -45,6 +45,11 @@ class TextBlock final : public Block {
   static constexpr uint8_t DISCRETIONARY_HYPHEN_FLAG = 0x80;
   // Word font slot bit for CSS small caps; the style byte's high bit is the hyphen flag.
   static constexpr uint8_t SMALL_CAPS_SLOT_FLAG = 0x80;
+  static constexpr uint8_t HIGHLIGHT_SLOT_FLAG = 0x40;  // also in the slot byte: the style byte is full
+  static constexpr uint8_t SLOT_FLAGS = SMALL_CAPS_SLOT_FLAG | HIGHLIGHT_SLOT_FLAG;
+  // How ==highlights== are drawn; the reader sets it from its setting before each page.
+  enum class HighlightStyle : uint8_t { Gray = 0, Inverted = 1, DarkGray = 2 };
+  static HighlightStyle highlightStyle;
   struct SourceRange {
     uint32_t start = UINT32_MAX;
     uint32_t end = UINT32_MAX;
@@ -109,11 +114,14 @@ class TextBlock final : public Block {
 
   static constexpr uint8_t MAX_WORD_FONTS = 3;
   // slots[i] picks word i's font: 0 = the block font, n = fonts[n-1]; SMALL_CAPS_SLOT_FLAG
-  // marks small caps. Returns false on OOM.
+  // and HIGHLIGHT_SLOT_FLAG mark small caps and highlight. Returns false on OOM.
   bool setWordFonts(const uint8_t* slots, const int32_t (&fonts)[MAX_WORD_FONTS]);
   int wordFontId(uint16_t i, int sectionFontId) const;
   bool wordHasSmallCaps(uint16_t i) const {
     return wordFontData && (wordFontData[sizeof(int32_t) * MAX_WORD_FONTS + i] & SMALL_CAPS_SLOT_FLAG);
+  }
+  bool wordHasHighlight(uint16_t i) const {
+    return wordFontData && (wordFontData[sizeof(int32_t) * MAX_WORD_FONTS + i] & HIGHLIGHT_SLOT_FLAG);
   }
   // fontId when it is (or can be) registered with the renderer, else the section font.
   static int renderFontId(const GfxRenderer& renderer, int fontId, int sectionFontId);
@@ -137,7 +145,8 @@ class TextBlock final : public Block {
   int16_t wordXpos(const uint16_t i) const { return xposArr[i]; }
   EpdFontFamily::Style wordStyle(const uint16_t i) const {
     return static_cast<EpdFontFamily::Style>((stylesArr[i] & ~DISCRETIONARY_HYPHEN_FLAG) |
-                                             (wordHasSmallCaps(i) ? EpdFontFamily::SMALL_CAPS : 0));
+                                             (wordHasSmallCaps(i) ? EpdFontFamily::SMALL_CAPS : 0) |
+                                             (wordHasHighlight(i) ? EpdFontFamily::HIGHLIGHT : 0));
   }
   bool wordHasDiscretionaryHyphen(const uint16_t i) const { return (stylesArr[i] & DISCRETIONARY_HYPHEN_FLAG) != 0; }
   uint8_t focusBoundary(const uint16_t i) const { return focusPresent ? focusBoundaryArr[i] : 0; }

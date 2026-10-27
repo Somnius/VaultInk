@@ -53,7 +53,12 @@ enum class CssFontStyle : uint8_t { Normal = 0, Italic = 1, Inherit = 2 };
 enum class CssFontWeight : uint8_t { Normal = 0, Bold = 1, Inherit = 2 };
 
 // Text decoration options. Values are bit flags so CSS can combine multiple line decorations.
-enum class CssTextDecoration : uint8_t { None = 0, Underline = 1, LineThrough = 2 };
+enum class CssTextDecoration : uint8_t {
+  None = 0,
+  Underline = 1,
+  LineThrough = 2,
+  Highlight = 4
+};  // Highlight: <mark> only
 
 constexpr CssTextDecoration operator|(const CssTextDecoration a, const CssTextDecoration b) {
   return static_cast<CssTextDecoration>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));

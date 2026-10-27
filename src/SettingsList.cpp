@@ -130,6 +130,9 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Enum(StrId::STR_READER_MENU_STYLE, &CrossPointSettings::readerMenuStyle,
                          {StrId::STR_MENU_STYLE_LIST, StrId::STR_MENU_STYLE_TOOLBAR}, "readerMenuStyle",
                          StrId::STR_CAT_READER));
+  emit(SettingInfo::Enum(StrId::STR_HIGHLIGHT_STYLE, &CrossPointSettings::highlightStyle,
+                         {StrId::STR_HIGHLIGHT_GRAY, StrId::STR_HIGHLIGHT_INVERTED, StrId::STR_HIGHLIGHT_DARK},
+                         "highlightStyle", StrId::STR_CAT_READER));
   // --- Controls ---
 #if FREEINK_CAP_HAPTIC
   emit(SettingInfo::Enum(StrId::STR_VIBRATION, &CrossPointSettings::vibration,

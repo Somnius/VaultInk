@@ -7,7 +7,7 @@ class EpdFontFamily {
   // Bits 0-1 select the font variant (BOLD/ITALIC); bits 2-5 are decoration/positioning overlays
   // applied at render time without changing the underlying font. getFont() ignores all bits
   // above bit 1 so decorations compose freely with bold/italic (e.g. BOLD | UNDERLINE | SUP).
-  enum Style : uint8_t {
+  enum Style : uint16_t {
     REGULAR = 0,
     BOLD = 1,
     ITALIC = 2,
@@ -18,6 +18,7 @@ class EpdFontFamily {
     SUB = 32,            // subscript: glyph scaled 50%, lowered ~25% of ascender
     RUBY_CONTINUE = 64,  // Group ruby follower marker (used internally by Epub layout)
     SMALL_CAPS = 128,    // lowercase letters drawn as uppercase glyphs at 3/4 scale
+    HIGHLIGHT = 256,     // light gray behind the word (<mark>, Obsidian ==text==), by TextBlock::render()
   };
   static constexpr uint8_t TEXT_DECORATION_MASK = static_cast<uint8_t>(UNDERLINE | STRIKETHROUGH);
 

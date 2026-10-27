@@ -2053,6 +2053,8 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   const auto t0 = millis();
   const int fontId = SETTINGS.getReaderFontId();
   ImageBlock::clearRenderFailures();
+  TextBlock::highlightStyle = static_cast<TextBlock::HighlightStyle>(
+      std::min<uint8_t>(SETTINGS.highlightStyle, static_cast<uint8_t>(TextBlock::HighlightStyle::DarkGray)));
 
   struct PxcSlotGuard {
     ~PxcSlotGuard() { ImageBlock::releaseRenderCache(); }
