@@ -214,6 +214,14 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * ✅ Encryption pinned from the source and the real library's test vectors (E2EE V2, path
   obfuscation, Setup URI in both passphrase modes); `lib/LiveSync/LiveSyncCrypto` decrypts them
   (host tests). Local CouchDB 3.5 in Docker for testing (throwaway, `.work/couchdb`).
+* ✅ Test data from the real thing: the official Self-hosted LiveSync CLI filled the local CouchDB
+  from the demo vault (E2EE V2, path obfuscation, chunk size 60); a dump of it is the test
+  fixture. `lib/LiveSync/LiveSyncPull` turns its docs back into all 13 files byte for byte
+  (text and pictures), checks the remote version (refuses > 13 or unknown features), and fails
+  cleanly with a wrong passphrase.
+* To do: the device side (HTTPS to CouchDB, `_changes` with a saved checkpoint, chunks by
+  `_all_docs?keys=`, files written to `/Vaults/<name>/` through a temp file), Setup URI import
+  on the device, a Sync screen and the quick-settings Sync tile.
 
 * Setup URI import, E2EE V2, path obfuscation.
 * CouchDB `_changes` with checkpoints, chunk assembly, attachments on demand.

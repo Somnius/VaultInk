@@ -22,8 +22,8 @@ struct Master {
   Master() {
     std::string salt;
     EXPECT_TRUE(livesync::base64Decode(vectors::SALT_B64, salt));
-    EXPECT_TRUE(livesync::deriveMaster(vectors::PASSPHRASE, reinterpret_cast<const uint8_t*>(salt.data()), salt.size(),
-                                       key));
+    EXPECT_TRUE(
+        livesync::deriveMaster(vectors::PASSPHRASE, reinterpret_cast<const uint8_t*>(salt.data()), salt.size(), key));
   }
 };
 
