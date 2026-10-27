@@ -8,6 +8,7 @@
 #include <GfxRenderer.h>
 #include <HalDisplay.h>
 #include <HalGPIO.h>
+#include <HalPowerManager.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Memory.h>
@@ -546,6 +547,26 @@ bool selectRandomSleepFile(const char* firstDirPath, const char* secondDirPath, 
   return true;
 }
 
+// Battery percent in the bottom right corner, black on a white patch so it reads over any picture.
+// It is the charge when the device went to sleep. In a gray plane the patch is written as white
+// (absolute planes) or as "no change" (differential planes), so the picture's grays stay out of it.
+void stampSleepBattery(const GfxRenderer& renderer, const bool grayPlane = false, const bool absolute = false) {
+  if (!SETTINGS.sleepBattery) return;
+  char text[8];
+  snprintf(text, sizeof(text), "%u%%", static_cast<unsigned>(powerManager.getBatteryPercentage()));
+  const int w = renderer.getTextWidth(SMALL_FONT_ID, text) + 12;
+  const int h = renderer.getLineHeight(SMALL_FONT_ID) + 6;
+  const int x = renderer.getScreenWidth() - w - 8;
+  const int y = renderer.getScreenHeight() - h - 8;
+  if (grayPlane && !absolute) {
+    renderer.fillRect(x, y, w, h, true);
+    return;
+  }
+  renderer.fillRect(x, y, w, h, false);
+  if (!grayPlane) renderer.drawRect(x, y, w, h);
+  renderer.drawText(SMALL_FONT_ID, x + 6, y + 3, text);
+}
+
 bool drawSleepPopupPreservingFrame(GfxRenderer& renderer) {
   const auto& metrics = UITheme::getInstance().getMetrics();
   const int frameThickness = metrics.popupFrameThickness;
@@ -716,6 +737,7 @@ void SleepActivity::renderDefaultSleepScreen() const {
     renderer.invertScreen();
   }
 
+  stampSleepBattery(renderer);
   renderer.displayBuffer(kSleepClean);
 }
 
@@ -757,6 +779,7 @@ void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap, const bool pre
   }
 
   const bool absolute = hasGreyscale && renderer.grayscaleCapabilities(sleepGrayscaleMode(renderer)).supported();
+  stampSleepBattery(renderer);
   const BwFrameKeeper bwFrame(renderer, hasGreyscale && !absolute);
   if (!bwFrame.ready()) {
     renderer.displayBuffer(kSleepClean);
@@ -795,6 +818,7 @@ void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap, const bool pre
         ready = false;
         break;
       }
+      stampSleepBattery(renderer, true, absolute);
       if (plane == GfxRenderer::GRAYSCALE_LSB)
         renderer.copyGrayscaleLsbBuffers();
       else
@@ -1001,5 +1025,6 @@ void SleepActivity::renderLastScreenSleepScreen() const {
 
 void SleepActivity::renderBlankSleepScreen() const {
   renderer.clearScreen();
+  stampSleepBattery(renderer);
   renderer.displayBuffer(kSleepClean);
 }

@@ -17,6 +17,7 @@
 #include "TextSettingsPreview.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/LineSpacing.h"
 
 namespace fui = freeink::ui;
 
@@ -44,7 +45,6 @@ int findCurrentFontIndex(const SdCardFontRegistry* registry, const char* sdFontF
   return fontFamily < CrossPointSettings::BUILTIN_FONT_COUNT ? fontFamily : 0;
 }
 
-constexpr StrId LINE_SPACING_IDS[] = {StrId::STR_TIGHT, StrId::STR_NORMAL, StrId::STR_WIDE, StrId::STR_EXTRA_WIDE};
 constexpr StrId WORD_SPACING_IDS[] = {StrId::STR_SPACING_50_PERCENT,  StrId::STR_SPACING_75_PERCENT,
                                       StrId::STR_SPACING_100_PERCENT, StrId::STR_SPACING_125_PERCENT,
                                       StrId::STR_SPACING_150_PERCENT, StrId::STR_SPACING_175_PERCENT,
@@ -462,7 +462,8 @@ std::string TextSettingsActivity::layoutValueText(int row) const {
   switch (static_cast<LayoutRow>(row)) {
     case LayoutRow::LineSpacing: {
       const uint8_t v = SETTINGS.lineSpacing;
-      return v < std::size(LINE_SPACING_IDS) ? I18N.get(LINE_SPACING_IDS[v]) : I18N.get(StrId::STR_NORMAL);
+      return v < std::size(LINE_SPACING_IDS) ? I18N.get(LINE_SPACING_IDS[v])
+                                             : I18N.get(LINE_SPACING_IDS[CrossPointSettings::LINE_SPACING_DEFAULT]);
     }
     case LayoutRow::ParaIndentation: {
       const int spaces = std::clamp<int>(SETTINGS.paragraphIndentSpaces, 0, 5);

@@ -119,7 +119,10 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // slot; fromJson() folds that range up (see LEGACY_FONT_SIZE_MAX).
   static constexpr uint8_t LEGACY_FONT_SIZE_MAX = 3;
   static constexpr uint8_t DEFAULT_FONT_POINT_SIZE = 14;
-  enum LINE_COMPRESSION { TIGHT = 0, NORMAL = 1, WIDE = 2, EXTRA_WIDE = 3, LINE_COMPRESSION_COUNT };
+  // Line spacing levels 1..10 (stored 0..9). Before 0.20.0 there were four, saved as "lineSpacing"
+  // 0..3 (tight, normal, wide, extra wide); those load as levels 5, 6, 8 and 10, the same spacing.
+  enum LINE_COMPRESSION : uint8_t { LINE_SPACING_DEFAULT = 5, LINE_COMPRESSION_COUNT = 10 };
+  static constexpr uint8_t LEGACY_LINE_SPACING[4] = {4, 5, 7, 9};
   enum PARAGRAPH_ALIGNMENT {
     JUSTIFIED = 0,
     LEFT_ALIGN = 1,
@@ -242,6 +245,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Opening a vault lands on the note read last there (1) or on the vault's top folder (0).
   uint8_t vaultOpenLastNote = 1;
   uint8_t highlightStyle = 0;  // TextBlock::HighlightStyle: gray, inverted, dark gray
+  uint8_t sleepBattery = 1;    // battery percent stamped on the sleep screen
   // Sleep screen cover mode settings
   uint8_t sleepScreenCoverMode = FIT;
   // Sleep screen cover filter
@@ -256,6 +260,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t xtcStatusBarMode = XTC_STATUS_BAR_HIDE;
   // Clock display in status bar (any board whose RTC probe succeeds)
   uint8_t statusBarClock = STATUS_BAR_CLOCK_HIDE;
+  // Hides the whole reader status bar (the items above keep their choices); the text takes the room.
+  uint8_t statusBarHidden = 0;
   // LEGACY, kept for migration only: quarter-hour UTC offset biased by 48
   // (48 = UTC+0). Superseded by clockTimezone; read once by
   // timezones::activeIndex() when clockTimezone is unset.
@@ -310,13 +316,13 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // are selectable; SdCardFontSystem::ensureLoaded() snaps this to the nearest
   // available size (and persists the snap) whenever the family changes.
   uint8_t fontPointSize = DEFAULT_FONT_POINT_SIZE;
-  uint8_t lineSpacing = NORMAL;
+  uint8_t lineSpacing = LINE_SPACING_DEFAULT;
   uint8_t paragraphAlignment = JUSTIFIED;
   // Auto-sleep timeout setting (default 10 minutes). Legacy sleepTimeout enum values are migration-only.
   uint8_t sleepTimeoutMinutes = 10;
   // E-ink refresh frequency (default 15 pages)
   uint8_t refreshFrequency = REFRESH_15;
-  uint8_t hyphenationEnabled = 0;
+  uint8_t hyphenationEnabled = 1;  // on: justified lines without it get wide word gaps
 
   // Reader screen margin settings
   static constexpr uint8_t SCREEN_MARGIN_MIN = 0;  // 0..40 in 1 px steps (kos25k: down to 0)
@@ -409,6 +415,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // books someone reads is not necessarily the language of their UI.
   // See keyboard_layouts:: for the bit assignment and the defaulting rules.
   uint16_t keyboardLayouts = 0;
+  // Backgrounds the quick-settings paper tile cycles through, bit = paper_texture::Style; 0 = all.
+  uint16_t paperCycle = 0;
   // Bluetooth page turner, saved under the keys lib/BlePageTurner reads and writes (BlePageTurnerJson.h).
   bleturner::Config ble;
   // Quick Resume: keep current content visible with moon icon instead of showing a static sleep screen.

@@ -105,7 +105,17 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   computed from the pixel position (no memory, same on every page). Settings → Reader → Page
   Background, and a quick-settings tile that names the current one. EPUB and notes; not XTC.
   Text anti-aliasing is skipped while a background is on (0.8.3): on UC8279 X4 Pro panels the AA
-  pass faded dotted pages.
+  pass faded dotted pages. The tile steps through the styles checked under Settings → Reader →
+  Paper Button Cycle (0.20.0; `paperCycle` bit mask, 0 = all).
+- Line spacing (0.20.0): levels 1-10, stored 0-9 under `lineSpacingLevel`, a multiplier on the
+  font's line height (SD fonts 0.75-1.20, built-in 0.70-1.05). The old `lineSpacing` 0-3 loads as
+  levels 5, 6, 8, 10. Hide Status Bar (`statusBarHidden`) empties the status bar spec, so the text
+  gets its height. Hyphenation defaults on.
+- Sleep screen battery (0.20.0, `sleepBattery`): the percent at sleep time, black on a white patch
+  at the bottom right; in gray picture planes the patch is kept white.
+- File browser (0.20.0): Move/Copy through a folder-only picker, New folder, folder rename. A
+  book's cache, bookmarks and clippings move with a file; a folder moves as one rename. Copy
+  streams through `name.part` and removes it on a short write.
 - On-screen keyboard: English and Greek (from the FreeInk SDK, Greek layout added in Lef's fork
   until upstream takes it). Opens in the UI language's layout; the globe key switches. Greek vowels
   hold for tonos, ϊ/ϋ keys hold for ΐ/ΰ.

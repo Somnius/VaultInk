@@ -187,7 +187,7 @@ void FrontlightPanelActivity::runTile(const int idx) {
       activityManager.goToFileTransfer();
       break;
     case kTileCount + 2:  // Next page background; the reader redraws the page when the panel closes
-      SETTINGS.readingPaper = static_cast<uint8_t>((SETTINGS.readingPaper + 1) % paper_texture::STYLE_COUNT);
+      SETTINGS.readingPaper = paper_texture::nextInCycle(SETTINGS.readingPaper, SETTINGS.paperCycle);
       SETTINGS.saveToFile();
       requestUpdate();
       break;

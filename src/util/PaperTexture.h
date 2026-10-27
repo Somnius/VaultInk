@@ -36,6 +36,24 @@ inline constexpr StrId SHORT_NAMES[STYLE_COUNT] = {
     StrId::STR_PAPER_SHORT_PAPYRUS1, StrId::STR_PAPER_SHORT_PAPYRUS2, StrId::STR_PAPER_SHORT_PAPYRUS3,
     StrId::STR_PAPER_SHORT_TOILET,   StrId::STR_PAPER_SHORT_KITCHEN,  StrId::STR_PAPER_SHORT_TOWEL};
 
+inline constexpr uint16_t ALL_STYLES = (1u << STYLE_COUNT) - 1;
+
+// The styles the quick-settings tile cycles through; a stored 0 means all of them.
+constexpr uint16_t cycleMask(const uint16_t stored) {
+  const uint16_t mask = stored & ALL_STYLES;
+  return mask ? mask : ALL_STYLES;
+}
+
+// The style after `current` in the cycle (wrapping); `current` itself need not be in it.
+constexpr uint8_t nextInCycle(const uint8_t current, const uint16_t stored) {
+  const uint16_t mask = cycleMask(stored);
+  for (int step = 1; step <= STYLE_COUNT; ++step) {
+    const int style = (current + step) % STYLE_COUNT;
+    if (mask & (1u << style)) return static_cast<uint8_t>(style);
+  }
+  return current;
+}
+
 // Draws `style` over the whole logical screen. PLAIN draws nothing.
 void draw(const GfxRenderer& renderer, uint8_t style);
 

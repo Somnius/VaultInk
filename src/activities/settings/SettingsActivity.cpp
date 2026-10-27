@@ -28,6 +28,7 @@
 #include "MappedInputManager.h"
 #include "OpdsServerListActivity.h"
 #include "OtaUpdateActivity.h"
+#include "PaperCycleActivity.h"
 #include "SdCardFontSystem.h"
 #include "SdFirmwareUpdateActivity.h"
 #include "SettingsList.h"
@@ -116,6 +117,7 @@ void SettingsActivity::rebuildSettings() {
   addAction(SettingsSection::General, StrId::STR_KEYBOARD_LAYOUTS, SettingAction::KeyboardLayouts);
   addAction(SettingsSection::Reader, StrId::STR_TEXT_SETTINGS, SettingAction::TextSettings);
   addAction(SettingsSection::Reader, StrId::STR_MANAGE_FONTS, SettingAction::DownloadFonts);
+  addAction(SettingsSection::Reader, StrId::STR_PAPER_CYCLE, SettingAction::PaperCycle);
   if (BoardConfig::hasHomeKey()) {
     addAction(SettingsSection::Controls, StrId::STR_HOME_BUTTON, SettingAction::HomeButton);
   }
@@ -419,6 +421,11 @@ void SettingsActivity::toggleSelectedSetting() {
         requestUpdate();
         return;
       }
+      case SettingAction::PaperCycle:
+        if (auto activity = makeUniqueNoThrow<PaperCycleActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), nullptr);
+        }
+        break;
       case SettingAction::KeyboardLayouts:
         if (auto activity = makeUniqueNoThrow<KeyboardLayoutsActivity>(renderer, mappedInput)) {
           startActivityForResult(std::move(activity), nullptr);

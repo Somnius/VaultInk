@@ -4,6 +4,7 @@
 #include <iterator>
 #include <utility>
 
+#include "util/LineSpacing.h"
 #include "util/PaperTexture.h"
 
 void forEachBaseSetting(SettingVisitor visit, void* context) {
@@ -42,6 +43,8 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Enum(StrId::STR_SLEEP_COVER_FILTER, &CrossPointSettings::sleepScreenCoverFilter,
                          {StrId::STR_NONE_OPT, StrId::STR_FILTER_CONTRAST, StrId::STR_INVERTED},
                          "sleepScreenCoverFilter", StrId::STR_CAT_DISPLAY));
+  emit(SettingInfo::Toggle(StrId::STR_SLEEP_BATTERY, &CrossPointSettings::sleepBattery, "sleepBattery",
+                           StrId::STR_CAT_DISPLAY));
   emit(SettingInfo::Enum(StrId::STR_QUICK_RESUME_TIMEOUT, &CrossPointSettings::quickResumeSleepScreen,
                          {StrId::STR_STATE_OFF, StrId::STR_STATE_ON}, "quickResumeSleepScreen",
                          StrId::STR_CAT_DISPLAY));
@@ -82,7 +85,7 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   // fixes the setting's position in the Reader category.
   emit(SettingInfo::Enum(StrId::STR_FONT_SIZE, nullptr, {}, "fontSize", StrId::STR_CAT_READER).withTextSettings());
   emit(SettingInfo::Enum(StrId::STR_LINE_SPACING, &CrossPointSettings::lineSpacing,
-                         {StrId::STR_TIGHT, StrId::STR_NORMAL, StrId::STR_WIDE, StrId::STR_EXTRA_WIDE}, "lineSpacing",
+                         {std::begin(LINE_SPACING_IDS), std::end(LINE_SPACING_IDS)}, "lineSpacingLevel",
                          StrId::STR_CAT_READER)
            .withTextSettings());
   emit(SettingInfo::Value(StrId::STR_WORD_SPACING, &CrossPointSettings::wordSpacing,
@@ -127,6 +130,8 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Toggle(StrId::STR_TEXT_AA, &CrossPointSettings::textAntiAliasing, "textAntiAliasing",
                            StrId::STR_CAT_READER)
            .withTextSettings());
+  emit(SettingInfo::Toggle(StrId::STR_HIDE_STATUS_BAR, &CrossPointSettings::statusBarHidden, "statusBarHidden",
+                           StrId::STR_CAT_READER));
   emit(SettingInfo::Enum(StrId::STR_READING_PAPER, &CrossPointSettings::readingPaper,
                          {std::begin(paper_texture::NAMES), std::end(paper_texture::NAMES)}, "readingPaper",
                          StrId::STR_CAT_READER));

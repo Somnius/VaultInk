@@ -22,12 +22,15 @@
 #include "fontIds.h"
 #include "util/BookCacheUtils.h"
 #include "util/BookmarkUtil.h"
+#include "util/TaskWatchdog.h"
 
 namespace fui = freeink::ui;
 
 namespace {
 constexpr unsigned long GO_HOME_MS = 1000;
 constexpr size_t NAME_BUFFER_SIZE = 500;
+// The folder picker's first row: "put it in the folder shown". No real entry ends in "./".
+constexpr const char* HERE_ENTRY = "./";
 
 std::string getBookCachePath(const std::string& path) {
   const char* prefix = nullptr;
@@ -51,6 +54,61 @@ bool moveStatePath(const std::string& oldPath, const std::string& newPath, bool&
   moved = Storage.rename(oldPath.c_str(), newPath.c_str());
   if (!moved) LOG_ERR("FileBrowser", "Failed to move rename state: %s -> %s", oldPath.c_str(), newPath.c_str());
   return moved;
+}
+
+// Streams one file to a ".part" name, then renames it; a short write (card full) removes the part.
+bool copyFile(const std::string& from, const std::string& to) {
+  HalFile in;
+  HalFile out;
+  const std::string part = to + ".part";
+  auto buf = makeUniqueNoThrow<uint8_t[]>(4096);
+  if (!buf || !Storage.openFileForRead("FileBrowser", from, in)) return false;
+  if (!Storage.openFileForWrite("FileBrowser", part, out)) {
+    in.close();
+    return false;
+  }
+  bool ok = true;
+  for (;;) {
+    const int n = in.read(buf.get(), 4096);
+    if (n <= 0) {
+      ok = n == 0;  // a read error is not the end of the file
+      break;
+    }
+    if (out.write(buf.get(), static_cast<size_t>(n)) != static_cast<size_t>(n)) {
+      ok = false;
+      break;
+    }
+    resetTaskWatchdogIfSubscribed();
+  }
+  in.close();
+  out.close();
+  if (ok) ok = Storage.rename(part.c_str(), to.c_str());
+  if (!ok) Storage.remove(part.c_str());
+  return ok;
+}
+
+// Copies a file or a whole folder tree; stops at the first failure. The name buffer is on the
+// heap: one recursion level per folder depth.
+bool copyTree(const std::string& from, const std::string& to) {
+  auto dir = Storage.open(from.c_str());
+  if (!dir) return false;
+  if (!dir.isDirectory()) {
+    dir.close();
+    return copyFile(from, to);
+  }
+  auto name = makeUniqueNoThrow<char[]>(NAME_BUFFER_SIZE);
+  if (!name || !Storage.mkdir(to.c_str())) {
+    dir.close();
+    return false;
+  }
+  bool ok = true;
+  for (auto entry = dir.openNextFile(); ok && entry; entry = dir.openNextFile()) {
+    entry.getName(name.get(), NAME_BUFFER_SIZE);
+    entry.close();
+    ok = copyTree(from + "/" + name.get(), to + "/" + name.get());
+  }
+  dir.close();
+  return ok;
 }
 
 void rollBackStatePath(const std::string& oldPath, const std::string& newPath, const bool moved) {
@@ -124,6 +182,8 @@ void FileBrowserActivity::loadFiles() {
 
     if (isDirectory) {
       files.emplace_back(std::string(fileNameBuffer.get()) + "/");
+    } else if (mode == Mode::PickFolder) {
+      continue;
     } else {
       std::string_view filename{fileNameBuffer.get()};
       if (mode == Mode::PickFirmware) {
@@ -139,6 +199,7 @@ void FileBrowserActivity::loadFiles() {
   }
   root.close();
   FsHelpers::sortFileList(files);
+  if (mode == Mode::PickFolder) files.insert(files.begin(), HERE_ENTRY);
 }
 
 // fui::ListProps::rowProvider — formats row `index` from files[index] into the
@@ -153,6 +214,12 @@ void FileBrowserActivity::provideRow(void* ctx, const uint16_t index, fui::ListI
   auto* self = static_cast<FileBrowserActivity*>(ctx);
   if (index >= self->files.size()) return;
   const std::string& entry = self->files[index];
+  if (entry == HERE_ENTRY) {
+    snprintf(self->rowNameBuf, sizeof(self->rowNameBuf), "%s", tr(STR_CHOOSE_THIS_FOLDER));
+    item.label = self->rowNameBuf;
+    item.actionValue = static_cast<int16_t>(index);
+    return;
+  }
   formatFileName(entry, self->rowNameBuf, sizeof(self->rowNameBuf));
   item.label = self->rowNameBuf;
   formatFileExtension(entry, self->rowExtBuf, sizeof(self->rowExtBuf));
@@ -345,6 +412,14 @@ void FileBrowserActivity::activateSelected() {
   const std::string& entry = files[nav.selected];
   bool isDirectory = (entry.back() == '/');
 
+  if (mode == Mode::PickFolder && entry == HERE_ENTRY) {
+    ActivityResult res{FilePathResult{basepath}};
+    res.isCancelled = false;
+    setResult(std::move(res));
+    finish();
+    return;
+  }
+
   // Firmware picker: select file -> return path; navigate into directories normally.
   if (mode == Mode::PickFirmware && !isDirectory) {
     std::string cleanBasePath = basepath;
@@ -381,19 +456,33 @@ void FileBrowserActivity::showEntryActions() {
     return;
   }
 
-  const bool isDirectory = files[nav.selected].back() == '/';
-  static constexpr StrId FILE_OPTIONS[] = {StrId::STR_OPEN, StrId::STR_DELETE, StrId::STR_RENAME};
-  static constexpr StrId DIRECTORY_OPTIONS[] = {StrId::STR_OPEN, StrId::STR_DELETE};
-  optionPopup.show(StrId::STR_FILENAME, isDirectory ? DIRECTORY_OPTIONS : FILE_OPTIONS, isDirectory ? 2 : 3, 0,
-                   [this](const int index) {
-                     if (index == 0) {
-                       activateSelected();
-                     } else if (index == 1) {
-                       deleteSelected();
-                     } else if (index == 2) {
-                       startRename();
-                     }
-                   });
+  // Same order for files and folders: Open, Delete, Rename, Move, Copy, New folder (in the folder shown).
+  static constexpr StrId OPTIONS[] = {StrId::STR_OPEN, StrId::STR_DELETE,  StrId::STR_RENAME,
+                                      StrId::STR_MOVE, StrId::STR_COPY_TO, StrId::STR_NEW_FOLDER};
+  optionPopup.show(StrId::STR_FILENAME, OPTIONS, 6, 0, [this](const int index) {
+    switch (index) {
+      case 0:
+        activateSelected();
+        break;
+      case 1:
+        deleteSelected();
+        break;
+      case 2:
+        startRename();
+        break;
+      case 3:
+        startTransfer(false);
+        break;
+      case 4:
+        startTransfer(true);
+        break;
+      case 5:
+        startNewFolder();
+        break;
+      default:
+        break;
+    }
+  });
   requestUpdate();
 }
 
@@ -444,13 +533,14 @@ void FileBrowserActivity::startRename() {
   if (files.empty() || nav.selected < 0 || nav.selected >= listCount()) return;
 
   const std::string oldEntry = files[nav.selected];
-  if (oldEntry.back() == '/') return;
 
   std::string cleanBasePath = basepath;
   if (cleanBasePath.back() != '/') cleanBasePath += "/";
-  const std::string oldPath = cleanBasePath + oldEntry;
+  const bool isDirectory = oldEntry.back() == '/';
+  const std::string oldPath = cleanBasePath + (isDirectory ? oldEntry.substr(0, oldEntry.size() - 1) : oldEntry);
   const std::string extension = getFileExtension(oldEntry);
-  const std::string initialStem = utf8ComposeNfc(oldEntry.substr(0, oldEntry.size() - extension.size()));
+  const std::string initialStem =
+      utf8ComposeNfc(oldEntry.substr(0, oldEntry.size() - (isDirectory ? 1 : extension.size())));
   const size_t maxStemLength = NAME_BUFFER_SIZE - extension.size() - 1;
   auto keyboard = makeUniqueNoThrow<KeyboardEntryActivity>(renderer, mappedInput, tr(STR_RENAME), initialStem,
                                                            maxStemLength, InputType::Text);
@@ -471,7 +561,7 @@ void FileBrowserActivity::renameSelectedFile(const std::string& oldPath, const s
     LOG_ERR("FileBrowser", "Invalid rename target: %s", newEntry.c_str());
     return;
   }
-  if (newEntry == utf8ComposeNfc(oldEntry)) return;
+  if (newEntry == utf8ComposeNfc(oldEntry.back() == '/' ? oldEntry.substr(0, oldEntry.size() - 1) : oldEntry)) return;
 
   const std::string parentPath = FsHelpers::extractFolderPath(oldPath);
   const std::string newPath = (parentPath == "/" ? parentPath : parentPath + "/") + newEntry;
@@ -480,6 +570,25 @@ void FileBrowserActivity::renameSelectedFile(const std::string& oldPath, const s
     return;
   }
 
+  if (!moveFile(oldPath, newPath)) {
+    showError(StrId::STR_RENAME_FAILED, newEntry);
+    return;
+  }
+  reloadSelecting(oldEntry.back() == '/' ? newEntry + "/" : newEntry);
+}
+
+// Renames or moves a file or folder on the card. A book's cache, bookmarks and clippings move with
+// it and roll back on failure; a folder moves as one rename (books inside rebuild their caches).
+bool FileBrowserActivity::moveFile(const std::string& oldPath, const std::string& newPath) {
+  if (Storage.exists(newPath.c_str())) {
+    LOG_ERR("FileBrowser", "Move target already exists: %s", newPath.c_str());
+    return false;
+  }
+  auto probe = Storage.open(oldPath.c_str());
+  const bool isDirectory = probe && probe.isDirectory();
+  if (probe) probe.close();
+  if (isDirectory) return Storage.rename(oldPath.c_str(), newPath.c_str());
+
   const std::string oldCachePath = getBookCachePath(oldPath);
   const std::string newCachePath = getBookCachePath(newPath);
   const bool hasBookmarks = FsHelpers::hasReflowableBookExtension(oldPath);
@@ -487,16 +596,16 @@ void FileBrowserActivity::renameSelectedFile(const std::string& oldPath, const s
   const std::string newBookmarkPath = hasBookmarks ? BookmarkUtil::getBookmarkPath(newPath) : "";
   bool cacheMoved = false;
   bool bookmarksMoved = false;
-  if (!moveStatePath(oldCachePath, newCachePath, cacheMoved)) return;
+  if (!moveStatePath(oldCachePath, newCachePath, cacheMoved)) return false;
   if (!moveStatePath(oldBookmarkPath, newBookmarkPath, bookmarksMoved)) {
     rollBackStatePath(oldCachePath, newCachePath, cacheMoved);
-    return;
+    return false;
   }
   if (!ClippingStore::moveBook(oldPath, newPath)) {
-    LOG_ERR("FileBrowser", "Failed to rename file: %s -> %s", oldPath.c_str(), newPath.c_str());
+    LOG_ERR("FileBrowser", "Failed to move file: %s -> %s", oldPath.c_str(), newPath.c_str());
     rollBackStatePath(oldBookmarkPath, newBookmarkPath, bookmarksMoved);
     rollBackStatePath(oldCachePath, newCachePath, cacheMoved);
-    return;
+    return false;
   }
 
   RECENT_BOOKS.updatePath(oldPath, newPath, oldCachePath, newCachePath);
@@ -504,14 +613,87 @@ void FileBrowserActivity::renameSelectedFile(const std::string& oldPath, const s
     APP_STATE.openEpubPath = newPath;
     if (!APP_STATE.saveToFile()) LOG_ERR("FileBrowser", "Failed to save renamed open-book path");
   }
+  return true;
+}
 
+void FileBrowserActivity::reloadSelecting(const std::string& entry) {
   {
     RenderLock lock(*this);
     loadFiles();
-    nav.selected = static_cast<int>(findEntry(newEntry));
+    nav.selected = static_cast<int>(findEntry(entry));
     nav.follow(listCount());
   }
   requestUpdate(true);
+}
+
+void FileBrowserActivity::showError(const StrId heading, const std::string& name) {
+  const std::string ok = tr(STR_OK_BUTTON);
+  if (auto dialog = makeUniqueNoThrow<ConfirmationActivity>(renderer, mappedInput, I18N.get(heading),
+                                                            utf8ComposeNfc(name), ok, ok)) {
+    startActivityForResult(std::move(dialog), nullptr);
+  }
+}
+
+void FileBrowserActivity::startNewFolder() {
+  auto keyboard = makeUniqueNoThrow<KeyboardEntryActivity>(renderer, mappedInput, tr(STR_NEW_FOLDER), "",
+                                                           NAME_BUFFER_SIZE - 2, InputType::Text);
+  if (!keyboard) return;
+  startActivityForResult(std::move(keyboard), [this](const ActivityResult& result) {
+    if (result.isCancelled) return;
+    const std::string name = std::get<KeyboardResult>(result.data).text;
+    const std::string path = (basepath.back() == '/' ? basepath : basepath + "/") + name;
+    if (name.empty() || !FsHelpers::isSafePathComponent(name) || Storage.exists(path.c_str()) ||
+        !Storage.mkdir(path.c_str())) {
+      showError(StrId::STR_NEW_FOLDER_FAILED, name);
+      return;
+    }
+    reloadSelecting(name + "/");
+  });
+}
+
+// Move/Copy: pick the target folder in a folder-only browser, then move or copy there.
+void FileBrowserActivity::startTransfer(const bool copy) {
+  if (files.empty() || nav.selected < 0 || nav.selected >= listCount()) return;
+  const std::string entry = files[nav.selected];
+  const std::string src = (basepath.back() == '/' ? basepath : basepath + "/") +
+                          (entry.back() == '/' ? entry.substr(0, entry.size() - 1) : entry);
+  auto pickerActivity = makeUniqueNoThrow<FileBrowserActivity>(renderer, mappedInput, basepath, Mode::PickFolder);
+  if (!pickerActivity) return;
+  startActivityForResult(std::move(pickerActivity), [this, src, copy](const ActivityResult& result) {
+    if (result.isCancelled) return;
+    transferInto(src, std::get<FilePathResult>(result.data).path, copy);
+  });
+}
+
+void FileBrowserActivity::transferInto(const std::string& srcPath, const std::string& destDir, const bool copy) {
+  const std::string name = srcPath.substr(srcPath.find_last_of('/') + 1);
+  const std::string dest = (destDir.back() == '/' ? destDir : destDir + "/") + name;
+  const StrId failed = copy ? StrId::STR_COPY_FAILED : StrId::STR_MOVE_FAILED;
+  if (dest == srcPath && !copy) return;  // moved onto itself: nothing to do
+  // A folder can't go inside itself, and nothing overwrites an existing name.
+  if (dest == srcPath || dest.rfind(srcPath + "/", 0) == 0 || Storage.exists(dest.c_str())) {
+    showError(failed, name);
+    return;
+  }
+  bool ok;
+  if (copy) {
+    {
+      RenderLock lock(*this);
+      GUI.drawPopup(renderer, tr(STR_COPYING));
+    }
+    ok = copyTree(srcPath, dest);
+    if (!ok) removeDirFile(dest);  // nothing half-copied stays behind
+  } else {
+    ok = moveFile(srcPath, dest);
+  }
+  auto probe = Storage.open(ok && !copy ? dest.c_str() : srcPath.c_str());
+  const bool isDirectory = probe && probe.isDirectory();
+  if (probe) probe.close();
+  if (!ok) {
+    LOG_ERR("FileBrowser", "%s failed: %s -> %s", copy ? "Copy" : "Move", srcPath.c_str(), dest.c_str());
+    showError(failed, name);
+  }
+  reloadSelecting(isDirectory ? name + "/" : name);
 }
 
 bool FileBrowserActivity::handleCustomInput() {
@@ -571,8 +753,8 @@ bool FileBrowserActivity::handleButtons() {
         }
 
         requestUpdate();
-      } else if (mode == Mode::PickFirmware) {
-        // Firmware picker at root: cancel back to caller instead of going home.
+      } else if (picker()) {
+        // Picker at root: cancel back to caller instead of going home.
         ActivityResult res;
         res.isCancelled = true;
         setResult(std::move(res));
@@ -683,7 +865,7 @@ void FileBrowserActivity::drawChrome() {
 }
 
 void FileBrowserActivity::drawFooter() {
-  const char* backLabel = (basepath == "/") ? (mode == Mode::PickFirmware ? tr(STR_BACK) : tr(STR_HOME)) : tr(STR_BACK);
+  const char* backLabel = (basepath == "/") ? (picker() ? tr(STR_BACK) : tr(STR_HOME)) : tr(STR_BACK);
   // In PickFirmware mode, Confirm on a .bin returns the path to the caller (not "open"); show
   // STR_SELECT instead. Directories in the same picker still descend, so keep STR_OPEN there.
   const bool selectingFirmwareFile = mode == Mode::PickFirmware && !files.empty() && nav.selected >= 0 &&

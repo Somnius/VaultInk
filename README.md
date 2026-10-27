@@ -73,6 +73,7 @@ the Greek interface the keyboard opens in Greek.
 Swipe down from the top for quick settings, then tap the paper tile to change the page background
 under the text. It's also under **Settings → Reader → Page Background**. The choices are plain,
 paper, sandpaper, papyrus (soft, medium and hard), toilet paper, kitchen paper and bath towel.
+**Settings → Reader → Paper Button Cycle** sets which of them the tile steps through.
 
 While a background is on, text anti-aliasing is switched off, so the letters stay sharp on the
 real screen.
@@ -167,6 +168,11 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   hyphenation for both. The built-in reading font has Greek too, polytonic included, so Greek books
   and notes read out of the box. SD-card fonts with Greek (Literata, Noto Serif, Gentium Book Plus)
   work as well.
+- **File browser actions.** Long-press a file or folder for Open, Delete, Rename, Move, Copy and
+  New folder. Move and Copy open a folder picker; nothing overwrites a file with the same name, and
+  a copy that runs out of space leaves nothing half-written.
+- **Reading layout.** Line spacing in ten steps (1 to 10), a Hide Status Bar switch, and
+  hyphenation on by default. The battery percent shows on the sleep screen.
 - **A welcome guide** on the first start, described [above](#getting-started).
 - **Updates.** The device checks this repository's releases for new versions.
 

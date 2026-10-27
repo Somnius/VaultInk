@@ -24,9 +24,11 @@ void ConfirmationActivity::onEnter() {
       cancelLabel.empty() ? I18N.get(StrId::STR_CANCEL) : cancelLabel.c_str(),
       confirmLabel.empty() ? I18N.get(StrId::STR_CONFIRM) : confirmLabel.c_str(),
   };
-  confirmPopup.show(heading.c_str(), body.c_str(), options, 2, 0, [this](int idx) {
+  // Same label twice: a message with one button.
+  const int count = !cancelLabel.empty() && cancelLabel == confirmLabel ? 1 : 2;
+  confirmPopup.show(heading.c_str(), body.c_str(), options, count, 0, [this, count](int idx) {
     ActivityResult res;
-    res.isCancelled = (idx != 1);
+    res.isCancelled = count == 2 && idx != 1;
     setResult(std::move(res));
     finish();
   });

@@ -115,6 +115,7 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
 
   // A uint16_t mask, so it does not fit the uint8_t generic loop. Omitted while
   // unconfigured, so the default keeps following the UI language.
+  if (paperCycle != 0) doc["paperCycle"] = paperCycle;
   if (keyboardLayouts != 0) {
     doc["keyboardLayouts"] = keyboardLayouts;
   }
@@ -286,7 +287,13 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
     language = static_cast<uint8_t>(I18n::languageFromCode(doc["language"].as<const char*>()));
   }
 
-  // Absent means unconfigured, which is the default.
+  // Line spacing before 0.20.0: four levels under the old key.
+  if (!doc["lineSpacingLevel"].is<uint8_t>() && doc["lineSpacing"].is<uint8_t>()) {
+    lineSpacing = LEGACY_LINE_SPACING[std::min<uint8_t>(doc["lineSpacing"].as<uint8_t>(), 3)];
+    needsResave = true;
+  }
+  if (lineSpacing >= LINE_COMPRESSION_COUNT) lineSpacing = LINE_SPACING_DEFAULT;
+  if (doc["paperCycle"].is<uint16_t>()) paperCycle = doc["paperCycle"].as<uint16_t>();
   if (doc["keyboardLayouts"].is<uint16_t>()) {
     keyboardLayouts = doc["keyboardLayouts"].as<uint16_t>();
   }
@@ -307,6 +314,7 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
 
 CrossPointSettings::StatusBarSpec CrossPointSettings::statusBarSpec() const {
   StatusBarSpec spec;
+  if (statusBarHidden) return spec;  // every item off: no bar, no reserved height
   spec.showChapterPageCount = statusBarChapterPageCount != 0;
   spec.showBookProgressPercent = statusBarBookProgressPercentage != 0;
   spec.titleMode = statusBarTitle;
@@ -341,34 +349,15 @@ ReaderRenderSpec CrossPointSettings::readerRenderSpec(const uint16_t viewportWid
 }
 
 float CrossPointSettings::getReaderLineCompression() const {
-  // One scale for all SD card fonts, whatever their format: .cpfont and vector
-  // fonts both take their line height from FreeType's size metrics. Same values
-  // as the former built-in Noto Serif; Normal keeps the font's own line height.
-  if (sdFontFamilyName[0] != '\0') {
-    switch (lineSpacing) {
-      case TIGHT:
-        return 0.95f;
-      case NORMAL:
-      default:
-        return 1.0f;
-      case WIDE:
-        return 1.1f;
-      case EXTRA_WIDE:
-        return 1.2f;
-    }
-  }
-
-  switch (lineSpacing) {
-    case TIGHT:
-      return 0.90f;
-    case NORMAL:
-    default:
-      return 0.95f;
-    case WIDE:
-      return 1.0f;
-    case EXTRA_WIDE:
-      return 1.05f;
-  }
+  // One scale for all SD card fonts, whatever their format: .cpfont and vector fonts both take
+  // their line height from FreeType's size metrics. Levels 5, 6, 8 and 10 are the former tight,
+  // normal, wide and extra wide; the built-in font keeps its own, tighter scale.
+  static constexpr float SD_FONT[LINE_COMPRESSION_COUNT] = {0.75f, 0.80f, 0.85f, 0.90f, 0.95f,
+                                                            1.00f, 1.05f, 1.10f, 1.15f, 1.20f};
+  static constexpr float BUILT_IN[LINE_COMPRESSION_COUNT] = {0.70f, 0.75f,  0.80f, 0.85f,  0.90f,
+                                                             0.95f, 0.975f, 1.00f, 1.025f, 1.05f};
+  const uint8_t level = lineSpacing < LINE_COMPRESSION_COUNT ? lineSpacing : LINE_SPACING_DEFAULT;
+  return sdFontFamilyName[0] != '\0' ? SD_FONT[level] : BUILT_IN[level];
 }
 
 unsigned long CrossPointSettings::getSleepTimeoutMs() const {

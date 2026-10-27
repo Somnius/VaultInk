@@ -9,8 +9,9 @@
 
 class FileBrowserActivity final : public UiListActivity {
  public:
-  // Books = standard reader browser; PickFirmware = filter to .bin only and return path via ActivityResult.
-  enum class Mode { Books, PickFirmware };
+  // Books = standard reader browser; PickFirmware = filter to .bin only and return path via ActivityResult;
+  // PickFolder = folders only, with a first row that returns the folder shown (Move/Copy target).
+  enum class Mode { Books, PickFirmware, PickFolder };
 
  private:
   // File actions
@@ -20,6 +21,13 @@ class FileBrowserActivity final : public UiListActivity {
   void renameSelectedFile(const std::string& oldPath, const std::string& oldEntry, const std::string& newStem,
                           const std::string& extension);
   void deleteSelected();
+  void startNewFolder();
+  void startTransfer(bool copy);
+  void transferInto(const std::string& srcPath, const std::string& destDir, bool copy);
+  bool moveFile(const std::string& oldPath, const std::string& newPath);
+  void reloadSelecting(const std::string& entry);
+  void showError(StrId heading, const std::string& name);
+  bool picker() const { return mode != Mode::Books; }
 
   Mode mode = Mode::Books;
 

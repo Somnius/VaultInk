@@ -172,6 +172,15 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   hard, toilet paper, kitchen paper, bath towel. In Settings → Reader and as a quick-settings tile.
   EPUB and notes only for now; XTC pages are pre-rendered. Ideas for more: parchment, linen,
   graph paper, kraft, newsprint, rice paper, cardboard, denim.
+* ✅ (0.20.0, kos25k's issues #1-#6) Settings → Reader → Paper Button Cycle picks which
+  backgrounds the quick-settings tile steps through. Battery percent on the sleep screen
+  (Settings → Display → Battery on Sleep Screen, on by default). Line spacing in ten levels, 1 to
+  10 (1 packs the lines tight, 10 is the old Extra wide; old settings keep their spacing).
+  Settings → Reader → Hide Status Bar gives its room to the text (no tap toggle: every change
+  lays the chapter out again). Hyphenation is on by default, since justified lines without it get
+  wide word gaps. The file browser's long-press menu adds Move, Copy (files and folders, through
+  a folder picker), New folder and folder rename. Moving or renaming a folder doesn't carry the
+  reading progress of the books inside yet.
 * ✅ Reader menu: CrossPoint's toolbar sheet (default on touch) kept; tool names added under the
   icons.
 * ✅ Swipe down from the top for quick settings. ✅ Swipe up for the reading menu: CrossPoint's
