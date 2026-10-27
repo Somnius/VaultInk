@@ -64,3 +64,13 @@ Made by Lefteris Iliadis (https://lefteros.com). More about VaultInk, and donati
     "$OUT/vaultink-${VERSION}-x4pro-factory.bin" "$OUT/vaultink-${VERSION}-x4pro.bin"
   echo "Release ${VERSION} created; edit its notes on GitHub if you want more than the default text."
 fi
+
+# The release must carry this machine's build. Nothing on GitHub may rebuild or replace it.
+CHECK=$(mktemp -d)
+gh release download "$VERSION" -p "vaultink-${VERSION}-x4pro.bin" -D "$CHECK" --clobber
+if [[ "$(sha256sum < "$CHECK/vaultink-${VERSION}-x4pro.bin")" != "$(sha256sum < .pio/build/x4pro-gh_release/firmware.bin)" ]]; then
+  echo "Release ${VERSION}: the update file on GitHub is NOT the local build." >&2
+  exit 1
+fi
+rm -rf "$CHECK"
+echo "Release ${VERSION}: update file matches the local build."
