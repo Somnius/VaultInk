@@ -209,7 +209,11 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * To do: a low-detail frame while dragging (panning today jumps by button or swipe, so there is
   no drag to speed up yet).
 
-## 💤 Phase 3 - LiveSync pull
+## 🚧 Phase 3 - LiveSync pull
+
+* ✅ Encryption pinned from the source and the real library's test vectors (E2EE V2, path
+  obfuscation, Setup URI in both passphrase modes); `lib/LiveSync/LiveSyncCrypto` decrypts them
+  (host tests). Local CouchDB 3.5 in Docker for testing (throwaway, `.work/couchdb`).
 
 * Setup URI import, E2EE V2, path obfuscation.
 * CouchDB `_changes` with checkpoints, chunk assembly, attachments on demand.

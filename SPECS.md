@@ -238,11 +238,24 @@ generations it has been tested against and refuses others with a clear message.
   inline `data`), chunks `h:`/`h:+`, obfuscated ids `f:`. Skip control docs and the `i:`, `ix:`, `ps:`
   namespaces. Reconstruct a file by streaming its chunks in order to a temp file on SD, then rename;
   binary chunks are Base64.
-- Encryption: E2EE V2 (master key PBKDF2 from passphrase + salt in `_local/obsidian_livesync_sync_parameters`,
-  HKDF + AES-256-GCM per chunk). Obfuscated ids come from the passphrase or the newer id-derivation key;
-  the obfuscated `path` is decrypted from the metadata doc.
-  Exact KDF parameters, cipher and chunk formats are to be confirmed from `livesync-commonlib`
-  and pinned with test vectors before coding. Unverified.
+- Encryption, pinned from octagonal-wheels `hkdf.ts` and livesync-commonlib (2026-10-27) and checked
+  against the real library's output (`test/livesync/`, vectors from `.work/livesync-src/vectors/gen.mjs`):
+  - master = PBKDF2-SHA256(passphrase, `pbkdf2salt` of `_local/obsidian_livesync_sync_parameters`
+    (base64, 32 bytes), 310,000 iterations, 32 bytes); per message HKDF-SHA256(master, salt[32], info "")
+    -> AES-256-GCM key, 12-byte IV, 16-byte tag after the ciphertext, no AAD.
+  - Chunk `data` and other V2 strings: `%=` + base64(iv | hkdfSalt | ciphertext | tag). Refused:
+    `%~` (V3 legacy), other `%` (V1), `[`.
+  - Obfuscated metadata (`f:` ids): `path` is `/\:` + a `%=` string holding the JSON
+    `{path, mtime, ctime, size, children}`; the doc's own mtime/ctime/size are 0 and `children` is
+    empty, so the chunk list is only known after decrypting.
+  - Setup URI: `obsidian://setuplivesync?settings=` + URL-encoded `%$` + base64(pbkdf2Salt[32] | iv |
+    hkdfSalt | ciphertext | tag) (trailing space trimmed). The passphrase is either as typed or the
+    time-bound form hex(HMAC-SHA256(SHA256(pass), `["livesync/setup-uri","tb1","ephemeral",<week>]`)),
+    week = floor(unix_ms / 604800000).
+  - Version doc `obsydian_livesync_version` (sic): 12 now, 13 with newer features; refuse > 13.
+  - Built (`lib/LiveSync/LiveSyncCrypto`, mbedtls): all of the above for reading. Still unverified:
+    PouchDB's exact replication requests, compression order with encryption (VaultInk needs
+    compression off), how `couchDB_URI` and `couchDB_DBNAME` join.
 - Scope: choose which vault (database) to sync. Text first; attachments on demand or by size limit.
 - Deletes and conflicts: a remote delete moves the local file to `/.vaultink/<vault-id>/trash/`.
   Remote conflicts (`_conflicts`) are resolved by taking CouchDB's winning revision, like the plugin
