@@ -164,7 +164,8 @@ void AboutActivity::buildCredits(UiScreen& screen) {
   const struct {
     const char* text;
     int lines;
-  } texts[] = {{tr(STR_ABOUT_TAGLINE), 2}, {tr(STR_ABOUT_BASED_ON), 3}, {tr(STR_ABOUT_THANKS), 2}};
+  } texts[] = {
+      {tr(STR_ABOUT_TAGLINE), 2}, {tr(STR_ABOUT_BASED_ON), 3}, {tr(STR_ABOUT_THANKS), 2}, {tr(STR_ABOUT_AUTHOR), 3}};
   for (const auto& entry : texts) {
     const fui::Rect rect = screen.takeTop(static_cast<int16_t>(line * entry.lines), theme.spaceSm)
                                .inset(fui::Insets{0, theme.spaceLg, 0, theme.spaceLg});

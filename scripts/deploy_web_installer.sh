@@ -58,7 +58,9 @@ else
   git tag -a "$VERSION" -m "VaultInk ${VERSION}" HEAD 2>/dev/null || true
   git push -q origin "$VERSION"
   gh release create "$VERSION" --title "VaultInk ${VERSION}" \
-    --notes "Not tested on real hardware yet. Install from https://somnius.github.io/VaultInk/ or flash the factory bin at 0x0. sha256 of the factory bin: ${SHA}" \
+    --notes "Not tested on real hardware yet. Install from https://somnius.github.io/VaultInk/ or flash the factory bin at 0x0. sha256 of the factory bin: ${SHA}
+
+Made by Lefteris Iliadis (https://lefteros.com). More about VaultInk, and donations: https://lefteros.com/en/apps/vaultink" \
     "$OUT/vaultink-${VERSION}-x4pro-factory.bin" "$OUT/vaultink-${VERSION}-x4pro.bin"
   echo "Release ${VERSION} created; edit its notes on GitHub if you want more than the default text."
 fi

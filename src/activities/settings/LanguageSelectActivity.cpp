@@ -4,6 +4,7 @@
 #include <I18n.h>
 
 #include <algorithm>
+#include <array>
 #include <iterator>
 
 #include "CrossPointSettings.h"
@@ -16,14 +17,29 @@ namespace fui = freeink::ui;
 LanguageSelectActivity::LanguageSelectActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
     : UiListActivity("LanguageSelect", renderer, mappedInput) {}
 
+namespace {
+// VaultInk's two main languages lead the list; the rest follow in the usual order.
+std::array<uint8_t, sizeof(SORTED_LANGUAGE_INDICES)> listOrder() {
+  std::array<uint8_t, sizeof(SORTED_LANGUAGE_INDICES)> order{};
+  size_t n = 0;
+  order[n++] = static_cast<uint8_t>(Language::EN);
+  order[n++] = static_cast<uint8_t>(Language::EL);
+  for (const uint8_t lang : SORTED_LANGUAGE_INDICES) {
+    if (lang != order[0] && lang != order[1]) order[n++] = lang;
+  }
+  return order;
+}
+const auto LIST_ORDER = listOrder();
+}  // namespace
+
 void LanguageSelectActivity::onEnter() {
   UiListActivity::onEnter();
 
   // Open on the current language, which may sit past the first page; the first
   // screen build pulls the viewport to it (ListNav follow-on-build).
   const auto currentLang = static_cast<uint8_t>(I18N.getLanguage());
-  const auto* begin = std::begin(SORTED_LANGUAGE_INDICES);
-  const auto* end = std::end(SORTED_LANGUAGE_INDICES);
+  const auto* begin = LIST_ORDER.data();
+  const auto* end = LIST_ORDER.data() + LIST_ORDER.size();
   const auto* it = std::find(begin, end, currentLang);
   nav.selected = (it != end) ? static_cast<int>(std::distance(begin, it)) : 0;
 
@@ -32,8 +48,8 @@ void LanguageSelectActivity::onEnter() {
   // finishes the activity immediately on selection.
   for (int i = 0; i < totalItems; ++i) {
     fui::ListItem item;
-    item.label = I18N.getLanguageName(static_cast<Language>(SORTED_LANGUAGE_INDICES[i]));
-    if (SORTED_LANGUAGE_INDICES[i] == currentLang) {
+    item.label = I18N.getLanguageName(static_cast<Language>(LIST_ORDER[i]));
+    if (LIST_ORDER[i] == currentLang) {
       item.value = tr(STR_SELECTED);
     }
     item.actionValue = static_cast<int16_t>(i);
@@ -48,7 +64,7 @@ void LanguageSelectActivity::activateIndex(const int index) {
   // unrelated element on the next render.
   app.clearTapFlash();
   nav.selected = index;
-  const uint8_t langIndex = SORTED_LANGUAGE_INDICES[index];
+  const uint8_t langIndex = LIST_ORDER[index];
 
   {
     RenderLock lock(*this);

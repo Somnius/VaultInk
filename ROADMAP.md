@@ -24,6 +24,8 @@ and host tests.
   without "v").
 * ✅ Simulator build with `-DSIMULATOR_DEVICE_X4_PRO` (touch).
 * ✅ CI and release workflows for `x4pro` firmware and simulator only; issue templates for VaultInk.
+* ✅ Language list puts English and Ελληνικά first (0.8.1; Greek was 12th, below the first screen,
+  and a tester missed it).
 * ✅ Greek UI strings. ⏳ Lef reviews the strings written for VaultInk.
 * ✅ Greek monotonic and polytonic in the UI fonts and hyphenation.
 * ✅ "Updating for new version..." message when a book's cache is rebuilt after an update.
@@ -43,7 +45,7 @@ and host tests.
   understand this is untested". ✅ Device picker (0.8.0): X4 Pro steps (wake it, USB-C data
   cable, no buttons needed, as CrossPoint documents it); X4/X3 point to CrossPoint, since VaultInk
   is X4 Pro only.
-* ✅ Test builds 0.2.0 to 0.8.0 published (web installer and GitHub releases, marked untested); the
+* ✅ Test builds 0.2.0 to 0.8.1 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
 * ⏳ First hardware-tested release, once the X4 Pro arrives and passes the hardware checks below.
 
@@ -161,7 +163,7 @@ with Phase 5. Kotlin, Android only.
 
 ## 💤 Phase 8 - Website
 
-* lefteros.com/apps/vaultink and a VaultInk donation page (separate from CrossInk's).
+* 🚧 App page lefteros.com/en/apps/vaultink with donations (being written in the lefteros.com project). ✅ Credited in About, README, the web installer and release notes (0.8.1).
 
 ## 💤 Phase 9 - Watch-only wallet
 

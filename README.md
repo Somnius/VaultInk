@@ -23,7 +23,7 @@
 
 <p align="center">
   <a href="https://somnius.github.io/VaultInk/"><b>Install from your browser</b></a> ·
-  <a href="https://lefteros.com/apps/vaultink">Project page</a> ·
+  <a href="https://lefteros.com/en/apps/vaultink">Project page and donations</a> ·
   <a href="https://github.com/Somnius/VaultInk/releases">Releases</a>
 </p>
 
@@ -107,6 +107,9 @@ The first time VaultInk starts, it shows a short welcome guide. The five pages a
 3. **Quick settings.** Swipe down from the top of the screen, or tap the battery. You get the light, night mode, sleep, and a full refresh (to clear ghost images).
 4. **Adding books.** Copy books into the `books` folder on the SD card, or send them from your computer with File Transfer (Wi-Fi, USB or Calibre).
 5. **That's it.** Open the guide again from **Settings → System → Welcome Guide**. It also comes back once after an update that changes it. To stop that, turn off **Show Welcome Guide After Updates** in the same place.
+
+**Menus in Greek:** Settings → System → Language, then **Ελληνικά** (second in the list, right
+after English). Back in Greek the same place is Ρυθμίσεις → Σύστημα → Γλώσσα.
 
 In the guide, Next (or OK, or the right and down keys) moves on. Back goes back a page. On the first page, Back asks whether you want to skip.
 
@@ -209,6 +212,12 @@ Arrow keys are the buttons, Enter is OK, Escape is Back, and the mouse works as 
 The menus are in English and Greek, and many other languages from CrossPoint Reader are partly
 there. To ask for your language or help translate it, see [docs/translating.md](docs/translating.md),
 or open a [translation request](https://github.com/Somnius/VaultInk/issues/new?template=translation_request.yml).
+
+## Author and donations
+
+VaultInk is made by **Lefteris Iliadis** ([lefteros.com](https://lefteros.com)). The app page,
+[lefteros.com/en/apps/vaultink](https://lefteros.com/en/apps/vaultink), has more about it, and you
+can donate there to support the project.
 
 ## Credits
 
