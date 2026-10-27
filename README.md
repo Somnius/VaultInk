@@ -145,8 +145,9 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
 - **LiveSync (read only).** Pull a vault from Obsidian Self-hosted LiveSync over Wi-Fi: paste the
   Setup URI on the device's web page, type its passphrase on the device, then Settings → Vaults →
   LiveSync → Sync now. End-to-end encryption (V2) and path obfuscation are supported; edits,
-  deletes and renames come across, deleted files go to a trash folder. See
-  [docs/livesync.md](docs/livesync.md).
+  deletes and renames come across, deleted files go to a trash folder. A Sync tile in quick
+  settings, optional sync on wake, and the server's certificate checked by default (built-in
+  roots, or your own `ca.pem`). See [docs/livesync.md](docs/livesync.md).
 - **Import a vault from a ZIP** on the device's web page (File Transfer, then Files →
   **Import Vault (.zip)**): it lands in `/Vaults/<name>/` ready to open. A
   [demo vault](demo-vault/VaultInk%20Demo) with notes, pictures and a canvas is in this repo

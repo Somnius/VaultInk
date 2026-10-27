@@ -5,12 +5,14 @@
 #include <Logging.h>
 #include <ObfuscationUtils.h>
 #include <SecureHttpClient.h>
+#include <TrustedTime.h>
 #include <mbedtls/platform_util.h>
 
 #include <cctype>
 #include <cstring>
 #include <memory>
 
+#include "util/CaBundle.h"
 #include "util/TaskWatchdog.h"
 #include "util/VaultFiles.h"
 
@@ -69,6 +71,7 @@ Writer writer;
 
 // One TLS session for the whole sync: repeated handshakes fragment the heap.
 std::unique_ptr<freeink::SecureHttpClient> session;
+bool failedUnverified = false;
 std::string caPem;
 
 }  // namespace
@@ -77,6 +80,8 @@ void wipeProfile(Profile& p) {
   wipe(p.password);
   mbedtls_platform_zeroize(p.master, sizeof(p.master));
 }
+
+bool hasProfile() { return Storage.exists(PROFILE); }
 
 bool load(Profile& out) {
   std::string text;
@@ -90,6 +95,9 @@ bool load(Profile& out) {
   out.saltB64 = doc["salt"] | "";
   out.vaultName = doc["vault"] | "";
   out.lastResult = doc["last"] | "";
+  out.checkCert = doc["checkCert"] | true;
+  out.autoHours = doc["autoHours"] | 0;
+  out.lastAttempt = doc["lastAttempt"] | static_cast<int64_t>(0);
   bool ok = true, okKey = true;
   out.password = obfuscation::deobfuscateFromBase64(doc["password"] | "", &ok);
   std::string key = obfuscation::deobfuscateFromBase64(doc["key"] | "", &okKey);
@@ -112,6 +120,9 @@ bool save(const Profile& p) {
   doc["key"] = obfuscation::obfuscateToBase64(std::string(reinterpret_cast<const char*>(p.master), sizeof(p.master)));
   doc["vault"] = p.vaultName;
   doc["last"] = p.lastResult;
+  doc["checkCert"] = p.checkCert;
+  doc["autoHours"] = p.autoHours;
+  doc["lastAttempt"] = p.lastAttempt;
   std::string text;
   serializeJson(doc, text);
   Storage.ensureDirectoryExists(DIR);
@@ -210,17 +221,28 @@ livesync::Transport transport(const Profile& p) {
   const std::string base = p.serverUrl + "/" + urlEncode(p.database) + "/";
   const std::string userPass = p.user + ":" + p.password;
   const std::string authHeader = "Basic " + b64(reinterpret_cast<const uint8_t*>(userPass.data()), userPass.size());
-  t.request = [base, authHeader](const char* method, const std::string& path, const std::string& body,
-                                 std::string& response) {
+  const bool check = p.checkCert;
+  t.request = [base, authHeader, check](const char* method, const std::string& path, const std::string& body,
+                                        std::string& response) {
     if (!session) session.reset(new (std::nothrow) freeink::SecureHttpClient());
     if (!session) return -1;
     auto& http = *session;
     http.setUserAgent("VaultInk");
-    if (caPem.empty() && Storage.exists(CA_CERT)) Storage.readFileToString("LSY", CA_CERT, 16 * 1024, caPem);
-    if (caPem.empty()) {
-      http.setInsecure();  // encrypted, not checked (no CA bundle ships with the firmware)
+    if (!check) {
+      http.setInsecure();  // encrypted, not checked: the user turned the check off
     } else {
-      http.setCACert(caPem.c_str());
+      // Certificate dates need the real time; a cold boot without an RTC reading starts near 1970.
+      if (trustedtime::trustedNow() == 0) trustedtime::syncNow(8000);
+      // Your own ca.pem replaces the built-in roots; one that can't be read stops the request
+      // rather than quietly trusting the public roots instead.
+      if (caPem.empty() && Storage.exists(CA_CERT) &&
+          (!Storage.readFileToString("LSY", CA_CERT, 16 * 1024, caPem) || caPem.empty())) {
+        LOG_ERR("LSY", "%s could not be read", CA_CERT);
+        caPem.clear();
+        failedUnverified = true;
+        return -1;
+      }
+      http.setCACert(caPem.empty() ? ca_bundle::PEM : caPem.c_str());
     }
     http.setTimeout(30000);
     if (!http.begin(base + path)) return -1;
@@ -250,6 +272,7 @@ livesync::Transport transport(const Profile& p) {
       LOG_ERR("LSY", "Response over %u bytes", static_cast<unsigned>(MAX_RESPONSE));
       return -2;
     }
+    failedUnverified = check && status < 0;
     return status;
   };
   return t;
@@ -303,7 +326,23 @@ livesync::SyncOptions options(const Profile& p) {
   return o;
 }
 
-bool certificateChecked() { return Storage.exists(CA_CERT); }
+bool autoSyncDue() {
+  if (!hasProfile()) return false;
+  Profile p;
+  if (!load(p)) return false;
+  const int64_t now = trustedtime::trustedNow();
+  const bool due = p.autoHours > 0 && now > 0 && now - p.lastAttempt >= static_cast<int64_t>(p.autoHours) * 3600;
+  if (due) {
+    p.lastAttempt = now;
+    save(p);
+  }
+  wipeProfile(p);
+  return due;
+}
+
+bool hasOwnCaCert() { return Storage.exists(CA_CERT); }
+
+bool lastFailedUnverified() { return failedUnverified; }
 
 void resetSyncState(const Profile& profile) {
   const auto o = options(profile);

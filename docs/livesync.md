@@ -56,17 +56,56 @@ files stay on the card.
 
 ## Certificates
 
-The firmware ships no certificate authority bundle, so by default the HTTPS connection is
-encrypted but the server's certificate is **not checked**. The Server row then says "certificate
-not checked". To check it, put your server's CA certificate (PEM) at
-`/.vaultink/livesync/ca.pem`. A self-signed server works the same way.
+From 0.21.0 the server's certificate is **checked by default**, and so is its name: the
+certificate has to be for the host in your server address.
 
-Your notes stay end-to-end encrypted either way. An unchecked connection only puts the CouchDB
-password at risk on a hostile network.
+- **Built-in roots.** The firmware carries seven root certificates (from the Mozilla store):
+  ISRG Root X1 and X2 (Let's Encrypt), DigiCert Global Root G2, GTS Root R1 and R4 (Google Trust
+  Services, also behind Cloudflare), Amazon Root CA 1 and USERTrust RSA (Sectigo). A server with
+  a certificate from one of them works with nothing to set up. `scripts/gen_ca_bundle.sh`
+  rebuilds the list.
+- **Your own CA.** For a self-signed server or a private CA, put its certificate (PEM) at
+  `/.vaultink/livesync/ca.pem`. It replaces the built-in roots. If that file is there but can't
+  be read, the sync stops; it never falls back to the built-in roots.
+- **Turning the check off.** The LiveSync screen has a **Check certificate** row. Tap it to turn
+  the check off: the connection stays encrypted, but the server isn't checked, and the Server
+  row says "certificate not checked". Only do this on a network you trust.
+- **The clock.** Certificates have dates, so the device needs the real time. If its clock isn't
+  trusted yet (the X4 Pro keeps time in its RTC), it asks a time server first.
+- **An IP address as the server.** Then the certificate must list that IP address. Most
+  self-signed certificates for a LAN address don't, so use the host's name, or turn the check
+  off. (I haven't been able to test an IP address on the device yet.)
+
+If a sync fails before the server answers while the check is on, the result line says to try
+`ca.pem` or turning the check off. The same message also shows when the network is simply down.
+
+A setup made with 0.19.0 or 0.20.0 has no saved choice, and starts with the check on.
+
+## Quick settings tile and sync on wake
+
+Once LiveSync is set up, quick settings (swipe down from the top) shows a **Sync** tile. It runs
+Sync now right away. When it's done, the device restarts quietly, as after every sync, and opens
+the book or note you were reading again (or the home screen). If the sync fails, the LiveSync
+screen stays open so you can read why.
+
+**Sync on wake** is off until you turn it on, on the LiveSync screen. Tap the row to step through
+Off, every 6 hours and every 24 hours. When the device wakes (or starts) and the chosen time has
+passed since the last try, it joins your last Wi-Fi network by itself (10 seconds at most), pulls
+the changes, and opens what you were reading. It doesn't sync when:
+
+- the last try was less than 6 or 24 hours ago. A try counts even when it failed, so a missing
+  network costs one 10-second wait per interval, not one on every wake;
+- the battery is under 20%;
+- there's no saved network, or it isn't in reach (Wi-Fi goes off again). An open network with no
+  password isn't saved, so it can't be used for this;
+- the clock isn't trusted yet.
+
+A failed sync on wake doesn't stop you: the device goes back to what you were reading, and the
+reason is on the LiveSync screen under Sync now.
 
 ## Not supported (yet)
 
 - Pushing changes back, and conflict copies: this needs editing, which is Phase 4.
 - Compression, the V1/V3 encryption formats, object storage and peer-to-peer.
 - Setup URIs split over QR codes.
-- Background or automatic sync.
+- Sync while the device is awake on a timer (only on wake, see above).

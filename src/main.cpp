@@ -48,6 +48,7 @@
 #include "fontIds.h"
 #include "platform/UsbSerialJtagHandoff.h"
 #include "util/ButtonNavigator.h"
+#include "util/LiveSyncDevice.h"
 #include "util/PluginEvents.h"
 #include "util/ScreenshotUtil.h"
 #include "util/Timezones.h"
@@ -421,6 +422,28 @@ static void deliverSleepPluginEvents(const bool allowNetwork) {
   } else {
     LOG_DBG("MAIN", "Sleep-event WiFi join timed out; deferring delivery");
   }
+}
+
+// Joins the last saved network for an automatic LiveSync on wake: 10 s at most, nothing on screen
+// to answer. False (and Wi-Fi off again) when there is no saved network, the battery is low, or
+// the network isn't in reach.
+static bool joinSavedWifiForSync() {
+  if (powerManager.getBatteryPercentage() < 20) return false;
+  WIFI_STORE.loadFromFile();
+  const auto cred = WIFI_STORE.findCredential(WIFI_STORE.getLastConnectedSsid());
+  if (!cred) return false;
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(cred->ssid.c_str(), cred->password.c_str());
+  const unsigned long deadline = millis() + 10000;
+  while (WiFi.status() != WL_CONNECTED && millis() < deadline) delay(100);
+  if (WiFi.status() == WL_CONNECTED) {
+    trustedtime::startSync();
+    return true;
+  }
+  LOG_DBG("MAIN", "LiveSync on wake: saved network not reached");
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  return false;
 }
 
 #if FREEINK_DEVICE_PICCO
@@ -800,6 +823,12 @@ void setup() {
     // through to the sleep-wake "resume reader" logic, which fires on stale
     // openEpubPath + lastSleepFromReader from a prior session.
     activityManager.goHome();
+  } else if (livesyncdev::autoSyncDue() && joinSavedWifiForSync()) {
+    // Automatic LiveSync on wake. The restart after it lands where this wake would have: the book
+    // that was open when the device went to sleep, else home.
+    activityManager.goToLiveSyncNow(
+        !APP_STATE.openEpubPath.empty() && APP_STATE.lastSleepFromReader && APP_STATE.readerActivityLoadCount == 0,
+        true);
   } else if (APP_STATE.openEpubPath.empty() || !APP_STATE.lastSleepFromReader ||
              mappedInputManager.isPressed(MappedInputManager::Button::Back) || APP_STATE.readerActivityLoadCount > 0) {
     // Boot to home screen if no book is open, last sleep was not from reader, back button is held, or reader activity

@@ -10,12 +10,19 @@
 // here), then pulls the LiveSync database into its vault ("Sync now"), read only.
 class LiveSyncActivity final : public UiListActivity {
  public:
-  explicit LiveSyncActivity(GfxRenderer& renderer, MappedInputManager& mappedInput);
+  // Where the silent restart after Wi-Fi lands. The quick-settings Sync tile starts a sync right
+  // away (autoSync) and comes back to the book or note it was opened over.
+  enum class ReturnTo : uint8_t { Settings, Reader, Home };
+  // `leaveOnError`: an automatic sync on wake goes back to reading even when it fails (the result
+  // waits on this screen's Sync now row).
+  explicit LiveSyncActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, bool autoSync = false,
+                            ReturnTo returnTo = ReturnTo::Settings, bool leaveOnError = false);
   void onEnter() override;
   void onExit() override;
+  void loop() override;
 
  private:
-  enum class Row : uint8_t { FinishSetup, SyncNow, Vault, Server, Forget };
+  enum class Row : uint8_t { FinishSetup, SyncNow, Vault, Server, CertCheck, AutoSync, Forget };
 
   int listCount() const override { return static_cast<int>(rows.size()); }
   void buildScreen(UiScreen& screen) override;
@@ -29,12 +36,17 @@ class LiveSyncActivity final : public UiListActivity {
   void withWifi(void (LiveSyncActivity::*then)());
   void finishSetup();
   void syncNow();
+  void syncNowFromTile();
   void showMessage(const std::string& text);
 
   livesyncdev::Profile profile;
   bool configured = false;
   bool pending = false;
   bool wifiUsed = false;
+  bool autoSyncPending = false;
+  bool lastSyncOk = false;
+  bool leaveOnError = false;
+  ReturnTo returnTo = ReturnTo::Settings;
   std::string passphrase;  // only between the keyboard and the setup; wiped right after
   std::string message;     // shown above the rows (last result, errors)
   std::vector<Row> rows;

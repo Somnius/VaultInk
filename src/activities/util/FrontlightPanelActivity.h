@@ -37,8 +37,10 @@ class FrontlightPanelActivity final : public Activity, private UiAppHost {
 
   // Quick settings, left to right: night mode, refresh, orientation, touch.
   static constexpr int kTileCount = 4;
-  // Second row, actions that leave the panel: sleep, file transfer, home.
-  static constexpr int kActionTileCount = 4;
+  // Second row, actions that leave the panel: sleep, file transfer, paper, home (over a book),
+  // LiveSync (once it is set up). Hit ids are kTileCount + the action's index here.
+  static constexpr int kActionTileCount = 5;
+  bool liveSyncReady = false;
   // Opened over a book: its title and progress head the panel (title empty otherwise).
   std::string bookTitle;
   int bookProgress = -1;

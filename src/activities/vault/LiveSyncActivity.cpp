@@ -48,8 +48,12 @@ void keyRounds(const int done, void*) { progress.set(done * 100 / livesync::PBKD
 
 }  // namespace
 
-LiveSyncActivity::LiveSyncActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-    : UiListActivity("LiveSync", renderer, mappedInput) {}
+LiveSyncActivity::LiveSyncActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const bool autoSync,
+                                   const ReturnTo returnTo, const bool leaveOnError)
+    : UiListActivity("LiveSync", renderer, mappedInput),
+      autoSyncPending(autoSync),
+      returnTo(returnTo),
+      leaveOnError(leaveOnError) {}
 
 const char* LiveSyncActivity::headerTitle() const { return tr(STR_LIVESYNC); }
 
@@ -70,8 +74,41 @@ void LiveSyncActivity::onExit() {
     // TLS and Wi-Fi leave the heap fragmented: start clean, as the other sync screens do.
     WiFi.disconnect(false);
     delay(30);
-    silentRestartToSettings();
+    switch (returnTo) {
+      case ReturnTo::Reader:
+        silentRestartToReader();
+        break;
+      case ReturnTo::Home:
+        silentRestart();
+        break;
+      case ReturnTo::Settings:
+        silentRestartToSettings();
+        break;
+    }
   }
+}
+
+void LiveSyncActivity::loop() {
+  // The tile's sync starts from the first loop, once the screen is up (not from onEnter).
+  if (autoSyncPending) {
+    autoSyncPending = false;
+    if (configured) {
+      withWifi(&LiveSyncActivity::syncNowFromTile);
+      return;
+    }
+    if (leaveOnError) {  // woke with Wi-Fi up but no usable profile: restart turns the radio off
+      wifiUsed = true;
+      finish();
+      return;
+    }
+  }
+  UiListActivity::loop();
+}
+
+void LiveSyncActivity::syncNowFromTile() {
+  syncNow();
+  // Synced: straight back to where the tile was tapped. A failure stays on screen to be read.
+  if (lastSyncOk || leaveOnError) finish();
 }
 
 void LiveSyncActivity::onBackButton() { finish(); }
@@ -92,16 +129,28 @@ void LiveSyncActivity::rebuildRows() {
     rows.push_back(Row::Vault);
     subtitles.push_back(std::string(vaultfiles::VAULTS_ROOT) + "/" + profile.vaultName);
     rows.push_back(Row::Server);
-    subtitles.push_back(
-        profile.serverUrl + " · " + profile.database +
-        (livesyncdev::certificateChecked() ? "" : std::string(" · ") + tr(STR_LIVESYNC_CERT_UNCHECKED)));
+    subtitles.push_back(profile.serverUrl + " · " + profile.database +
+                        (profile.checkCert ? "" : std::string(" · ") + tr(STR_LIVESYNC_CERT_UNCHECKED)));
+    rows.push_back(Row::CertCheck);
+    subtitles.emplace_back(!profile.checkCert            ? tr(STR_LIVESYNC_CERT_OFF)
+                           : livesyncdev::hasOwnCaCert() ? tr(STR_LIVESYNC_CERT_OWN)
+                                                         : tr(STR_LIVESYNC_CERT_BUILTIN));
+    rows.push_back(Row::AutoSync);
+    if (profile.autoHours == 0) {
+      subtitles.emplace_back(tr(STR_LIVESYNC_AUTO_OFF));
+    } else {
+      char text[96];
+      snprintf(text, sizeof(text), tr(STR_LIVESYNC_AUTO_EVERY), profile.autoHours);
+      subtitles.emplace_back(text);
+    }
     rows.push_back(Row::Forget);
     subtitles.emplace_back(tr(STR_LIVESYNC_FORGET_DESC));
   }
   rowItems.assign(rows.size(), fui::ListItem{});
   for (size_t i = 0; i < rows.size(); ++i) {
-    static constexpr StrId LABELS[] = {StrId::STR_LIVESYNC_FINISH, StrId::STR_LIVESYNC_SYNC_NOW,
-                                       StrId::STR_LIVESYNC_VAULT, StrId::STR_LIVESYNC_SERVER,
+    static constexpr StrId LABELS[] = {StrId::STR_LIVESYNC_FINISH,     StrId::STR_LIVESYNC_SYNC_NOW,
+                                       StrId::STR_LIVESYNC_VAULT,      StrId::STR_LIVESYNC_SERVER,
+                                       StrId::STR_LIVESYNC_CERT_CHECK, StrId::STR_LIVESYNC_AUTO,
                                        StrId::STR_LIVESYNC_FORGET};
     rowItems[i].label = I18N.get(LABELS[static_cast<int>(rows[i])]);
     rowItems[i].subtitle = subtitles[i].c_str();
@@ -152,6 +201,20 @@ void LiveSyncActivity::activateIndex(const int index) {
       message = tr(STR_LIVESYNC_FORGOTTEN);
       rebuildRows();
       break;
+    case Row::CertCheck:
+      profile.checkCert = !profile.checkCert;
+      livesyncdev::save(profile);
+      message.clear();
+      rebuildRows();
+      break;
+    case Row::AutoSync: {
+      // Off -> every 6 hours -> every 24 hours -> off.
+      profile.autoHours = profile.autoHours == 0 ? 6 : profile.autoHours == 6 ? 24 : 0;
+      livesyncdev::save(profile);
+      message.clear();
+      rebuildRows();
+      break;
+    }
     case Row::Vault:
     case Row::Server:
       break;
@@ -245,7 +308,10 @@ void LiveSyncActivity::syncNow() {
     profile.lastResult = summary;
   } else {
     profile.lastResult = error;
+    // A certificate the device can't vouch for looks like a dead connection: say what to try.
+    if (livesyncdev::lastFailedUnverified()) profile.lastResult += std::string(" ") + tr(STR_LIVESYNC_CERT_HINT);
   }
+  lastSyncOk = ok;
   livesyncdev::save(profile);
   showMessage(profile.lastResult);
 }

@@ -20,13 +20,22 @@ struct Profile {
   std::string database;
   std::string saltB64;  // pbkdf2salt the master key belongs to
   livesync::Key master{};
-  std::string vaultName;   // folder under /Vaults
-  std::string lastResult;  // shown on the LiveSync screen
+  std::string vaultName;    // folder under /Vaults
+  std::string lastResult;   // shown on the LiveSync screen
+  bool checkCert = true;    // verify the server certificate (ca.pem if present, else the built-in roots)
+  uint8_t autoHours = 0;    // sync on wake when this many hours passed since the last try; 0 = off
+  int64_t lastAttempt = 0;  // epoch seconds of the last automatic try
 };
+
+// Automatic sync is on and due (a trusted clock, the interval passed since the last try). Records
+// this try first, so a sync that hangs or fails waits for the next interval.
+bool autoSyncDue();
 
 // The saved profile; secrets (password, master key) are obfuscated with the device key on the SD
 // card. That only stops a copy of the card working elsewhere; it isn't encryption.
 bool load(Profile& out);
+// A saved profile exists (cheap: no secrets read).
+bool hasProfile();
 bool save(const Profile& profile);
 void forget();
 
@@ -45,8 +54,12 @@ livesync::Transport transport(const Profile& profile);
 livesync::FileStore storage();
 livesync::SyncOptions options(const Profile& profile);
 
-// True when the server certificate is checked against CA_CERT (false: encrypted but unchecked).
-bool certificateChecked();
+// True when /.vaultink/livesync/ca.pem replaces the built-in roots for checking the server.
+bool hasOwnCaCert();
+
+// True when the last request failed before any HTTP answer while the certificate was being
+// checked (a certificate the roots don't vouch for, a wrong name, or no network).
+bool lastFailedUnverified();
 
 // Starts the next sync from the beginning (drops the checkpoint and the id->path map).
 void resetSyncState(const Profile& profile);

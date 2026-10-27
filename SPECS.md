@@ -277,6 +277,19 @@ Phase 3 must at least support: E2EE V2, path obfuscation, compression off, `cust
 60, `hashAlg` xxhash64, `chunkSplitterVersion` v3-rabin-karp, `useEden` off, dynamic
 iterations off.
 
+TLS and triggers (0.21.0):
+- Server certificates are verified by default: a 7-root PEM bundle in flash (`src/util/CaBundle.h`,
+  made by `scripts/gen_ca_bundle.sh` from the Mozilla store), or `/.vaultink/livesync/ca.pem`
+  instead of it (unreadable = the request fails, never a fallback). The SDK's wolfSSL client calls
+  `wolfSSL_check_domain_name` before the handshake and fails when the CA buffer doesn't load; SNI
+  is left out for IP literals. `checkCert` in the profile (default true, also for older profiles)
+  turns it off (`WOLFSSL_VERIFY_NONE`). An untrusted clock gets an SNTP sync first.
+- Quick-settings Sync tile (only with a profile): LiveSync screen in auto mode, restart to the
+  reader (or home) after a successful sync; a failure stays on screen.
+- Sync on wake (`autoHours` 0/6/24, `lastAttempt`): checked in `setup()` before the normal
+  routing, needs a trusted clock, records the try first, joins the last saved network headless
+  (10 s, battery at least 20%), then the same auto mode, which returns even on failure.
+
 ## 8. Editing (Phase 4)
 
 - Editor: line-based, touch keyboard (English + Greek layouts), cursor keys, select line, undo.

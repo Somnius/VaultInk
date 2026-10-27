@@ -242,8 +242,17 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   to the watchdog, the profile with its secrets obfuscated, Settings → Vaults → LiveSync with
   Finish setup, Sync now and Forget (docs/livesync.md). Checked end to end in the simulator against
   the Docker CouchDB: setup, then a pull into `/Vaults/vaultink-test` identical to the source.
-* To do: timing the 310,000 rounds on the S3 (hardware), the quick-settings Sync tile,
-  background/automatic sync, a CA bundle so certificates are checked by default.
+* ✅ (0.21.0) Certificates checked by default: seven root certificates built in
+  (`scripts/gen_ca_bundle.sh`), `ca.pem` replaces them, and a Check certificate switch. The
+  FreeInk SDK's TLS client now checks the host name too (it only checked the chain before) and
+  stops when a CA doesn't load. A quick-settings Sync tile (back to the book after the sync), and
+  opt-in sync on wake every 6 or 24 hours over the saved Wi-Fi. Designs and diff reviewed by
+  Gemini and Grok; tile and wake sync tested in the simulator against the Docker CouchDB.
+  Certificate checking can't be tested in the simulator (its HTTPS client doesn't check), so
+  it needs the device.
+* To do: timing the 310,000 rounds on the S3 (hardware); certificate checking on the device
+  (Let's Encrypt server, self-signed with ca.pem, an IP address); the return to the book after
+  a sync (the simulator doesn't replay that restart).
 
 * Setup URI import, E2EE V2, path obfuscation.
 * CouchDB `_changes` with checkpoints, chunk assembly, attachments on demand.

@@ -36,6 +36,7 @@
 #include "util/FullScreenMessageActivity.h"
 #include "util/WelcomeGuideActivity.h"
 #include "vault/CanvasActivity.h"
+#include "vault/LiveSyncActivity.h"
 #include "vault/VaultPickerActivity.h"
 #include "vault/VaultSearchActivity.h"
 
@@ -278,6 +279,12 @@ void ActivityManager::replaceActivity(std::unique_ptr<Activity>&& newActivity) {
 
 void ActivityManager::goToFileTransfer() {
   replaceActivity(std::make_unique<CrossPointWebServerActivity>(renderer, mappedInput));
+}
+
+void ActivityManager::goToLiveSyncNow(const bool fromReader, const bool automatic) {
+  replaceActivity(std::make_unique<LiveSyncActivity>(
+      renderer, mappedInput, true, fromReader ? LiveSyncActivity::ReturnTo::Reader : LiveSyncActivity::ReturnTo::Home,
+      automatic));
 }
 
 void ActivityManager::goToJoinNetwork() {

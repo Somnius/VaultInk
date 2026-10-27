@@ -20,6 +20,7 @@
 #include "components/icons/listIcons.h"
 #include "components/icons/readerToolbarIcons.h"
 #include "util/BookProgress.h"
+#include "util/LiveSyncDevice.h"
 #include "util/PaperTexture.h"
 #include "util/SlideSwitch.h"
 
@@ -64,6 +65,7 @@ FrontlightPanelActivity::FrontlightPanelActivity(GfxRenderer& renderer, MappedIn
 
 void FrontlightPanelActivity::onEnter() {
   Activity::onEnter();
+  liveSyncReady = livesyncdev::hasProfile();
 
   // A stored 0% predates the 1% floor (or came from the web settings): show it
   // as the floor rather than a level the slider can no longer produce. onExit
@@ -193,6 +195,9 @@ void FrontlightPanelActivity::runTile(const int idx) {
       break;
     case kTileCount + 3:  // Home (leaves the book too)
       activityManager.goHome();
+      break;
+    case kTileCount + 4:  // LiveSync now; the restart afterwards comes back to the book (or home)
+      activityManager.goToLiveSyncNow(!bookTitle.empty());
       break;
     case 3:  // Touch reader controls (for reading with the palm on the glass)
       // Toggles the existing Settings -> Controls option, nothing lower-level:
@@ -502,21 +507,31 @@ void FrontlightPanelActivity::addActionTiles(UiScreen& screen) {
   const auto& theme = screen.theme();
   const fui::BitmapRef icons[kActionTileCount] = {
       fui::bitmapFromIcon(icon_power_32), fui::bitmapFromIcon(icon_download_32), fui::bitmapFromIcon(icon_file_text_32),
-      fui::bitmapFromIcon(icon_house_32)};
+      fui::bitmapFromIcon(icon_house_32), fui::bitmapFromIcon(icon_vault_32)};
   // The paper tile names the current background, so each tap shows what it picked.
   const uint8_t paper = SETTINGS.readingPaper % paper_texture::STYLE_COUNT;
   const char* labels[kActionTileCount] = {tr(STR_QS_SLEEP), tr(STR_QS_TRANSFER),
-                                          I18N.get(paper_texture::SHORT_NAMES[paper]), tr(STR_QS_HOME)};
+                                          I18N.get(paper_texture::SHORT_NAMES[paper]), tr(STR_QS_HOME),
+                                          tr(STR_QS_SYNC)};
   const int16_t labelHeight = screen.target().lineHeight(theme.smallText.font);
   screen.spacer(static_cast<int16_t>(2 * theme.spaceMd));  // keep it clear of the row above
   const fui::Rect row = screen.takeTop(kQuickControlSize + theme.spaceSm + labelHeight);
   const fui::Paint ink = fui::Paint::solid(fui::Color::Black);
-  // Same slot width as the first row, so the circles line up in columns.
   // Home only matters over a book; on the home screen the panel is already one Back away.
-  const int count = bookTitle.empty() ? kActionTileCount - 1 : kActionTileCount;
-  for (int id = 0; id < count; ++id) {
-    const int16_t left = static_cast<int16_t>(row.x + row.width * id / kTileCount);
-    const int16_t right = static_cast<int16_t>(row.x + row.width * (id + 1) / kTileCount);
+  // Sync shows once LiveSync is set up.
+  int shown[kActionTileCount];
+  int count = 0;
+  for (int action = 0; action < kActionTileCount; ++action) {
+    if (action == 3 && bookTitle.empty()) continue;
+    if (action == 4 && !liveSyncReady) continue;
+    shown[count++] = action;
+  }
+  // Same slot width as the first row while they fit, so the circles line up in columns.
+  const int slots = std::max(count, kTileCount);
+  for (int i = 0; i < count; ++i) {
+    const int id = shown[i];
+    const int16_t left = static_cast<int16_t>(row.x + row.width * i / slots);
+    const int16_t right = static_cast<int16_t>(row.x + row.width * (i + 1) / slots);
     const fui::Rect slot{left, row.y, static_cast<int16_t>(right - left), row.height};
     const fui::Rect circle{static_cast<int16_t>(slot.x + (slot.width - kQuickControlSize) / 2), row.y,
                            kQuickControlSize, kQuickControlSize};
