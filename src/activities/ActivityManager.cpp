@@ -138,7 +138,8 @@ void ActivityManager::loop() {
       // The header back button shares this band; its taps stay Back.
       statusBarTap = mappedInput.wasScreenTapped(tx, ty) && ty < 44 && !HeaderBackTapTarget::contains(tx, ty);
     }
-    if (mappedInput.hasTouch() && currentActivity->name != "FrontlightPanel" &&
+    // One menu at a time: the panel stays shut while the activity has a menu open.
+    if (mappedInput.hasTouch() && currentActivity->name != "FrontlightPanel" && !currentActivity->hasOpenMenu() &&
         (statusBarTap || mappedInput.wasLightPanelGesture())) {
       haptic_feedback::touchAction();
       pushActivity(std::make_unique<FrontlightPanelActivity>(renderer, mappedInput));

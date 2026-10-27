@@ -54,6 +54,9 @@ class Activity {
   virtual bool handleForcedRefresh() { return false; }
   virtual bool isHomeActivity() const { return false; }
   virtual bool handleHomeGesture() { return false; }
+  // True while the screen shows its own menu or panel: the quick-settings gesture then does nothing,
+  // so two menus never stack (and leave a ghost of each other on e-ink).
+  virtual bool hasOpenMenu() const { return false; }
   virtual ScreenshotInfo getScreenshotInfo() const { return {}; }
 
   // Start a new activity without destroying the current one
