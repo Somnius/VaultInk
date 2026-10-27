@@ -702,6 +702,12 @@ bool PluginCatalogActivity::fetchBrowseResponse() {
     }
     if (browseCurrentUrl.empty()) browseCurrentUrl = substituted(manifest.browseReq.url, nullptr);
   }
+  // A {cfg.KEY} left in the URL means the plugin's settings were never filled in.
+  if (substituted(manifest.isXmlList() ? browseCurrentUrl : activeBrowseUrl(), nullptr).find("{cfg.") !=
+      std::string::npos) {
+    fail(StrId::STR_PLUGIN_NOT_CONFIGURED);
+    return false;
+  }
   const auto run = [&] {
     const pluginhttp::RequestSpec req = {
         substituted(manifest.isXmlList() ? browseCurrentUrl : activeBrowseUrl(), nullptr), manifest.browseReq.method,

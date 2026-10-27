@@ -369,6 +369,7 @@ STR_PLUGIN_HUB_INSTALLED_HINT: "Ανοίξτε τα Πρόσθετα για να
 STR_NO_PLUGINS_INSTALLED: "Δεν υπάρχουν πρόσθετα με οθόνες συσκευής"
 STR_PLUGIN_NOT_SIGNED_IN: "Δεν έχετε συνδεθεί. Ανοίξτε τις Ρυθμίσεις στο web και συνδεθείτε από το πρόσθετο."
 STR_PLUGIN_MANIFEST_INVALID: "Το manifest του πρόσθετου λείπει ή δεν είναι έγκυρο"
+STR_PLUGIN_NOT_CONFIGURED: "Ρυθμίστε πρώτα αυτό το πρόσθετο (Ρυθμίσεις στη σελίδα web)"
 STR_PLUGIN_SIGN_IN: "Σύνδεση"
 STR_PLUGIN_SIGN_IN_HINT: "Δεν έχετε συνδεθεί ακόμα"
 STR_PLUGIN_AUTH_WAITING: "Αναμονή εξουσιοδότησης..."

@@ -96,11 +96,9 @@ int clearSearchIndexes() {
     indexes.push_back(std::string("/.vaultink/") + name + "/index.tsv");
   }
   root.close();
-  int removed = 0;
-  for (const auto& index : indexes) {
-    if (Storage.exists(index.c_str()) && Storage.remove(index.c_str())) ++removed;
-  }
-  return removed;
+  return static_cast<int>(std::count_if(indexes.begin(), indexes.end(), [](const std::string& index) {
+    return Storage.exists(index.c_str()) && Storage.remove(index.c_str());
+  }));
 }
 
 vaultindex::IndexFs sdFs() {
