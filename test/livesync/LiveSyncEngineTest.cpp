@@ -223,3 +223,36 @@ TEST(LiveSyncEngine, SafePaths) {
   EXPECT_FALSE(livesync::safeVaultPath("a/../b.md"));
   EXPECT_FALSE(livesync::safeVaultPath("what?.md"));
 }
+
+TEST(LiveSyncEngine, LocalChangesAreNeverOverwritten) {
+  Fixture f;
+  livesync::SyncStats stats;
+  std::string error;
+  ASSERT_TRUE(f.sync(stats, error)) << error;
+  const std::string map = f.sd.files["/.vaultink/x/livesync/files.tsv"];
+  // Two notes from the map: one edited remotely, one deleted remotely, both changed on the device.
+  const size_t second = map.find('\n') + 1;
+  const std::string idA = map.substr(0, map.find('\t'));
+  const std::string pathA = map.substr(map.find('\t') + 1, map.find('\n') - map.find('\t') - 1);
+  const std::string idB = map.substr(second, map.find('\t', second) - second);
+  const std::string pathB = map.substr(map.find('\t', second) + 1, map.find('\n', second) - map.find('\t', second) - 1);
+  f.sd.files["/Vaults/Demo/" + pathA] = "edited on the device A";
+  f.sd.files["/Vaults/Demo/" + pathB] = "edited on the device B";
+  f.options.locallyChanged = [&](const std::string& p) { return p == pathA || p == pathB; };
+  f.options.conflictDate = "2026-10-27";
+  f.couch.touch(idA, false);
+  f.couch.touch(idB, true);
+  ASSERT_TRUE(f.sync(stats, error)) << error;
+  EXPECT_EQ(stats.conflicts, 2);
+  EXPECT_EQ(stats.trashed, 0);
+  EXPECT_EQ(f.sd.files["/Vaults/Demo/" + pathA], "edited on the device A");
+  EXPECT_EQ(f.sd.files["/Vaults/Demo/" + pathB], "edited on the device B");
+  EXPECT_TRUE(f.sd.files.count("/Vaults/Demo/" + livesync::conflictPath(pathA, "2026-10-27")));
+}
+
+TEST(LiveSyncEngine, ConflictPath) {
+  EXPECT_EQ(livesync::conflictPath("Folder/Note.md", "2026-10-27"), "Folder/Note (conflict 2026-10-27).md");
+  EXPECT_EQ(livesync::conflictPath("Note", "2026-10-27"), "Note (conflict 2026-10-27)");
+  EXPECT_EQ(livesync::conflictPath("a.b/.hidden", "D"), "a.b/.hidden (conflict D)");
+  EXPECT_EQ(livesync::conflictPath("a.b/c.tar.gz", "D"), "a.b/c.tar (conflict D).gz");
+}

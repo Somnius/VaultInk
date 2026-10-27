@@ -162,6 +162,10 @@ class Run {
     const auto it = map.find(id);
     if (it == map.end()) return true;
     const std::string from = o.vaultDir + "/" + it->second;
+    if (o.locallyChanged && o.locallyChanged(it->second)) {  // changed here: it stays, still known
+      ++stats.conflicts;
+      return true;
+    }
     if (fs.exists(from) && !fs.move(from, o.stateDir + "/trash/" + it->second)) {
       error = "Could not move " + it->second + " to the trash.";
       return false;
@@ -224,7 +228,8 @@ class Run {
         chunks[doc["_id"] | ""] = {std::string(doc["data"] | ""), doc["e_"] | false};
       }
     }
-    const std::string target = o.vaultDir + "/" + entry.path;
+    const bool conflict = o.locallyChanged && o.locallyChanged(entry.path);
+    const std::string target = o.vaultDir + "/" + (conflict ? conflictPath(entry.path, o.conflictDate) : entry.path);
     if (!fs.begin(target)) {
       error = "Could not write " + entry.path + " (is the SD card full?).";
       return false;
@@ -249,6 +254,11 @@ class Run {
       error = "Could not save " + entry.path + " (is the SD card full?).";
       return false;
     }
+    if (conflict) {
+      map[entry.id] = entry.path;
+      ++stats.conflicts;
+      return true;
+    }
     // The same id under a new path (renamed in Obsidian): the old copy goes to the trash.
     const auto old = map.find(entry.id);
     if (old != map.end() && old->second != entry.path && !trash(entry.id)) return false;
@@ -268,6 +278,13 @@ class Run {
 };
 
 }  // namespace
+
+std::string conflictPath(const std::string& path, const std::string& date) {
+  const size_t slash = path.find_last_of('/');
+  const size_t dot = path.find_last_of('.');
+  const size_t at = dot != std::string::npos && (slash == std::string::npos || dot > slash + 1) ? dot : path.size();
+  return path.substr(0, at) + " (conflict " + date + ")" + path.substr(at);
+}
 
 bool safeVaultPath(const std::string& path) {
   if (path.empty() || path.front() == '/' || path.size() > 1024) return false;

@@ -19,6 +19,15 @@ RTC_NOINIT_ATTR size_t logHead = 0;
 RTC_NOINIT_ATTR uint32_t rtcLogMagic;
 static constexpr uint32_t LOG_RTC_MAGIC = 0xDEADBEEF;
 
+#ifdef LOG_DBG_RUNTIME
+bool logDebugOn = false;
+#else
+bool logDebugOn = true;
+#endif
+
+static void (*logSink)(const char*) = nullptr;
+void setLogSink(void (*sink)(const char* line)) { logSink = sink; }
+
 void addToLogRingBuffer(const char* message) {
   // Add the message to the ring buffer, overwriting old messages if necessary.
   // If the magic is wrong or logHead is out of range (RTC_NOINIT_ATTR garbage
@@ -72,6 +81,7 @@ void logPrintf(const char* level, const char* origin, const char* format, ...) {
   logSerial.print(buf);
 #endif
   addToLogRingBuffer(buf);
+  if (logSink) logSink(buf);
 }
 
 std::string getLastLogs() {

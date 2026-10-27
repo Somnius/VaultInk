@@ -10,10 +10,12 @@
 
 #include <cctype>
 #include <cstring>
+#include <ctime>
 #include <memory>
 
 #include "util/CaBundle.h"
 #include "util/TaskWatchdog.h"
+#include "util/VaultEdit.h"
 #include "util/VaultFiles.h"
 
 namespace livesyncdev {
@@ -323,6 +325,16 @@ livesync::SyncOptions options(const Profile& p) {
   const std::string index = vaultfiles::indexPathFor(o.vaultDir);
   o.stateDir = index.substr(0, index.find_last_of('/')) + "/livesync";
   o.saltB64 = p.saltB64;
+  // Notes changed on the device stay; remote changes to them land beside them as conflict copies.
+  o.locallyChanged = vaultedit::changedLookup(o.vaultDir);
+  const time_t now = static_cast<time_t>(trustedtime::trustedNow());
+  char date[16] = "undated";
+  if (now > 0) {
+    struct tm t;
+    localtime_r(&now, &t);
+    strftime(date, sizeof(date), "%Y-%m-%d", &t);
+  }
+  o.conflictDate = date;
   return o;
 }
 

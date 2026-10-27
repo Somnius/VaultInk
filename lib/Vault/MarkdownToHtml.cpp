@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "TaskToggle.h"
 #include "VaultLink.h"
 
 namespace {
@@ -455,6 +456,7 @@ void MarkdownToHtml::feed(std::string_view chunk) {
     if (c == '\n') {
       line(pendingLine);
       pendingLine.clear();
+      ++sourceLine;
     } else if (c != '\r') {
       pendingLine += c;
       if (pendingLine.size() >= MAX_LINE) {
@@ -640,11 +642,18 @@ void MarkdownToHtml::listItem(const int indent, const bool ordered, const int nu
   }
   sink.write("<li>");
   listItemOpen = true;
-  if (startsWith(content, "[ ] ") || content == "[ ]") {
-    sink.write("[ ] ");
-    content = content.substr(std::min<size_t>(4, content.size()));
-  } else if (startsWith(content, "[x] ") || startsWith(content, "[X] ") || content == "[x]" || content == "[X]") {
-    sink.write("[x] ");
+  const bool open = startsWith(content, "[ ] ") || content == "[ ]";
+  const bool done = startsWith(content, "[x] ") || startsWith(content, "[X] ") || content == "[x]" || content == "[X]";
+  if (open || done) {
+    // A tickable box only when this source line is the task itself (not inside a quote or a
+    // continued long line).
+    if (taskLinks && !inContinuation && tasktoggle::markOffset(currentLine) != std::string_view::npos) {
+      sink.write("<a href=\"");
+      sink.write(tasktoggle::href(sourceLine, tasktoggle::lineHash(currentLine)));
+      sink.write(open ? "\">[ ]</a> " : "\">[x]</a> ");
+    } else {
+      sink.write(open ? "[ ] " : "[x] ");
+    }
     content = content.substr(std::min<size_t>(4, content.size()));
   }
   paragraph.assign(content);
@@ -726,6 +735,7 @@ void MarkdownToHtml::flushTable(const bool more) {
 }
 
 void MarkdownToHtml::line(std::string_view text) {
+  currentLine = text;
   if (inContinuation) {
     // The end of a long line: it belongs to the paragraph (or code block) it started.
     inContinuation = false;

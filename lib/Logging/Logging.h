@@ -41,6 +41,14 @@ static HardwareSerial& logSerial = Serial;
 
 void logPrintf(const char* level, const char* origin, const char* format, ...);
 
+// Every formatted line also goes here when set (the SD debug log). Called from any task; the sink
+// must only copy the line.
+void setLogSink(void (*sink)(const char* line));
+
+// Builds with LOG_DBG_RUNTIME keep debug lines in the firmware but print them only while this is
+// true (Settings -> Debug Logs); other builds print them always.
+extern bool logDebugOn;
+
 #ifdef ENABLE_SERIAL_LOG
 #if LOG_LEVEL >= 0
 #define LOG_ERR(origin, format, ...) logPrintf("ERR", origin, format "\n", ##__VA_ARGS__)
@@ -54,7 +62,12 @@ void logPrintf(const char* level, const char* origin, const char* format, ...);
 #define LOG_INF(origin, format, ...)
 #endif
 
-#if LOG_LEVEL >= 2
+#if LOG_LEVEL >= 2 && defined(LOG_DBG_RUNTIME)
+#define LOG_DBG(origin, format, ...)                                      \
+  do {                                                                    \
+    if (logDebugOn) logPrintf("DBG", origin, format "\n", ##__VA_ARGS__); \
+  } while (0)
+#elif LOG_LEVEL >= 2
 #define LOG_DBG(origin, format, ...) logPrintf("DBG", origin, format "\n", ##__VA_ARGS__)
 #else
 #define LOG_DBG(origin, format, ...)

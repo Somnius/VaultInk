@@ -52,6 +52,8 @@
 #include "SilentRestart.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/settings/TextSettingsActivity.h"
+#include "activities/util/ConfirmationActivity.h"
+#include "activities/util/KeyboardEntryActivity.h"
 #include "activities/vault/VaultSearchActivity.h"
 #include "clippings/ClippingText.h"
 #include "clippings/ClippingsManager.h"
@@ -63,6 +65,7 @@
 #include "util/LineSpacing.h"
 #include "util/PaperTexture.h"
 #include "util/ScreenshotUtil.h"
+#include "util/VaultEdit.h"
 #include "util/VaultFiles.h"
 #include "util/VaultNavigation.h"
 
@@ -919,14 +922,32 @@ void EpubReaderActivity::loop() {
     }
   }
 
-  // Link taps take priority over the reader-menu and page-turn zones.
-  if (!atEndOfBook && !currentPageLinks.empty() && SETTINGS.touchReaderControls && mappedInput.hasTouch()) {
+  // Link taps take priority over the reader-menu and page-turn zones. Task boxes answer even with
+  // touch reader controls off: ticking one is not a page turn.
+  if (!atEndOfBook && !currentPageLinks.empty() && mappedInput.hasTouch()) {
     int touchX = 0;
     int touchY = 0;
     if (mappedInput.wasScreenTapped(touchX, touchY)) {
       const auto* link = EpubReaderUtils::linkAtPoint(currentPageLinks, touchX, touchY, currentPageLinkMarginLeft,
                                                       currentPageLinkMarginTop);
-      if (link) {
+      // "[ ]" is narrow: a box also answers a finger up to 48 px to its right or left.
+      if (!link) {
+        for (const auto& l : currentPageLinks) {
+          if (strncmp(l.href, "task:", 5) != 0) continue;
+          const int x = touchX - currentPageLinkMarginLeft;
+          const int y = touchY - currentPageLinkMarginTop;
+          if (x >= l.x - 48 && x < l.x + l.width + 48 && y >= l.y && y < l.y + l.height) {
+            link = &l;
+            break;
+          }
+        }
+      }
+      if (link && strncmp(link->href, "task:", 5) == 0) {
+        haptic_feedback::touchAction();
+        toggleTask(link->href);
+        return;
+      }
+      if (link && SETTINGS.touchReaderControls) {
         navigateToHref(link->href, true);
         haptic_feedback::touchAction();
         return;
@@ -1250,6 +1271,15 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       if (!vaultnav::goBack()) activityManager.goToFileBrowser(bookPath);
       return;
     }
+    case EpubReaderMenuActivity::MenuAction::NEW_NOTE:
+      askNoteTitle(false);
+      return;
+    case EpubReaderMenuActivity::MenuAction::RENAME_NOTE:
+      askNoteTitle(true);
+      return;
+    case EpubReaderMenuActivity::MenuAction::DELETE_NOTE:
+      confirmDeleteNote();
+      return;
     case EpubReaderMenuActivity::MenuAction::BACKLINKS: {
       startActivityForResult(std::make_unique<VaultSearchActivity>(renderer, mappedInput, bookPath),
                              [this](const ActivityResult&) { requestUpdate(); });
@@ -3252,6 +3282,86 @@ void EpubReaderActivity::activateMoreRow(int row) {
   // reader entirely. In-place actions would otherwise leave the closed panel
   // on screen.
   if (action != MA::GO_HOME && action != MA::DELETE_CACHE) requestUpdate();
+}
+
+// Saves the place, drops this note's converted copy and page cache, and opens `path` again: after
+// a task was ticked, the page comes back with the new box.
+void EpubReaderActivity::reopenNote(const std::string& path) {
+  {
+    RenderLock lock;
+    if (epub && section) {
+      if (!saveProgress(currentSpineIndex, section->currentPage, section->pageCount)) {
+        LOG_ERR("ERS", "Failed to save progress before reopening the note");
+      }
+      section.reset();
+    }
+    if (epub) epub->clearCache();
+  }
+  activityManager.goToReader(path);
+}
+
+void EpubReaderActivity::toggleTask(const std::string& href) {
+  const auto result = vaultedit::toggleTask(bookPath, href);
+  if (result == vaultedit::Result::Failed) {
+    RenderLock lock;
+    GUI.drawPopup(renderer, tr(STR_NOTE_SAVE_FAILED));
+    return;
+  }
+  // Changed: the file is not what this page was made from; showing it again is the answer.
+  reopenNote(bookPath);
+}
+
+void EpubReaderActivity::askNoteTitle(const bool rename) {
+  const std::string current = FsHelpers::getFileNameWithoutExtension(bookPath);
+  auto keyboard = makeUniqueNoThrow<KeyboardEntryActivity>(
+      renderer, mappedInput, I18N.get(rename ? StrId::STR_RENAME_NOTE : StrId::STR_NEW_NOTE), rename ? current : "",
+      100, InputType::Text);
+  if (!keyboard) return;
+  startActivityForResult(std::move(keyboard), [this, rename](const ActivityResult& result) {
+    if (result.isCancelled) {
+      requestUpdate();
+      return;
+    }
+    const std::string title = std::get<KeyboardResult>(result.data).text;
+    std::string path;
+    const auto r = rename ? vaultedit::renameNote(bookPath, title, path)
+                          : vaultedit::createNote(FsHelpers::extractFolderPath(bookPath), title, path);
+    if (r == vaultedit::Result::Ok) {
+      if (rename) {
+        reopenNote(path);
+      } else {
+        activityManager.goToReader(path);
+      }
+      return;
+    }
+    RenderLock lock;
+    GUI.drawPopup(renderer, I18N.get(r == vaultedit::Result::Exists    ? StrId::STR_NOTE_EXISTS
+                                     : r == vaultedit::Result::BadName ? StrId::STR_NOTE_BAD_NAME
+                                                                       : StrId::STR_NOTE_SAVE_FAILED));
+  });
+}
+
+void EpubReaderActivity::confirmDeleteNote() {
+  auto dialog = makeUniqueNoThrow<ConfirmationActivity>(renderer, mappedInput, tr(STR_DELETE_NOTE_CONFIRM),
+                                                        FsHelpers::getFileNameWithoutExtension(bookPath));
+  if (!dialog) return;
+  startActivityForResult(std::move(dialog), [this](const ActivityResult& result) {
+    if (result.isCancelled) {
+      requestUpdate();
+      return;
+    }
+    const std::string folder = FsHelpers::extractFolderPath(bookPath);
+    {
+      RenderLock lock;
+      section.reset();
+    }
+    if (vaultedit::trashNote(bookPath) != vaultedit::Result::Ok) {
+      RenderLock lock;
+      GUI.drawPopup(renderer, tr(STR_NOTE_SAVE_FAILED));
+      return;
+    }
+    activityManager.goToFileBrowser(folder);
+  });
 }
 
 void EpubReaderActivity::navigateToHref(const std::string& hrefStr, const bool savePosition) {

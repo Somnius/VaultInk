@@ -292,6 +292,22 @@ TLS and triggers (0.21.0):
 
 ## 8. Editing (Phase 4)
 
+Done in 4a (0.22.0):
+- Task boxes in a note's own lines become `<a href="task:<line>:<fnv1a32 hex>">` (lib/Vault/TaskToggle);
+  the reader re-reads the file, checks the line's hash and list-task shape (BOM and CRLF handled),
+  flips ' ' <-> 'x' (any other mark -> ' '), saves through `.tmp`, clears the note's caches and
+  reopens it at the same page. `MD_CACHE_VERSION` 7.
+- New / rename / delete in the note menu (`src/util/VaultEdit`). Delete moves to `<vault>/.trash/<rel>`
+  (a time suffix on a clash). Rename moves the book cache and the recent entry; a case-only rename
+  goes through a temporary name (FAT). Names: 1-100 bytes, none of `\ / : * ? " < > |` or control
+  characters, no leading dot/space, no trailing dot/space.
+- `/.vaultink/<id>/changed.txt`: paths changed on the device. The LiveSync pull
+  (`SyncOptions::locallyChanged`) writes a remote change to such a path as
+  `<name> (conflict YYYY-MM-DD).<ext>` and never trashes it; `SyncStats::conflicts` counts both.
+- A note's `.tmp` is recovered when the note is opened (`ActivityManager::goToReader`).
+
+Planned:
+
 - Editor: line-based, touch keyboard (English + Greek layouts), cursor keys, select line, undo.
 - Toggle task checkboxes from the reader.
 - New note, rename, delete (to `/.vaultink/<vault-id>/trash/`). Links are not rewritten on rename in Phase 4.

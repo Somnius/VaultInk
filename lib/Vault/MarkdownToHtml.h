@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -39,6 +40,9 @@ class MarkdownToHtml {
   explicit MarkdownToHtml(Sink& sink) : sink(sink) {}
   void setImageResolver(ImageResolver resolver) { imageResolver = std::move(resolver); }
   void setNoteLoader(NoteLoader loader) { noteLoader = std::move(loader); }
+  // Task boxes become "task:<line>:<hash>" links (TaskToggle.h) the reader can tick. Only for the
+  // note itself: embedded notes keep plain boxes, their lines are in another file.
+  void setTaskLinks(bool on) { taskLinks = on; }
 
   // Writes the XHTML head; title is the note name. `prolog` goes right after the XML declaration
   // (the reader's cache-version comment).
@@ -95,4 +99,7 @@ class MarkdownToHtml {
   std::vector<std::string> tableRows;
   size_t tableBytes = 0;
   bool inContinuation = false;
+  bool taskLinks = false;
+  uint32_t sourceLine = 0;       // 0-based line of the source being converted
+  std::string_view currentLine;  // that whole line, while line() runs
 };

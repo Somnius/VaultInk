@@ -2,6 +2,7 @@ add_executable(TxtToHtmlTest
   TxtToHtmlTest.cpp
   ${REPO_ROOT}/lib/Txt/TxtToHtml.cpp
   ${REPO_ROOT}/lib/Vault/MarkdownToHtml.cpp
+  ${REPO_ROOT}/lib/Vault/TaskToggle.cpp
   ${REPO_ROOT}/lib/Vault/VaultLink.cpp
   ${REPO_ROOT}/lib/FsHelpers/FsHelpers.cpp
   ${REPO_ROOT}/lib/Utf8/Utf8.cpp

@@ -45,12 +45,21 @@ struct SyncOptions {
   int docsBatch = 10;                           // file docs per `_all_docs`
   int chunkBatch = 8;                           // chunks per `_all_docs`
   uint64_t maxFileBytes = 32ull * 1024 * 1024;  // bigger files are skipped (counted, not written)
+  // Paths (under vaultDir) changed on the device and not pushed yet. A remote change to one is
+  // written beside it as "<name> (conflict <conflictDate>).<ext>", and a remote delete or rename
+  // leaves it where it is: local edits are never overwritten.
+  std::function<bool(const std::string& path)> locallyChanged;
+  std::string conflictDate;  // "2026-10-27"
 };
+
+// "Folder/Note.md" -> "Folder/Note (conflict 2026-10-27).md".
+std::string conflictPath(const std::string& path, const std::string& date);
 
 struct SyncStats {
   int written = 0;
   int trashed = 0;
-  int skipped = 0;  // too big
+  int skipped = 0;    // too big
+  int conflicts = 0;  // remote changes to notes changed on the device: kept beside them
   int pages = 0;
 };
 

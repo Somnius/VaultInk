@@ -18,6 +18,10 @@
 #include <Logging.h>
 #include <SPI.h>
 #include <TrustedTime.h>
+#ifndef SIMULATOR
+#include <esp_sleep.h>
+#include <esp_system.h>
+#endif
 #include <VectorFontSupport.h>
 #include <WiFi.h>
 #include <XteinkDetect.h>
@@ -48,6 +52,7 @@
 #include "fontIds.h"
 #include "platform/UsbSerialJtagHandoff.h"
 #include "util/ButtonNavigator.h"
+#include "util/DebugLog.h"
 #include "util/LiveSyncDevice.h"
 #include "util/PluginEvents.h"
 #include "util/ScreenshotUtil.h"
@@ -168,6 +173,7 @@ static void silentRestartTo(const uint32_t target, const char* targetName) {
   if (deepSleepInProgress) return;  // sleeping supersedes the heap-defrag reboot
   armSilentReboot(target);
   LOG_DBG("MAIN", "Silent restart (target=%s)", targetName);
+  debuglog::flush();
   // E-ink retains the previous frame until the target's first paint lands
   // (~2-3s). Without an overlay, users don't see the reboot and fire input
   // through to the new activity. On Home, Select on the default
@@ -490,6 +496,8 @@ void enterDeepSleep(bool fromTimeout = false) {
   // Sleep may end in a power-off (battery death, latch); persist the clock
   // floor now so a later cold boot resumes from it.
   trustedtime::note();
+  LOG_DBG("SLP", "Entering sleep (timeout=%d)", fromTimeout ? 1 : 0);
+  debuglog::flush();
 
   // Stop Bluetooth before plugin delivery can start WiFi; a timeout defers delivery.
   deepSleepInProgress = true;
@@ -679,6 +687,13 @@ void setup() {
     SETTINGS.readerMenuStyle = CrossPointSettings::READER_MENU_TOOLBAR;
   }
   SETTINGS.loadFromFile();
+  debuglog::begin(rebootedFromPanic);
+  // For the debug log: why this boot happened (power key, USB, a timer, a reset...).
+#ifndef SIMULATOR
+  LOG_INF("MAIN", "Boot: wake %d (0 power key, 1 after flash, 2 USB power, 3 other), esp wake cause %d, reset %d",
+          static_cast<int>(gpio.getWakeupReason()), static_cast<int>(esp_sleep_get_wakeup_cause()),
+          static_cast<int>(esp_reset_reason()));
+#endif
   // Push the saved timezone's POSIX rule into the clock (migrating the legacy
   // UTC-offset setting on first boot after the update).
   timezones::applyToClock();
@@ -869,6 +884,7 @@ void setup() {
 }
 
 void loop() {
+  debuglog::tick();
   static unsigned long maxLoopDuration = 0;
   const unsigned long loopStartTime = millis();
   static unsigned long lastMemPrint = 0;

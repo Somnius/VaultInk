@@ -34,6 +34,7 @@
 #include "util/BmpViewerActivity.h"
 #include "util/FrontlightPanelActivity.h"
 #include "util/FullScreenMessageActivity.h"
+#include "util/VaultEdit.h"
 #include "util/WelcomeGuideActivity.h"
 #include "vault/CanvasActivity.h"
 #include "vault/LiveSyncActivity.h"
@@ -346,6 +347,9 @@ void ActivityManager::goToReader(std::string path, const bool allowFastInitialRe
     goToFileBrowser("/");
     return;
   }
+
+  // A note saved on the device may have been cut off mid-save: put its complete temp file back.
+  if (FsHelpers::hasMarkdownExtension(path)) vaultedit::recoverTmp(path);
 
   if (FsHelpers::hasCanvasExtension(path)) {
     auto activity = makeUniqueNoThrow<CanvasActivity>(renderer, mappedInput, std::move(path));

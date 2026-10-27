@@ -32,7 +32,10 @@ class EpubReaderMenuActivity final : public UiListActivity {
     DELETE_CACHE,
     DICTIONARY,
     BACKLINKS,
-    BACK  // a note: the note before it, else its folder (touch-only boards have no Back key)
+    NEW_NOTE,     // notes: a new note next to this one
+    RENAME_NOTE,  // notes: links to it are not rewritten
+    DELETE_NOTE,  // notes: to the vault's .trash
+    BACK          // a note: the note before it, else its folder (touch-only boards have no Back key)
   };
 
   struct MenuItem {

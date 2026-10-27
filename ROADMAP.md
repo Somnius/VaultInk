@@ -260,8 +260,17 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * Rough effort from research: 1-2 weeks, plus about 1 week for encryption. Not reliable until the
   encryption details are pinned with test vectors.
 
-## 💤 Phase 4 - Editing and LiveSync push
+## 🚧 Phase 4 - Editing and LiveSync push
 
+* ✅ (0.22.0) 4a, designs reviewed by Gemini and Grok: tap a task box to tick it (the converter
+  writes `task:<line>:<hash>` links, checked against the file before saving; works with touch
+  controls off), new / rename / delete note from the reading menu (delete goes to the vault's
+  `.trash`), saves through `.tmp` with recovery when the note opens, and a per-vault list of notes
+  changed on the device that the LiveSync pull respects (conflict copies, no deletes). Host tests
+  for the toggle and the pull; tick, new, rename and delete checked in the simulator.
+* ✅ (0.22.0) Debug logs to `/debug` on the SD card, opt-in (docs/debug-logs.md), for the
+  "screen turned on by itself" report from kos25k; every boot logs its wake and reset reason.
+* To do next: the line editor (4b), then push (4c), which also empties the changed list.
 * Touch keyboard editor (English + Greek; the Greek layout is done, 0.5.0), atomic save, task toggles, new/rename/delete.
 * Push with the plugin's chunker, conflict copies.
 * Rough effort from research: 2-4 weeks for push.

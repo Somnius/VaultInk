@@ -43,6 +43,7 @@
 #include "components/UIThemeTokens.h"
 #include "components/UiAppHelpers.h"
 #include "fontIds.h"
+#include "util/DebugLog.h"
 #include "util/PluginEvents.h"
 #include "util/VaultFiles.h"
 
@@ -115,6 +116,7 @@ void SettingsActivity::rebuildSettings() {
   // Language leads so a user stuck in an unfamiliar language finds it first.
   addAction(SettingsSection::General, StrId::STR_LANGUAGE, SettingAction::Language);
   addAction(SettingsSection::General, StrId::STR_KEYBOARD_LAYOUTS, SettingAction::KeyboardLayouts);
+  addAction(SettingsSection::General, StrId::STR_CLEAR_DEBUG_LOGS, SettingAction::ClearDebugLogs);
   addAction(SettingsSection::Reader, StrId::STR_TEXT_SETTINGS, SettingAction::TextSettings);
   addAction(SettingsSection::Reader, StrId::STR_MANAGE_FONTS, SettingAction::DownloadFonts);
   addAction(SettingsSection::Reader, StrId::STR_PAPER_CYCLE, SettingAction::PaperCycle);
@@ -421,6 +423,15 @@ void SettingsActivity::toggleSelectedSetting() {
         requestUpdate();
         return;
       }
+      case SettingAction::ClearDebugLogs:
+        debuglog::clear();
+        {
+          RenderLock lock(*this);
+          GUI.drawPopup(renderer, tr(STR_DEBUG_LOGS_CLEARED));
+        }
+        delay(800);
+        requestUpdate();
+        break;
       case SettingAction::PaperCycle:
         if (auto activity = makeUniqueNoThrow<PaperCycleActivity>(renderer, mappedInput)) {
           startActivityForResult(std::move(activity), nullptr);

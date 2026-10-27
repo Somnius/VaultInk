@@ -306,6 +306,10 @@ void LiveSyncActivity::syncNow() {
   if (ok) {
     snprintf(summary, sizeof(summary), tr(STR_LIVESYNC_DONE), stats.written, stats.trashed);
     profile.lastResult = summary;
+    if (stats.conflicts > 0) {
+      snprintf(summary, sizeof(summary), tr(STR_LIVESYNC_CONFLICTS), stats.conflicts);
+      profile.lastResult += summary;
+    }
   } else {
     profile.lastResult = error;
     // A certificate the device can't vouch for looks like a dead connection: say what to try.

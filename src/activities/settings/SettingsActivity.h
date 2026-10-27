@@ -31,6 +31,7 @@ enum class SettingAction {
   Plugins,
   KeyboardLayouts,
   PaperCycle,
+  ClearDebugLogs,
   HomeButton,
   About,
   WelcomeGuide,

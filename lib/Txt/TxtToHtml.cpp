@@ -9,7 +9,7 @@
 #include <cstring>
 
 const char* TxtToHtml::cacheVersionTag(std::string_view filename) {
-  return FsHelpers::hasMarkdownExtension(filename) ? "<!-- MD_CACHE_VERSION: 6 -->" : "<!-- TXT_CACHE_VERSION: 1 -->";
+  return FsHelpers::hasMarkdownExtension(filename) ? "<!-- MD_CACHE_VERSION: 7 -->" : "<!-- TXT_CACHE_VERSION: 1 -->";
 }
 
 size_t TxtToHtml::escapedHtmlSize(const std::string_view text) {
@@ -173,6 +173,7 @@ bool TxtToHtml::streamMarkdown(std::string_view filename, void* readerCtx,
   MarkdownToHtml converter(sink);
   if (images) converter.setImageResolver(*images);
   if (notes) converter.setNoteLoader(*notes);
+  converter.setTaskLinks(true);
   converter.begin(FsHelpers::getFileNameWithoutExtension(filename), cacheVersionTag(filename));
   bool first = true;
   int bytesRead = 0;

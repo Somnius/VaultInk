@@ -218,6 +218,7 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
       "sleepTimeoutMinutes", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_WELCOME_GUIDE_AFTER_UPDATES_SHORT, &CrossPointSettings::welcomeGuideAfterUpdates,
                            "welcomeGuideAfterUpdates", StrId::STR_CAT_SYSTEM));
+  emit(SettingInfo::Toggle(StrId::STR_DEBUG_LOGS, &CrossPointSettings::debugLogs, "debugLogs", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_SHOW_HIDDEN_FILES, &CrossPointSettings::showHiddenFiles, "showHiddenFiles",
                            StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_LIBRARY_USE_METADATA, &CrossPointSettings::libraryUseMetadata,

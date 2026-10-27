@@ -164,6 +164,11 @@ class EpubReaderActivity final : public ReaderActivity {
   void clearDeferredReposition();
   void rememberCurrentContentOffset();
   bool saveProgress(int spineIndex, int currentPage, int pageCount);
+  // Notes (Phase 4a): tick a task box, new / rename / delete the note.
+  void reopenNote(const std::string& path);
+  void toggleTask(const std::string& href);
+  void askNoteTitle(bool rename);
+  void confirmDeleteNote();
   void jumpToPercent(int percent);
   void onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action);
   int currentTocIndex() const;
