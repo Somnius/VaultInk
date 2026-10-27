@@ -203,6 +203,9 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   events): a column at the bottom right, clear of the gesture edges, with +, the zoom level
   (Fit, 2×, 4×, 8×), − and Fit; zoom is around the screen centre, a tap on the column never
   opens the card under it, and every 5 zoom taps (and every Fit) a full refresh clears ghosts.
+* ✅ (0.18.1) Back on screen, for boards without a Back key (X4 Pro, kos25k): « Back at the top
+  of a note's More menu (previous note, else the note's folder) and a « button on top of the
+  canvas controls. The left-edge swipe still works.
 * To do: a low-detail frame while dragging (panning today jumps by button or swipe, so there is
   no drag to speed up yet).
 

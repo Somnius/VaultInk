@@ -27,8 +27,9 @@ class CanvasActivity final : public Activity {
   bool drawImage(const canvas::Node& node, const std::string& imagePath, int x, int y, int w, int h) const;
   int toScreenX(int32_t x) const;
   int toScreenY(int32_t y) const;
-  // On-screen zoom controls, bottom right: +, the zoom level, −, Fit.
-  enum class Control { None, ZoomIn, ZoomOut, Fit };
+  // On-screen controls, bottom right: Back, +, the zoom level, −, Fit (the X4 Pro has no Back key).
+  enum class Control { None, Back, ZoomIn, ZoomOut, Fit };
+  void goBack();
   void drawControls() const;
   Control controlAt(int screenX, int screenY) const;
   void applyZoom(Control control);

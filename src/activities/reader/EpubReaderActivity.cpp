@@ -1245,6 +1245,10 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
           });
       break;
     }
+    case EpubReaderMenuActivity::MenuAction::BACK: {
+      if (!vaultnav::goBack()) activityManager.goToFileBrowser(bookPath);
+      return;
+    }
     case EpubReaderMenuActivity::MenuAction::BACKLINKS: {
       startActivityForResult(std::make_unique<VaultSearchActivity>(renderer, mappedInput, bookPath),
                              [this](const ActivityResult&) { requestUpdate(); });

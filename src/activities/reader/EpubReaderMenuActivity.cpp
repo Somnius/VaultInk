@@ -44,6 +44,9 @@ void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, const 
                                             const bool hasBookmarks, const bool hasClippings, const bool isVaultNote) {
   items.clear();
   items.reserve(MAX_MENU_ITEMS);
+  // A note gets Back first: on boards without a Back key (X4 Pro) the left-edge swipe is easy to
+  // miss, and Home would leave the vault.
+  if (isVaultNote) items.push_back({MenuAction::BACK, StrId::STR_BACK});
   items.push_back({MenuAction::SELECT_CHAPTER, StrId::STR_SELECT_CHAPTER});
   if (isVaultNote) items.push_back({MenuAction::BACKLINKS, StrId::STR_BACKLINKS});
   if (hasFootnotes) {

@@ -32,7 +32,7 @@ constexpr int CTRL_SIZE = 52;
 constexpr int CTRL_GAP = 6;
 constexpr int CTRL_RIGHT = 16;
 constexpr int CTRL_BOTTOM = 72;
-constexpr int CTRL_ROWS = 4;           // +, level, −, Fit
+constexpr int CTRL_ROWS = 5;           // Back, +, level, −, Fit
 constexpr int FULL_REFRESH_EVERY = 5;  // zoom taps between ghost-clearing refreshes
 
 // The last canvas's view, so Back from a card returns to the same pan and zoom.
@@ -339,13 +339,13 @@ void CanvasActivity::drawControls() const {
   } else {
     snprintf(level, sizeof(level), "%d\xc3\x97", static_cast<int>(zoom + 0.5f));  // "2×"
   }
-  const char* labels[CTRL_ROWS] = {"+", level, "\xe2\x88\x92", tr(STR_CANVAS_FIT)};  // + level − Fit
+  const char* labels[CTRL_ROWS] = {"\xc2\xab", "+", level, "\xe2\x88\x92", tr(STR_CANVAS_FIT)};  // « + level − Fit
   for (int i = 0; i < CTRL_ROWS; ++i) {
     const int y = top + i * (CTRL_SIZE + CTRL_GAP);
-    const bool button = i != 1;  // the level is a label, not a button
+    const bool button = i != 2;  // the level is a label, not a button
     renderer.fillRect(left, y, CTRL_SIZE, CTRL_SIZE, false);
     if (button) renderer.drawRect(left, y, CTRL_SIZE, CTRL_SIZE, 2, true);
-    const int font = i == 0 || i == 2 ? UI_12_FONT_ID : SMALL_FONT_ID;
+    const int font = i == 2 || i == 4 ? SMALL_FONT_ID : UI_12_FONT_ID;
     const int tw = renderer.getTextWidth(font, labels[i]);
     const int lh = renderer.getLineHeight(font);
     renderer.drawText(font, left + (CTRL_SIZE - tw) / 2, y + (CTRL_SIZE - lh) / 2, labels[i], true);
@@ -356,12 +356,21 @@ CanvasActivity::Control CanvasActivity::controlAt(const int screenX, const int s
   const int left = controlLeft(renderer), top = controlTop(renderer);
   if (screenX < left - CTRL_GAP || screenX > left + CTRL_SIZE + CTRL_GAP) return Control::None;
   const int row = (screenY - top) / (CTRL_SIZE + CTRL_GAP);
-  if (screenY < top || row >= CTRL_ROWS) return Control::None;
-  static constexpr Control ROWS[CTRL_ROWS] = {Control::ZoomIn, Control::None, Control::ZoomOut, Control::Fit};
+  if (screenY < top || row >= CTRL_ROWS || (screenY - top) % (CTRL_SIZE + CTRL_GAP) >= CTRL_SIZE) return Control::None;
+  static constexpr Control ROWS[CTRL_ROWS] = {Control::Back, Control::ZoomIn, Control::None, Control::ZoomOut,
+                                              Control::Fit};
   return ROWS[row];
 }
 
+void CanvasActivity::goBack() {
+  if (!vaultnav::goBack()) activityManager.goToFileBrowser(filePath);
+}
+
 void CanvasActivity::applyZoom(const Control control) {
+  if (control == Control::Back) {
+    goBack();
+    return;
+  }
   const int w = renderer.getScreenWidth(), h = renderer.getScreenHeight();
   if (control == Control::ZoomIn) zoomBy(2.0f, w / 2, h / 2);
   if (control == Control::ZoomOut) zoomBy(0.5f, w / 2, h / 2);
@@ -419,7 +428,7 @@ void CanvasActivity::openNode(const int index) {
 void CanvasActivity::loop() {
   Activity::loop();
   if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
-    if (!vaultnav::goBack()) activityManager.goToFileBrowser(filePath);
+    goBack();
     return;
   }
   if (!loaded) return;
