@@ -225,6 +225,7 @@ class EpubReaderActivity final : public ReaderActivity {
   uint8_t appliedOrientation = 0;
   uint8_t appliedPaper = 0;  // background of the page last drawn
   // A Markdown note (opened from a vault or Files): the menu offers backlinks.
+  bool hasOpenMenu() const override { return overlay != Overlay::None || overlayPopup.isActive(); }
   bool isVaultNote() const {
     return bookPath.size() > 3 && (bookPath.compare(bookPath.size() - 3, 3, ".md") == 0 ||
                                    bookPath.compare(bookPath.size() - 3, 3, ".MD") == 0);
