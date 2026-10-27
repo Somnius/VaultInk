@@ -113,6 +113,21 @@ TEST(VaultLink, DottedNoteNames) {
   EXPECT_EQ(vaultlink::fileNameFor(".profile"), ".profile.md");
 }
 
+TEST(VaultLink, PartialPathsMatchAnywhere) {
+  auto f = demoVault();
+  const auto fs = f.fs();
+  auto resolve = [&](const std::string& note) {
+    vaultlink::Target t{note, ""};
+    return vaultlink::resolve("/Vaults/Demo", "/Vaults/Demo", t, fs);
+  };
+  // "Old/Notes" lives at Books/Old/Notes.md: the path's end matches, like in Obsidian.
+  EXPECT_EQ(resolve("Old/Notes"), "/Vaults/Demo/Books/Old/Notes.md");
+  EXPECT_EQ(resolve("old/notes"), "/Vaults/Demo/Books/Old/Notes.md");
+  // Only whole folder names: "ld/Notes" is not "Old/Notes".
+  EXPECT_EQ(resolve("ld/Notes"), "");
+  EXPECT_EQ(resolve("Nope/Notes"), "");
+}
+
 TEST(VaultLink, IndexFileListBeforeScan) {
   auto f = demoVault();
   auto fs = f.fs();

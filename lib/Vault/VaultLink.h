@@ -37,10 +37,11 @@ struct Fs {
 std::string vaultRoot(const std::string& notePath, const Fs& fs);
 
 // Full path of the file `target` points to, or "" if it doesn't exist. A target with a '/' is a
-// path from the vault root (or, failing that, from the current note's folder). A bare name is
-// looked for in the current note's folder first, then everywhere in the vault, shortest path
-// first. Dot folders (.obsidian, .trash) are skipped; at most `maxEntries` entries are looked at.
-// With `fs.known`, a bare name is looked up in the index's file list first; the scan runs only when
+// path from the vault root, then from the current note's folder, then (like Obsidian) the end of
+// any path in the vault ("People/Anna" finds "Notes/People/Anna.md"). A bare name is looked for
+// in the current note's folder first, then everywhere in the vault, shortest path first. Dot
+// folders (.obsidian, .trash) are skipped; at most `maxEntries` entries are looked at.
+// With `fs.known`, the search uses the index's file list first; the scan runs only when
 // the list has no match that still exists (no list yet, or a file added since it was written).
 std::string resolve(const std::string& root, const std::string& currentDir, const Target& target, const Fs& fs,
                     size_t maxEntries = 20000);

@@ -159,7 +159,7 @@ int TextBlock::renderFontId(const GfxRenderer& renderer, const int fontId, const
 
 int TextBlock::wordFontId(const uint16_t i, const int sectionFontId) const {
   if (!wordFontData) return blockFontId(sectionFontId);
-  const uint8_t slot = wordFontData[sizeof(int32_t) * MAX_WORD_FONTS + i] & ~SMALL_CAPS_SLOT_FLAG;
+  const uint8_t slot = wordFontData[sizeof(int32_t) * MAX_WORD_FONTS + i] & ~SLOT_FLAGS;
   if (slot == 0) return blockFontId(sectionFontId);
   int32_t font = 0;
   memcpy(&font, wordFontData.get() + sizeof(int32_t) * (slot - 1), sizeof(font));
@@ -341,6 +341,19 @@ void TextBlock::render(const GfxRenderer& renderer, const int sectionFontId, con
     }
 
     const int drawX = wordX;
+
+    // Highlight: light gray behind the word, and behind the space to the next highlighted word,
+    // drawn first so the text stays black on top. Only in the black-and-white pass: the
+    // anti-aliasing passes would gray the letters too.
+    if ((currentStyle & EpdFontFamily::HIGHLIGHT) != 0 && renderer.getRenderMode() == GfxRenderer::BW) {
+      int fillWidth = renderer.getTextAdvanceX(wordFont, word, currentStyle, tracking, baseDir,
+                                               GfxRenderer::TextMeasureMode::Rendered);
+      if (i + 1 < numWords && (wordStyle(i + 1) & EpdFontFamily::HIGHLIGHT) != 0 && xposArr[i + 1] > xposArr[i]) {
+        fillWidth = std::max(fillWidth, xposArr[i + 1] - xposArr[i]);
+      }
+      const int top = y + rubyShift;
+      renderer.fillRectDither(drawX, top, fillWidth, renderer.getLineHeight(fontId), Color::LightGray);
+    }
 
     if (boundary > 0) {
       // Focus split: draw bold prefix, then the regular suffix at a pre-computed x offset.
@@ -624,7 +637,7 @@ std::unique_ptr<TextBlock> TextBlock::deserialize(HalFile& file) {
     }
     const uint8_t* slots = block->wordFontData.get() + sizeof(int32_t) * MAX_WORD_FONTS;
     for (uint16_t i = 0; i < wc; ++i) {
-      const uint8_t slot = slots[i] & ~SMALL_CAPS_SLOT_FLAG;
+      const uint8_t slot = slots[i] & ~SLOT_FLAGS;
       int32_t font = 1;
       if (slot > 0 && slot <= MAX_WORD_FONTS) {
         memcpy(&font, block->wordFontData.get() + sizeof(int32_t) * (slot - 1), sizeof(font));

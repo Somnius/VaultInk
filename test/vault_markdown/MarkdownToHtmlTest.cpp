@@ -60,7 +60,7 @@ TEST(VaultMarkdown, ParagraphsKeepLineBreaks) {
 }
 
 TEST(VaultMarkdown, Emphasis) {
-  EXPECT_EQ(inlineHtml("**b** *i* ***bi*** ~~s~~ ==h=="), "<b>b</b> <i>i</i> <b><i>bi</i></b> <s>s</s> <u>h</u>");
+  EXPECT_EQ(inlineHtml("**b** *i* ***bi*** ~~s~~ ==h=="), "<b>b</b> <i>i</i> <b><i>bi</i></b> <s>s</s> <mark>h</mark>");
   EXPECT_EQ(inlineHtml("snake_case_name"), "snake_case_name");
   EXPECT_EQ(inlineHtml("2 * 3 * 4"), "2 * 3 * 4");
 }

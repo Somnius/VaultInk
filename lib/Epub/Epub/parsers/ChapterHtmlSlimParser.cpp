@@ -58,6 +58,7 @@ constexpr const char* BOLD_TAGS[] = {"b", "strong"};
 constexpr const char* ITALIC_TAGS[] = {"i", "em"};
 constexpr const char* UNDERLINE_TAGS[] = {"u", "ins"};
 constexpr const char* LINETHROUGH_TAGS[] = {"del", "s", "strike"};
+constexpr const char* HIGHLIGHT_TAGS[] = {"mark"};
 constexpr const char* IMAGE_TAGS[] = {"img", "image"};
 bool isWhitespace(const char c) { return c == ' ' || c == '\r' || c == '\n' || c == '\t'; }
 
@@ -161,6 +162,9 @@ EpdFontFamily::Style ChapterHtmlSlimParser::fontStyleForTextDecoration(const Css
   }
   if ((decoration & CssTextDecoration::LineThrough) != CssTextDecoration::None) {
     style = static_cast<EpdFontFamily::Style>(style | EpdFontFamily::STRIKETHROUGH);
+  }
+  if ((decoration & CssTextDecoration::Highlight) != CssTextDecoration::None) {
+    style = static_cast<EpdFontFamily::Style>(style | EpdFontFamily::HIGHLIGHT);
   }
   return style;
 }
@@ -2139,6 +2143,12 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
       self->nextWordContinues = true;
     }
     self->pushDecorationStyleEntry(CssTextDecoration::LineThrough, cssStyle);
+  } else if (matches(name, HIGHLIGHT_TAGS, std::size(HIGHLIGHT_TAGS))) {
+    if (self->partWordBufferIndex > 0) {
+      self->flushPartWordBuffer();
+      self->nextWordContinues = true;
+    }
+    self->pushDecorationStyleEntry(CssTextDecoration::Highlight, cssStyle);
   } else if (matches(name, BOLD_TAGS, std::size(BOLD_TAGS))) {
     // Flush buffer before style change so preceding text gets current style
     if (self->partWordBufferIndex > 0) {
@@ -2641,7 +2651,8 @@ void XMLCALL ChapterHtmlSlimParser::endElement(void* userData, const XML_Char* n
     const bool shouldFlush = styleWillChange || headerOrBlockTag || matches(name, BOLD_TAGS, std::size(BOLD_TAGS)) ||
                              matches(name, ITALIC_TAGS, std::size(ITALIC_TAGS)) ||
                              matches(name, UNDERLINE_TAGS, std::size(UNDERLINE_TAGS)) ||
-                             matches(name, LINETHROUGH_TAGS, std::size(LINETHROUGH_TAGS)) || tableStructuralTag ||
+                             matches(name, LINETHROUGH_TAGS, std::size(LINETHROUGH_TAGS)) ||
+                             matches(name, HIGHLIGHT_TAGS, std::size(HIGHLIGHT_TAGS)) || tableStructuralTag ||
                              matches(name, IMAGE_TAGS, std::size(IMAGE_TAGS)) || self->depth == 1;
 
     if (shouldFlush) {

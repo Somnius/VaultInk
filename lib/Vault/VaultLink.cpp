@@ -102,23 +102,29 @@ std::string resolve(const std::string& root, const std::string& currentDir, cons
 namespace {
 std::string resolveFile(const std::string& root, const std::string& currentDir, const std::string& file, const Fs& fs,
                         const size_t maxEntries) {
-  if (file.find('/') != std::string::npos) {
+  // A path ("People/Anna") is tried from the vault root and the note's folder, then, like Obsidian,
+  // matched as the end of any path in the vault; a bare name is tried in the note's folder first.
+  const bool hasPath = file.find('/') != std::string::npos;
+  if (hasPath) {
     for (const std::string& base : {root, currentDir}) {
       const std::string path = join(base, file);
       if (fs.exists(path)) return path;
     }
-    return {};
+  } else {
+    const std::string local = join(currentDir, file);
+    if (fs.exists(local)) return local;
   }
-  const std::string local = join(currentDir, file);
-  if (fs.exists(local)) return local;
+  const auto endsWithFile = [&file](std::string_view path) {
+    return path.size() > file.size() && path[path.size() - file.size() - 1] == '/' &&
+           sameName(path.substr(path.size() - file.size()), file);
+  };
 
   if (fs.known) {
     // The list is in scan order, so the first name found at the fewest folders deep wins.
     std::string best;
     long bestDepth = 0;
     fs.known(root, [&](std::string_view path) {
-      const size_t slash = path.find_last_of('/');
-      if (slash == std::string_view::npos || !sameName(path.substr(slash + 1), file)) return;
+      if (!endsWithFile(path)) return;
       const long depth = std::count(path.begin(), path.end(), '/');
       if (best.empty() || depth < bestDepth) {
         best = std::string(path);
@@ -129,19 +135,20 @@ std::string resolveFile(const std::string& root, const std::string& currentDir, 
   }
 
   // Breadth-first, so the first match is the one with the shortest path.
+  const std::string name = hasPath ? file.substr(file.find_last_of('/') + 1) : file;
   std::deque<std::string> dirs{root};
   size_t seen = 0;
   while (!dirs.empty() && seen < maxEntries) {
     const std::string dir = dirs.front();
     dirs.pop_front();
     std::string found;
-    fs.list(dir, [&](const std::string& name, const bool isDir) {
+    fs.list(dir, [&](const std::string& entry, const bool isDir) {
       ++seen;
-      if (!found.empty() || name.empty() || name[0] == '.') return;
+      if (!found.empty() || entry.empty() || entry[0] == '.') return;
       if (isDir) {
-        dirs.push_back(join(dir, name));
-      } else if (sameName(name, file)) {
-        found = join(dir, name);
+        dirs.push_back(join(dir, entry));
+      } else if (sameName(entry, name) && endsWithFile(join(dir, entry))) {
+        found = join(dir, entry);
       }
     });
     if (!found.empty()) return found;

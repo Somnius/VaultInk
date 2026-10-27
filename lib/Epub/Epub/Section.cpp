@@ -79,7 +79,7 @@ namespace {
 // v69: Greek words hyphenate with the Greek patterns whatever the book language says.
 // v70: polytonic Greek words hyphenate with the polytonic patterns.
 // v71: the built-in reading fonts gained Greek, so Greek words change width.
-constexpr uint8_t SECTION_FILE_VERSION = 73;  // 73: Greek hyphenation minima 1/1
+constexpr uint8_t SECTION_FILE_VERSION = 74;  // 74: highlight flag in word slots
 // Written into the version field while a build is in progress; patched to
 // SECTION_FILE_VERSION only when the build is finalized. An abandoned /
 // crash-interrupted .bin therefore carries version 0, which loadSectionFile rejects

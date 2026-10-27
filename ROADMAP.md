@@ -84,7 +84,8 @@ and host tests.
   under its title, one level, up to 32 KB). ✅ (0.10.0) Heading and block embeds:
   `![[Note#Heading]]` shows that heading's section, `![[Note#^id]]` the list item or paragraph
   with that block id (the whole note when the anchor isn't found). To do: a note's cache isn't rebuilt when only an
-  embedded note changes; `==highlight==` shows as an underline (same as links). ✅ (0.11.0)
+  embedded note changes. ✅ (0.13.0) `==highlight==` is a light gray band behind the text
+  (like Kindle and Kobo), not an underline, so it doesn't look like a link or cut descenders. ✅ (0.11.0)
   Callouts are a framed box with the title in bold.
 * Note reader with links, back stack, image and note embeds, block refs.
 * 🚧 Index on SD, incremental, for vaults of 60 MB and more. ✅ Search index per vault (title,
@@ -103,8 +104,9 @@ never in the repo) open and render every feature they use (SPECS.md 5.1) in the 
 every note converts, and all 3,376 links, 79 images, 7 note embeds and 126 heading/block anchors
 resolve; the simulator indexes both (281 + 38 notes) and renders their notes. The check found one
 bug, fixed in 0.10.1: link names with a dot ("Dr. Smith", titles ending in "…") were taken for
-files with an extension. Still open before this is fully done:
-`==highlight==` look, canvases (not shown), and a third vault (a friend's, not used without asking Lef).
+files with an extension. ✅ (0.13.0) A third vault too (a friend's, with Lef's OK): its partial-path links (`Folder/Note`
+for a note several folders deeper) didn't resolve; they now match the end of any path, like
+Obsidian (2,133 unresolved -> 92, left: links to folders and old Logseq paths). Canvases are Phase 2.
 
 ## 🚧 Phase 1b - New home, menus and reading stats
 
@@ -209,7 +211,8 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 The first versions talk to the device over Wi-Fi through its existing web server; Bluetooth comes
 with Phase 5. Kotlin, Android only.
 
-* Separate repo Somnius/VaultInk-Companion (`com.lefteros.vaultink`).
+* In this repo, `companion/` (`com.lefteros.vaultink`), its own releases tagged `companion-x.y.z`,
+  never marked Latest (the device's update check reads the latest release).
 * Type into the device, quick notes, settings, signed APKs with an in-app update checker.
 * Bring notes in: convert to Markdown into a vault folder (e.g. `Imported/Keep/`). Order:
   Android share target (any app) -> Google Keep (Takeout) -> Samsung Notes (`.sdocx` export) ->

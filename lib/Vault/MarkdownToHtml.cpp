@@ -111,7 +111,7 @@ struct Emphasis {
   const char* marker;
   const char* tag;
 };
-constexpr Emphasis EMPHASES[] = {{"**", "b"}, {"__", "b"}, {"~~", "s"}, {"==", "u"}, {"*", "i"}, {"_", "i"}};
+constexpr Emphasis EMPHASES[] = {{"**", "b"}, {"__", "b"}, {"~~", "s"}, {"==", "mark"}, {"*", "i"}, {"_", "i"}};
 
 }  // namespace
 

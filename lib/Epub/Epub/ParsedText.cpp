@@ -467,13 +467,15 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
     words.push_back(stored);
     // Small caps share the style byte's high bit with the discretionary-hyphen flag, so it
     // rides in the size slot instead.
-    wordStyles.push_back(static_cast<EpdFontFamily::Style>(style & ~EpdFontFamily::SMALL_CAPS));
+    wordStyles.push_back(
+        static_cast<EpdFontFamily::Style>(style & ~(EpdFontFamily::SMALL_CAPS | EpdFontFamily::HIGHLIGHT)));
     wordContinues.push_back(continues);
     wordNoSpaceBefore.push_back(noSpaceBefore);
     wordFocusBoundary.push_back(focusBoundary);
     wordLinkIds.push_back(linkId);
     wordSizeSlots.push_back(
-        static_cast<uint8_t>(sizeSlot | ((style & EpdFontFamily::SMALL_CAPS) ? TextBlock::SMALL_CAPS_SLOT_FLAG : 0)));
+        static_cast<uint8_t>(sizeSlot | ((style & EpdFontFamily::SMALL_CAPS) ? TextBlock::SMALL_CAPS_SLOT_FLAG : 0) |
+                             ((style & EpdFontFamily::HIGHLIGHT) ? TextBlock::HIGHLIGHT_SLOT_FLAG : 0)));
     pushVisibleOffset(tokenOffset);
     if (padRuby && !rubyTexts.empty()) {
       rubyTexts.push_back("");
@@ -957,7 +959,7 @@ int ParsedText::calculateRubyExtraEndOffset(const size_t lineStartIdx, const siz
 }
 
 int ParsedText::wordFontId(const size_t wordIndex, const int blockFontId) const {
-  const uint8_t slot = wordSizeSlots[wordIndex] & ~TextBlock::SMALL_CAPS_SLOT_FLAG;
+  const uint8_t slot = wordSizeSlots[wordIndex] & ~TextBlock::SLOT_FLAGS;
   return slot == 0 || sizeSlotFontIds[slot] == 0 ? blockFontId : sizeSlotFontIds[slot];
 }
 
@@ -1829,7 +1831,7 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
         if (slot > TextBlock::MAX_WORD_FONTS) slot = 0;
         if (slot > 0) fonts[slot - 1] = wordFont;
       }
-      slots[i] = static_cast<uint8_t>(slot | (wordSizeSlots[logical] & TextBlock::SMALL_CAPS_SLOT_FLAG));
+      slots[i] = static_cast<uint8_t>(slot | (wordSizeSlots[logical] & TextBlock::SLOT_FLAGS));
       mixed = mixed || slots[i] != 0;
     }
     return !mixed || block.setWordFonts(slots, fonts);
