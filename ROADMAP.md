@@ -123,12 +123,12 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * ✅ Settings grouped by task (Reading, Device).
 * ✅ Search row on home.
 * 🚧 Counts on the home rows: ✅ (0.12.0) Books ("128 books · recent reads", from the library index
-  when it exists) and Vaults ("2 Obsidian vaults on the SD card"). To do: current values in the
-  settings rows.
+  when it exists) and Vaults ("2 Obsidian vaults on the SD card"). ✅ (0.15.0) Settings rows show
+  their current value, now also the sub-screens: Text Settings ("Noto Sans 14") and Language.
 * Built as a new home style and made the default; CrossPoint's styles stay selectable for now.
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
-  done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:
-  progress from the XTC/TXT readers, Sync tile (Phase 3).
+  done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB, TXT or note
+  (they share the EPUB reader), and ✅ (0.15.0) over an XTC book. To do: Sync tile (Phase 3).
 * ⏳ Dimmer lowest light (kos25k): tried in 0.8.11 as 11-bit PWM at 25 kHz; on his device the light
   then neither changed nor switched off, so 0.8.11 was withdrawn and reverted. Next: find why the
   11-bit LEDC setup fails on the device (clock source / ledcAttach result) before trying again.

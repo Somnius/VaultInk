@@ -488,6 +488,16 @@ void SettingsActivity::openSleepTimeoutPicker() {
 
 std::string SettingsActivity::settingValueText(const SettingInfo& setting) {
   if (setting.action == SettingAction::HomeButton) return tr(STR_CONFIGURE);
+  // Sub-screens show their current value too: the reading font and size, the language.
+  if (setting.action == SettingAction::TextSettings) {
+    std::string family = SETTINGS.sdFontFamilyName[0] ? SETTINGS.sdFontFamilyName : tr(STR_NOTO_SANS);
+    if (family.size() > 20) {  // keep the size visible next to a long family name
+      while (family.size() > 19) utf8RemoveLastChar(family);
+      family += "…";
+    }
+    return family + " " + std::to_string(SETTINGS.fontPointSize);
+  }
+  if (setting.action == SettingAction::Language) return I18N.getLanguageName(I18N.getLanguage());
   if (setting.action == SettingAction::Plugins) return SETTINGS.pluginsEnabled ? tr(STR_ENABLED) : tr(STR_DISABLED);
   if (setting.type == SettingType::ENUM && setting.valuePtr != nullptr) {
     // Guard like the valueGetter branch below: a corrupt/migrated settings

@@ -15,6 +15,7 @@
 #include "XtcReaderChapterSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/BookProgress.h"
 
 bool XtcReaderActivity::loadBook() {
   auto loadedXtc = makeUniqueNoThrow<Xtc>(bookPath, "/.crosspoint");
@@ -68,6 +69,7 @@ void XtcReaderActivity::renderBook() {
 
   renderPage();
   saveProgress();
+  publishLiveBookProgress(getScreenshotInfo().progressPercent);  // for the quick-settings card
 }
 
 XtcReaderActivity::StatusBarInfo XtcReaderActivity::getStatusBarInfo() const {
