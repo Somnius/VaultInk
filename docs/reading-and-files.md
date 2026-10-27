@@ -84,7 +84,8 @@ The details:
 - Moving or renaming a **book** takes its reading position, bookmarks, clippings and recent-books
   entry with it.
 - Moving or renaming a **folder** is one rename on the card. Books inside it start again from the
-  beginning (their caches are rebuilt), and a vault's search index is rebuilt the next time you
-  open it. Carrying their state along is on the roadmap.
+  beginning (their caches are rebuilt), and a vault's search index is built again the next time
+  you search it or open backlinks. Carrying their state along is on the roadmap.
 - Copying doesn't copy reading positions. The copy is a new book.
-- New folder needs a name that is safe on the SD card (no `/`, `\` or control characters).
+- A new folder's name can't contain `/` or `\`, or be `.` or `..`. Names the SD card refuses
+  (like `:` or `?`) give the "Could not create the folder" message.
