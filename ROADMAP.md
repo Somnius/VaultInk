@@ -117,7 +117,9 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * ✅ Home with Books and Vaults first, then the rest, as the new default style.
 * ✅ Settings grouped by task (Reading, Device).
 * ✅ Search row on home.
-* ⏳ Counts on the home rows (e.g. "128 books"), current values in the settings rows.
+* 🚧 Counts on the home rows: ✅ (0.12.0) Books ("128 books · recent reads", from the library index
+  when it exists) and Vaults ("2 Obsidian vaults on the SD card"). To do: current values in the
+  settings rows.
 * Built as a new home style and made the default; CrossPoint's styles stay selectable for now.
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:

@@ -25,6 +25,7 @@
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/VaultFiles.h"
 
 int HomeActivity::getMenuItemCount() const {
   int count = 4;  // File Browser, Library, File transfer, Settings
@@ -246,6 +247,12 @@ void HomeActivity::onEnter() {
     loadRecentBooks(1);
     hasContinueReading = !recentBooks.empty();
     vaultInkUi->begin(recentBooks, hasContinueReading, hasLibrarySlot(), hasPlugins);
+    {
+      // Only an index that already exists: home never waits for a library rebuild.
+      auto index = makeUniqueNoThrow<library::LibraryIndexFile>();
+      const int books = index && index->open(library::libraryIndexPath()) ? index->bookCount() : -1;
+      vaultInkUi->setCounts(books, static_cast<int>(vaultfiles::findVaults().size()));
+    }
     selectorIndex = vaultInkUi->indexFor(initialMenuItem);
     requestUpdate();
     return;

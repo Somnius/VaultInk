@@ -172,6 +172,16 @@ void VaultInkHomeUi::drawCard(UiScreen& screen, fui::Rect rect) {
   fui::bookCard(screen.frame(), rect, card);
 }
 
+void VaultInkHomeUi::setCounts(const int books, const int vaults) {
+  booksText[0] = vaultsText[0] = '\0';
+  if (books > 0) {
+    snprintf(booksText, sizeof(booksText), books == 1 ? tr(STR_HOME_BOOKS_ONE) : tr(STR_HOME_BOOKS_COUNT), books);
+  }
+  if (vaults > 0) {
+    snprintf(vaultsText, sizeof(vaultsText), vaults == 1 ? tr(STR_HOME_VAULTS_ONE) : tr(STR_HOME_VAULTS_COUNT), vaults);
+  }
+}
+
 void VaultInkHomeUi::drawRows(UiScreen& screen) {
   const auto& theme = screen.theme();
   for (int i = 0; i < rowCount; ++i) {
@@ -181,12 +191,12 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
     switch (rows[i]) {
       case Row::Books:
         item.label = tr(STR_HOME_BOOKS);
-        item.subtitle = tr(STR_HOME_BOOKS_DESC);
+        item.subtitle = booksText[0] ? booksText : tr(STR_HOME_BOOKS_DESC);
         item.icon = fui::bitmapFromIcon(icon_book_open_32);
         break;
       case Row::Vaults:
         item.label = tr(STR_VAULTS);
-        item.subtitle = tr(STR_HOME_VAULTS_DESC);
+        item.subtitle = vaultsText[0] ? vaultsText : tr(STR_HOME_VAULTS_DESC);
         item.icon = fui::bitmapFromIcon(icon_vault_32);
         break;
       case Row::Search:

@@ -24,6 +24,8 @@ class VaultInkHomeUi final : public UiAppHost {
   void begin(const std::vector<RecentBook>& books, bool hasContinueReading, bool hasLibrarySlot, bool usePlugins);
   void refreshCoverPath();
   void setSelection(int selection) { selected = selection; }
+  // Counts shown on the Books and Vaults rows; 0 or less keeps the plain description.
+  void setCounts(int books, int vaults);
   int itemCount() const { return cardCount() + rowCount; }
   // Flat index of the row for a home menu item (returning from that screen), else 0.
   int indexFor(HomeMenuItem item) const;
@@ -52,6 +54,8 @@ class VaultInkHomeUi final : public UiAppHost {
   int progress = -1;
   bool hasContinueReading = false;
   char progressText[12]{};
+  char booksText[64]{};
+  char vaultsText[64]{};
   std::array<Row, MAX_ROWS> rows{};
   int rowCount = 0;
   bool usePlugins = false;
