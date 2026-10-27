@@ -35,10 +35,10 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Early days.** Version 0.8.2 opens your vaults, reads their notes, links and images, Greek
+> **Early days.** Version 0.8.3 opens your vaults, reads their notes, links and images, Greek
 > included, and searches them. Sync isn't in yet. First device test: kos25k ran 0.7.0 on his reader. It boots, and the menus
-> and quick settings work. The two issues he found are fixed in 0.8.1 and 0.8.2, not yet re-tested
-> on the device. Vaults, search and the rest are only tested in the simulator so far. All the screenshots below
+> and quick settings work. He has since moved to 0.8.2 and found a third issue (backgrounds faded the page), fixed in
+> 0.8.3. Vaults, search and the rest are only tested in the simulator so far. All the screenshots below
 > come from the simulator. Please don't flash this onto your daily reader yet.
 
 ## Screenshots
@@ -74,6 +74,9 @@ the Greek interface the keyboard opens in Greek.
 Swipe down from the top for quick settings, then tap the paper tile to change the page background
 under the text. It's also under **Settings → Reader → Page Background**. The choices are plain,
 paper, sandpaper, papyrus (soft, medium and hard), toilet paper, kitchen paper and bath towel.
+
+While a background is on, text anti-aliasing is switched off, so the letters stay sharp on the
+real screen.
 
 This one is mostly for fun 😄. Plain is the default and the easiest to read, but the papyrus ones
 are actually nice for a long read. The idea came from kos25k.

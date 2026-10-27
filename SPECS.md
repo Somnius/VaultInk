@@ -103,6 +103,8 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   hard, toilet paper, kitchen paper, bath towel. Drawn as dots under the text in the B/W frame,
   computed from the pixel position (no memory, same on every page). Settings → Reader → Page
   Background, and a quick-settings tile that names the current one. EPUB and notes; not XTC.
+  Text anti-aliasing is skipped while a background is on (0.8.3): on UC8279 X4 Pro panels the AA
+  pass faded dotted pages.
 - On-screen keyboard: English and Greek (from the FreeInk SDK, Greek layout added in Lef's fork
   until upstream takes it). Opens in the UI language's layout; the globe key switches. Greek vowels
   hold for tonos, ϊ/ϋ keys hold for ΐ/ΰ.

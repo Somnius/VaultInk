@@ -46,11 +46,12 @@ and host tests.
   SD card, put the app bin (not factory) on it, boot mode (Power + both page buttons, from Lef),
   what erasing wipes; X4/X3 point to CrossPoint, since VaultInk
   is X4 Pro only.
-* ✅ Test builds 0.2.0 to 0.8.2 published (web installer and GitHub releases, marked untested); the
+* ✅ Test builds 0.2.0 to 0.8.3 published (web installer and GitHub releases, marked untested); the
   deploy script makes the release too, so the device's update check sees each one.
-* 🚧 Device testing, by kos25k: 0.7.0 runs on his reader (boots, menus, quick settings, System
+* 🚧 Device testing, by kos25k (X4 Pro, UC8279 display controller, GT911 touch, now on 0.8.2): 0.7.0 runs on his reader (boots, menus, quick settings, System
   settings, language list). Found: Greek hard to find in the language list (fixed 0.8.1), paper tile
-  could rotate the book (fixed 0.8.2); both fixes not yet re-tested on the device. Not tested on the
+  could rotate the book (fixed 0.8.2, rotation confirmed fixed on 0.8.2); backgrounds faded the page with text
+  anti-aliasing on (fixed 0.8.3, not yet re-tested). Not tested on the
   device yet: vaults, notes, search, backlinks, keyboard, page backgrounds, Wi-Fi update, timing.
 * ⏳ First hardware-tested release, once the X4 Pro arrives and passes the hardware checks below.
 
@@ -107,6 +108,9 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB. To do:
   progress from the XTC/TXT readers, Sync tile (Phase 3).
+* ✅ Fix (0.8.3, found by kos25k on a UC8279 X4 Pro): with a page background on, the text
+  anti-aliasing pass faded the whole page, text included. AA is now skipped while a background is
+  on (with AA off he saw the page stay sharp).
 * ✅ Fix (0.8.2, reported by kos25k on the device): taps on the paper tile could land on the rotate
   tile above it and turn the book upside down. Unlabelled tiles now answer only on their circle,
   and the rows are further apart.

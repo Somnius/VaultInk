@@ -2105,7 +2105,10 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   const bool manualRefreshPending = forcedRefreshPending;
   forcedRefreshPending = false;
   const bool cleanImageBasePending = manualRefreshPending || pagesUntilFullRefresh <= 1;
-  const bool needsTextGrayscale = SETTINGS.textAntiAliasing;
+  // No text anti-aliasing over a page background: on UC8279 X4 Pro units the AA pass re-drives
+  // every pixel with a waveform tuned for white pages, and a dotted page comes out faded, text
+  // included (seen by kos25k on 0.8.2; fine with AA off). The dots already texture the page.
+  const bool needsTextGrayscale = SETTINGS.textAntiAliasing && SETTINGS.readingPaper == paper_texture::PLAIN;
   const bool needsAnyGrayscale = needsTextGrayscale || (pageHasImages && !BoardConfig::isEegoA4());
   const bool absoluteImageGrayscale = pageHasImages && !gpio.deviceIsX3() &&
                                       display.getController() == HalDisplay::Controller::UC8279 &&
