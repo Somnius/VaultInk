@@ -35,7 +35,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Early days.** Version 0.8.3 opens your vaults, reads their notes, links and images, Greek
+> **Early days.** Version 0.8.4 opens your vaults, reads their notes, links and images, Greek
 > included, and searches them. Sync isn't in yet. First device test: kos25k ran 0.7.0 on his reader. It boots, and the menus
 > and quick settings work. He has since moved to 0.8.2 and found a third issue (backgrounds faded the page), fixed in
 > 0.8.3. Vaults, search and the rest are only tested in the simulator so far. All the screenshots below

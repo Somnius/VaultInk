@@ -1147,7 +1147,8 @@ void CrossPointWebServer::handleMove() const {
   }
   if (destPath != "/") {
     const String destName = destPath.substring(destPath.lastIndexOf('/') + 1);
-    if (isProtectedItemName(destName)) {
+    // /.fonts is the reader's font folder: hidden, but user content, so fonts may be moved in.
+    if (isProtectedItemName(destName) && destPath != "/.fonts") {
       server->send(403, "text/plain", "Cannot move into protected folder");
       return;
     }
