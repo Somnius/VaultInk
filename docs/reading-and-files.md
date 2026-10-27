@@ -87,5 +87,5 @@ The details:
   beginning (their caches are rebuilt), and a vault's search index is built again the next time
   you search it or open backlinks. Carrying their state along is on the roadmap.
 - Copying doesn't copy reading positions. The copy is a new book.
-- A new folder's name can't contain `/` or `\`, or be `.` or `..`. Names the SD card refuses
-  (like `:` or `?`) give the "Could not create the folder" message.
+- A new folder's name can't contain `/` or `\`, or be `.` or `..`. If the SD card refuses
+  the name, you get "Could not create the folder".
