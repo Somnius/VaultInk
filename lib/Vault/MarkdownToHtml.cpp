@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "VaultLink.h"
+
 namespace {
 
 bool isSpace(const char c) { return c == ' ' || c == '\t'; }
@@ -123,6 +125,53 @@ std::string MarkdownToHtml::headingId(std::string_view text) {
     }
   }
   return id;
+}
+
+std::string_view MarkdownToHtml::section(const std::string_view note, const std::string_view anchor) {
+  if (anchor.empty()) return note;
+  const bool block = anchor.front() == '^';
+  const std::string wanted = block ? std::string(anchor) : headingId(anchor);
+  bool fence = false;
+  size_t paraStart = 0;  // first line of the current paragraph
+  size_t start = std::string_view::npos;
+  int level = 0;
+  for (size_t pos = 0; pos < note.size();) {
+    const size_t nl = note.find('\n', pos);
+    const size_t end = nl == std::string_view::npos ? note.size() : nl;
+    const size_t next = nl == std::string_view::npos ? note.size() : nl + 1;
+    std::string_view lineText = note.substr(pos, end - pos);
+    if (!lineText.empty() && lineText.back() == '\r') lineText.remove_suffix(1);  // CRLF notes
+    const std::string_view t = trim(lineText);
+    const bool fenceLine = startsWith(t, "```") || startsWith(t, "~~~");
+    if (fenceLine) fence = !fence;
+    // ATX headings only (the renderer has no setext ones); 4+ spaces of indent is code.
+    int hashes = 0;
+    const bool indented = lineText.find_first_not_of(' ') >= 4;
+    while (!fence && !indented && hashes < static_cast<int>(t.size()) && t[hashes] == '#') ++hashes;
+    const bool heading = hashes >= 1 && hashes <= 6 && static_cast<size_t>(hashes) < t.size() && t[hashes] == ' ';
+    if (start != std::string_view::npos) {
+      if (heading && hashes <= level) return note.substr(start, pos - start);
+    } else if (block) {
+      if (t.empty() || heading || fence || fenceLine) {  // a paragraph starts after these
+        paraStart = next;
+      } else if (wanted.size() > 1 && t.size() > wanted.size() && t.substr(t.size() - wanted.size()) == wanted &&
+                 t[t.size() - wanted.size() - 1] == ' ') {
+        // A list item is embedded alone ("- ", "* ", "+ ", "1. ", "1) "); its sub-items are not.
+        size_t digits = 0;
+        while (digits < t.size() && std::isdigit(static_cast<unsigned char>(t[digits]))) ++digits;
+        const bool item =
+            (t.size() > 1 && (t[0] == '-' || t[0] == '*' || t[0] == '+') && t[1] == ' ') ||
+            (digits > 0 && digits + 1 < t.size() && (t[digits] == '.' || t[digits] == ')') && t[digits + 1] == ' ');
+        const size_t from = item ? pos : paraStart;
+        return note.substr(from, pos + lineText.size() - from);
+      }
+    } else if (heading && vaultlink::sameName(headingId(t.substr(hashes + 1)), wanted)) {
+      start = pos;
+      level = hashes;
+    }
+    pos = next;
+  }
+  return start == std::string_view::npos ? note : note.substr(start);
 }
 
 void MarkdownToHtml::inlineToHtml(std::string_view text, std::string& out, const ImageResolver* images) {
@@ -445,6 +494,11 @@ bool MarkdownToHtml::embedNote(std::string_view trimmed) {
   // Transient: freed when this returns; capped at MAX_EMBED by the loader.
   std::string text;
   if (!noteLoader(name, text)) return false;
+  const size_t hash = target.find('#');
+  if (hash != std::string_view::npos) {
+    const std::string_view part = section(text, target.substr(hash + 1));
+    if (part.size() != text.size()) text = std::string(part);
+  }
   closeAll();
   std::string html = "<blockquote style=\"margin-left:1em\"><p><b><a href=\"vault:";
   appendEscaped(html, target);

@@ -81,8 +81,9 @@ and host tests.
   read Greek without an SD font. ✅ (0.8.0) Nested lists indented, numbered lists keep their first
   number (`<ol start>`, EPUBs too), lists inside quotes, quotes indented, footnotes (raised number
   that links to the note's footnote), note embeds `![[Note]]` on their own line (the note's text
-  under its title, one level, up to 32 KB). To do: embeds of a heading or block
-  (`![[Note#Heading]]` shows the whole note for now); a note's cache isn't rebuilt when only an
+  under its title, one level, up to 32 KB). ✅ (0.10.0) Heading and block embeds:
+  `![[Note#Heading]]` shows that heading's section, `![[Note#^id]]` the list item or paragraph
+  with that block id (the whole note when the anchor isn't found). To do: a note's cache isn't rebuilt when only an
   embedded note changes; callouts show only a bold title (no frame); `==highlight==` shows as an
   underline (same as links).
 * Note reader with links, back stack, image and note embeds, block refs.

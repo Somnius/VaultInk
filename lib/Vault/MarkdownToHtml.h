@@ -51,6 +51,10 @@ class MarkdownToHtml {
   static void inlineToHtml(std::string_view text, std::string& out, const ImageResolver* images = nullptr);
   // Heading text to its anchor id: spaces become '-', case is kept (links match it case-insensitively).
   static std::string headingId(std::string_view text);
+  // The part of a note that "Note#anchor" embeds: for a heading, from that heading up to the next
+  // heading of the same or a higher level; for "^id", the list item or paragraph ending in " ^id".
+  // The whole note when the anchor is empty or not found.
+  static std::string_view section(std::string_view note, std::string_view anchor);
 
  private:
   enum class Block { None, Paragraph, Code, Quote, Comment, Frontmatter, Table };

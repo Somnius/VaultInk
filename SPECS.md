@@ -172,7 +172,7 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 | Markdown links `[text](url)` and `[text](note.md)` | must | external URLs show the address, are not opened |
 | Embeds `![[image.png]]`, `![[image.png\|300]]` | must | PNG, JPEG, GIF (first frame), scaled and dithered |
 | WebP embeds | should | no WebP decoder in the tree yet (`ImageProbe.h:29`); needs a new library |
-| Note embeds `![[note]]`, `![[note#heading]]`, `![[note#^block]]` | must | done (0.8.0) for a whole note on its own line: one level (an embedded note's embeds stay links, so no loops), up to 32 KB; heading/block parts later |
+| Note embeds `![[note]]`, `![[note#heading]]`, `![[note#^block]]` | must | done (0.8.0) for a whole note on its own line: one level (an embedded note's embeds stay links, so no loops), up to 32 KB; (0.10.0) `#heading` embeds that heading up to the next one of the same or a higher level, `#^id` the list item or paragraph ending in ` ^id`; an anchor that isn't found embeds the whole note |
 | Frontmatter | must | hidden from the text; `aliases`, `tags` used by the index; a small "Properties" view |
 | Tags `#tag`, `#nested/tag` | must | |
 | Footnotes | should | done (0.8.0): `[^id]` is a raised id linking to the `[^id]: text` paragraph |

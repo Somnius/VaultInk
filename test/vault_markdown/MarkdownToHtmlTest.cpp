@@ -232,3 +232,28 @@ TEST(VaultMarkdown, BigTablesAreWrittenInParts) {
   EXPECT_EQ(tables, 2u);
   EXPECT_NE(html.find("<td>409</td>"), std::string::npos);
 }
+
+TEST(VaultMarkdown, EmbedSections) {
+  const std::string note =
+      "Intro\n# Top\nA\n## Sub One\nB ^b1\n\nPara line one\nline two ^p2\n- item x\n- item y ^li\n"
+      "```\n# not a heading\n```\n## Sub Two\nC\n# Next\nD\n";
+  EXPECT_EQ(MarkdownToHtml::section(note, "Sub One"),
+            "## Sub One\nB ^b1\n\nPara line one\nline two ^p2\n- item x\n"
+            "- item y ^li\n```\n# not a heading\n```\n");
+  EXPECT_EQ(MarkdownToHtml::section(note, "top"),
+            note.substr(note.find("# Top"), note.find("# Next") - note.find("# Top")));
+  EXPECT_EQ(MarkdownToHtml::section(note, "Next"), "# Next\nD\n");
+  EXPECT_EQ(MarkdownToHtml::section(note, "not a heading"), note);  // inside code: not found, whole note
+  EXPECT_EQ(MarkdownToHtml::section(note, "^b1"), "B ^b1");
+  EXPECT_EQ(MarkdownToHtml::section(note, "^p2"), "Para line one\nline two ^p2");
+  EXPECT_EQ(MarkdownToHtml::section(note, "^li"), "- item y ^li");
+  EXPECT_EQ(MarkdownToHtml::section(note, "^none"), note);
+  EXPECT_EQ(MarkdownToHtml::section(note, ""), note);
+  // CRLF, a paragraph right after a code block, indented '#', and a dash that isn't a list marker.
+  EXPECT_EQ(MarkdownToHtml::section("# A\r\nx\r\n# B\r\n", "A"), "# A\r\nx\r\n");
+  EXPECT_EQ(MarkdownToHtml::section("p one ^a\r\n", "^a"), "p one ^a");
+  EXPECT_EQ(MarkdownToHtml::section("```\ncode\n```\nafter ^c\n", "^c"), "after ^c");
+  EXPECT_EQ(MarkdownToHtml::section("# A\n    # code\nx\n", "code"), "# A\n    # code\nx\n");
+  EXPECT_EQ(MarkdownToHtml::section("first\n-still ^d\n", "^d"), "first\n-still ^d");
+  EXPECT_EQ(MarkdownToHtml::section("1. one ^e\n", "^e"), "1. one ^e");
+}
