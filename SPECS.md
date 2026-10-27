@@ -211,6 +211,15 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   wrapped text clipped to the card. Every node is checked against the screen on each frame; the
   spatial grid isn't needed yet at the sizes seen (106 nodes). A text card is written to
   `/.vaultink/canvas-card.md` (its reader cache dropped first) and opened as a note.
+- 0.18.0: a coloured node (any of `"1"`-`"6"` or `#hex`) is filled with the light-gray dither,
+  coloured cards also keep the 2 px frame; a file node whose path is a PNG or JPEG is resolved
+  once (like a link) and decoded into the card's inner box, fitted, black-and-white with
+  dithering, only when the fitted picture lies fully on screen (decoders don't clip), otherwise
+  the file name; only the needed decoder is built.
+- Zoom controls (0.18.0): 52 px buttons stacked at the bottom right (16 px from the right edge,
+  72 px above the bottom), +, the level label, −, Fit; steps of 2 from fit up to 8x, around the
+  screen centre; the panel swallows taps; a HALF refresh on Fit and every 5th step, FAST
+  otherwise.
 
 ## 7. LiveSync pull (Phase 3)
 

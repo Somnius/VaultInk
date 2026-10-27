@@ -85,7 +85,8 @@ TEST(VaultMarkdown, WikiLinks) {
 }
 
 TEST(VaultMarkdown, Embeds) {
-  EXPECT_EQ(inlineHtml("![[pic.png|300]]"), "<img src=\"vault:pic.png\" alt=\"pic.png\" width=\"300\"/>");
+  EXPECT_EQ(inlineHtml("![[pic.png|300]]"),
+            "<img src=\"vault:pic.png\" alt=\"pic.png\" width=\"300\" style=\"width:300px\"/>");
   EXPECT_EQ(inlineHtml("![[Other note]]"), "<a href=\"vault:Other note\">Other note</a>");
   EXPECT_EQ(inlineHtml("![alt](img/a.jpg)"), "<img src=\"vault:img/a.jpg\" alt=\"alt\"/>");
 }
@@ -222,7 +223,8 @@ TEST(VaultMarkdown, ControlCharactersBecomeSpaces) {
 }
 
 TEST(VaultMarkdown, EmbedSizes) {
-  EXPECT_EQ(inlineHtml("![[a.png|300x200]]"), "<img src=\"vault:a.png\" alt=\"a.png\" width=\"300\"/>");
+  EXPECT_EQ(inlineHtml("![[a.png|300x200]]"),
+            "<img src=\"vault:a.png\" alt=\"a.png\" width=\"300\" style=\"width:300px\"/>");
   EXPECT_EQ(inlineHtml("![[a.png|x200]]"), "<img src=\"vault:a.png\" alt=\"a.png\"/>");
 }
 

@@ -1,5 +1,8 @@
 #include "CanvasActivity.h"
 
+#include <Epub/converters/JpegToFramebufferConverter.h>
+#include <Epub/converters/PngToFramebufferConverter.h>
+#include <FsHelpers.h>
 #include <GfxRenderer.h>
 #include <HalDisplay.h>
 #include <HalStorage.h>
@@ -24,6 +27,13 @@ constexpr int CARD_PAD = 4;
 // A text card opened from a canvas is written here and read like a note.
 constexpr char CARD_NOTE[] = "/.vaultink/canvas-card.md";
 constexpr uint32_t MAX_CARD_BYTES = 64 * 1024;
+// Zoom controls: finger-sized, inset from the right edge, well above the bottom (Home swipe).
+constexpr int CTRL_SIZE = 52;
+constexpr int CTRL_GAP = 6;
+constexpr int CTRL_RIGHT = 16;
+constexpr int CTRL_BOTTOM = 72;
+constexpr int CTRL_ROWS = 4;           // +, level, −, Fit
+constexpr int FULL_REFRESH_EVERY = 5;  // zoom taps between ghost-clearing refreshes
 
 // The last canvas's view, so Back from a card returns to the same pan and zoom.
 struct SavedView {
@@ -99,6 +109,8 @@ void CanvasActivity::onEnter() {
   file.close();
   LOG_DBG("CNV", "%s: %u nodes, %u edges%s", filePath.c_str(), static_cast<unsigned>(model.nodes.size()),
           static_cast<unsigned>(model.edges.size()), model.truncated ? " (truncated)" : "");
+  imagePaths.assign(model.nodes.size(), std::string());
+  imageResolved.assign(model.nodes.size(), 0);
   if (loaded) vaultfiles::rememberLastNote(filePath);  // the vault opens on it next time
   vaultnav::opened(filePath);                          // opened from the browser: older link history no longer applies
   fit();
@@ -134,6 +146,20 @@ void CanvasActivity::zoomBy(const float factor, const int screenX, const int scr
 void CanvasActivity::pan(const int dxScreen, const int dyScreen) {
   viewX += dxScreen / scale;
   viewY += dyScreen / scale;
+}
+
+const std::string& CanvasActivity::imagePathFor(const size_t index) {
+  if (!imageResolved[index]) {
+    imageResolved[index] = 1;
+    const auto& node = model.nodes[index];
+    if (node.type == canvas::NodeType::File &&
+        (FsHelpers::hasJpgExtension(node.label) || FsHelpers::hasPngExtension(node.label))) {
+      const auto fs = vaultsd::fs();
+      vaultlink::Target target{node.label, ""};
+      imagePaths[index] = vaultlink::resolve(vaultlink::vaultRoot(filePath, fs), folderOf(filePath), target, fs);
+    }
+  }
+  return imagePaths[index];
 }
 
 int CanvasActivity::toScreenX(const int32_t x) const { return static_cast<int>(std::lround((x - viewX) * scale)); }
@@ -193,12 +219,44 @@ void CanvasActivity::drawEdge(const canvas::Edge& edge) const {
   }
 }
 
-void CanvasActivity::drawNode(const canvas::Node& node) const {
+bool CanvasActivity::drawImage(const canvas::Node& node, const std::string& imagePath, const int x, const int y,
+                               const int w, const int h) const {
+  (void)node;
+  const int boxW = w - 2 * CARD_PAD, boxH = h - 2 * CARD_PAD;
+  const auto decode = [&](ImageToFramebufferDecoder& decoder) {
+    ImageDimensions dims;
+    if (!decoder.getDimensions(imagePath, dims) || dims.width <= 0 || dims.height <= 0) return false;
+    const float fit = std::min(static_cast<float>(boxW) / dims.width, static_cast<float>(boxH) / dims.height);
+    RenderConfig config{0, 0, std::max(1, std::min(boxW, static_cast<int>(dims.width * fit))),
+                        std::max(1, std::min(boxH, static_cast<int>(dims.height * fit)))};
+    config.x = x + CARD_PAD + (boxW - config.maxWidth) / 2;
+    config.y = y + CARD_PAD + (boxH - config.maxHeight) / 2;
+    // Decoders draw unclipped: only a picture that fits on the screen is drawn (else the name).
+    if (config.x < 0 || config.y < 0 || config.x + config.maxWidth > renderer.getScreenWidth() ||
+        config.y + config.maxHeight > renderer.getScreenHeight()) {
+      return false;
+    }
+    config.useExactDimensions = true;
+    config.useGrayscale = false;  // the canvas is drawn in one black-and-white pass
+    return decoder.decodeToFramebuffer(imagePath, renderer, config);
+  };
+  // Only the decoder this picture needs is built.
+  if (FsHelpers::hasJpgExtension(imagePath)) {
+    JpegToFramebufferConverter jpeg;
+    return decode(jpeg);
+  }
+  PngToFramebufferConverter png;
+  return decode(png);
+}
+
+void CanvasActivity::drawNode(const canvas::Node& node, const std::string& imagePath) const {
   const int x = toScreenX(node.x), y = toScreenY(node.y);
   const int w = std::max(2, static_cast<int>(node.width * scale)),
             h = std::max(2, static_cast<int>(node.height * scale));
   if (x > renderer.getScreenWidth() || y > renderer.getScreenHeight() || x + w < 0 || y + h < 0) return;
   if (node.type == canvas::NodeType::Group) {
+    // A coloured group is shaded light gray, so it stands out behind its cards.
+    if (node.color) renderer.fillRectDither(x, y, w, h, Color::LightGray);
     renderer.drawRect(x, y, w, h, 1, true);
     if (!node.label.empty()) {
       const std::string text = renderer.truncatedText(SMALL_FONT_ID, node.label.c_str(), std::max(8, w - 8));
@@ -207,7 +265,13 @@ void CanvasActivity::drawNode(const canvas::Node& node) const {
     return;
   }
   renderer.fillRect(x, y, w, h, false);
-  renderer.drawRect(x, y, w, h, node.color ? 2 : 1, true);  // coloured cards get a heavier frame
+  // Obsidian's six colours become one light gray on e-ink: a coloured card is shaded and framed
+  // heavier; black text stays readable on the gray.
+  if (node.color) renderer.fillRectDither(x, y, w, h, Color::LightGray);
+  renderer.drawRect(x, y, w, h, node.color ? 2 : 1, true);
+  // An image card shows the picture, fitted inside the frame; a card too small for it, or a
+  // picture that can't be read, falls back to the file name.
+  if (!imagePath.empty() && w > 3 * CARD_PAD && h > 3 * CARD_PAD && drawImage(node, imagePath, x, y, w, h)) return;
   std::string text;
   switch (node.type) {
     case canvas::NodeType::Text:
@@ -248,15 +312,64 @@ void CanvasActivity::draw(const bool firstFrame) {
   const auto savedClip = renderer.getClipRect();
   renderer.setClipRect(0, 0, renderer.getScreenWidth(), renderer.getScreenHeight());
   // Groups behind everything, then lines, then cards on top.
+  static const std::string noImage;
   for (const auto& n : model.nodes) {
-    if (n.type == canvas::NodeType::Group) drawNode(n);
+    if (n.type == canvas::NodeType::Group) drawNode(n, noImage);
   }
   for (const auto& e : model.edges) drawEdge(e);
-  for (const auto& n : model.nodes) {
-    if (n.type != canvas::NodeType::Group) drawNode(n);
+  for (size_t i = 0; i < model.nodes.size(); ++i) {
+    if (model.nodes[i].type != canvas::NodeType::Group) drawNode(model.nodes[i], imagePathFor(i));
   }
   renderer.setClipRect(savedClip[0], savedClip[1], savedClip[2], savedClip[3]);
+  drawControls();
   renderer.displayBuffer(firstFrame ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH);
+}
+
+namespace {
+int controlTop(const GfxRenderer& r) { return r.getScreenHeight() - CTRL_BOTTOM - CTRL_ROWS * (CTRL_SIZE + CTRL_GAP); }
+int controlLeft(const GfxRenderer& r) { return r.getScreenWidth() - CTRL_RIGHT - CTRL_SIZE; }
+}  // namespace
+
+void CanvasActivity::drawControls() const {
+  const int left = controlLeft(renderer), top = controlTop(renderer);
+  const float zoom = scale / fitScale;
+  char level[8];
+  if (zoom < 1.5f) {
+    snprintf(level, sizeof(level), "%s", tr(STR_CANVAS_FIT));
+  } else {
+    snprintf(level, sizeof(level), "%d\xc3\x97", static_cast<int>(zoom + 0.5f));  // "2×"
+  }
+  const char* labels[CTRL_ROWS] = {"+", level, "\xe2\x88\x92", tr(STR_CANVAS_FIT)};  // + level − Fit
+  for (int i = 0; i < CTRL_ROWS; ++i) {
+    const int y = top + i * (CTRL_SIZE + CTRL_GAP);
+    const bool button = i != 1;  // the level is a label, not a button
+    renderer.fillRect(left, y, CTRL_SIZE, CTRL_SIZE, false);
+    if (button) renderer.drawRect(left, y, CTRL_SIZE, CTRL_SIZE, 2, true);
+    const int font = i == 0 || i == 2 ? UI_12_FONT_ID : SMALL_FONT_ID;
+    const int tw = renderer.getTextWidth(font, labels[i]);
+    const int lh = renderer.getLineHeight(font);
+    renderer.drawText(font, left + (CTRL_SIZE - tw) / 2, y + (CTRL_SIZE - lh) / 2, labels[i], true);
+  }
+}
+
+CanvasActivity::Control CanvasActivity::controlAt(const int screenX, const int screenY) const {
+  const int left = controlLeft(renderer), top = controlTop(renderer);
+  if (screenX < left - CTRL_GAP || screenX > left + CTRL_SIZE + CTRL_GAP) return Control::None;
+  const int row = (screenY - top) / (CTRL_SIZE + CTRL_GAP);
+  if (screenY < top || row >= CTRL_ROWS) return Control::None;
+  static constexpr Control ROWS[CTRL_ROWS] = {Control::ZoomIn, Control::None, Control::ZoomOut, Control::Fit};
+  return ROWS[row];
+}
+
+void CanvasActivity::applyZoom(const Control control) {
+  const int w = renderer.getScreenWidth(), h = renderer.getScreenHeight();
+  if (control == Control::ZoomIn) zoomBy(2.0f, w / 2, h / 2);
+  if (control == Control::ZoomOut) zoomBy(0.5f, w / 2, h / 2);
+  if (control == Control::Fit) fit();
+  // Fast refreshes leave ghosts: clean up every few steps and whenever the whole board is back.
+  const bool cleanup = control == Control::Fit || ++zoomSteps >= FULL_REFRESH_EVERY;
+  if (cleanup) zoomSteps = 0;
+  draw(cleanup);
 }
 
 int CanvasActivity::nodeAt(const int screenX, const int screenY) const {
@@ -313,7 +426,14 @@ void CanvasActivity::loop() {
   const int w = renderer.getScreenWidth(), h = renderer.getScreenHeight();
   int tx = 0, ty = 0;
   if (mappedInput.wasScreenTapped(tx, ty)) {
-    openNode(nodeAt(tx, ty));
+    // A tap on the panel never opens the card under it (the level label is part of the panel).
+    const bool onPanel = tx >= controlLeft(renderer) - CTRL_GAP && ty >= controlTop(renderer) &&
+                         ty < controlTop(renderer) + CTRL_ROWS * (CTRL_SIZE + CTRL_GAP);
+    if (!onPanel) {
+      openNode(nodeAt(tx, ty));
+    } else if (const Control control = controlAt(tx, ty); control != Control::None) {
+      applyZoom(control);
+    }
     return;
   }
   const auto swipe = mappedInput.wasSwipe();
@@ -333,11 +453,6 @@ void CanvasActivity::loop() {
   }
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     // Fit, 2x, 4x, 8x, then back to fit, around the screen centre.
-    if (scale >= fitScale * MAX_ZOOM * 0.99f) {
-      fit();
-    } else {
-      zoomBy(2.0f, w / 2, h / 2);
-    }
-    draw(false);
+    applyZoom(scale >= fitScale * MAX_ZOOM * 0.99f ? Control::Fit : Control::ZoomIn);
   }
 }

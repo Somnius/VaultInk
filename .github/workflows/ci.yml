@@ -156,12 +156,8 @@ jobs:
             if [ -n "$flash_line" ]; then echo "- ${flash_line}"; else echo "- Flash: not found"; fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload firmware artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ matrix.asset }}
-          path: .pio/build/${{ matrix.env }}/firmware.bin
-          if-no-files-found: error
+      # No artifact upload: CI only checks that it builds. Shipped binaries are built locally and
+      # attached to releases, and stored artifacts count against the account's Actions storage.
 
   simulator:
     name: Build simulator_x4_pro

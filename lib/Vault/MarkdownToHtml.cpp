@@ -251,9 +251,12 @@ void MarkdownToHtml::inlineToHtml(std::string_view text, std::string& out, const
           const std::string_view width = alias.substr(0, alias.find('x'));
           if (!width.empty() && std::all_of(width.begin(), width.end(),
                                             [](char d) { return std::isdigit(static_cast<unsigned char>(d)); })) {
+            // The reader sizes images from CSS, so the width goes in a style as well.
             out += " width=\"";
             appendEscaped(out, width);
-            out += '"';
+            out += "\" style=\"width:";
+            appendEscaped(out, width);
+            out += "px\"";
           }
           out += "/>";
         } else {

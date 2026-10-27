@@ -84,7 +84,10 @@ and host tests.
   under its title, one level, up to 32 KB). ✅ (0.10.0) Heading and block embeds:
   `![[Note#Heading]]` shows that heading's section, `![[Note#^id]]` the list item or paragraph
   with that block id (the whole note when the anchor isn't found). To do: a note's cache isn't rebuilt when only an
-  embedded note changes. ✅ (0.13.0) `==highlight==` is a light gray band behind the text
+  embedded note changes; tasks show as `[ ]` / `[x]` text (the built-in Noto Sans has no
+  ☐/☑ glyphs; real boxes need a symbol font added to every built-in size). ✅ (0.18.0) Image
+  sizes `![[pic.png|300]]` are honoured on the device (the width also goes in as CSS, which
+  the layout reads). ✅ (0.13.0) `==highlight==` is a light gray band behind the text
   (like Kindle and Kobo), not an underline, so it doesn't look like a link or cut descenders.
   ✅ (0.14.0) Settings → Vaults → Highlight style: Light gray (default), Inverted (white on black),
   Dark gray (white on a dark gray band, shaded by the anti-aliasing passes; black when text
@@ -193,8 +196,15 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   up to 8x (Confirm; past 8x back to fit), tap a card to open it: a file card opens its note or
   image, a text card opens as a note, Back returns to the canvas at the same pan and zoom. Canvases show in the file
   browser, open from `[[Board.canvas]]` links, and a vault remembers one as its last note.
-* To do: card colours as grey fills (today a coloured card gets a heavier frame), a low-detail
-  frame while panning, images inside file cards, pinch zoom.
+* ✅ (0.18.0) Coloured cards and groups are shaded light gray (one grey for Obsidian's six
+  colours; black text stays readable), and a file card that points at a PNG or JPEG shows the
+  picture fitted inside it.
+* ✅ (0.18.0) On-screen zoom controls instead of pinch (the input layer has no two-finger
+  events): a column at the bottom right, clear of the gesture edges, with +, the zoom level
+  (Fit, 2×, 4×, 8×), − and Fit; zoom is around the screen centre, a tap on the column never
+  opens the card under it, and every 5 zoom taps (and every Fit) a full refresh clears ghosts.
+* To do: a low-detail frame while dragging (panning today jumps by button or swipe, so there is
+  no drag to speed up yet).
 
 ## 💤 Phase 3 - LiveSync pull
 
