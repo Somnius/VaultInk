@@ -22,6 +22,7 @@
 #include "components/HeaderBackTapTarget.h"
 #include "home/CrashActivity.h"
 #include "home/FileBrowserActivity.h"
+#include "home/GalleryActivity.h"
 #include "home/HomeActivity.h"
 #include "library/LibraryListActivity.h"
 #include "network/CrossPointWebServerActivity.h"
@@ -286,6 +287,12 @@ void ActivityManager::goToLiveSyncNow(const bool fromReader, const bool automati
   replaceActivity(std::make_unique<LiveSyncActivity>(
       renderer, mappedInput, true, fromReader ? LiveSyncActivity::ReturnTo::Reader : LiveSyncActivity::ReturnTo::Home,
       automatic));
+}
+
+void ActivityManager::goToGallery(std::string folder) {
+  if (auto activity = makeUniqueNoThrow<GalleryActivity>(renderer, mappedInput, std::move(folder))) {
+    replaceActivity(std::move(activity));
+  }
 }
 
 void ActivityManager::goToJoinNetwork() {

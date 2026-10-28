@@ -6,7 +6,7 @@ scope is in [SCOPE.md](SCOPE.md). VaultInk is a fork of CrossPoint Reader; its u
 
 Status: ✅ done · 🚧 in progress · ⏳ next · 💤 later · ❌ dropped
 
-**Where it stands (0.23.0, 2026-10-27):** Phases 0-3 are done in software; what is left there
+**Where it stands (0.24.0, 2026-10-28):** Phases 0-3 are done in software; what is left there
 needs the device (timings, certificate checks against real servers, refresh behaviour). Phase 4 is
 two thirds done: ticking tasks, new/rename/delete notes and the line editor are out; pushing changes
 back to LiveSync (4c) is next. Phase 6 (Android companion) has not started. Everything since 0.19.0
@@ -188,6 +188,12 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   a folder picker), New folder and folder rename. Moving or renaming a folder doesn't carry the
   reading progress of the books inside yet. Details: docs/reading-and-files.md. Reviewed by Gemini
   and Grok (design and diff); tested in the simulator, not yet on the device.
+* ✅ (0.24.0, kos25k #2, #7-#10) Battery % above the logo on the default sleep screen; Extract here
+  for .zip files (zip-slip safe, cleanup on failure); What's New after an update (CHANGELOG.md
+  built from the GitHub releases by scripts/gen_changelog.sh, the newest 12 embedded by
+  scripts/embed_changelog.py); Gallery (Home → Gallery, or a folder's Open as gallery; pixel-cache
+  thumbnails); Even Word Gaps (justified lines stretch gaps by at most half a space, else ragged).
+  Reviewed by Gemini and Grok; tested in the simulator.
 * Looked at (kos25k, justified Greek with wide gaps): with hyphenation on, lines are filled one at
   a time; an optimal-fit breaker that also weighs every hyphenation point (designed with Gemini and
   Grok, tried in the simulator) gave the same lines on his paragraph, so it was not shipped. The

@@ -34,7 +34,8 @@ void VaultInkHomeUi::begin(const std::vector<RecentBook>& recent, const bool con
   hasContinueReading = continuing && !recent.empty();
   usePlugins = plugins;
   rowCount = 0;
-  for (const Row row : {Row::Books, Row::Vaults, Row::Search, Row::Files, Row::Transfer, Row::Library, Row::Settings}) {
+  for (const Row row :
+       {Row::Books, Row::Vaults, Row::Search, Row::Files, Row::Gallery, Row::Transfer, Row::Library, Row::Settings}) {
     if (row == Row::Library && !librarySlot) continue;
     rows[rowCount++] = row;
   }
@@ -208,6 +209,11 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
         item.label = tr(STR_BROWSE_FILES);
         item.subtitle = tr(STR_HOME_FILES_DESC);
         item.icon = fui::bitmapFromIcon(icon_folder_32);
+        break;
+      case Row::Gallery:
+        item.label = tr(STR_GALLERY);
+        item.subtitle = tr(STR_HOME_GALLERY_DESC);
+        item.icon = fui::bitmapFromIcon(icon_image_32);
         break;
       case Row::Transfer:
         item.label = tr(STR_FILE_TRANSFER);

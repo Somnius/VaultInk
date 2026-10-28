@@ -8,7 +8,9 @@
 
 class BmpViewerActivity final : public Activity {
  public:
-  BmpViewerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string filePath);
+  // `backToCaller`: Back finishes (the gallery opened it) instead of going to the file browser.
+  BmpViewerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string filePath,
+                    bool backToCaller = false);
 
   void onEnter() override;
   void onExit() override;
@@ -24,4 +26,5 @@ class BmpViewerActivity final : public Activity {
   std::string filePath;
   std::vector<std::string> siblingImages;
   int currentImageIndex = -1;
+  bool backToCaller = false;
 };

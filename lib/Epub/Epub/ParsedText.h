@@ -137,6 +137,9 @@ class ParsedText {
   std::vector<uint16_t> calculateWordWidths(const GfxRenderer& renderer, int fontId);
 
  public:
+  // Set by Section before a build (ReaderRenderSpec::evenWordGaps): justified lines stretch gaps by
+  // at most half a space, the rest stay ragged.
+  static inline bool evenWordGaps = false;
   explicit ParsedText(const bool hyphenationEnabled = false, const bool focusReadingEnabled = false,
                       const BlockStyle& blockStyle = BlockStyle(), const uint8_t paragraphIndentSpaces = 2)
       : blockStyle(blockStyle),

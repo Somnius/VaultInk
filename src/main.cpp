@@ -57,6 +57,7 @@
 #include "util/PluginEvents.h"
 #include "util/ScreenshotUtil.h"
 #include "util/Timezones.h"
+#include "util/WhatsNew.h"
 
 #if CROSSPOINT_VECTOR_FONTS
 // Rendering (incl. FreeType TTF rasterization) runs on the Arduino loop task.
@@ -838,6 +839,9 @@ void setup() {
     // through to the sleep-wake "resume reader" logic, which fires on stale
     // openEpubPath + lastSleepFromReader from a prior session.
     activityManager.goHome();
+  } else if (std::string note; whatsnew::afterUpdate(note)) {
+    // The first boot after an update opens what changed (kos25k #9); Back leaves it.
+    activityManager.goToReader(note);
   } else if (livesyncdev::autoSyncDue() && joinSavedWifiForSync()) {
     // Automatic LiveSync on wake. The restart after it lands where this wake would have: the book
     // that was open when the device went to sleep, else home.

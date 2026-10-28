@@ -15,6 +15,7 @@
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
 #include "RecentBooksStore.h"
+#include "activities/ActivityManager.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
@@ -22,7 +23,9 @@
 #include "fontIds.h"
 #include "util/BookCacheUtils.h"
 #include "util/BookmarkUtil.h"
+#include "util/FileOps.h"
 #include "util/TaskWatchdog.h"
+#include "util/ZipExtract.h"
 
 namespace fui = freeink::ui;
 
@@ -54,61 +57,6 @@ bool moveStatePath(const std::string& oldPath, const std::string& newPath, bool&
   moved = Storage.rename(oldPath.c_str(), newPath.c_str());
   if (!moved) LOG_ERR("FileBrowser", "Failed to move rename state: %s -> %s", oldPath.c_str(), newPath.c_str());
   return moved;
-}
-
-// Streams one file to a ".part" name, then renames it; a short write (card full) removes the part.
-bool copyFile(const std::string& from, const std::string& to) {
-  HalFile in;
-  HalFile out;
-  const std::string part = to + ".part";
-  auto buf = makeUniqueNoThrow<uint8_t[]>(4096);
-  if (!buf || !Storage.openFileForRead("FileBrowser", from, in)) return false;
-  if (!Storage.openFileForWrite("FileBrowser", part, out)) {
-    in.close();
-    return false;
-  }
-  bool ok = true;
-  for (;;) {
-    const int n = in.read(buf.get(), 4096);
-    if (n <= 0) {
-      ok = n == 0;  // a read error is not the end of the file
-      break;
-    }
-    if (out.write(buf.get(), static_cast<size_t>(n)) != static_cast<size_t>(n)) {
-      ok = false;
-      break;
-    }
-    resetTaskWatchdogIfSubscribed();
-  }
-  in.close();
-  out.close();
-  if (ok) ok = Storage.rename(part.c_str(), to.c_str());
-  if (!ok) Storage.remove(part.c_str());
-  return ok;
-}
-
-// Copies a file or a whole folder tree; stops at the first failure. The name buffer is on the
-// heap: one recursion level per folder depth.
-bool copyTree(const std::string& from, const std::string& to) {
-  auto dir = Storage.open(from.c_str());
-  if (!dir) return false;
-  if (!dir.isDirectory()) {
-    dir.close();
-    return copyFile(from, to);
-  }
-  auto name = makeUniqueNoThrow<char[]>(NAME_BUFFER_SIZE);
-  if (!name || !Storage.mkdir(to.c_str())) {
-    dir.close();
-    return false;
-  }
-  bool ok = true;
-  for (auto entry = dir.openNextFile(); ok && entry; entry = dir.openNextFile()) {
-    entry.getName(name.get(), NAME_BUFFER_SIZE);
-    entry.close();
-    ok = copyTree(from + "/" + name.get(), to + "/" + name.get());
-  }
-  dir.close();
-  return ok;
 }
 
 void rollBackStatePath(const std::string& oldPath, const std::string& newPath, const bool moved) {
@@ -192,7 +140,8 @@ void FileBrowserActivity::loadFiles() {
           files.emplace_back(filename);
         }
       } else if (FsHelpers::hasReflowableBookExtension(filename) || FsHelpers::hasXtcExtension(filename) ||
-                 FsHelpers::hasImageExtension(filename) || FsHelpers::hasCanvasExtension(filename)) {
+                 FsHelpers::hasImageExtension(filename) || FsHelpers::hasCanvasExtension(filename) ||
+                 FsHelpers::checkFileExtension(filename, ".zip")) {
         files.emplace_back(filename);
       }
     }
@@ -443,6 +392,9 @@ void FileBrowserActivity::activateSelected() {
     nav.top = 0;
     lock.unlock();
     requestUpdate();
+  } else if (mode == Mode::Books && FsHelpers::checkFileExtension(entry, ".zip")) {
+    lock.unlock();
+    showEntryActions();  // a zip isn't a book: offer Extract here
   } else {
     const std::string fullPath = basepath + entry;
     lock.unlock();  // onSelectBook launches an activity; don't hold the lock across it
@@ -457,32 +409,49 @@ void FileBrowserActivity::showEntryActions() {
   }
 
   // Same order for files and folders: Open, Delete, Rename, Move, Copy, New folder (in the folder shown).
-  static constexpr StrId OPTIONS[] = {StrId::STR_OPEN, StrId::STR_DELETE,  StrId::STR_RENAME,
-                                      StrId::STR_MOVE, StrId::STR_COPY_TO, StrId::STR_NEW_FOLDER};
-  optionPopup.show(StrId::STR_FILENAME, OPTIONS, 6, 0, [this](const int index) {
-    switch (index) {
-      case 0:
-        activateSelected();
-        break;
-      case 1:
-        deleteSelected();
-        break;
-      case 2:
-        startRename();
-        break;
-      case 3:
-        startTransfer(false);
-        break;
-      case 4:
-        startTransfer(true);
-        break;
-      case 5:
-        startNewFolder();
-        break;
-      default:
-        break;
-    }
-  });
+  // The 7th option: Extract here on a .zip (kos25k #7), Open as gallery on a folder (#8).
+  static constexpr StrId ZIP_OPTIONS[] = {StrId::STR_OPEN,        StrId::STR_DELETE,  StrId::STR_RENAME,
+                                          StrId::STR_MOVE,        StrId::STR_COPY_TO, StrId::STR_NEW_FOLDER,
+                                          StrId::STR_EXTRACT_HERE};
+  static constexpr StrId FOLDER_OPTIONS[] = {StrId::STR_OPEN,           StrId::STR_DELETE,  StrId::STR_RENAME,
+                                             StrId::STR_MOVE,           StrId::STR_COPY_TO, StrId::STR_NEW_FOLDER,
+                                             StrId::STR_OPEN_AS_GALLERY};
+  const bool zip = FsHelpers::checkFileExtension(files[nav.selected], ".zip");
+  const bool folder = files[nav.selected].back() == '/';
+  optionPopup.show(StrId::STR_FILENAME, folder ? FOLDER_OPTIONS : ZIP_OPTIONS, zip || folder ? 7 : 6, 0,
+                   [this, folder](const int index) {
+                     switch (index) {
+                       case 0:
+                         activateSelected();
+                         break;
+                       case 1:
+                         deleteSelected();
+                         break;
+                       case 2:
+                         startRename();
+                         break;
+                       case 3:
+                         startTransfer(false);
+                         break;
+                       case 4:
+                         startTransfer(true);
+                         break;
+                       case 5:
+                         startNewFolder();
+                         break;
+                       case 6:
+                         if (folder) {
+                           const std::string entry = files[nav.selected];
+                           activityManager.goToGallery((basepath.back() == '/' ? basepath : basepath + "/") +
+                                                       entry.substr(0, entry.size() - 1));
+                         } else {
+                           extractSelected();
+                         }
+                         break;
+                       default:
+                         break;
+                     }
+                   });
   requestUpdate();
 }
 
@@ -634,6 +603,30 @@ void FileBrowserActivity::showError(const StrId heading, const std::string& name
   }
 }
 
+void FileBrowserActivity::extractSelected() {
+  if (files.empty() || nav.selected < 0 || nav.selected >= listCount()) return;
+  const std::string entry = files[nav.selected];
+  const std::string zipPath = (basepath.back() == '/' ? basepath : basepath + "/") + entry;
+  {
+    RenderLock lock(*this);
+    GUI.drawPopup(renderer, tr(STR_EXTRACTING));
+  }
+  std::string folder;
+  zipextract::Stats stats;
+  const auto r = zipextract::extractHere(zipPath, folder, stats);
+  const std::string folderName = folder.substr(folder.find_last_of('/') + 1);
+  if (r != zipextract::Result::Ok) {
+    showError(r == zipextract::Result::Exists   ? StrId::STR_EXTRACT_EXISTS
+              : r == zipextract::Result::BadZip ? StrId::STR_EXTRACT_BAD_ZIP
+                                                : StrId::STR_EXTRACT_FAILED,
+              r == zipextract::Result::Exists ? folderName : entry);
+    reloadSelecting(entry);
+    return;
+  }
+  LOG_INF("FileBrowser", "Extracted %d files (%d skipped) to %s", stats.files, stats.skipped, folder.c_str());
+  reloadSelecting(folderName + "/");
+}
+
 void FileBrowserActivity::startNewFolder() {
   auto keyboard = makeUniqueNoThrow<KeyboardEntryActivity>(renderer, mappedInput, tr(STR_NEW_FOLDER), "",
                                                            NAME_BUFFER_SIZE - 2, InputType::Text);
@@ -681,7 +674,7 @@ void FileBrowserActivity::transferInto(const std::string& srcPath, const std::st
       RenderLock lock(*this);
       GUI.drawPopup(renderer, tr(STR_COPYING));
     }
-    ok = copyTree(srcPath, dest);
+    ok = fileops::copyTree(srcPath, dest);
     if (!ok) removeDirFile(dest);  // nothing half-copied stays behind
   } else {
     ok = moveFile(srcPath, dest);

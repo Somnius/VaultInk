@@ -130,6 +130,8 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Toggle(StrId::STR_TEXT_AA, &CrossPointSettings::textAntiAliasing, "textAntiAliasing",
                            StrId::STR_CAT_READER)
            .withTextSettings());
+  emit(SettingInfo::Toggle(StrId::STR_EVEN_WORD_GAPS, &CrossPointSettings::evenWordGaps, "evenWordGaps",
+                           StrId::STR_CAT_READER));
   emit(SettingInfo::Toggle(StrId::STR_HIDE_STATUS_BAR, &CrossPointSettings::statusBarHidden, "statusBarHidden",
                            StrId::STR_CAT_READER));
   emit(SettingInfo::Enum(StrId::STR_READING_PAPER, &CrossPointSettings::readingPaper,
@@ -218,6 +220,8 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
       "sleepTimeoutMinutes", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_WELCOME_GUIDE_AFTER_UPDATES_SHORT, &CrossPointSettings::welcomeGuideAfterUpdates,
                            "welcomeGuideAfterUpdates", StrId::STR_CAT_SYSTEM));
+  emit(SettingInfo::Toggle(StrId::STR_WHATS_NEW_AFTER_UPDATE, &CrossPointSettings::whatsNewAfterUpdate,
+                           "whatsNewAfterUpdate", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_DEBUG_LOGS, &CrossPointSettings::debugLogs, "debugLogs", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_SHOW_HIDDEN_FILES, &CrossPointSettings::showHiddenFiles, "showHiddenFiles",
                            StrId::STR_CAT_SYSTEM));

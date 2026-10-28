@@ -176,10 +176,13 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   and notes read out of the box. SD-card fonts with Greek (Literata, Noto Serif, Gentium Book Plus)
   work as well.
 - **File browser actions.** Long-press a file or folder for Open, Delete, Rename, Move, Copy and
-  New folder. Move and Copy open a folder picker; nothing overwrites a file with the same name, and
+  New folder; Extract here for a .zip; Open as gallery for a folder.
+- **Gallery.** Home → Gallery: the pictures on the card as a grid, with View, Delete, Move, Copy.
+- **What's New.** After an update the device shows what changed (Settings → System → What's New). Move and Copy open a folder picker; nothing overwrites a file with the same name, and
   a copy that runs out of space leaves nothing half-written.
 - **Reading layout.** Line spacing in ten steps (1 to 10), a Hide Status Bar switch, and
-  hyphenation on by default. The battery percent shows on the sleep screen. All of it in
+  hyphenation on by default, and an Even Word Gaps option for justified text. The battery percent
+  shows on the sleep screen. All of it in
   [docs/reading-and-files.md](docs/reading-and-files.md).
 - **A welcome guide** on the first start, described [above](#getting-started).
 - **Updates.** The device checks this repository's releases for new versions.

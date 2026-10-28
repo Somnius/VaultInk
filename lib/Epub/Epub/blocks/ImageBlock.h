@@ -6,6 +6,10 @@
 
 #include "Block.h"
 
+// Draws a picture from a pixel cache a decoder wrote (RenderConfig::cachePath); false when there is
+// no cache of that size. The gallery uses it for its thumbnails.
+bool renderImagePixelCache(GfxRenderer& renderer, const std::string& cachePath, int x, int y, int width, int height);
+
 class ImageBlock final : public Block {
  public:
   ImageBlock(const std::string& imagePath, const std::string& srcPath, int16_t width, int16_t height);

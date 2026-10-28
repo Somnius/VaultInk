@@ -22,6 +22,7 @@ class FileBrowserActivity final : public UiListActivity {
                           const std::string& extension);
   void deleteSelected();
   void startNewFolder();
+  void extractSelected();
   void startTransfer(bool copy);
   void transferInto(const std::string& srcPath, const std::string& destDir, bool copy);
   bool moveFile(const std::string& oldPath, const std::string& newPath);

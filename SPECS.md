@@ -113,6 +113,11 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   gets its height. Hyphenation defaults on.
 - Sleep screen battery (0.20.0, `sleepBattery`): the percent at sleep time, black on a white patch
   at the bottom right; in gray picture planes the patch is kept white.
+- 0.24.0: `SECTION_FILE_VERSION` 75 (the header carries `evenWordGaps`; `ParsedText::evenWordGaps`
+  caps the justify extra at half a space, else the line stays ragged). `src/util/ZipExtract`
+  (`safeEntryPath`), `src/util/WhatsNew` (`APP_STATE.lastVersionRun`; CHANGELOG.md embedded as
+  `src/util/ChangelogData.generated.h`), `src/activities/home/GalleryActivity` (thumbs as pixel
+  caches `/.crosspoint/thumbs/<hash>_<size>_<w>x<h>.pxc`), `src/util/FileOps` (copy, shared).
 - File browser (0.20.0): Move/Copy through a folder-only picker, New folder, folder rename. A
   book's cache, bookmarks and clippings move with a file; a folder moves as one rename. Copy
   streams through `name.part` and removes it on a short write.

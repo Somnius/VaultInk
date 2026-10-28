@@ -1,6 +1,7 @@
 # Reading settings and file actions
 
-This page covers the reading and file features added in 0.20.0, from kos25k's issues #1 to #6.
+This page covers the reading and file features from kos25k's issues: #1 to #6 (0.20.0) and #2, #7,
+#8, #9, #10 (0.24.0).
 
 ## Page backgrounds: Paper Button Cycle
 
@@ -22,7 +23,9 @@ While the device sleeps, the battery percent shows at the bottom right, black on
 patch so it stays readable over a cover or a custom picture. It is the charge at the moment the
 device went to sleep: the screen isn't updated while it sleeps.
 
-Turn it off under **Settings → Display → Battery on Sleep Screen**. It shows on the dark and light
+On the default dark or light sleep screen it sits centred above the VaultInk logo (0.24.0); on
+covers and pictures it stays in the corner. Turn it off under **Settings → Display → Battery on
+Sleep Screen**. It shows on the dark and light
 screens, the blank screen, covers and custom pictures. Quick Resume (which keeps the last page)
 and the transparent overlay pictures don't get it.
 
@@ -50,6 +53,13 @@ There is no tap to show and hide it inside a book. A different page height means
 has to be laid out again, which takes a few seconds each time. The bottom of the screen also
 already turns the page.
 
+## Even Word Gaps (0.24.0)
+
+**Settings → Reader → Even Word Gaps (justified)** keeps justified text from stretching word gaps
+much. A line is still justified when its gaps grow by up to half a space; a line that would need
+more is left ragged at the right, with normal gaps. Off by default (every line justified, as
+before). Turning it on lays the open chapter out again.
+
 ## Word gaps and hyphenation
 
 Justified text spreads the room left on a line over its word gaps. Without hyphenation, a long
@@ -74,6 +84,12 @@ In **Browse Files**, long-press a file or a folder for:
 | Copy | The same picker. Files and whole folders can be copied. |
 | New folder | Makes a folder inside the folder you're looking at. |
 
+A **.zip** has one more action, **Extract here** (0.24.0), and tapping it offers the same menu.
+The zip is unpacked into a new folder with the zip's name next to it. Nothing outside that folder
+is written: entries with `..` or an absolute path, names the card can't hold, and macOS
+`__MACOSX` leftovers are skipped. If that folder already exists you get a message; if the card
+fills up, the half-made folder is removed. A **folder** has one more action, **Open as gallery**.
+
 The details:
 
 - Nothing is ever overwritten. If the target folder already has that name, you get a message
@@ -89,3 +105,24 @@ The details:
 - Copying doesn't copy reading positions. The copy is a new book.
 - A new folder's name can't contain `/` or `\`, or be `.` or `..`. If the SD card refuses
   the name, you get "Could not create the folder".
+
+## Gallery (0.24.0)
+
+**Home → Gallery** shows every picture on the card (PNG, JPEG, and BMP/GIF by name), nine to a
+page, from all folders except hidden ones. In Browse Files, long-press a folder → **Open as
+gallery** for just that folder and its subfolders. Swipe left or right (or the page buttons) to
+turn pages. Tap a picture for:
+
+- **View**: the picture full screen; swipe for the next one in its folder, Back returns to the grid.
+- **Delete** (asks first), **Move** and **Copy** (a folder picker, nothing overwritten).
+
+The first time a page is shown its thumbnails are decoded, which takes a moment per picture; they
+are kept in `/.crosspoint/thumbs`, so the page comes back fast. Up to 2000 pictures are listed.
+
+## What's New after an update (0.24.0)
+
+After an update, the first start opens a note with what changed since the version you had before
+(the release notes, from `CHANGELOG.md` in this repository). Back leaves it. **Settings → System →
+What's New** opens the last twelve releases any time, and **Show What's New After Updates** turns
+the note after updates off. Updating from 0.23.0 or older shows only the newest release's notes,
+because older versions didn't remember which version they were.

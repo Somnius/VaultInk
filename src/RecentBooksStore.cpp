@@ -38,6 +38,8 @@ bool RecentBooksStore::fromJson(JsonVariantConst doc) {
 
 void RecentBooksStore::addBook(const std::string& path, const std::string& title, const std::string& author,
                                const std::string& coverBmpPath) {
+  // VaultInk's own notes (What's New, a canvas card) are not books to come back to.
+  if (path.rfind("/.vaultink/", 0) == 0) return;
   // Drop stale entries first so a new add can't evict a valid book in their stead.
   pruneMissing();
 

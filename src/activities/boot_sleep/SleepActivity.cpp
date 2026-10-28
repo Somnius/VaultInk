@@ -731,13 +731,18 @@ void SleepActivity::renderDefaultSleepScreen() const {
   renderer.drawImage(Logo120, (pageWidth - 120) / 2, (pageHeight - 120) / 2, 120, 120);
   renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2 + 70, tr(STR_VAULTINK), true, EpdFontFamily::BOLD);
   renderer.drawCenteredText(SMALL_FONT_ID, pageHeight / 2 + 95, tr(STR_SLEEPING));
+  // The battery sits centred above the logo here (kos25k): drawn before the inversion, like the logo.
+  if (SETTINGS.sleepBattery) {
+    char percent[8];
+    snprintf(percent, sizeof(percent), "%u%%", static_cast<unsigned>(powerManager.getBatteryPercentage()));
+    renderer.drawCenteredText(UI_10_FONT_ID, (pageHeight - 120) / 2 - 40, percent);
+  }
 
   // Make sleep screen dark unless light is selected in settings
   if (SETTINGS.sleepScreen != CrossPointSettings::SLEEP_SCREEN_MODE::LIGHT) {
     renderer.invertScreen();
   }
 
-  stampSleepBattery(renderer);
   renderer.displayBuffer(kSleepClean);
 }
 

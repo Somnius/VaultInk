@@ -628,6 +628,9 @@ void HomeActivity::activateVaultInkItem(const int index) {
     case VaultInkHomeUi::Row::Files:
       onFileBrowserOpen();
       break;
+    case VaultInkHomeUi::Row::Gallery:
+      activityManager.goToGallery("/");
+      break;
     case VaultInkHomeUi::Row::Transfer:
       onFileTransferOpen();
       break;

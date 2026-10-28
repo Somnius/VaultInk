@@ -244,10 +244,10 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t readingPaper = 0;
   // Opening a vault lands on the note read last there (1) or on the vault's top folder (0).
   uint8_t vaultOpenLastNote = 1;
-  uint8_t highlightStyle = 0;  // TextBlock::HighlightStyle: gray, inverted, dark gray
-  uint8_t sleepBattery = 1;
-  uint8_t debugLogs =
-      0;  // log lines to /debug on the SD card (util/DebugLog.h)    // battery percent stamped on the sleep screen
+  uint8_t highlightStyle = 0;       // TextBlock::HighlightStyle: gray, inverted, dark gray
+  uint8_t sleepBattery = 1;         // battery percent on the sleep screen
+  uint8_t debugLogs = 0;            // log lines to /debug on the SD card (util/DebugLog.h)
+  uint8_t whatsNewAfterUpdate = 1;  // the changelog note on the first boot after an update
   // Sleep screen cover mode settings
   uint8_t sleepScreenCoverMode = FIT;
   // Sleep screen cover filter
@@ -320,6 +320,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t fontPointSize = DEFAULT_FONT_POINT_SIZE;
   uint8_t lineSpacing = LINE_SPACING_DEFAULT;
   uint8_t paragraphAlignment = JUSTIFIED;
+  uint8_t evenWordGaps = 0;  // justified: gaps grow at most half a space, else the line stays ragged
   // Auto-sleep timeout setting (default 10 minutes). Legacy sleepTimeout enum values are migration-only.
   uint8_t sleepTimeoutMinutes = 10;
   // E-ink refresh frequency (default 15 pages)

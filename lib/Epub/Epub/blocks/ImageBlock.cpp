@@ -433,3 +433,8 @@ std::unique_ptr<ImageBlock> ImageBlock::deserialize(HalFile& file) {
   serialization::readPod(file, h);
   return std::unique_ptr<ImageBlock>(new (std::nothrow) ImageBlock(path, src, w, h));
 }
+
+bool renderImagePixelCache(GfxRenderer& renderer, const std::string& cachePath, const int x, const int y,
+                           const int width, const int height) {
+  return renderFromCache(renderer, cachePath, x, y, width, height);
+}

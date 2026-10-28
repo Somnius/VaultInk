@@ -35,6 +35,7 @@
 #include "SilentRestart.h"
 #include "StatusBarSettingsActivity.h"
 #include "TextSettingsActivity.h"
+#include "activities/ActivityManager.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/util/IntervalSelectionActivity.h"
 #include "activities/util/WelcomeGuideActivity.h"
@@ -46,6 +47,7 @@
 #include "util/DebugLog.h"
 #include "util/PluginEvents.h"
 #include "util/VaultFiles.h"
+#include "util/WhatsNew.h"
 
 namespace fui = freeink::ui;
 
@@ -116,6 +118,7 @@ void SettingsActivity::rebuildSettings() {
   // Language leads so a user stuck in an unfamiliar language finds it first.
   addAction(SettingsSection::General, StrId::STR_LANGUAGE, SettingAction::Language);
   addAction(SettingsSection::General, StrId::STR_KEYBOARD_LAYOUTS, SettingAction::KeyboardLayouts);
+  addAction(SettingsSection::General, StrId::STR_WHATS_NEW, SettingAction::WhatsNew);
   addAction(SettingsSection::General, StrId::STR_CLEAR_DEBUG_LOGS, SettingAction::ClearDebugLogs);
   addAction(SettingsSection::Reader, StrId::STR_TEXT_SETTINGS, SettingAction::TextSettings);
   addAction(SettingsSection::Reader, StrId::STR_MANAGE_FONTS, SettingAction::DownloadFonts);
@@ -422,6 +425,11 @@ void SettingsActivity::toggleSelectedSetting() {
         });
         requestUpdate();
         return;
+      }
+      case SettingAction::WhatsNew: {
+        std::string note;
+        if (whatsnew::writeAll(note)) activityManager.goToReader(note);
+        break;
       }
       case SettingAction::ClearDebugLogs:
         debuglog::clear();

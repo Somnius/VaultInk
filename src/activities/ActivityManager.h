@@ -86,6 +86,8 @@ class ActivityManager {
 
   // goTo... functions are convenient wrapper for replaceActivity()
   void goToFileTransfer();
+  // The picture grid over `folder` and its subfolders (kos25k #8).
+  void goToGallery(std::string folder);
   // LiveSync's screen, syncing at once; the restart after Wi-Fi returns to the reader or home.
   void goToLiveSyncNow(bool fromReader, bool automatic = false);
   void goToJoinNetwork();  // File Transfer straight into Join Network (post heap-defrag reboot)

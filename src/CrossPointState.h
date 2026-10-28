@@ -25,6 +25,7 @@ class CrossPointState : public PersistableStore<CrossPointState> {
   bool showBootScreen = true;
   // WelcomeGuideActivity::VERSION last finished or skipped (0 = never).
   uint8_t welcomeGuideSeen = 0;
+  std::string lastVersionRun;  // "0.24.0": the What's New note after an update lists what came since
 
   static const char* getFilePath() { return "/.crosspoint/state.json"; }
   void toJson(JsonDocument& doc) const;
