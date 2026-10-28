@@ -191,6 +191,38 @@ Result decryptWithPassphrase(std::string_view passphrase, std::string_view encry
   return out;
 }
 
+bool encrypt(const Key master, std::string_view plain, const RandomFill& random, std::string& out) {
+  if (!random) return false;
+  std::string box(IV_LEN + HKDF_SALT_LEN + plain.size() + TAG_LEN, '\0');
+  auto* iv = reinterpret_cast<uint8_t*>(box.data());
+  uint8_t* hkdfSalt = iv + IV_LEN;
+  uint8_t* ct = hkdfSalt + HKDF_SALT_LEN;
+  uint8_t* tag = ct + plain.size();
+  random(iv, IV_LEN);
+  random(hkdfSalt, HKDF_SALT_LEN);
+  uint8_t key[32];
+  if (mbedtls_hkdf(sha256(), hkdfSalt, HKDF_SALT_LEN, master, 32, nullptr, 0, key, sizeof(key)) != 0) return false;
+  mbedtls_gcm_context gcm;
+  mbedtls_gcm_init(&gcm);
+  int rc = mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, key, 256);
+  if (rc == 0) {
+    rc = mbedtls_gcm_crypt_and_tag(&gcm, MBEDTLS_GCM_ENCRYPT, plain.size(), iv, IV_LEN, nullptr, 0,
+                                   reinterpret_cast<const uint8_t*>(plain.data()), ct, TAG_LEN, tag);
+  }
+  mbedtls_gcm_free(&gcm);
+  mbedtls_platform_zeroize(key, sizeof(key));
+  if (rc != 0) return false;
+  out = "%=" + base64Encode(reinterpret_cast<const uint8_t*>(box.data()), box.size());
+  return true;
+}
+
+bool encryptMetaPath(const Key master, std::string_view json, const RandomFill& random, std::string& field) {
+  std::string box;
+  if (!encrypt(master, json, random, box)) return false;
+  field = "/\\:" + box;
+  return true;
+}
+
 Result decryptMetaPath(const Key master, std::string_view field, std::string& json) {
   static constexpr std::string_view PREFIX = "/\\:";
   if (field.substr(0, PREFIX.size()) != PREFIX) return Result::BadFormat;

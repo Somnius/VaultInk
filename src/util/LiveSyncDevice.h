@@ -25,7 +25,24 @@ struct Profile {
   bool checkCert = true;    // verify the server certificate (ca.pem if present, else the built-in roots)
   uint8_t autoHours = 0;    // sync on wake when this many hours passed since the last try; 0 = off
   int64_t lastAttempt = 0;  // epoch seconds of the last automatic try
+  // Sending changes back (Phase 4c): ids come from the E2EE passphrase, which isn't kept; these
+  // two values derived from it are (obfuscated like the password). Empty: set up before 0.28.0,
+  // or a vault whose settings the device can't write for (no path obfuscation, new id scheme).
+  std::string hashedPass;
+  std::string passDigest;
+  bool pushAllowed = false;  // set by profileFromSetup from the vault's settings (not saved)
+  bool canPush() const { return !hashedPass.empty() && !passDigest.empty(); }
 };
+
+struct PushStats {
+  int pushed = 0;
+  int conflicts = 0;  // the server changed too: the pull keeps both versions
+  int skipped = 0;
+};
+
+// Sends every note in the vault's changed list (the ones edited on the device) before a pull.
+// Notes sent leave the list; a conflict stays until the pull has saved the server's version.
+bool pushChanges(Profile& profile, PushStats& stats, std::string& error);
 
 // Automatic sync is on and due (a trusted clock, the interval passed since the last try). Records
 // this try first, so a sync that hangs or fails waits for the next interval.

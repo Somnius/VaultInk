@@ -142,10 +142,11 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   the notes that link to it. The search index lives outside the vault (`/.vaultink/` on the SD
   card) and also keeps a list of the vault's files, so links and images open without scanning the
   card; Settings → Vaults → Rebuild Search Index starts it over.
-- **LiveSync (read only).** Pull a vault from Obsidian Self-hosted LiveSync over Wi-Fi: paste the
+- **LiveSync, both ways.** Sync a vault with Obsidian Self-hosted LiveSync over Wi-Fi: paste the
   Setup URI on the device's web page, type its passphrase on the device, then Settings → Vaults →
   LiveSync → Sync now. End-to-end encryption (V2) and path obfuscation are supported; edits,
-  deletes and renames come across, deleted files go to a trash folder. A Sync tile in quick
+  deletes and renames come across, deleted files go to a trash folder, and notes you change on
+  the device are sent back (a note changed on both sides keeps both versions). A Sync tile in quick
   settings, optional sync on wake, and the server's certificate checked by default (built-in
   roots, or your own `ca.pem`). See [docs/livesync.md](docs/livesync.md).
 - **Changes on the device.** Tap a task box to tick it; edit a note line by line (with undo);

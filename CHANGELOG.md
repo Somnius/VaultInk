@@ -2,6 +2,19 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.28.0 (2026-10-28)
+
+LiveSync goes both ways now. That finishes Phase 4.
+
+- Every Sync now (and the Sync tile, and sync on wake) first sends the notes you changed on the device, then pulls. That covers ticked tasks, edited notes, and new, renamed and deleted notes. The result line tells you how many went up.
+- Nothing gets overwritten. If a note changed in Obsidian too since your last sync, you get both: Obsidian's version is kept as "Note (conflict date).md" next to yours, and both go up to the server.
+- A note only leaves the device's list of changes once the server has it. If Wi-Fi drops halfway, the next sync just sends it again.
+- One thing to do: if you set up LiveSync before this version, set it up once more (paste the Setup URI on the device's web page, then Finish setup). The device needs two values from your vault passphrase to send notes, and older setups didn't keep them. Until then, it pulls as before and tells you changes aren't sent.
+- It works with the default LiveSync settings (end-to-end encryption, path obfuscation on). Notes over 256 KB aren't sent yet.
+
+Tested against a local CouchDB with the official LiveSync command line tool, which is the plugin's own code. Every id the device makes matches the plugin's. Notes the device sent came back byte for byte: a new Greek note in 10 pieces, an edit, a delete, and a conflict where both sides changed. I tested it in the simulator, not on the device yet, and not with a real Obsidian install. Please keep a backup of your vault for the first syncs.
+
+
 ## 0.27.0 (2026-10-28)
 
 More from kos25k (#12, and the follow-up on #10).

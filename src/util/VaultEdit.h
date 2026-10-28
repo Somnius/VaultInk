@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 // Changing notes on the device (Phase 4a): ticking tasks, new notes, rename, delete to the vault's
 // .trash. Every change is written through a temp file and recorded in the vault's list of local
@@ -17,6 +18,10 @@ std::string vaultDirOf(const std::string& path);
 bool markChanged(const std::string& path);
 // The vault's changed paths, relative to `vaultDir`, as a lookup for the LiveSync pull.
 std::function<bool(const std::string& relPath)> changedLookup(const std::string& vaultDir);
+// The vault's changed paths, relative to `vaultDir`, in the order they were changed.
+std::vector<std::string> changedList(const std::string& vaultDir);
+// Takes a path off the list (it was sent to LiveSync). False when the list couldn't be written.
+bool unmarkChanged(const std::string& vaultDir, const std::string& relPath);
 
 // After a power cut during a save: "name.md" missing but "name.md.tmp" there (complete) -> renamed
 // back; both there (the tmp may be partial) -> the tmp is removed.

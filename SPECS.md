@@ -297,6 +297,15 @@ TLS and triggers (0.21.0):
 
 ## 8. Editing (Phase 4)
 
+Done in 4c (0.28.0): `lib/LiveSync/LiveSyncIds` (hashedPassphrase, chunkId, legacy noteId) and
+`LiveSyncPush` (pieces <= 1000 bytes on UTF-8 boundaries, E2EE V2 `encrypt`, `_bulk_docs` for
+chunks with "conflict" = already there, GET then PUT the note with the meta JSON in the plugin's
+key order inside the `/\:` path field; refuses when the server `_rev` isn't the last pulled one).
+The engine stores `revs.tsv` and reports conflict copies (`SyncOptions::onConflictCopy`), which
+the device marks changed. Push needs `usePathObfuscation`, `idDerivationVersion` 0, no
+`idDerivationKey`, `pathNormalizationVersion` 0, case-insensitive names and xxhash64; the profile
+keeps `hashedPassphrase` and `sha256(passphrase)` (obfuscated), made at setup.
+
 Done in 4a (0.22.0):
 - Task boxes in a note's own lines become `<a href="task:<line>:<fnv1a32 hex>">` (lib/Vault/TaskToggle);
   the reader re-reads the file, checks the line's hash and list-task shape (BOM and CRLF handled),

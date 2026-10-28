@@ -114,6 +114,39 @@ std::function<bool(const std::string&)> changedLookup(const std::string& vaultDi
   return [paths](const std::string& rel) { return paths->count(rel) > 0; };
 }
 
+std::vector<std::string> changedList(const std::string& vaultDir) {
+  std::vector<std::string> out;
+  std::string text;
+  const std::string list = changedListOf(vaultDir);
+  if (!Storage.exists(list.c_str()) || !Storage.readFileToString("EDIT", list, 256 * 1024, text)) return out;
+  size_t start = 0;
+  while (start < text.size()) {
+    size_t end = text.find('\n', start);
+    if (end == std::string::npos) end = text.size();
+    if (end > start) out.push_back(text.substr(start, end - start));
+    start = end + 1;
+  }
+  return out;
+}
+
+bool unmarkChanged(const std::string& vaultDir, const std::string& relPath) {
+  const std::string list = changedListOf(vaultDir);
+  std::string text;
+  if (!Storage.exists(list.c_str())) return true;
+  if (!Storage.readFileToString("EDIT", list, 256 * 1024, text)) return false;
+  std::string kept;
+  size_t start = 0;
+  while (start < text.size()) {
+    size_t end = text.find('\n', start);
+    if (end == std::string::npos) end = text.size();
+    const std::string line = text.substr(start, end - start);
+    if (!line.empty() && line != relPath) kept += line + "\n";
+    start = end + 1;
+  }
+  if (kept.empty()) return Storage.remove(list.c_str());
+  return writeAtomic(list, kept);
+}
+
 void recoverTmp(const std::string& path) {
   const std::string tmp = path + ".tmp";
   if (!Storage.exists(tmp.c_str())) return;

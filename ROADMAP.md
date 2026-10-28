@@ -6,10 +6,9 @@ scope is in [SCOPE.md](SCOPE.md). VaultInk is a fork of CrossPoint Reader; its u
 
 Status: ✅ done · 🚧 in progress · ⏳ next · 💤 later · ❌ dropped
 
-**Where it stands (0.27.0, 2026-10-28):** Phases 0-3 are done in software; what is left there
+**Where it stands (0.28.0, 2026-10-28):** Phases 0-3 are done in software; what is left there
 needs the device (timings, certificate checks against real servers, refresh behaviour). Phase 4 is
-two thirds done: ticking tasks, new/rename/delete notes and the line editor are out; pushing changes
-back to LiveSync (4c) is next. Phase 6 (Android companion) has not started. Everything since 0.19.0
+done: ticking tasks, new/rename/delete notes, the line editor, and sending changes back to LiveSync. Phase 6 (Android companion) has not started. Everything since 0.19.0
 is tested in the simulator and on the host, and needs a device test: see each release's notes.
 
 Target device: Xteink X4 Pro only. Until the device arrives, testing is in the simulator (X4 Pro mode)
@@ -287,7 +286,7 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * Rough effort from research: 1-2 weeks, plus about 1 week for encryption. Not reliable until the
   encryption details are pinned with test vectors.
 
-## 🚧 Phase 4 - Editing and LiveSync push (⏳ next: 4c push)
+## ✅ Phase 4 - Editing and LiveSync push
 
 * ✅ (0.22.0) 4a, designs reviewed by Gemini and Grok: tap a task box to tick it (the converter
   writes `task:<line>:<hash>` links, checked against the file before saving; works with touch
@@ -302,8 +301,15 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   Undo (20), Save. Every untouched line keeps its bytes, ending and the BOM (`lib/Vault/LineBuffer`,
   host tests); Save refuses when the note changed on the card since it was opened. Tested in the
   simulator: delete + save gave the exact bytes, an edit through the keyboard kept CRLF.
-* To do next: push (4c), which also empties the changed list. Later: split/join lines, a
-  multi-line keyboard, rewriting links on rename.
+* ✅ (0.28.0) 4c, LiveSync push (write format pinned from the plugin source in
+  .work/livesync-write-spec.md; design and diff reviewed by Gemini and Grok): chunk ids (xxh64 +
+  the plugin's mixed hash, float semantics kept) and legacy note ids match every id in a CLI-made
+  database; chunks via _bulk_docs, the note PUT on top of the last pulled _rev (revs.tsv), never
+  over a newer server version (the pull keeps both, then both go up). Sync now = push, pull, push
+  again after conflicts. Checked end to end in the simulator against the Docker CouchDB and the
+  official LiveSync CLI (new, edit, stale edit refused, delete, conflict).
+* Later: split/join lines, a multi-line keyboard, rewriting links on rename, push for vaults with
+  the newer id scheme or no path obfuscation, a test against a real Obsidian install.
 * Touch keyboard editor (English + Greek; the Greek layout is done, 0.5.0), atomic save, task toggles, new/rename/delete.
 * Push with the plugin's chunker, conflict copies.
 * Rough effort from research: 2-4 weeks for push.

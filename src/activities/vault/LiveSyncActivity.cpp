@@ -17,6 +17,7 @@
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
 #include "util/TaskWatchdog.h"
+#include "util/VaultEdit.h"
 #include "util/VaultFiles.h"
 
 namespace fui = freeink::ui;
@@ -294,18 +295,37 @@ void LiveSyncActivity::syncNow() {
   // The vault folder was deleted (or never written): the saved checkpoint would skip everything.
   if (!Storage.exists(livesyncdev::options(profile).vaultDir.c_str())) livesyncdev::resetSyncState(profile);
   livesync::SyncStats stats;
+  livesyncdev::PushStats sent;
   std::string error;
+  // Notes edited here go up first, then the server's changes come down.
+  bool ok = livesyncdev::pushChanges(profile, sent, error);
   const auto options = livesyncdev::options(profile);
-  const bool ok = livesync::syncOnce(livesyncdev::transport(profile), livesyncdev::storage(), profile.master, options,
-                                     stats, error, [](int done, const std::string& path) {
-                                       LOG_DBG("LSY", "%d %s", done, path.c_str());
-                                       progress.set(done % 100);
-                                     });
+  if (ok) {
+    ok = livesync::syncOnce(livesyncdev::transport(profile), livesyncdev::storage(), profile.master, options, stats,
+                            error, [](int done, const std::string& path) {
+                              LOG_DBG("LSY", "%d %s", done, path.c_str());
+                              progress.set(done % 100);
+                            });
+  }
+  // A note that changed on both sides: the pull just saved the server's text beside it, so the
+  // device's version (and that copy) can go up now.
+  if (ok && sent.conflicts > 0) {
+    livesyncdev::PushStats again;
+    ok = livesyncdev::pushChanges(profile, again, error);
+    sent.pushed += again.pushed;
+  }
   livesyncdev::endSession();
-  char summary[160];
+  char summary[200];
   if (ok) {
     snprintf(summary, sizeof(summary), tr(STR_LIVESYNC_DONE), stats.written, stats.trashed);
     profile.lastResult = summary;
+    if (sent.pushed > 0) {
+      snprintf(summary, sizeof(summary), tr(STR_LIVESYNC_SENT), sent.pushed);
+      profile.lastResult += summary;
+    }
+    if (!profile.canPush() && !vaultedit::changedList(options.vaultDir).empty()) {
+      profile.lastResult += tr(STR_LIVESYNC_CANT_SEND);
+    }
     if (stats.conflicts > 0) {
       snprintf(summary, sizeof(summary), tr(STR_LIVESYNC_CONFLICTS), stats.conflicts);
       profile.lastResult += summary;

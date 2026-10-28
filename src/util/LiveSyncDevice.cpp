@@ -2,10 +2,13 @@
 
 #include <ArduinoJson.h>
 #include <HalStorage.h>
+#include <LiveSyncIds.h>
+#include <LiveSyncPush.h>
 #include <Logging.h>
 #include <ObfuscationUtils.h>
 #include <SecureHttpClient.h>
 #include <TrustedTime.h>
+#include <esp_random.h>
 #include <mbedtls/platform_util.h>
 
 #include <cctype>
@@ -100,6 +103,10 @@ bool load(Profile& out) {
   out.checkCert = doc["checkCert"] | true;
   out.autoHours = doc["autoHours"] | 0;
   out.lastAttempt = doc["lastAttempt"] | static_cast<int64_t>(0);
+  bool okPush = true;
+  out.hashedPass = obfuscation::deobfuscateFromBase64(doc["pushIdA"] | "", &okPush);
+  out.passDigest = obfuscation::deobfuscateFromBase64(doc["pushIdB"] | "", &okPush);
+  if (!okPush) out.hashedPass.clear(), out.passDigest.clear();
   bool ok = true, okKey = true;
   out.password = obfuscation::deobfuscateFromBase64(doc["password"] | "", &ok);
   std::string key = obfuscation::deobfuscateFromBase64(doc["key"] | "", &okKey);
@@ -125,6 +132,10 @@ bool save(const Profile& p) {
   doc["checkCert"] = p.checkCert;
   doc["autoHours"] = p.autoHours;
   doc["lastAttempt"] = p.lastAttempt;
+  if (p.canPush()) {
+    doc["pushIdA"] = obfuscation::obfuscateToBase64(p.hashedPass);
+    doc["pushIdB"] = obfuscation::obfuscateToBase64(p.passDigest);
+  }
   std::string text;
   serializeJson(doc, text);
   Storage.ensureDirectoryExists(DIR);
@@ -184,6 +195,12 @@ bool profileFromSetup(const std::string& uri, const std::string& passphrase, Pro
   out.password = s["couchDB_PASSWORD"] | "";
   out.database = s["couchDB_DBNAME"] | "";
   e2ee = s["passphrase"] | "";
+  // The device writes only the id scheme it was tested with: obfuscated paths, the legacy id
+  // derivation, case-insensitive names.
+  const std::string idKey = s["idDerivationKey"] | "";
+  out.pushAllowed = (s["usePathObfuscation"] | false) && idKey.empty() && (s["idDerivationVersion"] | 0) == 0 &&
+                    (s["pathNormalizationVersion"] | 0) == 0 && !(s["handleFilenameCaseSensitive"] | false) &&
+                    std::string(s["hashAlg"] | "xxhash64") == "xxhash64";
   for (JsonPair kv : s.as<JsonObject>()) {  // the parsed copy holds the secrets too
     if (kv.value().is<const char*>()) {
       char* v = const_cast<char*>(kv.value().as<const char*>());
@@ -209,6 +226,10 @@ bool finishSetup(Profile& p, const std::string& e2ee, std::string& why) {
     return false;
   }
   p.saltB64 = doc["pbkdf2salt"] | "";
+  if (p.pushAllowed) {
+    p.hashedPass = livesync::hashedPassphrase(e2ee);
+    p.passDigest = livesync::passphraseDigest(e2ee);
+  }
   std::string salt;
   if (!livesync::base64Decode(p.saltB64, salt) ||
       !livesync::deriveMaster(e2ee, reinterpret_cast<const uint8_t*>(salt.data()), salt.size(), p.master)) {
@@ -335,7 +356,77 @@ livesync::SyncOptions options(const Profile& p) {
     strftime(date, sizeof(date), "%Y-%m-%d", &t);
   }
   o.conflictDate = date;
+  // A conflict copy holds the server's text: it is sent back up too, so Obsidian keeps both.
+  const std::string vaultDir = o.vaultDir;
+  o.onConflictCopy = [vaultDir](const std::string& rel) { vaultedit::markChanged(vaultDir + "/" + rel); };
   return o;
+}
+
+bool pushChanges(Profile& p, PushStats& stats, std::string& error) {
+  if (!p.canPush()) return true;
+  const auto o = options(p);
+  const auto changed = vaultedit::changedList(o.vaultDir);
+  if (changed.empty()) return true;
+  const auto fs = storage();
+  // What the last pull saw: id -> path and id -> _rev.
+  const auto ids = livesync::loadMap(fs, o.stateDir + "/files.tsv");
+  auto revs = livesync::loadMap(fs, o.stateDir + "/revs.tsv");
+  const auto net = transport(p);
+  const livesync::PushIdentity identity{p.hashedPass, p.passDigest};
+  const livesync::RandomFill random = [](uint8_t* out, size_t len) { esp_fill_random(out, len); };
+  const time_t now = static_cast<time_t>(trustedtime::trustedNow());
+  const int64_t nowMs = now > 0 ? static_cast<int64_t>(now) * 1000 : 0;
+  for (const std::string& rel : changed) {
+    resetTaskWatchdogIfSubscribed();
+    livesync::PushItem item;
+    item.path = rel;
+    for (const auto& [id, path] : ids) {
+      if (path == rel) item.knownId = id;
+    }
+    // A note made here and sent before any pull brought it back has no map entry yet: its id
+    // is the one the plugin would give it, and its revision is in revs.tsv already.
+    if (item.knownId.empty()) item.knownId = livesync::noteId(p.passDigest, rel);
+    if (!item.knownId.empty()) {
+      const auto it = revs.find(item.knownId);
+      if (it != revs.end()) item.knownRev = it->second;
+    }
+    const std::string full = o.vaultDir + "/" + rel;
+    item.deleted = !Storage.exists(full.c_str());
+    if (!item.deleted && !vaultedit::readNote(full, item.content)) {
+      ++stats.skipped;  // too big for the device to send (over 256 KB): stays on the list
+      continue;
+    }
+    std::string newId, newRev;
+    switch (livesync::pushNote(net, p.master, identity, random, item, nowMs, newId, newRev, error)) {
+      case livesync::PushResult::Pushed:
+        ++stats.pushed;
+        // The new revision is saved before the note leaves the list, so a power cut in between
+        // can't leave an old revision for the next edit to build on.
+        if (!newRev.empty()) revs[newId] = newRev;
+        if (!livesync::saveMap(fs, o.stateDir + "/revs.tsv", revs)) {
+          error = "Could not save the sync state on the SD card.";
+          return false;
+        }
+        vaultedit::unmarkChanged(o.vaultDir, rel);
+        break;
+      case livesync::PushResult::Conflict:
+        ++stats.conflicts;  // the pull saves the server's text beside it; the next sync sends ours
+        break;
+      case livesync::PushResult::Skipped:
+        if (!error.empty()) {
+          ++stats.skipped;
+          error.clear();
+        } else {
+          vaultedit::unmarkChanged(o.vaultDir, rel);  // nothing to send (gone on both sides)
+        }
+        break;
+      case livesync::PushResult::Failed:
+        livesync::saveMap(fs, o.stateDir + "/revs.tsv", revs);
+        return false;
+    }
+  }
+  livesync::saveMap(fs, o.stateDir + "/revs.tsv", revs);
+  return true;
 }
 
 bool autoSyncDue() {

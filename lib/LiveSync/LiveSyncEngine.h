@@ -50,7 +50,13 @@ struct SyncOptions {
   // leaves it where it is: local edits are never overwritten.
   std::function<bool(const std::string& path)> locallyChanged;
   std::string conflictDate;  // "2026-10-27"
+  // Told each conflict copy written (a vault-relative path), so the device can push it too.
+  std::function<void(const std::string& path)> onConflictCopy;
 };
+
+// The sync state files in stateDir: files.tsv (id -> path) and revs.tsv (id -> last pulled _rev).
+std::map<std::string, std::string> loadMap(const FileStore& fs, const std::string& file);
+bool saveMap(const FileStore& fs, const std::string& file, const std::map<std::string, std::string>& map);
 
 // "Folder/Note.md" -> "Folder/Note (conflict 2026-10-27).md".
 std::string conflictPath(const std::string& path, const std::string& date);

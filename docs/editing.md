@@ -65,13 +65,13 @@ is still there, the possibly half-written temp file is removed).
 ## Notes changed on the device and LiveSync
 
 Each vault keeps a list of the notes changed on the device: `/.vaultink/<vault id>/changed.txt`.
-VaultInk can't send changes to the server yet (that's the next step), so a LiveSync pull now
-treats those notes carefully:
+From 0.28.0 every LiveSync sync sends these notes to the server first (see
+[livesync.md](livesync.md)), and a note leaves the list once the server has it. The pull treats
+the notes still on the list carefully:
 
 - If the server has a newer version of a note you changed here, your note stays as it is, and
   the server's version is saved next to it as `Note (conflict 2026-10-27).md`.
 - If the note was deleted or renamed on the server, your copy stays where it is.
 - The LiveSync result line says how many notes this happened to.
 
-Until push is ready, the list only grows. Once your changes are in Obsidian some other way,
-delete `changed.txt` and LiveSync goes back to updating those notes normally.
+Without LiveSync the list just records what you changed; nothing else reads it.

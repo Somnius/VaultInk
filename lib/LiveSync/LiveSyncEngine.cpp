@@ -31,6 +31,8 @@ bool skipId(const std::string& id) {
 }
 
 // The id->path map: one "id\tpath" line per file written by an earlier sync.
+}  // namespace
+
 std::map<std::string, std::string> loadMap(const FileStore& fs, const std::string& file) {
   std::map<std::string, std::string> map;
   std::string text;
@@ -51,6 +53,8 @@ bool saveMap(const FileStore& fs, const std::string& file, const std::map<std::s
   for (const auto& [id, path] : map) text += id + "\t" + path + "\n";
   return fs.writeAll(file, text);
 }
+
+namespace {
 
 // POST _all_docs?include_docs=true {"keys": ids}; fills `docs` with the rows that have a doc.
 bool fetchDocs(const Transport& net, const std::vector<std::string>& ids, JsonDocument& docs, std::string& error) {
@@ -84,6 +88,8 @@ class Run {
     std::string since;
     if (!fs.readAll(seqFile, since) || since.empty()) since = "0";
     map = loadMap(fs, mapFile);
+    const std::string revFile = o.stateDir + "/revs.tsv";
+    revs = loadMap(fs, revFile);
     while (true) {
       std::string response;
       const int status = net.request(
@@ -116,7 +122,7 @@ class Run {
       // The page is applied: only now do the map and the checkpoint move on.
       const std::string last = changes["last_seq"].is<const char*>() ? std::string(changes["last_seq"] | "")
                                                                      : std::to_string(changes["last_seq"] | 0);
-      if (!saveMap(fs, mapFile, map) || !fs.writeAll(seqFile, last)) {
+      if (!saveMap(fs, mapFile, map) || !saveMap(fs, revFile, revs) || !fs.writeAll(seqFile, last)) {
         error = "Could not save the sync state on the SD card.";
         return false;
       }
@@ -193,8 +199,10 @@ class Run {
         return false;
       }
       if (kind != DocKind::File) continue;
+      const std::string rev = doc["_rev"] | "";
       if (entry.deleted) {
         if (!trash(entry.id)) return false;
+        revs[entry.id] = rev;
         continue;
       }
       if (!safeVaultPath(entry.path)) {
@@ -206,6 +214,7 @@ class Run {
         continue;
       }
       if (!writeFile(entry)) return false;
+      revs[entry.id] = rev;
     }
     return true;
   }
@@ -257,6 +266,7 @@ class Run {
     if (conflict) {
       map[entry.id] = entry.path;
       ++stats.conflicts;
+      if (o.onConflictCopy) o.onConflictCopy(conflictPath(entry.path, o.conflictDate));
       return true;
     }
     // The same id under a new path (renamed in Obsidian): the old copy goes to the trash.
@@ -275,6 +285,7 @@ class Run {
   std::string& error;
   const SyncProgress& progress;
   std::map<std::string, std::string> map;
+  std::map<std::string, std::string> revs;  // id -> the _rev last pulled (what a push builds on)
 };
 
 }  // namespace

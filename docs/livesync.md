@@ -1,8 +1,8 @@
-# LiveSync (read only)
+# LiveSync
 
-VaultInk can pull an Obsidian vault from [Self-hosted LiveSync](https://github.com/vrtmrz/obsidian-livesync)
-over Wi-Fi. It only reads: nothing you change on the device goes back to the server, and the
-server is never written to.
+VaultInk keeps an Obsidian vault in step with [Self-hosted LiveSync](https://github.com/vrtmrz/obsidian-livesync)
+over Wi-Fi. It pulls what changed in Obsidian, and from 0.28.0 it also sends back the notes you
+changed on the device (ticked tasks, edits, new, renamed and deleted notes).
 
 ## What you need
 
@@ -53,6 +53,35 @@ SD card like the key to that vault.
 
 The passphrase itself is never stored. **Forget this setup** removes the profile, and the vault
 files stay on the card.
+
+## Sending your changes (0.28.0)
+
+Every **Sync now** (and the Sync tile, and sync on wake) first sends the notes you changed on the
+device, then pulls. The result line says how many were sent ("Sent 2 notes from here").
+
+- A note is sent **on top of the version the device last pulled**. If nobody else changed it,
+  it simply becomes the new version in Obsidian.
+- If the note also changed in Obsidian since the device last pulled, nothing is overwritten:
+  the pull saves Obsidian's version next to yours as `Note (conflict 2026-10-28).md`, and then
+  your version is sent as the note and the conflict copy is sent too. In Obsidian you end up
+  with both texts, and you keep the one you want.
+- A note deleted on the device is marked deleted on the server, like Obsidian does. A renamed
+  note is sent as the old one deleted and the new one created.
+- A note leaves the device's list of changes only once the server has it. If Wi-Fi drops, the
+  next sync sends it again.
+- Notes over 256 KB, and names with letters VaultInk can't lowercase the way Obsidian does
+  (most Latin, Greek and Cyrillic names are fine), stay on the list and are not sent.
+
+What the device needs for this: the vault's id settings must be the defaults (path obfuscation
+on, the original id scheme, case-insensitive names, xxhash64). The ids depend on the vault's
+passphrase, which the device never keeps; at setup it keeps two values derived from it instead
+(obfuscated like the password). **A LiveSync setup made before 0.28.0 doesn't have them**: the
+result line then says changes aren't sent. Paste the Setup URI on the device's web page again
+and finish setup once more.
+
+How it was checked: every chunk and note id in a database the official LiveSync CLI wrote
+matches what the device computes, and notes the device sent (new, edited, deleted, a conflict)
+read back byte for byte with the CLI. Not yet against a real Obsidian install.
 
 ## Certificates
 
@@ -105,7 +134,6 @@ reason is on the LiveSync screen under Sync now.
 
 ## Not supported (yet)
 
-- Pushing changes back, and conflict copies: this needs editing, which is Phase 4.
 - Compression, the V1/V3 encryption formats, object storage and peer-to-peer.
 - Setup URIs split over QR codes.
 - Sync while the device is awake on a timer (only on wake, see above).

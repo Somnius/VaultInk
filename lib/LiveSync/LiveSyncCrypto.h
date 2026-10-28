@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 
@@ -45,6 +46,14 @@ Result decryptMetaPath(const Key master, std::string_view field, std::string& js
 // passphrase as typed and the time-bound (ephemeral) form for `weekWindow`
 // (floor(unix_ms / 604800000)); pass weekWindow < 0 to skip the ephemeral form.
 Result decodeSetupUri(std::string_view uri, std::string_view passphrase, int64_t weekWindow, std::string& json);
+
+// Fills a buffer with random bytes (the device's hardware RNG; a seeded generator in tests).
+using RandomFill = std::function<void(uint8_t* out, size_t len)>;
+
+// The write side (Phase 4c): plaintext to a "%=" string, with a fresh IV and HKDF salt.
+bool encrypt(const Key master, std::string_view plain, const RandomFill& random, std::string& out);
+// The metadata JSON to the obfuscated path field ("/\:" + "%=...").
+bool encryptMetaPath(const Key master, std::string_view json, const RandomFill& random, std::string& field);
 
 // Bytes to standard base64 with padding.
 std::string base64Encode(const uint8_t* data, size_t len);
