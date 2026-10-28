@@ -1,6 +1,7 @@
 #include "FrontlightPanelActivity.h"
 
 #include <FreeInkUIIcon.h>
+#include <FsHelpers.h>
 #include <GfxRenderer.h>
 #include <HalFrontlight.h>
 #include <HalGPIO.h>
@@ -87,6 +88,7 @@ void FrontlightPanelActivity::onEnter() {
   const auto& recent = RECENT_BOOKS.getBooks();
   if (activityManager.isReaderActivity() && !recent.empty()) {
     bookTitle = recent.front().title;
+    bookPath = recent.front().path;
     bookProgress = liveBookProgress();
   }
 
@@ -154,7 +156,24 @@ void FrontlightPanelActivity::onWarmthStepEvent(const fui::ActionEvent& event, v
 }
 
 void FrontlightPanelActivity::onTileEvent(const fui::ActionEvent& event, void* user) {
-  static_cast<FrontlightPanelActivity*>(user)->runTile(event.value);
+  auto* self = static_cast<FrontlightPanelActivity*>(user);
+  if (event.value == kBookCardTile) {
+    self->openFromBookCard(event.longPress);
+    return;
+  }
+  self->runTile(event.value);
+}
+
+// The book card (kos25k #11): a tap opens the library (for a note, its folder in the vault), a
+// long press goes home. The whole card is the target.
+void FrontlightPanelActivity::openFromBookCard(const bool longPress) {
+  if (longPress) {
+    activityManager.goHome();
+  } else if (FsHelpers::hasMarkdownExtension(bookPath) || FsHelpers::hasCanvasExtension(bookPath)) {
+    activityManager.goToFileBrowser(FsHelpers::extractFolderPath(bookPath));
+  } else {
+    activityManager.goToLibrary();
+  }
 }
 
 void FrontlightPanelActivity::runTile(const int idx) {
@@ -265,7 +284,7 @@ bool FrontlightPanelActivity::handleHomeGesture() {
 }
 
 void FrontlightPanelActivity::loop() {
-  const auto touch = routeTouch(mappedInput, false, /*routeHeld=*/true);
+  const auto touch = routeTouch(mappedInput, /*longPress=*/true, /*routeHeld=*/true);
   if (touch.routed) {
     if (app.invalidated()) requestUpdate();
     if (touch) {
@@ -478,6 +497,7 @@ void FrontlightPanelActivity::addBookCard(UiScreen& screen) {
   const fui::Rect rect = screen.takeTop(kBookCardHeight, theme.spaceMd);
   const fui::Paint ink = fui::Paint::solid(fui::Color::Black);
   screen.target().stroke(rect, ink, 2, 10);
+  screen.frame().hit(rect, ACTION_TILE, kBookCardTile, fui::InputTouch | fui::InputLongPress);
   const int16_t pad = theme.spaceMd;
   const int16_t line = screen.target().lineHeight(theme.bodyText.font);
   auto title = theme.bodyText;

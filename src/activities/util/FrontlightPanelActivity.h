@@ -41,6 +41,9 @@ class FrontlightPanelActivity final : public Activity, private UiAppHost {
   // LiveSync (once it is set up). Hit ids are kTileCount + the action's index here.
   static constexpr int kActionTileCount = 5;
   bool liveSyncReady = false;
+  static constexpr int kBookCardTile = 100;  // hit id of the book card at the top
+  std::string bookPath;                      // the book or note the panel was opened over
+  void openFromBookCard(bool longPress);
   // Opened over a book: its title and progress head the panel (title empty otherwise).
   std::string bookTitle;
   int bookProgress = -1;

@@ -2,6 +2,15 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.26.0 (2026-10-28)
+
+Another small one, from kos25k (#11).
+
+- When you swipe down quick settings over a book or note, the card at the top with the title and progress does something now. A tap opens the library (for a note, the note's folder in the vault). A long press goes to the home screen. The whole card is the button.
+
+Tested in the simulator: a tap went to the library (and to the folder for a note), a long press went home, and the other tiles still work. Not tested on the device yet.
+
+
 ## 0.25.0 (2026-10-28)
 
 A small one: tap zones.

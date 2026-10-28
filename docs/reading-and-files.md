@@ -53,6 +53,12 @@ There is no tap to show and hide it inside a book. A different page height means
 has to be laid out again, which takes a few seconds each time. The bottom of the screen also
 already turns the page.
 
+## The book card in quick settings (0.26.0)
+
+When quick settings (swipe down from the top) is opened over a book or note, the card at the top
+with its title and progress can be tapped: a **tap** opens the library (for a note: the note's
+folder in the vault), a **long press** goes to the home screen. The whole card is the target.
+
 ## Tap Zones: corners only (0.25.0)
 
 **Settings → Controls → Tap Zones** chooses where a tap turns the page. **Whole page** (the
