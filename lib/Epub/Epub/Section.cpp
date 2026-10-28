@@ -489,7 +489,7 @@ bool Section::startBuild(const ReaderRenderSpec& spec, const std::function<void(
   }
 
   ctx->parser->setTextSpacing(spec.characterSpacing, spec.wordSpacingPercent);
-  ParsedText::evenWordGaps = spec.evenWordGaps != 0;
+  ParsedText::evenWordGaps = spec.evenWordGaps;
   ctx->parser->setParagraphIndentSpaces(spec.paragraphIndentSpaces);
   Hyphenator::setPreferredLanguage(epub->getLanguage());
   build_ = std::move(ctx);

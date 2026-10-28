@@ -320,7 +320,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t fontPointSize = DEFAULT_FONT_POINT_SIZE;
   uint8_t lineSpacing = LINE_SPACING_DEFAULT;
   uint8_t paragraphAlignment = JUSTIFIED;
-  uint8_t evenWordGaps = 0;  // justified: gaps grow at most half a space, else the line stays ragged
+  uint8_t evenWordGaps = 0;  // justified: 0 off, 1 gaps grow by at most half a space, 2 one space; else ragged
   // Auto-sleep timeout setting (default 10 minutes). Legacy sleepTimeout enum values are migration-only.
   uint8_t sleepTimeoutMinutes = 10;
   // E-ink refresh frequency (default 15 pages)

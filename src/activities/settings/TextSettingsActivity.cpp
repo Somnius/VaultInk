@@ -18,6 +18,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/LineSpacing.h"
+#include "util/TextOptions.h"
 
 namespace fui = freeink::ui;
 
@@ -45,20 +46,14 @@ int findCurrentFontIndex(const SdCardFontRegistry* registry, const char* sdFontF
   return fontFamily < CrossPointSettings::BUILTIN_FONT_COUNT ? fontFamily : 0;
 }
 
-constexpr StrId WORD_SPACING_IDS[] = {StrId::STR_SPACING_50_PERCENT,  StrId::STR_SPACING_75_PERCENT,
-                                      StrId::STR_SPACING_100_PERCENT, StrId::STR_SPACING_125_PERCENT,
-                                      StrId::STR_SPACING_150_PERCENT, StrId::STR_SPACING_175_PERCENT,
-                                      StrId::STR_SPACING_200_PERCENT};
-constexpr StrId CHARACTER_SPACING_IDS[] = {StrId::STR_SPACING_MINUS_2, StrId::STR_SPACING_MINUS_1,
-                                           StrId::STR_SPACING_ZERO, StrId::STR_SPACING_PLUS_1,
-                                           StrId::STR_SPACING_PLUS_2};
+using textoptions::CHARACTER_SPACING_IDS;
+using textoptions::WORD_SPACING_IDS;
 constexpr StrId ALIGNMENT_IDS[] = {StrId::STR_JUSTIFY, StrId::STR_ALIGN_LEFT, StrId::STR_CENTER, StrId::STR_ALIGN_RIGHT,
                                    StrId::STR_BOOK_S_STYLE};
 constexpr int MARGIN_MAX = CrossPointSettings::SCREEN_MARGIN_MAX;
 constexpr int WORD_SPACING_MIN = CrossPointSettings::WORD_SPACING_MIN;
 constexpr int WORD_SPACING_MAX = CrossPointSettings::WORD_SPACING_MAX;
 constexpr int WORD_SPACING_STEP = CrossPointSettings::WORD_SPACING_STEP;
-static_assert(std::size(WORD_SPACING_IDS) == (WORD_SPACING_MAX - WORD_SPACING_MIN) / WORD_SPACING_STEP + 1);
 }  // namespace
 
 TextSettingsActivity::TextSettingsActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
@@ -435,9 +430,7 @@ void TextSettingsActivity::confirmLayoutRow(int row) {
       requestUpdate();
       break;
     case LayoutRow::ScreenMargin: {
-      // The popup holds 16 rows and doesn't scroll: fine steps near the edge, wider ones after.
-      static constexpr uint8_t MARGINS[] = {0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40};
-      static_assert(MARGINS[std::size(MARGINS) - 1] == MARGIN_MAX, "margin choices end at the maximum");
+      using textoptions::MARGINS;
       std::vector<std::string> options;
       options.reserve(std::size(MARGINS));
       int cur = 0;

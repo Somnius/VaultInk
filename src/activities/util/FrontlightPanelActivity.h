@@ -38,8 +38,9 @@ class FrontlightPanelActivity final : public Activity, private UiAppHost {
   // Quick settings, left to right: night mode, refresh, orientation, touch.
   static constexpr int kTileCount = 4;
   // Second row, actions that leave the panel: sleep, file transfer, paper, home (over a book),
-  // LiveSync (once it is set up). Hit ids are kTileCount + the action's index here.
-  static constexpr int kActionTileCount = 5;
+  // LiveSync (once it is set up), library (when not over a book, kos25k #12). Hit ids are
+  // kTileCount + the action's index here.
+  static constexpr int kActionTileCount = 6;
   bool liveSyncReady = false;
   static constexpr int kBookCardTile = 100;  // hit id of the book card at the top
   std::string bookPath;                      // the book or note the panel was opened over

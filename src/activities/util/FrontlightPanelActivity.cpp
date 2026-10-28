@@ -215,6 +215,9 @@ void FrontlightPanelActivity::runTile(const int idx) {
     case kTileCount + 3:  // Home (leaves the book too)
       activityManager.goHome();
       break;
+    case kTileCount + 5:  // Library (shown when not over a book)
+      activityManager.goToLibrary();
+      break;
     case kTileCount + 4:  // LiveSync now; the restart afterwards comes back to the book (or home)
       activityManager.goToLiveSyncNow(!bookTitle.empty());
       break;
@@ -527,12 +530,12 @@ void FrontlightPanelActivity::addActionTiles(UiScreen& screen) {
   const auto& theme = screen.theme();
   const fui::BitmapRef icons[kActionTileCount] = {
       fui::bitmapFromIcon(icon_power_32), fui::bitmapFromIcon(icon_download_32), fui::bitmapFromIcon(icon_file_text_32),
-      fui::bitmapFromIcon(icon_house_32), fui::bitmapFromIcon(icon_vault_32)};
+      fui::bitmapFromIcon(icon_house_32), fui::bitmapFromIcon(icon_vault_32),    fui::bitmapFromIcon(icon_library_32)};
   // The paper tile names the current background, so each tap shows what it picked.
   const uint8_t paper = SETTINGS.readingPaper % paper_texture::STYLE_COUNT;
-  const char* labels[kActionTileCount] = {tr(STR_QS_SLEEP), tr(STR_QS_TRANSFER),
-                                          I18N.get(paper_texture::SHORT_NAMES[paper]), tr(STR_QS_HOME),
-                                          tr(STR_QS_SYNC)};
+  const char* labels[kActionTileCount] = {
+      tr(STR_QS_SLEEP), tr(STR_QS_TRANSFER), I18N.get(paper_texture::SHORT_NAMES[paper]),
+      tr(STR_QS_HOME),  tr(STR_QS_SYNC),     tr(STR_QS_LIBRARY)};
   const int16_t labelHeight = screen.target().lineHeight(theme.smallText.font);
   screen.spacer(static_cast<int16_t>(2 * theme.spaceMd));  // keep it clear of the row above
   const fui::Rect row = screen.takeTop(kQuickControlSize + theme.spaceSm + labelHeight);
@@ -544,6 +547,7 @@ void FrontlightPanelActivity::addActionTiles(UiScreen& screen) {
   for (int action = 0; action < kActionTileCount; ++action) {
     if (action == 3 && bookTitle.empty()) continue;
     if (action == 4 && !liveSyncReady) continue;
+    if (action == 5 && !bookTitle.empty()) continue;  // over a book Home stands in its place
     shown[count++] = action;
   }
   // Same slot width as the first row while they fit, so the circles line up in columns.

@@ -66,6 +66,7 @@
 #include "util/LineSpacing.h"
 #include "util/PaperTexture.h"
 #include "util/ScreenshotUtil.h"
+#include "util/TextOptions.h"
 #include "util/VaultEdit.h"
 #include "util/VaultFiles.h"
 #include "util/VaultNavigation.h"
@@ -2554,9 +2555,20 @@ void EpubReaderActivity::renderStatusBar() const {
 // ---------------------------------------------------------------------------
 
 namespace {
-constexpr StrId kTextRowNames[] = {StrId::STR_FONT,           StrId::STR_FONT_SIZE,   StrId::STR_LINE_SPACING,
-                                   StrId::STR_PARA_ALIGNMENT, StrId::STR_HYPHENATION, StrId::STR_FOCUS_READING};
+// Rows 6-10 (kos25k #12): the rest of the layout settings, so they change while reading too.
+constexpr StrId kTextRowNames[] = {StrId::STR_FONT,
+                                   StrId::STR_FONT_SIZE,
+                                   StrId::STR_LINE_SPACING,
+                                   StrId::STR_PARA_ALIGNMENT,
+                                   StrId::STR_HYPHENATION,
+                                   StrId::STR_FOCUS_READING,
+                                   StrId::STR_EVEN_WORD_GAPS,
+                                   StrId::STR_WORD_SPACING,
+                                   StrId::STR_CHARACTER_SPACING,
+                                   StrId::STR_SCREEN_MARGIN,
+                                   StrId::STR_PARAGRAPH_INDENTATION};
 constexpr const StrId (&kSpacingIds)[CrossPointSettings::LINE_COMPRESSION_COUNT] = LINE_SPACING_IDS;
+constexpr StrId kGapIds[] = {StrId::STR_STATE_OFF, StrId::STR_GAPS_SLIGHT, StrId::STR_GAPS_MEDIUM};
 constexpr StrId kAlignIds[] = {StrId::STR_JUSTIFY, StrId::STR_ALIGN_LEFT, StrId::STR_CENTER, StrId::STR_ALIGN_RIGHT,
                                StrId::STR_BOOK_S_STYLE};
 constexpr int kTextRowCount = static_cast<int>(std::size(kTextRowNames));
@@ -2595,6 +2607,17 @@ std::string EpubReaderActivity::textRowValue(int row) const {
       return I18N.get(kSpacingIds[SETTINGS.lineSpacing % CrossPointSettings::LINE_COMPRESSION_COUNT]);
     case 3:
       return I18N.get(kAlignIds[SETTINGS.paragraphAlignment % CrossPointSettings::PARAGRAPH_ALIGNMENT_COUNT]);
+    case 6:
+      return I18N.get(kGapIds[SETTINGS.evenWordGaps % std::size(kGapIds)]);
+    case 7:
+      return std::to_string(SETTINGS.wordSpacing) + "%";
+    case 8:
+      return I18N.get(textoptions::CHARACTER_SPACING_IDS[SETTINGS.characterSpacing %
+                                                         std::size(textoptions::CHARACTER_SPACING_IDS)]);
+    case 9:
+      return std::to_string(SETTINGS.screenMargin);
+    case 10:
+      return SETTINGS.paragraphIndentSpaces == 0 ? tr(STR_STATE_OFF) : std::to_string(SETTINGS.paragraphIndentSpaces);
     default:
       return "";
   }
@@ -2645,6 +2668,55 @@ void EpubReaderActivity::showTextRowPopup(const int row) {
                           applyTextSettingLive();
                         });
       break;
+    case 6:
+      overlayPopup.show(StrId::STR_EVEN_WORD_GAPS, kGapIds, static_cast<int>(std::size(kGapIds)),
+                        SETTINGS.evenWordGaps % std::size(kGapIds), [this](int idx) {
+                          SETTINGS.evenWordGaps = static_cast<uint8_t>(idx);
+                          applyTextSettingLive();
+                        });
+      break;
+    case 7: {
+      constexpr int MIN = CrossPointSettings::WORD_SPACING_MIN;
+      constexpr int STEP = CrossPointSettings::WORD_SPACING_STEP;
+      const int cur = (std::clamp<int>(SETTINGS.wordSpacing, MIN, CrossPointSettings::WORD_SPACING_MAX) - MIN) / STEP;
+      overlayPopup.show(StrId::STR_WORD_SPACING, textoptions::WORD_SPACING_IDS,
+                        static_cast<int>(std::size(textoptions::WORD_SPACING_IDS)), cur, [this](int idx) {
+                          SETTINGS.wordSpacing = static_cast<uint8_t>(MIN + idx * STEP);
+                          applyTextSettingLive();
+                        });
+      break;
+    }
+    case 8:
+      overlayPopup.show(StrId::STR_CHARACTER_SPACING, textoptions::CHARACTER_SPACING_IDS,
+                        static_cast<int>(std::size(textoptions::CHARACTER_SPACING_IDS)),
+                        SETTINGS.characterSpacing % std::size(textoptions::CHARACTER_SPACING_IDS), [this](int idx) {
+                          SETTINGS.characterSpacing = static_cast<uint8_t>(idx);
+                          applyTextSettingLive();
+                        });
+      break;
+    case 9: {
+      std::vector<std::string> options;
+      int cur = 0;
+      for (size_t i = 0; i < std::size(textoptions::MARGINS); ++i) {
+        options.push_back(std::to_string(textoptions::MARGINS[i]));
+        if (textoptions::MARGINS[i] <= SETTINGS.screenMargin) cur = static_cast<int>(i);
+      }
+      overlayPopup.show(StrId::STR_SCREEN_MARGIN, options, cur, [this](int idx) {
+        SETTINGS.screenMargin = textoptions::MARGINS[idx];
+        applyTextSettingLive();
+      });
+      break;
+    }
+    case 10: {
+      std::vector<std::string> options{tr(STR_STATE_OFF)};
+      for (int spaces = 1; spaces <= textoptions::MAX_INDENT; ++spaces) options.push_back(std::to_string(spaces));
+      overlayPopup.show(StrId::STR_PARAGRAPH_INDENTATION, options,
+                        std::min<int>(SETTINGS.paragraphIndentSpaces, textoptions::MAX_INDENT), [this](int idx) {
+                          SETTINGS.paragraphIndentSpaces = static_cast<uint8_t>(idx);
+                          applyTextSettingLive();
+                        });
+      break;
+    }
     default:
       return;
   }
@@ -2993,6 +3065,7 @@ void EpubReaderActivity::handleOverlayInput() {
         // Focus Reading is a genuine on/off: a tap toggles and applies live.
         SETTINGS.focusReadingEnabled = SETTINGS.focusReadingEnabled ? 0 : 1;
         applyTextSettingLive();
+
       } else {
         // Enum rows open the Settings-style option picker.
         showTextRowPopup(panelIndex);

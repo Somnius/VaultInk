@@ -2,6 +2,19 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.27.0 (2026-10-28)
+
+More from kos25k (#12, and the follow-up on #10).
+
+- In a book, the Text panel has all the layout settings now. Next to font, size, line spacing, alignment, hyphenation and focus reading, it has Even Word Gaps, word spacing, character spacing, screen margin and paragraph indentation. Every change shows right away on the page you're reading. The panel scrolls.
+- Quick settings has a Library tile when you open it anywhere except in a book, next to the paper tile. In a book that spot is still Home, and the book card at the top takes you to the library.
+- Even Word Gaps has two levels now. Slight is how 0.24.0 did it: gaps grow by up to half a space. Medium lets them grow by up to one space, so more lines reach the right edge and fewer stay short. Off is still the default.
+
+I didn't make hyphenation split words at any letter to fill the short lines. In Greek (and English) a break only reads right between syllables, so "βελτ-ιωμένη" would look worse than the gap.
+
+Tested in the simulator: the new rows in the Text panel (word spacing changed live), the Library tile, and Slight vs Medium on a Greek paragraph. Not tested on the device yet.
+
+
 ## 0.26.0 (2026-10-28)
 
 Another small one, from kos25k (#11).

@@ -139,7 +139,8 @@ class ParsedText {
  public:
   // Set by Section before a build (ReaderRenderSpec::evenWordGaps): justified lines stretch gaps by
   // at most half a space, the rest stay ragged.
-  static inline bool evenWordGaps = false;
+  // 0 = off, 1 = gaps grow at most half a space, 2 = at most one space.
+  static inline uint8_t evenWordGaps = 0;
   explicit ParsedText(const bool hyphenationEnabled = false, const bool focusReadingEnabled = false,
                       const BlockStyle& blockStyle = BlockStyle(), const uint8_t paragraphIndentSpaces = 2)
       : blockStyle(blockStyle),

@@ -70,12 +70,26 @@ tapping by mistake while reading doesn't turn the page. Swipes and the buttons w
 status bar strip at the very bottom still opens quick settings, also in the bottom corners. Taps
 only turn pages when the page gestures (Settings → Controls) allow taps.
 
-## Even Word Gaps (0.24.0)
+## Even Word Gaps (0.24.0, levels in 0.27.0)
 
 **Settings → Reader → Even Word Gaps (justified)** keeps justified text from stretching word gaps
-much. A line is still justified when its gaps grow by up to half a space; a line that would need
-more is left ragged at the right, with normal gaps. Off by default (every line justified, as
-before). Turning it on lays the open chapter out again.
+much. **Slight**: a line is justified when its gaps grow by up to half a space. **Medium**: up to
+one space, so more lines are filled to the right edge. A line that would need more stays ragged,
+with normal gaps. **Off** (the default) justifies every line, as before. A change lays the open
+chapter out again.
+
+## In the book: the Text panel (0.27.0)
+
+Inside a book or note, the Text panel (tap the middle, then Text) has every layout setting now:
+font, size, line spacing, alignment, hyphenation, focus reading, **Even Word Gaps, word spacing,
+character spacing, screen margin and paragraph indentation**. Each change applies at once to the
+page you're on. The panel scrolls.
+
+## Library in quick settings (0.27.0)
+
+When quick settings is opened anywhere except over a book, the second row has a **Library** tile
+next to the paper tile. Over a book that place keeps the **Home** tile, and the book card at the
+top opens the library instead.
 
 ## Word gaps and hyphenation
 

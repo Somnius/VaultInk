@@ -130,8 +130,9 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Toggle(StrId::STR_TEXT_AA, &CrossPointSettings::textAntiAliasing, "textAntiAliasing",
                            StrId::STR_CAT_READER)
            .withTextSettings());
-  emit(SettingInfo::Toggle(StrId::STR_EVEN_WORD_GAPS, &CrossPointSettings::evenWordGaps, "evenWordGaps",
-                           StrId::STR_CAT_READER));
+  emit(SettingInfo::Enum(StrId::STR_EVEN_WORD_GAPS, &CrossPointSettings::evenWordGaps,
+                         {StrId::STR_STATE_OFF, StrId::STR_GAPS_SLIGHT, StrId::STR_GAPS_MEDIUM}, "evenWordGaps",
+                         StrId::STR_CAT_READER));
   emit(SettingInfo::Toggle(StrId::STR_HIDE_STATUS_BAR, &CrossPointSettings::statusBarHidden, "statusBarHidden",
                            StrId::STR_CAT_READER));
   emit(SettingInfo::Enum(StrId::STR_READING_PAPER, &CrossPointSettings::readingPaper,

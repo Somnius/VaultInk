@@ -1543,13 +1543,13 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   int justifyExtra = (effectiveAlignment == CssTextAlign::Justify && !isLastLine)
                          ? computeJustifyExtra(spareSpace, actualGapCount)
                          : 0;
-  // Even word gaps: a line that would need gaps over 1.5 spaces stays ragged instead.
-  const int maxJustifyExtra =
-      evenWordGaps
-          ? std::max(
-                1,
-                scaleSpace(renderer.getSpaceAdvance(fontId, 'a', 'a', EpdFontFamily::REGULAR), wordSpacingPercent) / 2)
-          : INT_MAX;
+  // Even word gaps: a line that would need more stretch than half a space (Slight) or one space
+  // (Medium) per gap stays ragged instead.
+  const int naturalSpace =
+      scaleSpace(renderer.getSpaceAdvance(fontId, 'a', 'a', EpdFontFamily::REGULAR), wordSpacingPercent);
+  const int maxJustifyExtra = evenWordGaps == 0   ? INT_MAX
+                              : evenWordGaps == 1 ? std::max(1, naturalSpace / 2)
+                                                  : std::max(1, naturalSpace);
   if (justifyExtra > maxJustifyExtra) justifyExtra = 0;
 
   // BiDi processing: reorder words with UAX#9 in full-line context.
