@@ -53,6 +53,17 @@ There is no tap to show and hide it inside a book. A different page height means
 has to be laid out again, which takes a few seconds each time. The bottom of the screen also
 already turns the page.
 
+## Tap Zones: corners only (0.25.0)
+
+**Settings → Controls → Tap Zones** chooses where a tap turns the page. **Whole page** (the
+default) is as before: the left third goes back, the rest forward, and the middle opens the menu.
+**Corners only** turns pages only from a tap in one of the four corners (a square about a sixth
+of the screen's short side): the right corners go forward, the left ones back (the other way round
+for right-to-left books and Inverted Tap). Taps anywhere else do nothing, so resting a finger or
+tapping by mistake while reading doesn't turn the page. Swipes and the buttons work as always. The
+status bar strip at the very bottom still opens quick settings, also in the bottom corners. Taps
+only turn pages when the page gestures (Settings → Controls) allow taps.
+
 ## Even Word Gaps (0.24.0)
 
 **Settings → Reader → Even Word Gaps (justified)** keeps justified text from stretching word gaps

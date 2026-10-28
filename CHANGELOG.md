@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.25.0 (2026-10-28)
+
+A small one: tap zones.
+
+- Settings → Controls → Tap Zones. "Whole page" is how it was, and stays the default. "Corners only" turns the page only when you tap one of the four corners: right corners go forward, left corners go back. Taps anywhere else do nothing, so a stray finger while reading doesn't flip the page. Swipes and the buttons work as before.
+- It only does something when your page gestures allow taps (Settings → Controls → Next/Previous page gesture).
+
+Tested in the simulator: with Corners only, a tap in the middle-right did nothing and the corners turned pages forward and back. Not tested on the device yet.
+
+
 ## 0.24.0 (2026-10-28)
 
 Five more from kos25k (issues #2, #7, #8, #9, #10).

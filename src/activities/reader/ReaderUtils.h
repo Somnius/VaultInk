@@ -6,6 +6,7 @@
 #include <HalTiltSensor.h>
 #include <Logging.h>
 
+#include <algorithm>
 #include <cctype>
 #include <string_view>
 
@@ -126,6 +127,16 @@ inline TouchPageTurn detectTouchPageTurn(const GfxRenderer& renderer, const Mapp
   if (SETTINGS.showReaderMenu == CrossPointSettings::READER_MENU_TAP && x >= width / 3 && x < width - width / 3 &&
       y >= height / 3 && y < height - height / 3) {
     return result;
+  }
+
+  // Corners only: a tap turns the page only in a corner square (a sixth of the short side), so
+  // taps elsewhere while reading do nothing. Left corners go one way, right corners the other.
+  if (SETTINGS.tapZones == 1) {
+    const int corner = std::min(width, height) / 6;
+    const bool left = x < corner;
+    const bool right = x >= width - corner;
+    const bool topOrBottom = y < corner || y >= height - corner;
+    if (!topOrBottom || (!left && !right)) return result;
   }
 
   // Give the whole page to the sole tap-enabled direction. When both accept

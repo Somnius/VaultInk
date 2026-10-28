@@ -170,6 +170,9 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                            {StrId::STR_TAP_AND_SWIPE, StrId::STR_TAP_ONLY, StrId::STR_SWIPE_ONLY,
                             StrId::STR_INVERTED_TAP, StrId::STR_DISABLED},
                            "pageTurnGesture", StrId::STR_CAT_CONTROLS));
+    emit(SettingInfo::Enum(StrId::STR_TAP_ZONES, &CrossPointSettings::tapZones,
+                           {StrId::STR_TAP_ZONES_PAGE, StrId::STR_TAP_ZONES_CORNERS}, "tapZones",
+                           StrId::STR_CAT_CONTROLS));
     emit(SettingInfo::Enum(StrId::STR_PREV_PAGE_GESTURE, &CrossPointSettings::previousPageGesture,
                            {StrId::STR_TAP_AND_SWIPE, StrId::STR_TAP_ONLY, StrId::STR_SWIPE_ONLY,
                             StrId::STR_INVERTED_TAP, StrId::STR_DISABLED},

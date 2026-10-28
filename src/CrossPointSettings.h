@@ -385,6 +385,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t tiltPageTurn = TILT_OFF;
   // Master reader-touch toggle on boards with a touch controller.
   uint8_t touchReaderControls = TOUCH_READER_ON;
+  uint8_t tapZones = 0;  // 0 = the whole page turns pages; 1 = only the four corners do
   // Which gestures turn the page in each direction (PAGE_TURN_GESTURE).
   uint8_t pageTurnGesture = SWIPE_ONLY;
   uint8_t previousPageGesture = SWIPE_ONLY;

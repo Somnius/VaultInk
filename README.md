@@ -177,6 +177,7 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   work as well.
 - **File browser actions.** Long-press a file or folder for Open, Delete, Rename, Move, Copy and
   New folder; Extract here for a .zip; Open as gallery for a folder.
+- **Tap zones.** Turn pages by tapping anywhere, or only in the corners (Settings → Controls).
 - **Gallery.** Home → Gallery: the pictures on the card as a grid, with View, Delete, Move, Copy.
 - **What's New.** After an update the device shows what changed (Settings → System → What's New). Move and Copy open a folder picker; nothing overwrites a file with the same name, and
   a copy that runs out of space leaves nothing half-written.
