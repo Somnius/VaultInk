@@ -5,10 +5,26 @@ first with **Banana Comic Converter** by u/curseofthebanana (GitHub: seethroughm
 
 **https://seethroughme.github.io/Banana-Comic-Converter/**
 
-It's a free tool that runs in the browser, on a phone or a computer, and uses no AI. It cuts each
-page into its panels and repacks them so they use as much of the screen as possible, instead of
-shrinking the whole page. It has a manual panel editor for the pages it gets wrong, batch
-conversion, metadata editing, and it can split big files. It writes XTC, XTCH, EPUB and CBZ.
+It's a free tool that runs in the browser, on a phone or a computer, and uses no AI; your files stay
+in the browser. It takes CBZ, ZIP or PDF, cuts each page into its panels and repacks them so they
+use as much of the screen as possible, instead of shrinking the whole page. It has a manual panel
+editor for the pages it gets wrong, batch conversion, metadata editing, and it can split big files.
+It writes XTC, XTCH, EPUB and CBZ.
+
+<p>
+  <img src="images/comics/converter-phone.png" alt="Banana Comic Converter on a phone: add your comics, choose your reader, choose what to make" width="260">
+  <img src="images/comics/converter-desktop.png" alt="Banana Comic Converter on a computer, with the Xteink X4 / X4 Pro preset and the XTCH format picked" width="520">
+</p>
+
+## In the converter
+
+1. **Add your comics**: CBZ, ZIP or PDF, one or several files.
+2. **Choose your reader**: pick **Xteink X4 / X4 Pro (480×800)**, and **Right-to-left (manga)** or
+   **Left-to-right (western)**. The reading direction is set here, so the pages arrive on the X4 Pro
+   in the right order.
+3. **Choose what to make**: the X4 quick setup fills in the screen size, file type and a safe split
+   size; or pick the format yourself (see below).
+4. Tick that you own the files (or may convert them for personal use) and press **Convert**.
 
 It's an independent project, not part of VaultInk. Its author agreed to VaultInk linking to it.
 Questions about the conversion go to its author (the page has instructions and troubleshooting).
