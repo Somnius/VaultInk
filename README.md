@@ -118,6 +118,28 @@ after English). Back in Greek the same place is Ρυθμίσεις → Σύστ�
 
 In the guide, Next (or OK, or the right and down keys) moves on. Back goes back a page. On the first page, Back asks whether you want to skip.
 
+## Comics and manga, with Banana Comic Converter
+
+<a href="https://seethroughme.github.io/Banana-Comic-Converter/"><img src="docs/images/comics/converter-phone.png" alt="Banana Comic Converter on a phone" width="220" align="right"></a>
+
+Comics on the X4 Pro go through **[Banana Comic Converter](https://seethroughme.github.io/Banana-Comic-Converter/)**,
+made by **u/curseofthebanana** ([Reddit](https://www.reddit.com/user/curseofthebanana/),
+[GitHub: seethroughme](https://github.com/seethroughme)). It's a free tool in your browser, on a
+phone or a computer, with no AI: it cuts every page into its panels and repacks them to fill the
+small screen, instead of shrinking the whole page. It has an X4 / X4 Pro preset, manga
+(right-to-left) or western order, a full panel editor for the pages it gets wrong, batch
+conversion and file splitting, and it writes XTC, XTCH, EPUB and CBZ.
+
+We're working on this together: its author is happy for VaultInk to send comic readers their way,
+and VaultInk is built to open what it makes. Convert to **XTCH** (or **XTC** for the fastest page
+turns), upload the file with the companion app or the web page, and read it like a book. Coming
+next: a "Convert a comic" button and "Share to VaultInk" in the companion app, faster XTCH page
+turns, and a CBZ reader. The guide: [docs/comics.md](docs/comics.md).
+
+If it saves you time, the converter's page has a "Buy me a coffee" link for its author.
+
+<br clear="right">
+
 ## What works now
 
 - **Reading.** Everything CrossPoint Reader offers: EPUB, TXT and XTC books, SD-card fonts,
@@ -164,10 +186,8 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   buttons or swipes, zoom with the + / − / Fit buttons at the bottom right (or Confirm), and tap a
   card to open its note (or the card's own text). Back returns to the canvas.
 - **Greek and English keyboard** on screen, switched with the globe key.
-- **Comics and manga**: convert them with
-  [Banana Comic Converter](https://seethroughme.github.io/Banana-Comic-Converter/) by u/curseofthebanana
-  to XTCH or XTC, then read them like books. More (a CBZ reader, faster page turns) is planned. See
-  [docs/comics.md](docs/comics.md).
+- **Comics and manga**, converted with Banana Comic Converter to XTCH or XTC and read like books:
+  see [above](#comics-and-manga-with-banana-comic-converter).
 - **Search settings** by name, with a jump to your notes for the same words.
 - **Home screen rows** in any order (Settings → Display → Home Screen Rows).
 - **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.
@@ -292,6 +312,9 @@ VaultInk stands on other people's work:
   here is built on, and the [FreeInk SDK](https://freeink.org) under it.
 - [CrossNext](https://github.com/manuelx900/CrossNext) and KOReader's SimpleUI plugin, for ideas.
 - kos25k, who tested every step of the way.
+- u/curseofthebanana ([seethroughme](https://github.com/seethroughme)), whose
+  [Banana Comic Converter](https://seethroughme.github.io/Banana-Comic-Converter/) makes the comics
+  VaultInk reads.
 
 The licences of the fonts, icons and libraries are listed in [NOTICE](NOTICE).
 
