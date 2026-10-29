@@ -30,6 +30,11 @@ It's an independent project, not part of VaultInk. Its author agreed to VaultInk
 Questions about the conversion go to its author (the page has instructions and troubleshooting).
 VaultInk doesn't convert anything on the device.
 
+## From the X4 Pro itself (0.34.0)
+
+**Settings → Library → Convert comics** shows a QR code for the converter. Scan it with your phone
+and the page opens there, with a reminder of what to pick (the X4 / X4 Pro preset and XTCH).
+
 ## Which file to make
 
 - **XTCH**: grayscale. The best choice for most manga and comics.

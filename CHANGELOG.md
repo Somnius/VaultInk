@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.34.0 (2026-10-29)
+
+Comics: convert them from the X4 Pro.
+
+- Settings → Library → Convert comics shows a QR code for Banana Comic Converter by u/curseofthebanana. Scan it with your phone, the converter opens there, and the screen reminds you what to pick: the X4 / X4 Pro preset and XTCH. Then upload the file with the companion app or File Transfer, and it opens like a book.
+- More in the comics guide: https://github.com/Somnius/VaultInk/blob/main/docs/comics.md
+
+Tested in the simulator, in English and Greek: the screen and its text, and the QR code decoded from a screenshot opens the converter's page. Not confirmed on the device yet.
+
+
 ## 0.33.2 (2026-10-29)
 
 A fix for comics and other XTC/XTCH files with chapters.

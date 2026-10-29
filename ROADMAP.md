@@ -265,6 +265,8 @@ What works already: XTC (1-bit) and XTCH (2-bit) open as books with chapters, pr
 the right page; CrossPoint read them as 1-based, so chapters started one page early);
 EPUB comics show their pictures; the companion app's Files tab can upload any file to the card.
 
+* ✅ Device QR (0.34.0): Settings → Library → Convert comics shows a QR code for the converter
+  with a caption crediting its author.
 * ⏳ **1c.1 Guide and flow (S).** docs/comics.md (which output to pick, splitting big files, where to
   put them), README/SPECS, a short line on the device's empty Library, the credit. Companion app: a
   "Convert a comic" entry that opens the converter in the phone's browser (not inside the app), and

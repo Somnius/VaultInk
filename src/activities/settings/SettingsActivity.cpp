@@ -38,6 +38,7 @@
 #include "TextSettingsActivity.h"
 #include "activities/ActivityManager.h"
 #include "activities/network/WifiSelectionActivity.h"
+#include "activities/reader/QrDisplayActivity.h"
 #include "activities/util/IntervalSelectionActivity.h"
 #include "activities/util/WelcomeGuideActivity.h"
 #include "activities/vault/LiveSyncActivity.h"
@@ -136,6 +137,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   addAction(SettingsSection::Reader, StrId::STR_MANAGE_FONTS, SettingAction::DownloadFonts);
   addAction(SettingsSection::Reader, StrId::STR_PAPER_CYCLE, SettingAction::PaperCycle);
   addAction(SettingsSection::Display, StrId::STR_HOME_ROWS, SettingAction::HomeRows);
+  addAction(SettingsSection::Library, StrId::STR_CONVERT_COMICS, SettingAction::ComicConverter);
   if (BoardConfig::hasHomeKey()) {
     addAction(SettingsSection::Controls, StrId::STR_HOME_BUTTON, SettingAction::HomeButton);
   }
@@ -474,6 +476,15 @@ void SettingsActivity::toggleSelectedSetting() {
         break;
       case SettingAction::HomeRows:
         if (auto activity = makeUniqueNoThrow<HomeRowsActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), nullptr);
+        }
+        break;
+      case SettingAction::ComicConverter:
+        // Banana Comic Converter, an independent browser tool by u/curseofthebanana (docs/comics.md):
+        // a QR code to open it on the phone.
+        if (auto activity = makeUniqueNoThrow<QrDisplayActivity>(
+                renderer, mappedInput, "https://seethroughme.github.io/Banana-Comic-Converter/", tr(STR_CONVERT_COMICS),
+                tr(STR_CONVERT_COMICS_CAPTION))) {
           startActivityForResult(std::move(activity), nullptr);
         }
         break;

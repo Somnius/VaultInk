@@ -7,8 +7,10 @@
 
 class QrDisplayActivity final : public Activity {
  public:
-  explicit QrDisplayActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const std::string& textPayload)
-      : Activity("QrDisplay", renderer, mappedInput), textPayload(textPayload) {}
+  // `title` replaces the "Display QR" header; `caption` (a few lines) goes under the code.
+  explicit QrDisplayActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const std::string& textPayload,
+                             const char* title = nullptr, const char* caption = nullptr)
+      : Activity("QrDisplay", renderer, mappedInput), textPayload(textPayload), title(title), caption(caption) {}
 
   void onEnter() override;
   void onExit() override;
@@ -17,4 +19,6 @@ class QrDisplayActivity final : public Activity {
 
  private:
   std::string textPayload;
+  const char* title;
+  const char* caption;
 };

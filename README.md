@@ -136,6 +136,9 @@ turns), upload the file with the companion app or the web page, and read it like
 next: a "Convert a comic" button and "Share to VaultInk" in the companion app, faster XTCH page
 turns, and a CBZ reader. The guide: [docs/comics.md](docs/comics.md).
 
+On the X4 Pro, **Settings → Library → Convert comics** shows a QR code that opens the converter on
+your phone.
+
 If it saves you time, the converter's page has a "Buy me a coffee" link for its author.
 
 <br clear="right">

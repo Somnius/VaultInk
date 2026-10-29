@@ -32,6 +32,7 @@ enum class SettingAction {
   KeyboardLayouts,
   PaperCycle,
   HomeRows,
+  ComicConverter,
   ClearDebugLogs,
   WhatsNew,
   HomeButton,
