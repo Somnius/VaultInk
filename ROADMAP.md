@@ -203,7 +203,9 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   Recent long-press; the store follows renames/moves/deletes; content-width tabs so four labels fit
   (Greek too). From #14 not done: the 3x2 home grid and 1-6 covers (they rework CrossPoint's old
   home styles), sort by progress, a favourites slot on the home.
-* ⏳ Home row order (#14): reorder the VaultInk home rows from Settings.
+* ✅ Home row order (0.32.0, #14): Settings → Display → Home Screen Rows, tap a row then where it
+  goes; stored as packed row ids with a repair rule (util/HomeRowOrder.h, host-tested). The Greek
+  string table was full (15-bit offsets), so offsets are now stored halved: 64 KB per language.
 * ⏳ Settings search (#13): settings by name, plus notes, from one box.
 * ✅ (0.27.0, kos25k #12 and #10) The reader's Text panel has every layout setting (Even Word
   Gaps, word and character spacing, margin, indentation added; one shared list of choices in

@@ -206,7 +206,7 @@ void LibraryListActivity::openSelectedBook() {
   std::string path;
   if (favouritesTab()) {
     const auto& favs = FAVOURITES.getAll();
-    if (selectedEntry() < 0 || selectedEntry() >= static_cast<int>(favs.size())) return;
+    if (selectedEntry() >= static_cast<int>(favs.size())) return;  // selectedEntry() is never negative
     const auto& fav = favs[static_cast<size_t>(selectedEntry())];
     if (!Storage.exists(fav.path.c_str())) {
       promptRemoveMissingFavourite(fav.path, fav.title);

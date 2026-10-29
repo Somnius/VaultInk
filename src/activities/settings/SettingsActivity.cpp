@@ -22,6 +22,7 @@
 #include "CrossPointSettings.h"
 #include "FontDownloadActivity.h"
 #include "HomeButtonSettingsActivity.h"
+#include "HomeRowsActivity.h"
 #include "KOReaderSettingsActivity.h"
 #include "KeyboardLayoutsActivity.h"
 #include "LanguageSelectActivity.h"
@@ -123,6 +124,7 @@ void SettingsActivity::rebuildSettings() {
   addAction(SettingsSection::Reader, StrId::STR_TEXT_SETTINGS, SettingAction::TextSettings);
   addAction(SettingsSection::Reader, StrId::STR_MANAGE_FONTS, SettingAction::DownloadFonts);
   addAction(SettingsSection::Reader, StrId::STR_PAPER_CYCLE, SettingAction::PaperCycle);
+  addAction(SettingsSection::Display, StrId::STR_HOME_ROWS, SettingAction::HomeRows);
   if (BoardConfig::hasHomeKey()) {
     addAction(SettingsSection::Controls, StrId::STR_HOME_BUTTON, SettingAction::HomeButton);
   }
@@ -442,6 +444,11 @@ void SettingsActivity::toggleSelectedSetting() {
         break;
       case SettingAction::PaperCycle:
         if (auto activity = makeUniqueNoThrow<PaperCycleActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), nullptr);
+        }
+        break;
+      case SettingAction::HomeRows:
+        if (auto activity = makeUniqueNoThrow<HomeRowsActivity>(renderer, mappedInput)) {
           startActivityForResult(std::move(activity), nullptr);
         }
         break;

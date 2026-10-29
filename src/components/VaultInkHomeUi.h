@@ -16,7 +16,9 @@
 // then the rows in Row order.
 class VaultInkHomeUi final : public UiAppHost {
  public:
+  // Values are stored (Settings -> Home Screen Rows, util/HomeRowOrder.h): append only.
   enum class Row : uint8_t { Books, Vaults, Search, Files, Gallery, Transfer, Library, Settings };
+  static const char* rowLabel(Row row, bool plugins);
   static constexpr int MAX_ROWS = 8;
 
   explicit VaultInkHomeUi(GfxRenderer& renderer);

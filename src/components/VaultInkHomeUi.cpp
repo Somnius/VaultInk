@@ -9,12 +9,14 @@
 #include <cstdio>
 #include <utility>
 
+#include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "UITheme.h"
 #include "icons/customListIcons.h"
 #include "icons/listIcons.h"
 #include "icons/search32.h"
 #include "util/BookProgress.h"
+#include "util/HomeRowOrder.h"
 
 namespace fui = freeink::ui;
 namespace {
@@ -34,8 +36,9 @@ void VaultInkHomeUi::begin(const std::vector<RecentBook>& recent, const bool con
   hasContinueReading = continuing && !recent.empty();
   usePlugins = plugins;
   rowCount = 0;
-  for (const Row row :
-       {Row::Books, Row::Vaults, Row::Search, Row::Files, Row::Gallery, Row::Transfer, Row::Library, Row::Settings}) {
+  // The order set in Settings -> Display -> Home Screen Rows; Library keeps its slot while hidden.
+  for (const uint8_t id : homerows::decode(SETTINGS.homeRowOrder)) {
+    const auto row = static_cast<Row>(id);
     if (row == Row::Library && !librarySlot) continue;
     rows[rowCount++] = row;
   }
@@ -81,6 +84,28 @@ int VaultInkHomeUi::indexFor(const HomeMenuItem item) const {
   const auto* end = rows.begin() + rowCount;
   const auto* it = std::find(rows.begin(), end, target);
   return it != end ? cardCount() + static_cast<int>(it - rows.begin()) : 0;
+}
+
+const char* VaultInkHomeUi::rowLabel(const Row row, const bool plugins) {
+  switch (row) {
+    case Row::Books:
+      return tr(STR_HOME_BOOKS);
+    case Row::Vaults:
+      return tr(STR_VAULTS);
+    case Row::Search:
+      return tr(STR_SEARCH_NOTES);
+    case Row::Files:
+      return tr(STR_BROWSE_FILES);
+    case Row::Gallery:
+      return tr(STR_GALLERY);
+    case Row::Transfer:
+      return tr(STR_FILE_TRANSFER);
+    case Row::Library:
+      return plugins ? tr(STR_PLUGINS) : tr(STR_OPDS_BROWSER);
+    case Row::Settings:
+      return tr(STR_SETTINGS_TITLE);
+  }
+  return "";
 }
 
 const VaultInkHomeUi::Row* VaultInkHomeUi::rowAt(const int index) const {

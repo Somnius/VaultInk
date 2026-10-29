@@ -422,6 +422,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint16_t keyboardLayouts = 0;
   // Backgrounds the quick-settings paper tile cycles through, bit = paper_texture::Style; 0 = all.
   uint16_t paperCycle = 0;
+  // VaultInk home row order (util/HomeRowOrder.h); 0 = default.
+  uint32_t homeRowOrder = 0;
   // Bluetooth page turner, saved under the keys lib/BlePageTurner reads and writes (BlePageTurnerJson.h).
   bleturner::Config ble;
   // Quick Resume: keep current content visible with moon icon instead of showing a static sleep screen.

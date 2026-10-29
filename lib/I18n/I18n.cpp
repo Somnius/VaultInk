@@ -21,10 +21,11 @@ const char* I18n::get(StrId id) const {
   // Use generated helper function - no hardcoded switch needed!
   const LangStrings lang = getLanguageStrings(_language);
 
-  // If bit 15 of the offset is set, apply the offset to the English lookup table
+  // Offsets are stored halved (every string starts on an even byte). Bit 15 set: the string is
+  // the English one, at that offset in the English blob.
   const uint16_t off = lang.offsets[index];
-  if (off & 0x8000) return STRINGS_EN_DATA + (off & 0x7FFF);
-  return lang.data + off;
+  if (off & 0x8000) return STRINGS_EN_DATA + 2u * (off & 0x7FFF);
+  return lang.data + 2u * off;
 }
 
 void I18n::setLanguage(Language lang) {

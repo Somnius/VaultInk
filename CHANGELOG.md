@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.32.0 (2026-10-29)
+
+The home rows can go in any order now, the second part of kos25k's #14.
+
+- Settings → Display → Home Screen Rows: tap a row to pick it up, then tap where it should go. Reset to default order is at the end. The Continue card stays on top. This is for the VaultInk home style.
+- Fixed in 0.31.0's code: a check the build tools flagged (it could never be true). No change you'd notice.
+- Behind the scenes, the Greek texts had filled their table, so the table can hold twice as much now. Every language reads its texts the same as before.
+
+Tested in the simulator: moving Settings to the top in Greek, the home showing the new order, the saved order surviving a restart, and the order code with host tests (unknown or repeated rows, and rows added later). Not confirmed on the device yet.
+
+
 ## 0.31.0 (2026-10-29)
 
 Favourites, from kos25k's #14.

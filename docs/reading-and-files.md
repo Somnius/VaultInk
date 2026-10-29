@@ -108,6 +108,15 @@ The four tabs are as wide as their names (in Greek too) instead of four equal qu
 The list is kept in `/.crosspoint/favourites.json`. If that file can't be read, it's kept as
 `favourites.json.bad` instead of being overwritten.
 
+## Home screen rows (0.32.0)
+
+**Settings → Display → Home Screen Rows** sets the order of the rows on the VaultInk home (Books,
+Vaults, Search, Files, Gallery, Transfer, Plugins, Settings). Tap a row to pick it up, then tap
+where it should go; tap it again to put it back. **Reset to default order** at the end undoes it
+all. The order is saved when you leave the screen. The Continue card always stays on top, and the
+Plugins row keeps its place even while it's hidden. This is for the VaultInk home style only; the
+CrossPoint styles keep their own menus.
+
 ## Library in quick settings (0.27.0)
 
 When quick settings is opened anywhere except over a book, the second row has a **Library** tile

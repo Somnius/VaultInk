@@ -100,6 +100,11 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   Search, Highlights, a text-size stepper, and Font / Spacing / Margins. Buttons step through it.
 - Settings are grouped by task: Reading (Reader, Library, Vaults), Device. Each row shows its current
   value. Vaults (0.9.0): Open Vault at Last Note, Rebuild Search Index.
+- Home row order (0.32.0): `homeRowOrder`, a uint32 of 4-bit slots holding row id + 1 (0 ends;
+  0 overall = default). Row ids are `VaultInkHomeUi::Row`, append only. Decode drops unknown ids
+  and repeats and appends missing rows in default order.
+- I18n blobs (0.32.0): every string starts on an even byte and offsets are stored halved, so the
+  15 bits under the English-fallback flag reach 64 KB per language.
 - Favourites (0.31.0): `/.crosspoint/favourites.json`, up to 50 `{path, title, author}` newest
   first, held in RAM; written through `.tmp`, an unreadable file kept as `.bad`. The Library's
   fourth tab lists it directly (not the library index). Toggles: reader menu (books only) and the

@@ -164,6 +164,7 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
   buttons or swipes, zoom with the + / − / Fit buttons at the bottom right (or Confirm), and tap a
   card to open its note (or the card's own text). Back returns to the canvas.
 - **Greek and English keyboard** on screen, switched with the globe key.
+- **Home screen rows** in any order (Settings → Display → Home Screen Rows).
 - **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.
   See [docs/reading-and-files.md](docs/reading-and-files.md#favourites-0310).
 - **Page backgrounds**, from plain to papyrus to bath towel, [mostly for fun](#page-backgrounds).

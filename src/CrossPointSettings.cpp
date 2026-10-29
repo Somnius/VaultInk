@@ -116,6 +116,7 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   // A uint16_t mask, so it does not fit the uint8_t generic loop. Omitted while
   // unconfigured, so the default keeps following the UI language.
   if (paperCycle != 0) doc["paperCycle"] = paperCycle;
+  if (homeRowOrder != 0) doc["homeRowOrder"] = homeRowOrder;
   if (keyboardLayouts != 0) {
     doc["keyboardLayouts"] = keyboardLayouts;
   }
@@ -300,6 +301,7 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   }
   if (lineSpacing >= LINE_COMPRESSION_COUNT) lineSpacing = LINE_SPACING_DEFAULT;
   if (doc["paperCycle"].is<uint16_t>()) paperCycle = doc["paperCycle"].as<uint16_t>();
+  if (doc["homeRowOrder"].is<uint32_t>()) homeRowOrder = doc["homeRowOrder"].as<uint32_t>();
   if (doc["keyboardLayouts"].is<uint16_t>()) {
     keyboardLayouts = doc["keyboardLayouts"].as<uint16_t>();
   }

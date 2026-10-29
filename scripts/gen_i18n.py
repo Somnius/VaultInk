@@ -684,15 +684,16 @@ def generate_strings_cpp(
 
         if is_english:
             # Precompute byte offsets (UTF-8 encoded, +1 per string for null terminator)
+            # Offsets are stored halved (strings start on even bytes), so 15 bits reach 64 KB.
             offsets: List[int] = []
             current_offset = 0
             for s in lang_strings:
-                offsets.append(current_offset)
-                current_offset += len(s.encode("utf-8")) + 1
-            if current_offset > 0x7FFF:
+                offsets.append(current_offset // 2)
+                current_offset += _padded_size(s)
+            if current_offset > 0xFFFE:
                 raise ValueError(
                     f"Language {code}: blob size ({current_offset} bytes) exceeds "
-                    "15-bit offset limit (32767)"
+                    "the offset limit (65534)"
                 )
             en_offsets = list(offsets)
             blob_strings = lang_strings
@@ -704,13 +705,13 @@ def generate_strings_cpp(
                 if s == en_s:
                     offsets.append(en_offsets[i] | 0x8000)
                 else:
-                    offsets.append(current_offset)
-                    current_offset += len(s.encode("utf-8")) + 1
+                    offsets.append(current_offset // 2)
+                    current_offset += _padded_size(s)
                     blob_strings.append(s)
-            if current_offset > 0x7FFF:
+            if current_offset > 0xFFFE:
                 raise ValueError(
                     f"Language {code}: blob size ({current_offset} bytes) exceeds "
-                    "15-bit offset limit (32767)"
+                    "the offset limit (65534)"
                 )
 
         # Flat string data blob — all strings concatenated with \0 separators.
@@ -812,19 +813,27 @@ def _print_language_table(
     )
 
 
+def _padded_size(text: str) -> int:
+    """Bytes *text* takes in a blob: UTF-8, its \\0, and one more \\0 to keep the next string even."""
+    size = len(text.encode("utf-8")) + 1
+    return size + (size & 1)
+
+
 def _append_string_data_entry(lines: List[str], text: str) -> None:
     """
-    Escape *text*, append a \\0 null separator, and format as indented C++
+    Escape *text*, append a \\0 null separator (two when needed so every string
+    starts on an even byte, see _padded_size), and format as indented C++
     string literal lines for inclusion in a flat char data array blob.
     """
     segments = escape_cpp_string(text)
+    separator = "\\0\\0" if _padded_size(text) != len(text.encode("utf-8")) + 1 else "\\0"
     # Append the null entry separator to the last segment
     if segments and segments[-1] != "":
-        segments[-1] += "\\0"
+        segments[-1] += separator
     elif segments:
-        segments[-1] = "\\0"
+        segments[-1] = separator
     else:
-        segments = ["\\0"]
+        segments = [separator]
     lines.extend(format_cpp_string_literal(segments))
 
 
