@@ -100,6 +100,10 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   Search, Highlights, a text-size stepper, and Font / Spacing / Margins. Buttons step through it.
 - Settings are grouped by task: Reading (Reader, Library, Vaults), Device. Each row shows its current
   value. Vaults (0.9.0): Open Vault at Last Note, Rebuild Search Index.
+- Settings search (0.33.0): `SettingsSearchActivity` builds every section's rows with
+  `SettingsActivity::buildList` (one shared `allSettings()` per search) plus the Text Settings rows,
+  matches `textfold::fold(name)` against the folded query, opens `SettingsActivity(section, nameId)`.
+  The notes row starts `VaultSearchActivity` with `initialQuery`.
 - Home row order (0.32.0): `homeRowOrder`, a uint32 of 4-bit slots holding row id + 1 (0 ends;
   0 overall = default). Row ids are `VaultInkHomeUi::Row`, append only. Decode drops unknown ids
   and repeats and appends missing rows in default order.

@@ -12,12 +12,14 @@ class SettingsListActivity final : public UiListActivity {
   // Network after the Wi-Fi rows' silent restart.
   SettingsSection pendingSection;
 
-  std::array<freeink::ui::ListItem, SETTINGS_SECTION_COUNT> rowItems_{};
+  // Row 0 is Search (0.33.0); the sections follow.
+  std::array<freeink::ui::ListItem, SETTINGS_SECTION_COUNT + 1> rowItems_{};
 
   void rebuildRows();
   void openSection(SettingsSection section);
 
-  int listCount() const override { return static_cast<int>(SETTINGS_SECTION_COUNT); }
+  int listCount() const override { return static_cast<int>(SETTINGS_SECTION_COUNT) + 1; }
+  void openSearch();
   void buildScreen(UiScreen& screen) override;
   void activateIndex(int index) override;
   void onBackButton() override;

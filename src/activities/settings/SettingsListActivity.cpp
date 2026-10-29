@@ -8,8 +8,10 @@
 
 #include "MappedInputManager.h"
 #include "SettingsActivity.h"
+#include "SettingsSearchActivity.h"
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
+#include "components/icons/search32.h"
 
 namespace fui = freeink::ui;
 
@@ -34,11 +36,14 @@ constexpr SettingsSection ROW_ORDER[SETTINGS_SECTION_COUNT] = {
 };
 constexpr int DEVICE_GROUP_FIRST_ROW = 3;
 
+// Screen rows: 0 is Search, section ROW_ORDER[i] is row i + 1.
+constexpr int SEARCH_ROW = 0;
+
 int rowForSection(const SettingsSection section) {
   for (size_t i = 0; i < SETTINGS_SECTION_COUNT; ++i) {
-    if (ROW_ORDER[i] == section) return static_cast<int>(i);
+    if (ROW_ORDER[i] == section) return static_cast<int>(i) + 1;
   }
-  return 0;
+  return 1;
 }
 }  // namespace
 
@@ -69,13 +74,19 @@ void SettingsListActivity::loop() {
 // Rebuilds row labels; call when entering and after a section returns (the
 // UI language may have changed).
 void SettingsListActivity::rebuildRows() {
+  auto& search = rowItems_[SEARCH_ROW];
+  search = fui::ListItem{};
+  search.label = tr(STR_SEARCH_SETTINGS);
+  search.subtitle = tr(STR_SEARCH_SETTINGS_DESC);
+  search.icon = fui::bitmapFromIcon(icon_search_32);
+  search.actionValue = SEARCH_ROW;
   for (size_t i = 0; i < SETTINGS_SECTION_COUNT; ++i) {
     const auto section = static_cast<size_t>(ROW_ORDER[i]);
-    auto& item = rowItems_[i];
+    auto& item = rowItems_[i + 1];
     item.label = I18N.get(SETTINGS_SECTION_TITLES[section]);
     item.subtitle = I18N.get(SECTION_DESCS[section]);
     item.icon = fui::bitmapFromIcon(*SECTION_ICONS[section]);
-    item.actionValue = static_cast<int16_t>(i);
+    item.actionValue = static_cast<int16_t>(i + 1);
     item.sectionHeading = i == 0                        ? tr(STR_SETTINGS_GROUP_READING)
                           : i == DEVICE_GROUP_FIRST_ROW ? tr(STR_SETTINGS_GROUP_DEVICE)
                                                         : nullptr;
@@ -109,7 +120,26 @@ void SettingsListActivity::activateIndex(const int index) {
   // The section screen replaces this one; a lingering flash would gray an
   // unrelated element on return.
   app.clearTapFlash();
-  openSection(ROW_ORDER[index]);
+  if (index == SEARCH_ROW) {
+    openSearch();
+    return;
+  }
+  if (index < 1 || index > static_cast<int>(SETTINGS_SECTION_COUNT)) return;
+  openSection(ROW_ORDER[index - 1]);
+}
+
+void SettingsListActivity::openSearch() {
+  nav.selected = SEARCH_ROW;
+  auto activity = makeUniqueNoThrow<SettingsSearchActivity>(renderer, mappedInput);
+  if (!activity) {
+    LOG_ERR("SETTINGS", "OOM: SettingsSearchActivity");
+    return;
+  }
+  startActivityForResult(std::move(activity), [this](const ActivityResult&) {
+    rebuildRows();
+    resetUi();  // a theme or language change in a result's section restyles this screen too
+    requestUpdate();
+  });
 }
 
 void SettingsListActivity::openSection(const SettingsSection section) {

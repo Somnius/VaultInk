@@ -12,7 +12,9 @@
 // Given a note path instead, lists the notes in its vault that link to it (backlinks).
 class VaultSearchActivity final : public UiListActivity {
  public:
-  explicit VaultSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string backlinksOf = {});
+  // `initialQuery` (from the settings search) runs at once instead of asking.
+  explicit VaultSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string backlinksOf = {},
+                               std::string initialQuery = {});
   void onEnter() override;
   void loop() override;
 
@@ -43,6 +45,7 @@ class VaultSearchActivity final : public UiListActivity {
   std::string backlinksOf;
   bool indexed = false;
   bool askPending = true;
+  std::string initialQuery;
   std::string query;
   std::string queryLabel;
   std::vector<Result> results;

@@ -192,6 +192,7 @@ struct SettingInfo {
 // its option popup, or launches its sub-screen.
 class SettingsActivity final : public UiListActivity {
   const SettingsSection section;
+  const StrId focusName;
   std::vector<SettingInfo> settings;
 
   bool preserveQuickResumeTimeoutOn = false;
@@ -221,7 +222,14 @@ class SettingsActivity final : public UiListActivity {
   void drawFooter() override;
 
  public:
-  SettingsActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, SettingsSection section);
+  SettingsActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, SettingsSection section,
+                   StrId focusName = StrId::STR_NONE_OPT);
+  // Every setting (fonts and dictionaries as on the card now).
+  static std::vector<SettingInfo> allSettings();
+  static void buildList(SettingsSection section, std::vector<SettingInfo>& settings,
+                        const std::vector<SettingInfo>* shared = nullptr);
+  // Text Settings rows live in their own screen (TextSettingsActivity), not in a section list.
+  static bool isTextSetting(const SettingInfo& setting) { return setting.inTextSettings; }
   void onEnter() override;
   void render(RenderLock&& lock) override;
 };

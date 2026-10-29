@@ -206,7 +206,10 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * ✅ Home row order (0.32.0, #14): Settings → Display → Home Screen Rows, tap a row then where it
   goes; stored as packed row ids with a repair rule (util/HomeRowOrder.h, host-tested). The Greek
   string table was full (15-bit offsets), so offsets are now stored halved: 64 KB per language.
-* ⏳ Settings search (#13): settings by name, plus notes, from one box.
+* ✅ Settings search (0.33.0, kos25k #13): settings by name (folded like the vault search), each
+  result opens its section on that row; a last row searches the notes for the same words. Not done
+  from #13: searching every file on the card (no file index; a full scan per search is too slow),
+  category icons (the section name is shown instead), and "device storage" (the X4 Pro has none).
 * ✅ (0.27.0, kos25k #12 and #10) The reader's Text panel has every layout setting (Even Word
   Gaps, word and character spacing, margin, indentation added; one shared list of choices in
   src/util/TextOptions.h); a Library tile in quick settings away from a book; Even Word Gaps has

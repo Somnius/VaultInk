@@ -108,6 +108,18 @@ The four tabs are as wide as their names (in Greek too) instead of four equal qu
 The list is kept in `/.crosspoint/favourites.json`. If that file can't be read, it's kept as
 `favourites.json.bad` instead of being overwritten.
 
+## Search settings (0.33.0)
+
+**Settings → Search settings** (the first row) finds a setting by name. Type part of it and press
+OK; capitals and Greek accents don't matter. Each result says which section it's in. Tap one and
+that section opens with the setting selected. Settings that live in **Text Settings** (line spacing,
+word spacing, fonts and so on) open the Reader section on its Text Settings row, one tap away.
+
+The last row, **Search notes for "…"**, searches your vault notes for the same words, the same as
+**Home → Search**. Back from there comes back to the settings results. Tap the top row to search
+again. It doesn't search other files on the card: there's no index of them, and reading the whole
+card on every search would be far too slow.
+
 ## Home screen rows (0.32.0)
 
 **Settings → Display → Home Screen Rows** sets the order of the rows on the VaultInk home (Books,

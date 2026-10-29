@@ -94,7 +94,9 @@ SettingsSection sectionFor(const SettingInfo& setting) {
 constexpr size_t EXTRA_ROWS_PER_SECTION = 6;
 }  // namespace
 
-void SettingsActivity::rebuildSettings() {
+// Every row of `section`, in screen order: the action rows and the section's settings. Shared by
+// the section screen and the settings search (0.33.0).
+std::vector<SettingInfo> SettingsActivity::allSettings() {
   // Pick up any fonts uploaded/deleted over the web server since the last
   // reader activity ran — otherwise the font-family picker shows stale list.
   sdFontSystem.refreshIfDirty();
@@ -104,15 +106,24 @@ void SettingsActivity::rebuildSettings() {
   std::vector<DictionaryEntry> dictionaries;
   DictionaryRegistry::discover(dictionaries);
 
-  auto all = getSettingsList(&sdFontSystem.registry(), &dictionaries);
+  return getSettingsList(&sdFontSystem.registry(), &dictionaries);
+}
 
-  const size_t count = std::count_if(all.begin(), all.end(), [this](const SettingInfo& setting) {
+void SettingsActivity::buildList(const SettingsSection section, std::vector<SettingInfo>& settings,
+                                 const std::vector<SettingInfo>* shared) {
+  // The search passes one list for all seven sections (copied from); a section screen builds its own
+  // (moved from).
+  std::vector<SettingInfo> own;
+  if (!shared) own = allSettings();
+  const std::vector<SettingInfo>& all = shared ? *shared : own;
+
+  const size_t count = std::count_if(all.begin(), all.end(), [section](const SettingInfo& setting) {
     return sectionFor(setting) == section && showOnDevice(setting);
   });
   settings.clear();
   settings.reserve(count + EXTRA_ROWS_PER_SECTION);
 
-  const auto addAction = [this](SettingsSection target, StrId name, SettingAction action) {
+  const auto addAction = [section, &settings](SettingsSection target, StrId name, SettingAction action) {
     if (target == section) settings.push_back(SettingInfo::Action(name, action));
   };
 
@@ -132,9 +143,13 @@ void SettingsActivity::rebuildSettings() {
     addAction(SettingsSection::Controls, StrId::STR_REMAP_FRONT_BUTTONS, SettingAction::RemapFrontButtons);
   }
 
-  for (auto& setting : all) {
-    if (sectionFor(setting) != section || !showOnDevice(setting)) continue;
-    settings.push_back(std::move(setting));
+  for (size_t i = 0; i < all.size(); ++i) {
+    if (sectionFor(all[i]) != section || !showOnDevice(all[i])) continue;
+    if (shared) {
+      settings.push_back(all[i]);
+    } else {
+      settings.push_back(std::move(own[i]));
+    }
   }
 
   // Clock configuration only exists where the RTC probe found hardware.
@@ -164,12 +179,16 @@ void SettingsActivity::rebuildSettings() {
   }
   addAction(SettingsSection::General, StrId::STR_WELCOME_GUIDE, SettingAction::WelcomeGuide);
   addAction(SettingsSection::General, StrId::STR_ABOUT, SettingAction::About);
+}
+
+void SettingsActivity::rebuildSettings() {
+  buildList(section, settings);
   rebuildRowItems();
 }
 
 SettingsActivity::SettingsActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
-                                   const SettingsSection section)
-    : UiListActivity("Settings", renderer, mappedInput), section(section) {}
+                                   const SettingsSection section, const StrId focusName)
+    : UiListActivity("Settings", renderer, mappedInput), section(section), focusName(focusName) {}
 
 void SettingsActivity::onEnter() {
   UiListActivity::onEnter();
@@ -180,6 +199,15 @@ void SettingsActivity::onEnter() {
   syncQuickResumeTimeoutForSleepScreen(/*sleepScreenChanged=*/true, /*quickResumeTimeoutChanged=*/false);
 
   rebuildSettings();
+  // Opened from the settings search: start on that row.
+  if (focusName != StrId::STR_NONE_OPT) {
+    for (size_t i = 0; i < settings.size(); ++i) {
+      if (settings[i].nameId == focusName) {
+        nav.selected = static_cast<int>(i);
+        break;
+      }
+    }
+  }
 }
 
 // Rebuilds rowValues_/rowItems_ (label + actionValue) for settings.

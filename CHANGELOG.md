@@ -2,6 +2,19 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.33.0 (2026-10-29)
+
+Settings search, from kos25k's #13.
+
+- Settings has a Search settings row at the top. Type part of a setting's name and press OK; capitals and Greek accents don't matter. Each result says which section it's in, and a tap opens that section with the setting selected.
+- Settings inside Text Settings (line spacing, fonts and the rest) open the Reader section on its Text Settings row, one tap away.
+- The last row searches your notes for the same words. Back comes back to the results.
+
+From #13 I left out searching every file on the card: there's no index of them and reading the whole card for each search would be very slow. The section name stands in for the category icons, and the X4 Pro has no storage besides the card.
+
+Tested in the simulator: searching sleep, spacing and tomato (settings, Text Settings rows, and notes), opening a result further down a section, and the notes row coming back. Greek accent folding is the vault search's own; I didn't try a Greek query in the simulator. Not confirmed on the device yet.
+
+
 ## 0.32.0 (2026-10-29)
 
 The home rows can go in any order now, the second part of kos25k's #14.

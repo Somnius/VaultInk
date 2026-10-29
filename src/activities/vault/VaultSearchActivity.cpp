@@ -18,10 +18,11 @@
 namespace fui = freeink::ui;
 
 VaultSearchActivity::VaultSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
-                                         std::string backlinksOf)
+                                         std::string backlinksOf, std::string initialQuery)
     : UiListActivity("VaultSearch", renderer, mappedInput),
       backlinksOf(std::move(backlinksOf)),
-      askPending(this->backlinksOf.empty()) {}
+      askPending(this->backlinksOf.empty()),
+      initialQuery(std::move(initialQuery)) {}
 
 const char* VaultSearchActivity::headerTitle() const {
   return backlinkMode() ? tr(STR_BACKLINKS) : tr(STR_SEARCH_NOTES);
@@ -42,7 +43,12 @@ void VaultSearchActivity::loop() {
   }
   if (askPending) {
     askPending = false;
-    askForQuery();
+    if (!initialQuery.empty()) {
+      runSearch(initialQuery);
+      initialQuery.clear();
+    } else {
+      askForQuery();
+    }
     return;
   }
   UiListActivity::loop();
