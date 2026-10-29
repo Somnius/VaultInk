@@ -85,7 +85,7 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   // fixes the setting's position in the Reader category.
   emit(SettingInfo::Enum(StrId::STR_FONT_SIZE, nullptr, {}, "fontSize", StrId::STR_CAT_READER).withTextSettings());
   emit(SettingInfo::Enum(StrId::STR_LINE_SPACING, &CrossPointSettings::lineSpacing,
-                         {std::begin(LINE_SPACING_IDS), std::end(LINE_SPACING_IDS)}, "lineSpacingLevel",
+                         {std::begin(LINE_SPACING_IDS), std::end(LINE_SPACING_IDS)}, "lineSpacingStep",
                          StrId::STR_CAT_READER)
            .withTextSettings());
   emit(SettingInfo::Value(StrId::STR_WORD_SPACING, &CrossPointSettings::wordSpacing,

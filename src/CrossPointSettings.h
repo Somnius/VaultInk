@@ -119,10 +119,11 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // slot; fromJson() folds that range up (see LEGACY_FONT_SIZE_MAX).
   static constexpr uint8_t LEGACY_FONT_SIZE_MAX = 3;
   static constexpr uint8_t DEFAULT_FONT_POINT_SIZE = 14;
-  // Line spacing levels 1..10 (stored 0..9). Before 0.20.0 there were four, saved as "lineSpacing"
-  // 0..3 (tight, normal, wide, extra wide); those load as levels 5, 6, 8 and 10, the same spacing.
-  enum LINE_COMPRESSION : uint8_t { LINE_SPACING_DEFAULT = 5, LINE_COMPRESSION_COUNT = 10 };
-  static constexpr uint8_t LEGACY_LINE_SPACING[4] = {4, 5, 7, 9};
+  // Line spacing levels 0..10, stored as the level under "lineSpacingStep" (0.30.0). 0.20.0-0.29.0 had
+  // levels 1..10 stored 0..9 as "lineSpacingLevel" (they load one up, the same spacing); before
+  // 0.20.0 there were four, saved as "lineSpacing" 0..3, which load as levels 5, 6, 8 and 10.
+  enum LINE_COMPRESSION : uint8_t { LINE_SPACING_DEFAULT = 6, LINE_COMPRESSION_COUNT = 11 };
+  static constexpr uint8_t LEGACY_LINE_SPACING[4] = {5, 6, 8, 10};
   enum PARAGRAPH_ALIGNMENT {
     JUSTIFIED = 0,
     LEFT_ALIGN = 1,

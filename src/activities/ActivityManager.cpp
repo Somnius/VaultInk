@@ -417,6 +417,8 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem, bool cleanInitialRefr
       initialMenuItem = HomeMenuItem::VAULTS;
     } else if (activityName == "VaultSearch") {
       initialMenuItem = HomeMenuItem::SEARCH;
+    } else if (activityName == "Gallery") {
+      initialMenuItem = HomeMenuItem::GALLERY;
     }
   }
   replaceActivity(std::make_unique<HomeActivity>(renderer, mappedInput, initialMenuItem, cleanInitialRefresh));

@@ -72,6 +72,9 @@ int VaultInkHomeUi::indexFor(const HomeMenuItem item) const {
     case HomeMenuItem::SEARCH:
       target = Row::Search;
       break;
+    case HomeMenuItem::GALLERY:
+      target = Row::Gallery;
+      break;
     default:
       return 0;
   }

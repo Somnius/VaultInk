@@ -72,7 +72,7 @@ the Greek interface the keyboard opens in Greek.
 
 Swipe down from the top for quick settings, then tap the paper tile to change the page background
 under the text. It's also under **Settings → Reader → Page Background**. The choices are plain,
-paper, sandpaper, papyrus (soft, medium and hard), toilet paper, kitchen paper and bath towel.
+paper, sandpaper, papyrus (soft, medium, hard and cloudy), toilet paper, kitchen paper and bath towel.
 **Settings → Reader → Paper Button Cycle** sets which of them the tile steps through.
 
 While a background is on, text anti-aliasing is switched off, so the letters stay sharp on the
@@ -182,7 +182,7 @@ In the guide, Next (or OK, or the right and down keys) moves on. Back goes back 
 - **Gallery.** Home → Gallery: the pictures on the card as a grid, with View, Delete, Move, Copy.
 - **What's New.** After an update the device shows what changed (Settings → System → What's New). Move and Copy open a folder picker; nothing overwrites a file with the same name, and
   a copy that runs out of space leaves nothing half-written.
-- **Reading layout.** Line spacing in ten steps (1 to 10), a Hide Status Bar switch, and
+- **Reading layout.** Line spacing in eleven steps (0 to 10), a Hide Status Bar switch, and
   hyphenation on by default, and an Even Word Gaps option for justified text. The battery percent
   shows on the sleep screen. All of it in
   [docs/reading-and-files.md](docs/reading-and-files.md).

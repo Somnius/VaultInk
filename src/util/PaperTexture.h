@@ -21,20 +21,23 @@ enum Style : uint8_t {
   TOILET_PAPER,
   KITCHEN_PAPER,
   BATH_TOWEL,
+  PAPYRUS_CLOUDY,  // 0.30.0; last, so stored styles and cycle masks keep their numbers
   STYLE_COUNT
 };
 
 // Setting values in order, for the settings list and the quick-settings tile.
-inline constexpr StrId NAMES[STYLE_COUNT] = {
-    StrId::STR_PAPER_PLAIN,        StrId::STR_PAPER_PAPER,          StrId::STR_PAPER_SANDPAPER,
-    StrId::STR_PAPER_PAPYRUS_SOFT, StrId::STR_PAPER_PAPYRUS_MEDIUM, StrId::STR_PAPER_PAPYRUS_HARD,
-    StrId::STR_PAPER_TOILET,       StrId::STR_PAPER_KITCHEN,        StrId::STR_PAPER_TOWEL};
+inline constexpr StrId NAMES[STYLE_COUNT] = {StrId::STR_PAPER_PLAIN,          StrId::STR_PAPER_PAPER,
+                                             StrId::STR_PAPER_SANDPAPER,      StrId::STR_PAPER_PAPYRUS_SOFT,
+                                             StrId::STR_PAPER_PAPYRUS_MEDIUM, StrId::STR_PAPER_PAPYRUS_HARD,
+                                             StrId::STR_PAPER_TOILET,         StrId::STR_PAPER_KITCHEN,
+                                             StrId::STR_PAPER_TOWEL,          StrId::STR_PAPER_PAPYRUS_CLOUDY};
 
 // Short forms for the quick-settings tile label, which fits about ten characters.
-inline constexpr StrId SHORT_NAMES[STYLE_COUNT] = {
-    StrId::STR_PAPER_PLAIN,          StrId::STR_PAPER_PAPER,          StrId::STR_PAPER_SANDPAPER,
-    StrId::STR_PAPER_SHORT_PAPYRUS1, StrId::STR_PAPER_SHORT_PAPYRUS2, StrId::STR_PAPER_SHORT_PAPYRUS3,
-    StrId::STR_PAPER_SHORT_TOILET,   StrId::STR_PAPER_SHORT_KITCHEN,  StrId::STR_PAPER_SHORT_TOWEL};
+inline constexpr StrId SHORT_NAMES[STYLE_COUNT] = {StrId::STR_PAPER_PLAIN,          StrId::STR_PAPER_PAPER,
+                                                   StrId::STR_PAPER_SANDPAPER,      StrId::STR_PAPER_SHORT_PAPYRUS1,
+                                                   StrId::STR_PAPER_SHORT_PAPYRUS2, StrId::STR_PAPER_SHORT_PAPYRUS3,
+                                                   StrId::STR_PAPER_SHORT_TOILET,   StrId::STR_PAPER_SHORT_KITCHEN,
+                                                   StrId::STR_PAPER_SHORT_TOWEL,    StrId::STR_PAPER_SHORT_PAPYRUS4};
 
 inline constexpr uint16_t ALL_STYLES = (1u << STYLE_COUNT) - 1;
 

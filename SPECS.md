@@ -101,15 +101,16 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Settings are grouped by task: Reading (Reader, Library, Vaults), Device. Each row shows its current
   value. Vaults (0.9.0): Open Vault at Last Note, Rebuild Search Index.
 - Page backgrounds (kos25k's idea, mostly for fun): plain, paper, sandpaper, papyrus soft/medium/
-  hard, toilet paper, kitchen paper, bath towel. Drawn as dots under the text in the B/W frame,
+  hard/cloudy (cloudy: value noise, no lines), toilet paper, kitchen paper, bath towel. Drawn as dots under the text in the B/W frame,
   computed from the pixel position (no memory, same on every page). Settings → Reader → Page
   Background, and a quick-settings tile that names the current one. EPUB and notes; not XTC.
   Text anti-aliasing is skipped while a background is on (0.8.3): on UC8279 X4 Pro panels the AA
   pass faded dotted pages. The tile steps through the styles checked under Settings → Reader →
   Paper Button Cycle (0.20.0; `paperCycle` bit mask, 0 = all).
-- Line spacing (0.20.0): levels 1-10, stored 0-9 under `lineSpacingLevel`, a multiplier on the
-  font's line height (SD fonts 0.75-1.20, built-in 0.70-1.05). The old `lineSpacing` 0-3 loads as
-  levels 5, 6, 8, 10. Hide Status Bar (`statusBarHidden`) empties the status bar spec, so the text
+- Line spacing (0.20.0, level 0 from 0.30.0): levels 0-10, stored as the level under
+  `lineSpacingStep`, a multiplier on the font's line height (SD fonts 0.70-1.20, built-in 0.65-1.05).
+  `lineSpacingLevel` (0.20.0-0.29.0, 0-9 for levels 1-10) loads one up; the old `lineSpacing` 0-3
+  loads as levels 5, 6, 8, 10. Hide Status Bar (`statusBarHidden`) empties the status bar spec, so the text
   gets its height. Hyphenation defaults on.
 - Sleep screen battery (0.20.0, `sleepBattery`): the percent at sleep time, black on a white patch
   at the bottom right; in gray picture planes the patch is kept white.

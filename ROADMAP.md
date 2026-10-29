@@ -6,11 +6,15 @@ scope is in [SCOPE.md](SCOPE.md). VaultInk is a fork of CrossPoint Reader; its u
 
 Status: ✅ done · 🚧 in progress · ⏳ next · 💤 later · ❌ dropped
 
-**Where it stands (0.29.0, 2026-10-29):** Phases 0-3 are done in software; what is left there
+**Where it stands (0.30.0, 2026-10-29):** Phases 0-3 are done in software; what is left there
 needs the device (timings, certificate checks against real servers, refresh behaviour). Phase 4 is
 done: ticking tasks, new/rename/delete notes, the line editor, and sending changes back to LiveSync. Phase 6 (Android companion) is in progress: `companion-0.1.0` is out, tested against the
 simulator on one phone (see [docs/companion.md](docs/companion.md)). Everything since 0.19.0
-is tested in the simulator and on the host, and needs a device test: see each release's notes.
+is tested in the simulator and on the host. kos25k confirmed on his X4 Pro (2026-10-28, issues
+#1-#12): paper backgrounds, line spacing, Hide Status Bar, sleep battery %, the file explorer,
+What's New, Even Word Gaps, the book card tap/long press, the Text panel rows and the gallery's
+long press. The rest (LiveSync push, editing, certificates, the companion over Wi-Fi) still needs a
+device test: see each release's notes.
 
 Target device: Xteink X4 Pro only. Until the device arrives, testing is in the simulator (X4 Pro mode)
 and host tests.
@@ -175,13 +179,14 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   tile above it and turn the book upside down. Unlabelled tiles now answer only on their circle,
   and the rows are further apart.
 * ✅ Page backgrounds (kos25k's idea, mostly for fun): plain, paper, sandpaper, papyrus soft/medium/
-  hard, toilet paper, kitchen paper, bath towel. In Settings → Reader and as a quick-settings tile.
+  hard, cloudy papyrus (0.30.0, #1), toilet paper, kitchen paper, bath towel. In Settings → Reader and as a quick-settings tile.
   EPUB and notes only for now; XTC pages are pre-rendered. Ideas for more: parchment, linen,
   graph paper, kraft, newsprint, rice paper, cardboard, denim.
 * ✅ (0.20.0, kos25k's issues #1-#6) Settings → Reader → Paper Button Cycle picks which
   backgrounds the quick-settings tile steps through. Battery percent on the sleep screen
   (Settings → Display → Battery on Sleep Screen, on by default). Line spacing in ten levels, 1 to
-  10 (1 packs the lines tight, 10 is the old Extra wide; old settings keep their spacing).
+  10 (1 packs the lines tight, 10 is the old Extra wide; old settings keep their spacing); level 0,
+  no space between lines, added in 0.30.0 (#4 follow-up).
   Settings → Reader → Hide Status Bar gives its room to the text (no tap toggle: every change
   lays the chapter out again). Hyphenation is on by default, since justified lines without it get
   wide word gaps. The file browser's long-press menu adds Move, Copy (files and folders, through
@@ -192,7 +197,7 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   for .zip files (zip-slip safe, cleanup on failure); What's New after an update (CHANGELOG.md
   built from the GitHub releases by scripts/gen_changelog.sh, the newest 12 embedded by
   scripts/embed_changelog.py); Gallery (Home → Gallery, or a folder's Open as gallery; pixel-cache
-  thumbnails); Even Word Gaps (justified lines stretch gaps by at most half a space, else ragged).
+  thumbnails; from 0.30.0 also on the CrossPoint list-menu home styles, #8 follow-up); Even Word Gaps (justified lines stretch gaps by at most half a space, else ragged).
   Reviewed by Gemini and Grok; tested in the simulator.
 * ✅ (0.27.0, kos25k #12 and #10) The reader's Text panel has every layout setting (Even Word
   Gaps, word and character spacing, margin, indentation added; one shared list of choices in

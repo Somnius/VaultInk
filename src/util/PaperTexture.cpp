@@ -37,6 +37,26 @@ bool papyrus(const int x, const int y, const int level) {
   return h % 1000 < 2u * level;
 }
 
+// Value noise: hashed lattice values, smoothly blended in between (0..255).
+int smoothNoise(const int x, const int y, const int cell, const uint32_t seed) {
+  const int cx = x / cell, cy = y / cell;
+  const int fx = (x % cell) * 256 / cell, fy = (y % cell) * 256 / cell;
+  // Smoothstep, so the cell edges don't show as lines.
+  const int sx = fx * fx * (768 - 2 * fx) >> 16, sy = fy * fy * (768 - 2 * fy) >> 16;
+  const int a = hash(cx, cy, seed) & 255, b = hash(cx + 1, cy, seed) & 255;
+  const int c = hash(cx, cy + 1, seed) & 255, d = hash(cx + 1, cy + 1, seed) & 255;
+  const int top = a + ((b - a) * sx >> 8), bottom = c + ((d - c) * sx >> 8);
+  return top + ((bottom - top) * sy >> 8);
+}
+
+// Cloudy papyrus: soft blotches, denser and lighter in patches, with no strips or straight lines.
+bool cloudy(const int x, const int y) {
+  const int cloud = (smoothNoise(x, y, 96, 8) * 5 + smoothNoise(x, y, 31, 9) * 3) >> 3;  // 0..255
+  // Only the darker part of the clouds gets dots, densest at the darkest.
+  const int density = cloud > 115 ? cloud - 115 : 0;  // 0..140 per 1000, light enough to read over
+  return hash(x, y, 10) % 1000 < static_cast<uint32_t>(density);
+}
+
 bool inked(const int x, const int y, const uint8_t style) {
   switch (style) {
     case PAPER:
@@ -62,6 +82,8 @@ bool inked(const int x, const int y, const uint8_t style) {
       if (d2 >= 30 && d2 <= 42 && (x & 1)) return true;
       return std::abs(dx) + std::abs(dy) == 14 && (x & 1) == 0 && (y & 1) == 0;
     }
+    case PAPYRUS_CLOUDY:
+      return cloudy(x, y);
     case BATH_TOWEL:
       // Terry loops: dense 2x2 tufts.
       return hash(x >> 1, y >> 1, 6) % 100 < 12 && hash(x, y, 7) % 4 != 0;

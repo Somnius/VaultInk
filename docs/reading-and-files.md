@@ -6,8 +6,10 @@ This page covers the reading and file features from kos25k's issues: #1 to #6 (0
 ## Page backgrounds: Paper Button Cycle
 
 The paper tile in quick settings (swipe down from the top) changes the page background. By
-default it steps through all nine: plain, paper, sandpaper, papyrus soft, medium and hard, toilet
-paper, kitchen paper, bath towel.
+default it steps through all ten: plain, paper, sandpaper, papyrus soft, medium and hard, toilet
+paper, kitchen paper, bath towel, and (from 0.30.0) papyrus cloudy: soft blotches of dots with no
+strips or lines, like a cloudy sky. A cycle you set up before 0.30.0 doesn't include the new one;
+tick it in the checklist below.
 
 **Settings → Reader → Paper Button Cycle** has a checklist of them. Untick the ones you don't
 want, and the tile skips them. At least one always stays ticked. If the background in use isn't
@@ -29,19 +31,20 @@ Sleep Screen**. It shows on the dark and light
 screens, the blank screen, covers and custom pictures. Quick Resume (which keeps the last page)
 and the transparent overlay pictures don't get it.
 
-## Line spacing, 1 to 10
+## Line spacing, 0 to 10
 
-Line spacing has ten levels, shown as numbers. **1** packs the lines tight, so they nearly touch.
-**10** is the former Extra wide. The old four steps are now levels 5 (Tight), 6 (Normal), 8 (Wide)
-and 10 (Extra wide). A setting saved by an older version loads as the same spacing.
+Line spacing has eleven levels, shown as numbers. **0** (from 0.30.0) leaves no space between the
+lines: descenders and the accents on the line below can touch. **1** packs them tight, so they nearly
+touch. **10** is the former Extra wide. The old four steps are now levels 5 (Tight), 6 (Normal), 8
+(Wide) and 10 (Extra wide). A setting saved by an older version loads as the same spacing.
 
 Change it under **Settings → Reader → Text Settings → Layout → Line Spacing**, or inside a book or
 note: tap the middle of the screen, open the Text panel, third row. Inside the reader it applies
 at once.
 
-SD-card fonts and the built-in font have separate scales (SD fonts 0.75× to 1.20× of the font's
-line height, built-in 0.70× to 1.05×), because they measure their line height differently. With
-some fonts, accents on capitals can touch the line above at level 1.
+SD-card fonts and the built-in font have separate scales (SD fonts 0.70× to 1.20× of the font's
+line height, built-in 0.65× to 1.05×), because they measure their line height differently. With
+some fonts, accents on capitals can touch the line above at levels 0 and 1.
 
 ## Hide Status Bar
 
@@ -139,7 +142,8 @@ The details:
 
 ## Gallery (0.24.0)
 
-**Home → Gallery** shows every picture on the card (PNG, JPEG, and BMP/GIF by name), nine to a
+**Home → Gallery** (in every home style with a menu list; from 0.30.0 also the CrossPoint styles)
+shows every picture on the card (PNG, JPEG, and BMP/GIF by name), nine to a
 page, from all folders except hidden ones. In Browse Files, long-press a folder → **Open as
 gallery** for just that folder and its subfolders. Swipe left or right (or the page buttons) to
 turn pages. Tap a picture for:

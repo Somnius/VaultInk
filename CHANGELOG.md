@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.30.0 (2026-10-29)
+
+Three follow-ups from kos25k, after he tested the last releases on his X4 Pro (thanks!).
+
+- Line spacing has a level 0 now: no space between the lines at all. Descenders and the accents on the next line can touch at 0, that is what it means. Your current spacing stays the same after the update (the levels moved up by one to make room).
+- A new page background, Papyrus cloudy: soft blotches of dots, lighter and darker in patches, with no strips or straight lines. If you set up your own Paper Button Cycle before, tick the new one in Settings → Reader → Paper Button Cycle.
+- The CrossPoint home styles with a menu list (like the 3-covers one) have a Gallery entry now, with an icon, after Library. All six entries fit on the screen. The cover-grid style is unchanged.
+
+Tested in the simulator: level 0 with Greek accented and polytonic text, the cloudy background behind text, the six-entry menu on the 3-covers style (Gallery and Settings open the right screens), and old saved spacing loading one level up. Not confirmed on the device yet.
+
+
 ## 0.29.0 (2026-10-29)
 
 Getting ready for the Android companion app, which comes out as its own release right after this one.
