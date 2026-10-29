@@ -60,6 +60,14 @@ What the device's web server allows, the app allows: folders can't be renamed or
 non-empty folder can't be deleted, an upload never overwrites a file with the same name, and the
 saved Wi-Fi/OPDS/KOReader credential files and system folders can't be touched.
 
+### Comics: Files → Convert a comic (0.2.0)
+
+Opens Banana Comic Converter (by u/curseofthebanana, an independent tool) inside the app, live from
+its site. Its downloads are caught and offered as **Send to VaultInk** (to `/Comics` on the card,
+with a progress bar) or **Save to phone**. The page gets a message channel to the app only from its
+own site; other links open in the browser; an unreachable site shows a retry screen. Details and
+screenshots: [comics.md](comics.md).
+
 ### Settings
 
 The device's settings, one card per category (Display, Reader, ...). Tap a card's title to open or

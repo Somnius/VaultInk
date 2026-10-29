@@ -430,9 +430,14 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   their progress bar at Wi-Fi speed; installing an app update once a second companion release exists.
 * ✅ Released firmware 0.29.0 and `companion-0.1.0` (2026-10-29; the companion release is not
   marked Latest, and CI skips `companion-*` tags).
-* ⏳ `companion-0.2.0`: an outbox. Notes and shares are saved on the phone first and sent when the
+* ✅ `companion-0.2.0`: comics. Files → Convert a comic opens Banana Comic Converter inside the
+  app (live site in a WebView); its blob: downloads are caught by an injected script and sent to
+  `/Comics` on the reader or saved on the phone. Message channel limited to the converter's
+  origin, other links open in the browser, an offline screen when the site can't be reached.
+  Tested on a phone end to end against the simulator (converted, sent, opened in the reader).
+* ⏳ `companion-0.3.0`: an outbox. Notes and shares are saved on the phone first and sent when the
   device is found, so nothing is lost if the device isn't reachable or the app is closed.
-* ⏳ `companion-0.2.0`: the app update check reachable without a device (today it's on the Device
+* ⏳ `companion-0.3.0`: the app update check reachable without a device (today it's on the Device
   tab, which only shows once connected).
 * 💤 Type into the device from the phone (live keyboard).
 * 💤 Bring notes in: convert to Markdown into a vault folder (e.g. `Imported/Keep/`). Order:

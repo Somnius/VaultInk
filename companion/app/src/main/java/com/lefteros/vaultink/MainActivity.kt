@@ -127,13 +127,13 @@ class MainActivity : ComponentActivity() {
 }
 
 // Ink blue on paper, like the device's own look; the dark scheme follows the phone's dark mode.
-private val InkLight = lightColorScheme(
+internal val InkLight = lightColorScheme(
     primary = Color(0xFF1F3A5F), onPrimary = Color.White,
     primaryContainer = Color(0xFFD6E2F0), onPrimaryContainer = Color(0xFF0B1E33),
     secondaryContainer = Color(0xFFE4E9EF),
     background = Color(0xFFF3F1EC), surface = Color(0xFFFBFAF7),
 )
-private val InkDark = darkColorScheme(
+internal val InkDark = darkColorScheme(
     primary = Color(0xFFA9C7EA), onPrimary = Color(0xFF0B1E33),
     primaryContainer = Color(0xFF1F3A5F), onPrimaryContainer = Color(0xFFD6E2F0),
     background = Color(0xFF121416), surface = Color(0xFF1A1D20),

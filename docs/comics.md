@@ -46,6 +46,24 @@ For coloured comics, the converter's author suggests the **Light** setting for D
 Big series are easier to handle split into several files (the converter can split by the number
 of panels per file).
 
+## Converting inside the companion app (companion 0.2.0)
+
+In the Android app, **Files → 📚 Convert a comic** opens the converter right in the app (live from
+its site, so it's always the current version). Pick your comic with its file box, choose the
+X4 / X4 Pro preset and XTCH, and convert. When you tap a finished file's download link, the app
+catches it and asks: **Send to VaultInk** puts it in the reader's **Comics** folder (with File
+Transfer open on the reader), **Save to phone** keeps it on the phone. Links to other pages (Ko-fi,
+GitHub) open in your browser. If the converter's site can't be reached, the app says so and offers
+to try again or open it in the browser.
+
+<p>
+  <img src="images/comics/companion/1-converter-in-app.png" alt="The converter inside the companion app" width="160">
+  <img src="images/comics/companion/4-downloads.png" alt="The converted files" width="160">
+  <img src="images/comics/companion/5-send-dialog.png" alt="Send to VaultInk or save to phone" width="160">
+  <img src="images/comics/companion/6-sent.png" alt="Sent to the reader's Comics folder" width="160">
+  <img src="images/comics/companion/7-reading-on-vaultink.png" alt="The comic open on VaultInk" width="160">
+</p>
+
 ## Getting the file onto the X4 Pro
 
 The converter gives you the file in your browser's downloads. Then, any of these:

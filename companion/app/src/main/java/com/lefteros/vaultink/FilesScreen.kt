@@ -167,6 +167,10 @@ fun FilesScreen(client: DeviceClient) {
         OutlinedButton(onClick = { target = null; dialog = "mkdir" }) { Text(stringResource(R.string.new_folder)) }
         if (dir != "/") OutlinedButton(onClick = { dir = parentOf(dir) }) { Text(stringResource(R.string.up)) }
     }
+    // Banana Comic Converter inside the app; its files go to the reader's /Comics folder.
+    OutlinedButton(onClick = { context.startActivity(android.content.Intent(context, ComicsActivity::class.java)) }) {
+        Text("📚 " + stringResource(R.string.comics_open))
+    }
     transfer?.let { t ->
         Text(t.label, style = MaterialTheme.typography.bodyMedium)
         val f = t.fraction

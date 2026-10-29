@@ -92,4 +92,22 @@
     <string name="hint_files">The reader\'s SD card. Tap a folder to open it, ⋮ on a file for more.</string>
     <string name="hint_device">The reader\'s address and firmware version, and updates for this app.</string>
     <string name="reader_file_transfer">File Transfer</string>
+    <string name="comics_open">Convert a comic</string>
+    <string name="comics_title">Banana Comic Converter</string>
+    <string name="comics_credit">By u/curseofthebanana, an independent tool. Pick Xteink X4 / X4 Pro and XTCH.</string>
+    <string name="comics_receiving">Getting %1$s from the converter…</string>
+    <string name="comics_failed">Couldn\'t get the file: %1$s</string>
+    <string name="comics_ready">%1$s (%2$s)</string>
+    <string name="comics_ready_hint">Send it to the reader\'s Comics folder, or save it on the phone. For sending, File Transfer must be open on the reader.</string>
+    <string name="comics_send">Send to VaultInk</string>
+    <string name="comics_save">Save to phone</string>
+    <string name="comics_sent">Sent to Comics as %1$s. It opens from Library or Browse Files.</string>
+    <string name="comics_send_failed">Couldn\'t send it: %1$s. Is File Transfer open on the reader?</string>
+    <string name="comics_no_reader">Connect to the reader first (the Device tab), with File Transfer open on it.</string>
+    <string name="comics_too_big">The file is over 1 GB, too big for the reader. Use \"Split into parts\" in the converter.</string>
+    <string name="comics_unavailable">Banana Comic Converter can\'t be reached right now. Check the phone\'s connection and try again. The converter runs from its own website, so it needs the internet to open here.</string>
+    <string name="comics_webview_old">This phone\'s Android System WebView is too old for the converter here. Update it from the Play Store, or open the converter in the browser.</string>
+    <string name="comics_retry">Try again</string>
+    <string name="comics_open_browser">Open in the browser</string>
+    <string name="close">Close</string>
 </resources>

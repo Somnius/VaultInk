@@ -46,6 +46,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Banana Comic Converter's page, with its downloads sent to the reader. -->
+        <activity
+            android:name=".ComicsActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

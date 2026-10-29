@@ -91,4 +91,22 @@
     <string name="hint_files">Η κάρτα SD της συσκευής. Πάτα έναν φάκελο για να τον ανοίξεις, ⋮ σε ένα αρχείο για περισσότερα.</string>
     <string name="hint_device">Η διεύθυνση και η έκδοση της συσκευής, και ενημερώσεις αυτής της εφαρμογής.</string>
     <string name="reader_file_transfer">Μεταφορά αρχείων</string>
+    <string name="comics_open">Μετατροπή κόμικ</string>
+    <string name="comics_title">Banana Comic Converter</string>
+    <string name="comics_credit">Του u/curseofthebanana, ανεξάρτητο εργαλείο. Διάλεξε Xteink X4 / X4 Pro και XTCH.</string>
+    <string name="comics_receiving">Λήψη του %1$s από τον μετατροπέα…</string>
+    <string name="comics_failed">Δεν πήρα το αρχείο: %1$s</string>
+    <string name="comics_ready">%1$s (%2$s)</string>
+    <string name="comics_ready_hint">Στείλ\' το στον φάκελο Comics της συσκευής ή αποθήκευσέ το στο κινητό. Για αποστολή, πρέπει να είναι ανοιχτή η Μεταφορά αρχείων στη συσκευή.</string>
+    <string name="comics_send">Αποστολή στο VaultInk</string>
+    <string name="comics_save">Αποθήκευση στο κινητό</string>
+    <string name="comics_sent">Στάλθηκε στο Comics ως %1$s. Ανοίγει από τη Βιβλιοθήκη ή την Περιήγηση αρχείων.</string>
+    <string name="comics_send_failed">Δεν στάλθηκε: %1$s. Είναι ανοιχτή η Μεταφορά αρχείων στη συσκευή;</string>
+    <string name="comics_no_reader">Σύνδεσε πρώτα τη συσκευή (καρτέλα Συσκευή), με ανοιχτή τη Μεταφορά αρχείων.</string>
+    <string name="comics_too_big">Το αρχείο ξεπερνά το 1 GB, πολύ μεγάλο για τη συσκευή. Χρησιμοποίησε το \"Split into parts\" στον μετατροπέα.</string>
+    <string name="comics_unavailable">Το Banana Comic Converter δεν είναι διαθέσιμο αυτή τη στιγμή. Έλεγξε τη σύνδεση του κινητού και δοκίμασε ξανά. Ο μετατροπέας τρέχει από τη δική του ιστοσελίδα, οπότε χρειάζεται ίντερνετ για να ανοίξει εδώ.</string>
+    <string name="comics_webview_old">Το Android System WebView του κινητού είναι πολύ παλιό για τον μετατροπέα. Ενημέρωσέ το από το Play Store ή άνοιξε τον μετατροπέα στον browser.</string>
+    <string name="comics_retry">Δοκίμασε ξανά</string>
+    <string name="comics_open_browser">Άνοιγμα στον browser</string>
+    <string name="close">Κλείσιμο</string>
 </resources>
