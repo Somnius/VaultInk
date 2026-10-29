@@ -141,6 +141,7 @@ void UiTabListActivity::buildTabBar(UiScreen& screen) {
       mappedInput.hasTouch() ? TOUCH_TAB_BAR_HEIGHT : static_cast<int16_t>(metrics.tabBarHeight);
   const int16_t tabBand = preferredTabHeight > tabLineHeight + 10 ? preferredTabHeight : tabLineHeight + 10;
 
+  if (tabsSpaceBetween) tabProps.layout = fui::TabBarLayout::ContentWidth;
   if (tabPillMaxPad > 0) {
     // Cap each pill at its label plus this padding: the equal-width slots (and
     // so the tab positions) stay exactly where they were, only the pill stops
@@ -199,6 +200,26 @@ void UiTabListActivity::buildTabBar(UiScreen& screen) {
                             static_cast<int16_t>(contentTabRect.width - 2 * side),
                             static_cast<int16_t>(tabRect.height - divider)};
   tabProps.divider = false;
+  if (tabsSpaceBetween && count > 1) {
+    // Each tab as wide as its label (same sum the SDK's content-width layout makes), the room left
+    // over shared out as equal gaps, so the row spans the width like equal slots would.
+    const auto spareWidth = [&]() {
+      int32_t natural = 0;
+      for (int i = 0; i < count; i++) {
+        int32_t pill = screen.target().measureText(tabProps.text.font, tabs[i].label, tabProps.text).width +
+                       tabProps.contentInset.left + tabProps.contentInset.right;
+        if (tabs[i].indicator != fui::TabIndicator::None) pill += tabProps.indicatorSize + tabProps.indicatorGap;
+        const int32_t minPill = slotsRect.height - tabProps.tabInset.top - tabProps.tabInset.bottom;
+        natural += (pill > minPill ? pill : minPill) + tabProps.tabInset.left + tabProps.tabInset.right;
+      }
+      return slotsRect.width - natural;
+    };
+    // Tighter side insets: the Greek labels need all but a few pixels of the row.
+    tabProps.tabInset.left = 2;
+    tabProps.tabInset.right = 2;
+    const int32_t spare = spareWidth();
+    if (spare > 0) tabProps.gap = static_cast<int16_t>(spare / (count - 1));
+  }
   fui::tabBar(screen.frame(), slotsRect, tabProps);
   screen.target().fill(fui::Rect{tabRect.x, static_cast<int16_t>(tabRect.bottom() - divider), tabRect.width, divider},
                        fui::Paint::solid(fui::Color::Black));

@@ -74,6 +74,9 @@ class UiTabListActivity : public UiListActivity {
   // default full-slot pill stretches across a third of the screen; screens
   // with more tabs (Settings) keep the default of 0 (fill the slot).
   int16_t tabPillMaxPad = 0;
+  // Tabs as wide as their labels, the spare room shared out between them, instead of equal slots:
+  // four labels like the Library's don't fit a quarter of the screen each.
+  bool tabsSpaceBetween = false;
 
  private:
   static void tabActionTrampoline(const freeink::ui::ActionEvent& event, void* user);

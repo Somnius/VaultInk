@@ -199,6 +199,12 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   scripts/embed_changelog.py); Gallery (Home → Gallery, or a folder's Open as gallery; pixel-cache
   thumbnails; from 0.30.0 also on the CrossPoint list-menu home styles, #8 follow-up); Even Word Gaps (justified lines stretch gaps by at most half a space, else ragged).
   Reviewed by Gemini and Grok; tested in the simulator.
+* ✅ Favourites (0.31.0, kos25k #14): a fourth Library tab, books added from the reading menu or the
+  Recent long-press; the store follows renames/moves/deletes; content-width tabs so four labels fit
+  (Greek too). From #14 not done: the 3x2 home grid and 1-6 covers (they rework CrossPoint's old
+  home styles), sort by progress, a favourites slot on the home.
+* ⏳ Home row order (#14): reorder the VaultInk home rows from Settings.
+* ⏳ Settings search (#13): settings by name, plus notes, from one box.
 * ✅ (0.27.0, kos25k #12 and #10) The reader's Text panel has every layout setting (Even Word
   Gaps, word and character spacing, margin, indentation added; one shared list of choices in
   src/util/TextOptions.h); a Library tile in quick settings away from a book; Even Word Gaps has

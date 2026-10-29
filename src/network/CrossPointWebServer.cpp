@@ -34,6 +34,7 @@
 
 #include "ClippingStore.h"
 #include "CrossPointSettings.h"
+#include "FavouritesStore.h"
 #include "FontInstaller.h"
 #include "OpdsServerStore.h"
 #include "ProtectedPaths.h"
@@ -1134,6 +1135,7 @@ void CrossPointWebServer::handleRename() const {
   if (success) {
     noteVaultChange(itemPath);
     noteVaultChange(newPath);
+    FAVOURITES.updatePath(itemPath.c_str(), newPath.c_str());
     LOG_DBG("WEB", "Renamed file: %s -> %s", itemPath.c_str(), newPath.c_str());
     server->send(200, "text/plain", "Renamed successfully");
   } else {
@@ -1235,6 +1237,7 @@ void CrossPointWebServer::handleMove() const {
   if (success) {
     noteVaultChange(itemPath);
     noteVaultChange(newPath);
+    FAVOURITES.updatePath(itemPath.c_str(), newPath.c_str());
     LOG_DBG("WEB", "Moved file: %s -> %s", itemPath.c_str(), newPath.c_str());
     server->send(200, "text/plain", "Moved successfully");
   } else {
@@ -1344,7 +1347,10 @@ void CrossPointWebServer::handleDelete() const {
       // It's a file (or couldn't open as dir) — remove file
       if (f) f.close();
       success = removeBookFile(itemPath.c_str());
-      if (success) noteVaultChange(itemPath);
+      if (success) {
+        noteVaultChange(itemPath);
+        FAVOURITES.remove(itemPath.c_str());
+      }
     }
 
     if (!success) {

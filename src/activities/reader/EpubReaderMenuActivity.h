@@ -25,6 +25,7 @@ class EpubReaderMenuActivity final : public UiListActivity {
     SAVE_CLIPPING,
     VIEW_CLIPPINGS,
     TOGGLE_BOOKMARK,
+    TOGGLE_FAVOURITE,  // books only: add to / remove from the Library's Favourites
     SCREENSHOT,
     DISPLAY_QR,
     GO_HOME,
@@ -46,12 +47,12 @@ class EpubReaderMenuActivity final : public UiListActivity {
 
   static void toggleBluetooth();
   static void buildMenuItems(std::vector<MenuItem>& items, bool hasFootnotes, bool hasBookmarks, bool hasClippings,
-                             bool isVaultNote = false);
+                             bool isVaultNote = false, bool isFavourite = false);
 
   explicit EpubReaderMenuActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const std::string& title,
                                   const int currentPage, const int totalPages, const int bookProgressPercent,
                                   const uint8_t currentOrientation, const bool hasFootnotes, bool hasBookmarks,
-                                  bool hasClippings, bool isVaultNote = false);
+                                  bool hasClippings, bool isVaultNote = false, bool isFavourite = false);
 
   void render(RenderLock&&) override;
   bool handleHomeGesture() override;

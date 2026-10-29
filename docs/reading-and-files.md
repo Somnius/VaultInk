@@ -88,6 +88,26 @@ font, size, line spacing, alignment, hyphenation, focus reading, **Even Word Gap
 character spacing, screen margin and paragraph indentation**. Each change applies at once to the
 page you're on. The panel scrolls.
 
+## Favourites (0.31.0)
+
+The Library has a fourth tab, **Favourites**, next to Author. It lists the books you marked, the
+newest first (up to 50).
+
+- **Add or remove a book** from inside it: tap the middle of the screen, **More**, then **Add to
+  Favourites** (or **Remove from Favourites**). Notes don't have this entry.
+- Or in the Library's **Recent** tab: long-press a book, and the last entry adds or removes it.
+- In the Favourites tab, tap a book to open it. Long-press (or swipe left) for **Remove from
+  Favourites**: only the list entry goes, the book stays on the card.
+- Books renamed or moved with the file browser, the reading menu or the web page keep their place.
+  A book deleted from the Library or the web page leaves the list. If a favourite's file is gone
+  some other way (or its folder was renamed), opening it says so and offers to remove it.
+- Search from the Favourites tab searches the whole library, on the Title tab.
+
+The four tabs are as wide as their names (in Greek too) instead of four equal quarters.
+
+The list is kept in `/.crosspoint/favourites.json`. If that file can't be read, it's kept as
+`favourites.json.bad` instead of being overwritten.
+
 ## Library in quick settings (0.27.0)
 
 When quick settings is opened anywhere except over a book, the second row has a **Library** tile

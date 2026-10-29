@@ -100,6 +100,11 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   Search, Highlights, a text-size stepper, and Font / Spacing / Margins. Buttons step through it.
 - Settings are grouped by task: Reading (Reader, Library, Vaults), Device. Each row shows its current
   value. Vaults (0.9.0): Open Vault at Last Note, Rebuild Search Index.
+- Favourites (0.31.0): `/.crosspoint/favourites.json`, up to 50 `{path, title, author}` newest
+  first, held in RAM; written through `.tmp`, an unreadable file kept as `.bad`. The Library's
+  fourth tab lists it directly (not the library index). Toggles: reader menu (books only) and the
+  Recent long-press popup. Rename/move (file browser, reader, web server) update the path; a
+  delete removes the entry.
 - Page backgrounds (kos25k's idea, mostly for fun): plain, paper, sandpaper, papyrus soft/medium/
   hard/cloudy (cloudy: value noise, no lines), toilet paper, kitchen paper, bath towel. Drawn as dots under the text in the B/W frame,
   computed from the pixel position (no memory, same on every page). Settings → Reader → Page

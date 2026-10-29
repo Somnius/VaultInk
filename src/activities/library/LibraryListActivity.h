@@ -82,6 +82,9 @@ class LibraryListActivity final : public UiTabListActivity {
   void resetAfterRebuild();
   // Recent-row long-press menu: open / remove from recents / delete / rebuild.
   void showRecentBookOptions(int entry);
+  bool favouritesTab() const;
+  void showFavouriteOptions(int entry);
+  void promptRemoveMissingFavourite(const std::string& path, const std::string& title);
   void promptRemoveRecentBook(const std::string& path, const std::string& title);
   // Long-press delete owns the gesture where grouping does not apply: the
   // Recent sort, degraded lists, and any active search result.

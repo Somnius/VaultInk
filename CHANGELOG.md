@@ -2,6 +2,21 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.31.0 (2026-10-29)
+
+Favourites, from kos25k's #14.
+
+- The Library has a fourth tab, Favourites, next to Author. It lists the books you marked, newest first.
+- To add a book: inside it, tap the middle of the screen, More, then Add to Favourites. Or in the Library's Recent tab, long-press a book: the last entry adds or removes it.
+- In the Favourites tab, tap to open, long-press or swipe left to take it off the list. The book itself stays on the card.
+- Renaming or moving a book (file browser, reading menu or web page) keeps it in Favourites. If its file is gone some other way, opening it says so and offers to remove it.
+- The four Library tabs are as wide as their names now, so all four fit, in Greek too.
+
+From #14 I didn't do the 3x2 home grid or the 1 to 6 covers: those rework the old CrossPoint home styles. Reordering the home rows comes next.
+
+Tested in the simulator: adding from the reading menu and from Recent, the label switching to Remove, the tab, a missing file, removing, and the tabs in English and Greek. Not confirmed on the device yet.
+
+
 ## 0.30.0 (2026-10-29)
 
 Three follow-ups from kos25k, after he tested the last releases on his X4 Pro (thanks!).

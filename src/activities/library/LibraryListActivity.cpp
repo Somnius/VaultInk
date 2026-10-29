@@ -15,6 +15,7 @@
 #include <cstdio>
 
 #include "CrossPointSettings.h"
+#include "FavouritesStore.h"
 #include "MappedInputManager.h"
 #include "RecentBooksStore.h"
 #include "activities/util/ConfirmationActivity.h"
@@ -43,7 +44,9 @@ constexpr unsigned long LONG_PRESS_MS = 1000;
 constexpr int RECENT_TAB = 0;
 constexpr int TITLE_TAB = 1;
 constexpr int AUTHOR_TAB = 2;
-constexpr int TAB_SLOTS = AUTHOR_TAB + 1;
+// Favourites (0.31.0) list FavouritesStore directly, newest first; not a sort of the index.
+constexpr int FAVOURITES_TAB = 3;
+constexpr int TAB_SLOTS = FAVOURITES_TAB + 1;
 
 constexpr bool isDescending(const library::SortOrder order) {
   return order == library::SortOrder::RecentDesc || order == library::SortOrder::TitleDesc ||
@@ -66,6 +69,7 @@ constexpr library::SortOrder orderForTab(const int tab, const uint8_t descending
 }
 
 const char* tabLabelFor(const int tab) {
+  if (tab == FAVOURITES_TAB) return tr(STR_FAVOURITES);
   if (tab == TITLE_TAB) return tr(STR_LIBRARY_TAB_TITLE);
   if (tab == AUTHOR_TAB) return tr(STR_LIBRARY_TAB_AUTHOR);
   return tr(STR_LIBRARY_TAB_RECENT);
@@ -75,9 +79,9 @@ const char* tabLabelFor(const int tab) {
 
 LibraryListActivity::LibraryListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
     : UiTabListActivity("Library", renderer, mappedInput, true) {
-  // Three short tab labels: a full-slot pill would stretch across a third of
-  // the screen, so cap it at the label plus padding (slots stay put).
-  tabPillMaxPad = 16;
+  // Four tabs, each as wide as its label: equal quarters cut "Favourites" and the longer Greek
+  // labels short.
+  tabsSpaceBetween = true;
 }
 
 void LibraryListActivity::onEnter() {
@@ -200,7 +204,16 @@ void LibraryListActivity::refreshOverlap() {
 
 void LibraryListActivity::openSelectedBook() {
   std::string path;
-  if (selectedEntry() < pinnedCount()) {
+  if (favouritesTab()) {
+    const auto& favs = FAVOURITES.getAll();
+    if (selectedEntry() < 0 || selectedEntry() >= static_cast<int>(favs.size())) return;
+    const auto& fav = favs[static_cast<size_t>(selectedEntry())];
+    if (!Storage.exists(fav.path.c_str())) {
+      promptRemoveMissingFavourite(fav.path, fav.title);
+      return;
+    }
+    path = fav.path;
+  } else if (selectedEntry() < pinnedCount()) {
     const auto& books = RECENT_BOOKS.getBooks();
     if (selectedEntry() >= static_cast<int>(books.size())) return;
     path = books[static_cast<size_t>(selectedEntry())].path;
@@ -240,10 +253,16 @@ void LibraryListActivity::activateIndex(const int index) {
 // an active search is already a flat list the reader narrowed down on purpose
 // ("find it, hold it, delete it"). Unfiltered Title/Author lists keep
 // collapse-to-groups. The Recent shelf always opens the row options menu.
-bool LibraryListActivity::deleteEligible() const { return !groupsCollapsed && (!query.empty() || !groupable()); }
+bool LibraryListActivity::deleteEligible() const {
+  return !favouritesTab() && !groupsCollapsed && (!query.empty() || !groupable());
+}
+
+bool LibraryListActivity::favouritesTab() const { return activeTabIndex == FAVOURITES_TAB; }
 
 void LibraryListActivity::onRowLongPress(const int index) {
-  if (isRecentSort(sortOrder)) {
+  if (favouritesTab()) {
+    showFavouriteOptions(index);
+  } else if (isRecentSort(sortOrder)) {
     showRecentBookOptions(index);
   } else if (deleteEligible()) {
     promptDeleteBook(index);
@@ -280,12 +299,29 @@ void LibraryListActivity::showRecentBookOptions(const int entry) {
     }
   }
 
-  const char* STORE_OPTIONS[] = {tr(STR_OPEN), tr(STR_REMOVE_FROM_RECENTS), tr(STR_DELETE), tr(STR_LIBRARY_REBUILD)};
-  const char* INDEX_OPTIONS[] = {tr(STR_OPEN), tr(STR_DELETE), tr(STR_LIBRARY_REBUILD)};
+  // The favourite toggle is the last row, so the existing rows keep their numbers.
+  const char* favouriteLabel = FAVOURITES.contains(path) ? tr(STR_REMOVE_FROM_FAVOURITES) : tr(STR_ADD_TO_FAVOURITES);
+  const char* STORE_OPTIONS[] = {tr(STR_OPEN), tr(STR_REMOVE_FROM_RECENTS), tr(STR_DELETE), tr(STR_LIBRARY_REBUILD),
+                                 favouriteLabel};
+  const char* INDEX_OPTIONS[] = {tr(STR_OPEN), tr(STR_DELETE), tr(STR_LIBRARY_REBUILD), favouriteLabel};
+  std::string author;
+  if (isStoreRow)
+    author = RECENT_BOOKS.getBooks()[static_cast<size_t>(entry)].author;
+  else {
+    std::string ignoredTitle;
+    rowTextFor(entry, ignoredTitle, author);
+  }
   app.clearTapFlash();
-  optionPopup.show(tr(STR_LIBRARY), title.c_str(), isStoreRow ? STORE_OPTIONS : INDEX_OPTIONS, isStoreRow ? 4 : 3, 0,
-                   [this, path, title, isStoreRow](const int choice) {
+  optionPopup.show(tr(STR_LIBRARY), title.c_str(), isStoreRow ? STORE_OPTIONS : INDEX_OPTIONS, isStoreRow ? 5 : 4, 0,
+                   [this, path, title, author, isStoreRow](const int choice) {
                      swallowHeldReleases();
+                     if (choice == (isStoreRow ? 4 : 3)) {
+                       // The render task reads the store while it draws the Favourites tab.
+                       RenderLock lock(*this);
+                       if (!FAVOURITES.remove(path)) FAVOURITES.add(path, title, author);
+                       requestUpdate();
+                       return;
+                     }
                      switch (choice) {
                        case 0:
                          openBookByPath(path);
@@ -316,7 +352,16 @@ void LibraryListActivity::showRecentBookOptions(const int entry) {
 #if FREEINK_CAP_TOUCH
 void LibraryListActivity::swipeDelete(const int entry) {
   activeNav().selected = entry + 1;
-  if (isRecentSort(sortOrder) && entry < pinnedCount()) {
+  if (favouritesTab()) {
+    // Same as the long-press Remove: the list entry goes, the book stays on the card.
+    if (entry >= 0 && entry < static_cast<int>(FAVOURITES.getAll().size())) {
+      const std::string path = FAVOURITES.getAll()[static_cast<size_t>(entry)].path;
+      RenderLock lock(*this);
+      FAVOURITES.remove(path);
+    }
+    activeNav().selected = 0;
+    requestUpdate();
+  } else if (isRecentSort(sortOrder) && entry < pinnedCount()) {
     const auto& book = RECENT_BOOKS.getBooks()[static_cast<size_t>(entry)];
     promptDeleteBookByPath(book.path, book.title);
   } else {
@@ -324,6 +369,48 @@ void LibraryListActivity::swipeDelete(const int entry) {
   }
 }
 #endif
+
+// Favourites-tab long-press: open, or take the book off the list (the file stays).
+void LibraryListActivity::showFavouriteOptions(const int entry) {
+  const auto& favs = FAVOURITES.getAll();
+  if (entry < 0 || entry >= static_cast<int>(favs.size())) return;
+  const std::string path = favs[static_cast<size_t>(entry)].path;
+  const std::string title = favs[static_cast<size_t>(entry)].title;
+  const char* OPTIONS[] = {tr(STR_OPEN), tr(STR_REMOVE_FROM_FAVOURITES)};
+  app.clearTapFlash();
+  optionPopup.show(tr(STR_FAVOURITES), title.c_str(), OPTIONS, 2, 0, [this, path, title](const int choice) {
+    swallowHeldReleases();
+    if (choice == 0) {
+      if (Storage.exists(path.c_str())) {
+        openBookByPath(path);
+      } else {
+        promptRemoveMissingFavourite(path, title);
+      }
+    } else if (choice == 1) {
+      {
+        RenderLock lock(*this);
+        FAVOURITES.remove(path);
+        activeNav().selected = 0;
+      }
+      requestUpdate();
+    }
+  });
+}
+
+// A favourite whose file was deleted or moved outside VaultInk: say so, offer to drop it.
+void LibraryListActivity::promptRemoveMissingFavourite(const std::string& path, const std::string& title) {
+  const char* OPTIONS[] = {tr(STR_REMOVE_FROM_FAVOURITES), tr(STR_CANCEL)};
+  app.clearTapFlash();
+  optionPopup.show(tr(STR_FAVOURITE_NOT_FOUND), title.c_str(), OPTIONS, 2, 0, [this, path](const int choice) {
+    swallowHeldReleases();
+    if (choice == 0) {
+      RenderLock lock(*this);
+      FAVOURITES.remove(path);
+      activeNav().selected = 0;
+    }
+    requestUpdate();
+  });
+}
 
 // Manual index refresh, same card discipline as the onEnter rebuild: the walk
 // wants the card to itself, and the render task must not read the index (or
@@ -418,7 +505,11 @@ void LibraryListActivity::promptDeleteBookByPath(const std::string& path, const 
       RenderLock lock(*this);
       if (!result.isCancelled) {
         LOG_DBG("LIB", "deleting %s", path.c_str());
-        if (!removeBookFile(path)) LOG_ERR("LIB", "cannot delete %s", path.c_str());
+        if (!removeBookFile(path)) {
+          LOG_ERR("LIB", "cannot delete %s", path.c_str());
+        } else {
+          FAVOURITES.remove(path);  // a book still on the card stays a favourite
+        }
         if (RECENT_BOOKS.removeByPath(path)) RECENT_BOOKS.saveToFile();
         GUI.drawPopup(renderer, tr(STR_LIBRARY_REBUILDING));
         rebuildIndex();
@@ -437,6 +528,8 @@ void LibraryListActivity::promptDeleteBookByPath(const std::string& path, const 
 
 void LibraryListActivity::openSearch() {
   app.clearTapFlash();
+  // Search covers the whole library: from Favourites it lands on the Title tab.
+  if (favouritesTab()) selectTab(TITLE_TAB, false);
   // No key filtering here on purpose. Greying out the letters that lead nowhere
   // was built, tested on device and removed: a letter you can see but cannot
   // reach reads as a broken keyboard, and the eye keeps returning to it.
@@ -480,8 +573,13 @@ void LibraryListActivity::selectTab(const int index, const bool toggleIfActive) 
   closeSwipeDelete();
 #endif
   if (index < 0 || index >= TAB_SLOTS) return;
-  if (toggleIfActive && index == activeTab()) descendingTabs ^= static_cast<uint8_t>(1u << index);
-  sortOrder = orderForTab(index, descendingTabs);
+  // Favourites have one order (newest first): no direction to toggle, and no grouping.
+  if (index == FAVOURITES_TAB) {
+    if (groupsCollapsed) restoreExpandedList();
+  } else if (toggleIfActive && index == activeTab()) {
+    descendingTabs ^= static_cast<uint8_t>(1u << index);
+  }
+  sortOrder = index == FAVOURITES_TAB ? library::SortOrder::RecentDesc : orderForTab(index, descendingTabs);
   // The filter and the overlap rows hold positions in the old order, so they
   // must be rebuilt.
   applyFilter();
@@ -504,11 +602,12 @@ int LibraryListActivity::activeTab() const { return activeTabIndex; }
 const char* LibraryListActivity::tabLabel(const int index) const { return tabLabelFor(index); }
 
 fui::TabIndicator LibraryListActivity::tabIndicator(const int index) const {
-  if (index != activeTab()) return fui::TabIndicator::None;
+  if (index != activeTab() || index == FAVOURITES_TAB) return fui::TabIndicator::None;
   return isDescending(sortOrder) ? fui::TabIndicator::Down : fui::TabIndicator::Up;
 }
 
 int LibraryListActivity::bookRowCount() const {
+  if (favouritesTab()) return static_cast<int>(FAVOURITES.getAll().size());
   if (!query.empty()) return static_cast<int>(filteredCount);
   // Pinned books already in the index are skipped below the pins, not doubled;
   // pinned books the index missed still show, so the difference stays split.
@@ -536,7 +635,9 @@ int LibraryListActivity::rowFor(const int entry) const {
   return row;
 }
 
-bool LibraryListActivity::groupable() const { return !degraded && !isRecentSort(sortOrder) && bookRowCount() > 0; }
+bool LibraryListActivity::groupable() const {
+  return !favouritesTab() && !degraded && !isRecentSort(sortOrder) && bookRowCount() > 0;
+}
 
 uint32_t LibraryListActivity::titleInitialFor(const int entry) {
   const uint16_t ordinal = index.ordinalForRow(sortOrder, static_cast<uint16_t>(rowFor(entry)));
@@ -709,6 +810,15 @@ bool LibraryListActivity::rowTextFor(const int entry, std::string& title, std::s
   title.clear();
   author.clear();
   if (fileName) fileName->clear();
+  if (favouritesTab()) {
+    const auto& favs = FAVOURITES.getAll();
+    if (entry < 0 || entry >= static_cast<int>(favs.size())) return false;
+    const auto& fav = favs[static_cast<size_t>(entry)];
+    title = fav.title.empty() ? fav.path.substr(fav.path.find_last_of('/') + 1) : fav.title;
+    author = fav.author;
+    if (fileName) *fileName = fav.path;
+    return true;
+  }
   if (entry < pinnedCount()) {
     const auto& books = RECENT_BOOKS.getBooks();
     if (entry < 0 || entry >= static_cast<int>(books.size())) return false;
@@ -999,7 +1109,9 @@ void LibraryListActivity::buildScreen(UiScreen& screen) {
   if (!degraded) buildTabBar(screen);
   if (bookRowCount() == 0) {
     const char* message = tr(STR_LIBRARY_NO_RESULTS);
-    if (filterFailed) {
+    if (favouritesTab()) {
+      message = tr(STR_NO_FAVOURITES);
+    } else if (filterFailed) {
       message = tr(STR_LIBRARY_SEARCH_UNAVAILABLE);
     } else if (query.empty()) {
       message = tr(STR_LIBRARY_EMPTY);
