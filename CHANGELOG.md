@@ -2,6 +2,15 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.35.2 (2026-10-29)
+
+Book info on the home's recent books too (kos25k #15).
+
+- On the home styles with a row of recent covers (like Lyra 3 Covers), long-press a cover, or hold Confirm on a selected one, for its Info. On the Cover grid home, hold Confirm on it. Only the VaultInk home's Continue card had it before.
+
+Tested in the simulator on Lyra 3 Covers: a long press on the second cover shows that book's info, and a slow press on a menu row still opens it. The button hold (and the Cover grid home) weren't tried. Not confirmed on the device yet.
+
+
 ## 0.35.1 (2026-10-29)
 
 A fix: books keep your place when their folder moves.

@@ -123,7 +123,8 @@ you've read and whether it's a favourite (fields the book doesn't have are left 
 
 - **Browse Files**: long-press a book (EPUB, TXT, XTC/XTCH), the last entry is **Info**.
 - **Library**: long-press a book in Recent, Title or Author (last entry), or in Favourites.
-- **Home**: long-press the Continue card.
+- **Home**: long-press the Continue card, or on the CrossPoint home styles with a row of covers,
+  long-press a cover or hold Confirm on it; on the Cover grid, hold Confirm (0.35.2).
 
 ## Books only in the Library (0.35.0)
 

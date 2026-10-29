@@ -334,6 +334,16 @@ void HomeActivity::loop() {
   const int menuCount = getMenuItemCount();
   const auto& metrics = UITheme::getInstance().getMetrics();
 
+  // Book info on a recent book (kos25k #15): hold Confirm on it, or long-press its cover.
+  const auto showInfo = [this](const size_t book) {
+    startActivityForResult(std::make_unique<BookInfoActivity>(renderer, mappedInput, recentBooks[book].path),
+                           [this](const ActivityResult&) { requestUpdate(); });
+  };
+  if (selectorIndex < recentBooks.size() && mappedInput.wasLongPressed(MappedInputManager::Button::Confirm, 600)) {
+    showInfo(selectorIndex);
+    return;
+  }
+
   auto activateSelection = [this] {
     if (selectorIndex < recentBooks.size()) {
       onRecentBookSelected(recentBooks[selectorIndex].path);
@@ -447,6 +457,17 @@ void HomeActivity::loop() {
   const int coverColumnCount = std::max(1, metrics.homeRecentBooksCount);
   const int recentCount = std::min(static_cast<int>(recentBooks.size()), coverColumnCount);
   const int coverColumnWidth = (content.width - 2 * metrics.contentSidePadding) / coverColumnCount;
+  int pressX = 0;
+  int pressY = 0;
+  if (recentCount > 0 && mappedInput.peekScreenLongPress(pressX, pressY) && pressY >= metrics.homeTopPadding &&
+      pressY < metrics.homeTopPadding + metrics.homeCoverTileHeight) {
+    const int column = (pressX - content.x - metrics.contentSidePadding) / coverColumnWidth;
+    if (pressX >= content.x + metrics.contentSidePadding && column < recentCount) {
+      mappedInput.takeScreenLongPress();
+      showInfo(static_cast<size_t>(column));
+      return;
+    }
+  }
   int touchedBook = -1;
   const auto coverTouch = mappedInput.colTouch(touchedBook, content.x + metrics.contentSidePadding, coverColumnWidth,
                                                recentCount, metrics.homeTopPadding,
