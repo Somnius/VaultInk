@@ -6,9 +6,10 @@ scope is in [SCOPE.md](SCOPE.md). VaultInk is a fork of CrossPoint Reader; its u
 
 Status: ✅ done · 🚧 in progress · ⏳ next · 💤 later · ❌ dropped
 
-**Where it stands (0.28.0, 2026-10-28):** Phases 0-3 are done in software; what is left there
+**Where it stands (0.29.0, 2026-10-29):** Phases 0-3 are done in software; what is left there
 needs the device (timings, certificate checks against real servers, refresh behaviour). Phase 4 is
-done: ticking tasks, new/rename/delete notes, the line editor, and sending changes back to LiveSync. Phase 6 (Android companion) has not started. Everything since 0.19.0
+done: ticking tasks, new/rename/delete notes, the line editor, and sending changes back to LiveSync. Phase 6 (Android companion) is in progress: the app is in `companion/`, tested against the
+simulator on one phone, not released yet (see [docs/companion.md](docs/companion.md)). Everything since 0.19.0
 is tested in the simulator and on the host, and needs a device test: see each release's notes.
 
 Target device: Xteink X4 Pro only. Until the device arrives, testing is in the simulator (X4 Pro mode)
@@ -325,19 +326,38 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   package (JavaScript on the hub) sends clicks to VaultInk's web server on the LAN.
 * Research and test list of other BLE buttons and remotes before claiming support.
 
-## 💤 Phase 6 - Android companion
+## 🚧 Phase 6 - Android companion
 
-**When:** starts right after Phase 1 (it needs the vault picker, index and search on the device).
-The first versions talk to the device over Wi-Fi through its existing web server; Bluetooth comes
-with Phase 5. Kotlin, Android only.
+**Goal:** an Android app that talks to the device over Wi-Fi through its web server (Bluetooth
+comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/companion.md).
 
-* In this repo, `companion/` (`com.lefteros.vaultink`), its own releases tagged `companion-x.y.z`,
-  never marked Latest (the device's update check reads the latest release).
-* Type into the device, quick notes, settings, signed APKs with an in-app update checker.
-* Bring notes in: convert to Markdown into a vault folder (e.g. `Imported/Keep/`). Order:
-  Android share target (any app) -> Google Keep (Takeout) -> Samsung Notes (`.sdocx` export) ->
-  contacts (one note per contact plus a `.vcf` backup) -> formats Obsidian's Importer handles.
-  Other apps' private databases can't be read without root, so only exports and sharing.
+* ✅ In this repo, `companion/` (`com.lefteros.vaultink`), Kotlin + Compose, signed release APK.
+  Its releases are tagged `companion-x.y.z` and never marked Latest.
+* ✅ Finding the device: last address, `vaultink.local`, then mDNS (the device now announces
+  `vaultink` and `_http._tcp`; uncommitted firmware change for 0.29.0).
+* ✅ Note tab: quick note into a vault folder, share target for text and pictures (pictures to
+  `attachments/`, linked with `![[...]]`).
+* ✅ Files tab: browse the whole card, upload and download with a progress bar, new folder,
+  rename, move, delete.
+* ✅ Settings tab: the device settings in one card per category, changed live.
+* ✅ Device tab: address, version, in-app update check (GitHub `companion-*` releases).
+* ✅ Light and dark look following the phone, status bar kept visible.
+* ✅ English and Greek.
+* ✅ First-start intro (what the app is, what the reader needs, the tabs), a clearer connect step,
+  and a one-line hint on each tab; reviewed with Gemini and Grok.
+* ✅ Simulator: deletes from the app got a garbled path (request arguments freed by the main loop
+  while the handler ran on the simulator's server thread); fixed for simulator builds only.
+* ✅ Firmware for 0.29.0 (uncommitted): notes uploaded, renamed, moved or deleted through the web
+  server in `/Vaults` are marked changed for LiveSync; the OTA check ignores non-firmware tags.
+* ⏳ Phone test of the intro, then a real X4 Pro over Wi-Fi when it arrives: mDNS, transfers and
+  their progress bar at Wi-Fi speed; installing an app update once a second companion release exists.
+* ⏳ Then: commit, release firmware 0.29.0 and `companion-0.1.0`.
+* 💤 Type into the device from the phone (live keyboard).
+* 💤 Bring notes in: convert to Markdown into a vault folder (e.g. `Imported/Keep/`). Order:
+  Google Keep (Takeout) -> Samsung Notes (`.sdocx` export) -> contacts (one note per contact plus a
+  `.vcf` backup) -> formats Obsidian's Importer handles. Other apps' private databases can't be read
+  without root, so only exports and sharing.
+* 💤 Show LiveSync status and start a sync from the phone.
 
 ## 💤 Phase 7 - PDF trial
 

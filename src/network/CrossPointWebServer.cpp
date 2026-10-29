@@ -33,6 +33,7 @@
 #include <string_view>
 
 #include "ClippingStore.h"
+#include "util/VaultEdit.h"
 #include "CrossPointSettings.h"
 #include "FontInstaller.h"
 #include "OpdsServerStore.h"
@@ -72,6 +73,12 @@ class CrossPointHttpServer final : public WebServer {
   explicit CrossPointHttpServer(uint16_t port) : WebServer(port) {}
 
   void releaseRequestArguments() {
+#ifdef SIMULATOR
+    // The simulator's WebServer runs handlers on its own thread and clears the arguments per
+    // request; freeing them from the main loop here cut them out from under a running handler
+    // (a delete got a garbled path). The device runs handlers inside handleClient(), so it's safe there.
+    return;
+#endif
     if (_currentArgs) {
       delete[] _currentArgs;
       _currentArgs = nullptr;
@@ -974,8 +981,17 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
   }
 }
 
+// A note in a vault changed through the web page (or the companion app): LiveSync sends it on the
+// next sync, like a note edited on the device. Pictures and other files aren't sent yet.
+static void noteVaultChange(const String& path) {
+  if (path.startsWith("/Vaults/") && (path.endsWith(".md") || path.endsWith(".canvas"))) {
+    vaultedit::markChanged(path.c_str());
+  }
+}
+
 void CrossPointWebServer::handleUploadPost(UploadState& state) const {
   if (state.success) {
+    noteVaultChange((state.path.endsWith("/") ? state.path : state.path + "/") + state.fileName);
     server->send(200, "text/plain", "File uploaded successfully: " + state.fileName);
   } else {
     const String error = state.error.isEmpty() ? "Unknown error during upload" : state.error;
@@ -1116,6 +1132,8 @@ void CrossPointWebServer::handleRename() const {
   const bool success = ClippingStore::moveBook(itemPath.c_str(), newPath.c_str());
 
   if (success) {
+    noteVaultChange(itemPath);
+    noteVaultChange(newPath);
     LOG_DBG("WEB", "Renamed file: %s -> %s", itemPath.c_str(), newPath.c_str());
     server->send(200, "text/plain", "Renamed successfully");
   } else {
@@ -1215,6 +1233,8 @@ void CrossPointWebServer::handleMove() const {
   const bool success = ClippingStore::moveBook(itemPath.c_str(), newPath.c_str());
 
   if (success) {
+    noteVaultChange(itemPath);
+    noteVaultChange(newPath);
     LOG_DBG("WEB", "Moved file: %s -> %s", itemPath.c_str(), newPath.c_str());
     server->send(200, "text/plain", "Moved successfully");
   } else {
@@ -1324,6 +1344,7 @@ void CrossPointWebServer::handleDelete() const {
       // It's a file (or couldn't open as dir) — remove file
       if (f) f.close();
       success = removeBookFile(itemPath.c_str());
+      if (success) noteVaultChange(itemPath);
     }
 
     if (!success) {

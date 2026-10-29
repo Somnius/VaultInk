@@ -1,5 +1,8 @@
 #include "OtaUpdater.h"
 
+#include <cctype>
+#include <cstdio>
+
 // clang-format off
 // HttpDownloader.h pulls Arduino/SdFat, whose macros collide with lwip's
 // ip4_addr.h unless seen first. Pin this order; clang-format would otherwise sort
@@ -81,6 +84,18 @@ OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
   }
 
   latestVersion = releaseParser.getTagName();
+  // Only a firmware tag ("0.29.0") is a firmware release: a companion app release
+  // ("companion-0.1.0") marked Latest by mistake must never be offered to the device.
+  {
+    int a = 0, b = 0, c = 0;
+    char rest = 0;
+    // Exactly three numbers: "%c" only matches when something follows (an "-rc1" or a fourth part).
+    if (sscanf(latestVersion.c_str(), "%d.%d.%d%c", &a, &b, &c, &rest) != 3 || !isdigit(latestVersion[0])) {
+      LOG_INF("OTA", "Latest release %s is not a firmware release", latestVersion.c_str());
+      latestVersion.clear();
+      return NO_UPDATE;
+    }
+  }
   otaUrl = releaseParser.getFirmwareUrl();
   otaSize = releaseParser.getFirmwareSize();
   totalSize = otaSize;

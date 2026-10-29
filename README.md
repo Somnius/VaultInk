@@ -199,8 +199,10 @@ The [roadmap](ROADMAP.md) has the details and the order. In short:
 3. **Obsidian LiveSync**, so a vault stays in step with your other devices (pull is in; push comes
    with editing).
 4. **Editing notes** on the device, then a **Bluetooth keyboard**.
-5. **An Android companion app** (in `companion/` in this repo, released separately) for typing
-   into the device, quick notes and bringing in notes from other apps.
+5. **An Android companion app** (in `companion/` in this repo, released separately). Being
+   tested now: quick notes and sharing into a vault, the whole SD card (upload, download, rename,
+   move, delete) and the device settings from the phone. Later: typing into the device and bringing
+   in notes from other apps. Guide: [docs/companion.md](docs/companion.md).
 
 The full feature list is in [SPECS.md](SPECS.md), and what is in and out of scope is in
 [SCOPE.md](SCOPE.md).

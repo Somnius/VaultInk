@@ -21,7 +21,7 @@ This document shows common issues and possible solutions while using the device 
 2. Double-check the IP address
    - Make sure you typed it correctly
    - Include `http://` at the beginning
-   - Try the displayed IP address if `http://crosspoint.local/` does not resolve
+   - Try the displayed IP address if `http://vaultink.local/` does not resolve
 3. Try disabling VPN if you're using one
 4. Some networks have "client isolation" enabled - use Create Hotspot mode or check with your network administrator
 

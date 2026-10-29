@@ -25,7 +25,7 @@ namespace {
 // AP Mode configuration
 constexpr const char* AP_SSID = "CrossPoint-Reader";
 constexpr const char* AP_PASSWORD = nullptr;  // Open network for ease of use
-constexpr const char* AP_HOSTNAME = "crosspoint";
+constexpr const char* AP_HOSTNAME = "vaultink";
 constexpr uint8_t AP_CHANNEL = 1;
 constexpr uint8_t AP_MAX_CONNECTIONS = 4;
 constexpr int QR_CODE_WIDTH = 198;
@@ -46,6 +46,8 @@ void stopDnsServer() {
 void restartMdns(const char* hostname, const char* tag) {
   MDNS.end();
   if (MDNS.begin(hostname)) {
+    // The companion app looks for this service (Android NsdManager), then checks /api/status.
+    MDNS.addService("http", "tcp", 80);
     LOG_DBG(tag, "mDNS started: http://%s.local/", hostname);
   } else {
     LOG_DBG(tag, "WARNING: mDNS failed to start");

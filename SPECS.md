@@ -348,11 +348,16 @@ Planned:
 
 ## 10. Android companion (Phase 6)
 
-- Separate repo Somnius/VaultInk-Companion, Kotlin, app ID `com.lefteros.vaultink`, Android only.
-- BLE link to the device: type into the device, send a quick note, change settings, show sync status.
-- Signed APKs on GitHub releases. The app checks the latest release, downloads it and starts the
-  install. Whether Android allows a silent install for this case is unverified; the fallback is the
-  normal install prompt.
+- In this repo, `companion/`, Kotlin + Jetpack Compose, app ID `com.lefteros.vaultink`, Android
+  only (minSdk 26). Guide: [docs/companion.md](docs/companion.md).
+- Talks to the device over Wi-Fi through the device's web server while File Transfer is open
+  (`/api/status`, `/api/files`, `/upload`, `/download`, `/mkdir`, `/rename`, `/move`, `/delete`,
+  `/api/settings`). Finds it by the last address, `vaultink.local`, then mDNS `_http._tcp` named
+  `vaultink`. BLE comes with Phase 5.
+- Tabs: Note (quick note and share target), Files (whole card, transfers with progress), Settings
+  (one card per device category), Device (status and app update).
+- Signed APKs on GitHub releases tagged `companion-x.y.z`, never marked Latest. The app checks those
+  releases, downloads the APK and opens Android's install prompt (no silent install).
 - The signing keystore is kept offline by the maintainer, never in the repo.
 
 ## 11. PDF trial (Phase 7)

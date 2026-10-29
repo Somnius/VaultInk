@@ -2,6 +2,18 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.29.0 (2026-10-29)
+
+Getting ready for the Android companion app, which comes out as its own release right after this one.
+
+- The device now shows up on your network as vaultink.local (it was crosspoint.local) while File Transfer is open, and it announces itself so apps can find it without typing an address.
+- Notes you upload, rename, move or delete in /Vaults through the web page (or the companion app) now count as changed on the device, so the next LiveSync sync sends them to the server, same as notes changed on the device itself.
+- The update check only offers real firmware releases now (a plain version like 0.29.0). The companion app has its own releases, and the device ignores them.
+- The web server docs had one thing wrong: an upload never overwrites a file with the same name, it fails and says the file is already there.
+
+Tested in the simulator and with my phone against the simulator: finding the device, uploading notes into a vault and seeing them on the changed list, and the update check rule on sample tags. Not confirmed on the device yet.
+
+
 ## 0.28.0 (2026-10-28)
 
 LiveSync goes both ways now. That finishes Phase 4.
