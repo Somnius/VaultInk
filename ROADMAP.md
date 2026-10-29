@@ -8,8 +8,8 @@ Status: ✅ done · 🚧 in progress · ⏳ next · 💤 later · ❌ dropped
 
 **Where it stands (0.29.0, 2026-10-29):** Phases 0-3 are done in software; what is left there
 needs the device (timings, certificate checks against real servers, refresh behaviour). Phase 4 is
-done: ticking tasks, new/rename/delete notes, the line editor, and sending changes back to LiveSync. Phase 6 (Android companion) is in progress: the app is in `companion/`, tested against the
-simulator on one phone, not released yet (see [docs/companion.md](docs/companion.md)). Everything since 0.19.0
+done: ticking tasks, new/rename/delete notes, the line editor, and sending changes back to LiveSync. Phase 6 (Android companion) is in progress: `companion-0.1.0` is out, tested against the
+simulator on one phone (see [docs/companion.md](docs/companion.md)). Everything since 0.19.0
 is tested in the simulator and on the host, and needs a device test: see each release's notes.
 
 Target device: Xteink X4 Pro only. Until the device arrives, testing is in the simulator (X4 Pro mode)
@@ -351,7 +351,12 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   server in `/Vaults` are marked changed for LiveSync; the OTA check ignores non-firmware tags.
 * ⏳ Phone test of the intro, then a real X4 Pro over Wi-Fi when it arrives: mDNS, transfers and
   their progress bar at Wi-Fi speed; installing an app update once a second companion release exists.
-* ⏳ Then: commit, release firmware 0.29.0 and `companion-0.1.0`.
+* ✅ Released firmware 0.29.0 and `companion-0.1.0` (2026-10-29; the companion release is not
+  marked Latest, and CI skips `companion-*` tags).
+* ⏳ `companion-0.2.0`: an outbox. Notes and shares are saved on the phone first and sent when the
+  device is found, so nothing is lost if the device isn't reachable or the app is closed.
+* ⏳ `companion-0.2.0`: the app update check reachable without a device (today it's on the Device
+  tab, which only shows once connected).
 * 💤 Type into the device from the phone (live keyboard).
 * 💤 Bring notes in: convert to Markdown into a vault folder (e.g. `Imported/Keep/`). Order:
   Google Keep (Takeout) -> Samsung Notes (`.sdocx` export) -> contacts (one note per contact plus a
