@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.35.1 (2026-10-29)
+
+A fix: books keep your place when their folder moves.
+
+- Renaming or moving a folder (in Browse Files, or over WebDAV) now keeps the reading position, bookmarks, highlights, Recent and Favourites of every book inside. Before, those books started again from page 1.
+- Renaming or moving a single book from the web page, WebDAV or the companion app keeps its place too. Before, only Browse Files did.
+
+Tested in the simulator: a folder moved in Browse Files and over WebDAV, and a book renamed on the web page, each kept its progress, cover and Recent entry. Not confirmed on the device yet.
+
+
 ## 0.35.0 (2026-10-29)
 
 Book info and a books-only Library (kos25k #15).

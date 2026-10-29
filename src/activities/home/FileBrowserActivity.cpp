@@ -37,35 +37,6 @@ constexpr size_t NAME_BUFFER_SIZE = 500;
 // The folder picker's first row: "put it in the folder shown". No real entry ends in "./".
 constexpr const char* HERE_ENTRY = "./";
 
-std::string getBookCachePath(const std::string& path) {
-  const char* prefix = nullptr;
-  if (FsHelpers::hasReflowableBookExtension(path)) {
-    prefix = "epub_";
-  } else if (FsHelpers::hasXtcExtension(path)) {
-    prefix = "xtc_";
-  } else {
-    return "";
-  }
-  return std::string("/.crosspoint/") + prefix + std::to_string(std::hash<std::string>{}(path));
-}
-
-bool moveStatePath(const std::string& oldPath, const std::string& newPath, bool& moved) {
-  moved = false;
-  if (oldPath.empty() || !Storage.exists(oldPath.c_str())) return true;
-  if (Storage.exists(newPath.c_str())) {
-    LOG_ERR("FileBrowser", "Rename state target already exists: %s", newPath.c_str());
-    return false;
-  }
-  moved = Storage.rename(oldPath.c_str(), newPath.c_str());
-  if (!moved) LOG_ERR("FileBrowser", "Failed to move rename state: %s -> %s", oldPath.c_str(), newPath.c_str());
-  return moved;
-}
-
-void rollBackStatePath(const std::string& oldPath, const std::string& newPath, const bool moved) {
-  if (moved && !Storage.rename(newPath.c_str(), oldPath.c_str())) {
-    LOG_ERR("FileBrowser", "Failed to roll back rename state: %s -> %s", newPath.c_str(), oldPath.c_str());
-  }
-}
 }  // namespace
 
 std::string getFileExtension(const std::string& filename);
@@ -565,44 +536,9 @@ void FileBrowserActivity::renameSelectedFile(const std::string& oldPath, const s
   reloadSelecting(oldEntry.back() == '/' ? newEntry + "/" : newEntry);
 }
 
-// Renames or moves a file or folder on the card. A book's cache, bookmarks and clippings move with
-// it and roll back on failure; a folder moves as one rename (books inside rebuild their caches).
+// Renames or moves a file or folder on the card, with the books' saved state (BookCacheUtils).
 bool FileBrowserActivity::moveFile(const std::string& oldPath, const std::string& newPath) {
-  if (Storage.exists(newPath.c_str())) {
-    LOG_ERR("FileBrowser", "Move target already exists: %s", newPath.c_str());
-    return false;
-  }
-  auto probe = Storage.open(oldPath.c_str());
-  const bool isDirectory = probe && probe.isDirectory();
-  if (probe) probe.close();
-  if (isDirectory) return Storage.rename(oldPath.c_str(), newPath.c_str());
-
-  const std::string oldCachePath = getBookCachePath(oldPath);
-  const std::string newCachePath = getBookCachePath(newPath);
-  const bool hasBookmarks = FsHelpers::hasReflowableBookExtension(oldPath);
-  const std::string oldBookmarkPath = hasBookmarks ? BookmarkUtil::getBookmarkPath(oldPath) : "";
-  const std::string newBookmarkPath = hasBookmarks ? BookmarkUtil::getBookmarkPath(newPath) : "";
-  bool cacheMoved = false;
-  bool bookmarksMoved = false;
-  if (!moveStatePath(oldCachePath, newCachePath, cacheMoved)) return false;
-  if (!moveStatePath(oldBookmarkPath, newBookmarkPath, bookmarksMoved)) {
-    rollBackStatePath(oldCachePath, newCachePath, cacheMoved);
-    return false;
-  }
-  if (!ClippingStore::moveBook(oldPath, newPath)) {
-    LOG_ERR("FileBrowser", "Failed to move file: %s -> %s", oldPath.c_str(), newPath.c_str());
-    rollBackStatePath(oldBookmarkPath, newBookmarkPath, bookmarksMoved);
-    rollBackStatePath(oldCachePath, newCachePath, cacheMoved);
-    return false;
-  }
-
-  RECENT_BOOKS.updatePath(oldPath, newPath, oldCachePath, newCachePath);
-  FAVOURITES.updatePath(oldPath, newPath);
-  if (APP_STATE.openEpubPath == oldPath) {
-    APP_STATE.openEpubPath = newPath;
-    if (!APP_STATE.saveToFile()) LOG_ERR("FileBrowser", "Failed to save renamed open-book path");
-  }
-  return true;
+  return moveBookWithState(oldPath, newPath);
 }
 
 void FileBrowserActivity::reloadSelecting(const std::string& entry) {

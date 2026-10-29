@@ -560,9 +560,8 @@ void WebDAVHandler::handleMove(WebServer& s) {
     return;
   }
 
-  clearBookCache(srcPath.c_str());
   file.close();
-  const bool success = ClippingStore::moveBook(srcPath.c_str(), dstPath.c_str());
+  const bool success = moveBookWithState(srcPath.c_str(), dstPath.c_str());  // progress follows the book
 
   if (success) {
     s.send(dstExists ? 204 : 201);

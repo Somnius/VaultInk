@@ -58,7 +58,8 @@ The whole SD card:
 
 What the device's web server allows, the app allows: folders can't be renamed or moved, a
 non-empty folder can't be deleted, an upload never overwrites a file with the same name, and the
-saved Wi-Fi/OPDS/KOReader credential files and system folders can't be touched.
+saved Wi-Fi/OPDS/KOReader credential files and system folders can't be touched. A book you rename or
+move keeps its reading place on the reader (from VaultInk 0.35.1).
 
 ### Comics: Files → Convert a comic (0.2.0)
 

@@ -183,6 +183,11 @@ In **Browse Files**, long-press a file or a folder for:
 | Copy | The same picker. Files and whole folders can be copied. |
 | New folder | Makes a folder inside the folder you're looking at. |
 
+Books keep where you were when you rename or move them, and so do the books inside a folder you
+rename or move (0.35.1): reading position, bookmarks, highlights, the Recent and Favourites
+entries. The same goes for renames and moves from the web page, WebDAV and the companion app,
+which used to start the book over from page 1.
+
 A **.zip** has one more action, **Extract here** (0.24.0), and tapping it offers the same menu.
 The zip is unpacked into a new folder with the zip's name next to it. Nothing outside that folder
 is written: entries with `..` or an absolute path, names the card can't hold, and macOS

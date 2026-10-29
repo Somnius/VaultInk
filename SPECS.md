@@ -127,6 +127,9 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Books only (0.35.0): `libraryBooksOnly` in settings.json. Drops `.md`/`.canvas` rows from the
   Library index lists and from the Recent pins (`pinnedStore` maps shown pins to store rows).
   Book info (`util/BookInfo`): title/author from the index, else recents, favourites, file name.
+- Moves (0.35.1): `moveBookWithState` (util/BookCacheUtils) for Browse Files, /rename, /move and WebDAV
+  MOVE. Files: cache, bookmarks, clippings with rollback. Folders: one rename with clippings, then
+  each book inside (up to 400, 16 levels) gets cache/bookmarks/recents/favourites carried, best effort.
 - Page backgrounds (kos25k's idea, mostly for fun): plain, paper, sandpaper, papyrus soft/medium/
   hard/cloudy (cloudy: value noise, no lines), toilet paper, kitchen paper, bath towel. Drawn as dots under the text in the B/W frame,
   computed from the pixel position (no memory, same on every page). Settings → Reader → Page
