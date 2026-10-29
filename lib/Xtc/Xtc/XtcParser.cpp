@@ -322,8 +322,18 @@ XtcError XtcParser::readChapters() {
     return XtcError::READ_ERROR;
   }
 
-  m_chapters.reserve(chapterCount);
+  // The community format description makes chapter pages 0-based; CrossPoint read them as 1-based
+  // (some generators write them that way). A table whose first page is 0 can only be 0-based, so it
+  // is read as written; otherwise the pages are shifted down by one as before.
+  struct RawChapter {
+    std::string name;
+    uint16_t start;
+    uint16_t end;
+  };
+  std::vector<RawChapter> raw;
+  raw.reserve(chapterCount);
   std::vector<uint8_t> chapterBuf(chapterSize);
+  bool zeroBased = false;
   for (size_t i = 0; i < chapterCount; i++) {
     if (m_file.read(chapterBuf.data(), chapterSize) != chapterSize) {
       return XtcError::READ_ERROR;
@@ -333,22 +343,28 @@ XtcError XtcParser::readChapters() {
     memcpy(nameBuf, chapterBuf.data(), 80);
     nameBuf[80] = '\0';
     const size_t nameLen = strnlen(nameBuf, 80);
-    std::string name(nameBuf, nameLen);
 
     uint16_t startPage = 0;
     uint16_t endPage = 0;
     memcpy(&startPage, chapterBuf.data() + 0x50, sizeof(startPage));
     memcpy(&endPage, chapterBuf.data() + 0x52, sizeof(endPage));
 
-    if (name.empty() && startPage == 0 && endPage == 0) {
+    // An all-zero record ends the table, except the first: in a 0-based table an unnamed
+    // one-page first chapter is exactly that.
+    if (i > 0 && nameLen == 0 && startPage == 0 && endPage == 0) {
       break;
     }
+    if (startPage == 0) zeroBased = true;
+    raw.push_back({std::string(nameBuf, nameLen), startPage, endPage});
+  }
 
-    if (startPage > 0) {
-      startPage--;
-    }
-    if (endPage > 0) {
-      endPage--;
+  m_chapters.reserve(raw.size());
+  for (auto& r : raw) {
+    uint16_t startPage = r.start;
+    uint16_t endPage = r.end;
+    if (!zeroBased) {
+      if (startPage > 0) startPage--;
+      if (endPage > 0) endPage--;
     }
 
     if (startPage >= m_header.pageCount) {
@@ -363,7 +379,7 @@ XtcError XtcParser::readChapters() {
       continue;
     }
 
-    ChapterInfo chapter{std::move(name), startPage, endPage};
+    ChapterInfo chapter{std::move(r.name), startPage, endPage};
     m_chapters.push_back(std::move(chapter));
   }
 

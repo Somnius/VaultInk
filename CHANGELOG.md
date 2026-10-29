@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.33.2 (2026-10-29)
+
+A fix for comics and other XTC/XTCH files with chapters.
+
+- Chapters now open on the right page in files made by Banana Comic Converter and other tools that follow the XTC format description. VaultInk (like CrossPoint, where this code comes from) read the chapter pages one off, so every chapter after the first started on the last page of the chapter before. Files from tools that number the pages the other way still open right: VaultInk now tells the two apart.
+- A file whose first chapter has no name and is only one page long also keeps its other chapters now.
+
+Tested in the simulator with test files of both kinds (chapters starting at page 0 and at page 1) and the unnamed first chapter: each chapter opens on its own first page. Not confirmed on the device yet.
+
+
 ## 0.33.1 (2026-10-29)
 
 A fix for kos25k's #15.

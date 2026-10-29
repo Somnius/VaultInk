@@ -260,7 +260,9 @@ them for small e-ink screens and outputs XTC, XTCH, EPUB and CBZ. It's an indepe
 author agreed to VaultInk linking to it. VaultInk never converts on the device. Guide:
 [docs/comics.md](docs/comics.md). Planned with Fable, reviewed by Gemini and Grok (2026-10-29).
 
-What works already: XTC (1-bit) and XTCH (2-bit) open as books with chapters, progress and a cover;
+What works already: XTC (1-bit) and XTCH (2-bit) open as books with chapters, progress and a cover
+(0.33.2: chapter tables written 0-based, as the format description and the converter do, open on
+the right page; CrossPoint read them as 1-based, so chapters started one page early);
 EPUB comics show their pictures; the companion app's Files tab can upload any file to the card.
 
 * ⏳ **1c.1 Guide and flow (S).** docs/comics.md (which output to pick, splitting big files, where to

@@ -100,6 +100,10 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   Search, Highlights, a text-size stepper, and Font / Spacing / Margins. Buttons step through it.
 - Settings are grouped by task: Reading (Reader, Library, Vaults), Device. Each row shows its current
   value. Vaults (0.9.0): Open Vault at Last Note, Rebuild Search Index.
+- XTC chapters (0.33.2): the format description makes start/end 0-based; CrossPoint assumed
+  1-based. `XtcParser` reads all records first: if any chapter starts at 0 the table is 0-based and
+  kept, else every page is shifted down by one. An all-zero record ends the table except the first
+  (an unnamed one-page first chapter in a 0-based table).
 - Comics (Phase 1c, planned; guide docs/comics.md): conversion off the device with Banana Comic
   Converter (XTC/XTCH/EPUB/CBZ). 1c.1 companion "Convert a comic" link + share target by display
   name to /Comics; 1c.2 XTCH row/byte blit (transposing, host-tested) and grayscale refresh choice;
