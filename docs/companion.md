@@ -132,4 +132,5 @@ Not tested yet:
   firmware frees the request's arguments after `handleClient()` to save memory, and in the
   simulator the handler runs on another thread, so they were freed under it. On the device the
   handler finishes inside `handleClient()`. Fixed for the simulator (0.29.0); 30 of 30 deletes pass.
-- Installing an app update (needs a second companion release).
+- Installing an app update: tested 2026-10-29, 0.1.0 found companion-0.2.0, downloaded it and
+  Android installed it (version 0.2.0 afterwards).
