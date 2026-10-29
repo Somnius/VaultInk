@@ -100,6 +100,12 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   Search, Highlights, a text-size stepper, and Font / Spacing / Margins. Buttons step through it.
 - Settings are grouped by task: Reading (Reader, Library, Vaults), Device. Each row shows its current
   value. Vaults (0.9.0): Open Vault at Last Note, Rebuild Search Index.
+- Comics (Phase 1c, planned; guide docs/comics.md): conversion off the device with Banana Comic
+  Converter (XTC/XTCH/EPUB/CBZ). 1c.1 companion "Convert a comic" link + share target by display
+  name to /Comics; 1c.2 XTCH row/byte blit (transposing, host-tested) and grayscale refresh choice;
+  1c.3 lib/Cbz + CbzReaderActivity streaming pages from the zip into the existing decoder, .pxc
+  pool of 2-3, fit-to-screen, natural sort, sanitised names, no ZIP64/CBR/WebP; 1c.4 per-book RTL
+  flag swapping next/previous, ComicInfo.xml, covers.
 - Settings search (0.33.0): `SettingsSearchActivity` builds every section's rows with
   `SettingsActivity::buildList` (one shared `allSettings()` per search) plus the Text Settings rows,
   matches `textfold::fold(name)` against the folded query, opens `SettingsActivity(section, nameId)`.

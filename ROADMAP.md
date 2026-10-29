@@ -210,6 +210,16 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   result opens its section on that row; a last row searches the notes for the same words. Not done
   from #13: searching every file on the card (no file index; a full scan per search is too slow),
   category icons (the section name is shown instead), and "device storage" (the X4 Pro has none).
+* ⏳ kos25k #15 (planned with Fable, reviewed by Gemini and Grok):
+  * Bug, next patch: in a vault note opened from a folder, the left-edge swipe (Back on the X4 Pro)
+    is ignored by the reader and turns to the previous page instead (reproduced in the simulator;
+    Back only works for notes opened by a link). Fix: in notes the swipe runs the same Back as the
+    header arrow. Books keep the swipe as previous page.
+  * Book info on long-press: a popup with title, author, file name, size, progress and favourite
+    (blank fields left out), from the file browser's long-press menu, the Library menus and the
+    home's Continue card.
+  * Books without notes in the Library: a books-only switch on the Library screen, applied to every
+    tab, instead of a two-line board under Recent (that tap already flips the sort).
 * ✅ (0.27.0, kos25k #12 and #10) The reader's Text panel has every layout setting (Even Word
   Gaps, word and character spacing, margin, indentation added; one shared list of choices in
   src/util/TextOptions.h); a Library tile in quick settings away from a book; Even Word Gaps has
@@ -240,6 +250,52 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   unpacked in the browser, sent into `/Vaults/<name>/`, never over an existing vault; folders
   right under `/Vaults` count as vaults without `.obsidian`. A demo vault (`demo-vault/`, notes
   in English and Greek, pictures, a canvas) for testers, attached to the releases as a zip.
+
+## ⏳ Phase 1c - Comics and manga
+
+**Goal:** read comics and manga comfortably on the X4 Pro. Conversion happens off the device, in
+[Banana Comic Converter](https://seethroughme.github.io/Banana-Comic-Converter/) by u/curseofthebanana
+(GitHub: seethroughme), a free browser tool (phone or computer, no AI) that cuts panels and repacks
+them for small e-ink screens and outputs XTC, XTCH, EPUB and CBZ. It's an independent project; its
+author agreed to VaultInk linking to it. VaultInk never converts on the device. Guide:
+[docs/comics.md](docs/comics.md). Planned with Fable, reviewed by Gemini and Grok (2026-10-29).
+
+What works already: XTC (1-bit) and XTCH (2-bit) open as books with chapters, progress and a cover;
+EPUB comics show their pictures; the companion app's Files tab can upload any file to the card.
+
+* ⏳ **1c.1 Guide and flow (S).** docs/comics.md (which output to pick, splitting big files, where to
+  put them), README/SPECS, a short line on the device's empty Library, the credit. Companion app: a
+  "Convert a comic" entry that opens the converter in the phone's browser (not inside the app), and
+  a share target for any file whose name ends in .xtc, .xtch, .epub or .cbz (by display name, since
+  phones send content:// links without an extension) that uploads to /Comics with a progress bar.
+  Defined cases: a name already on the card, the card full, Wi-Fi dropping mid-upload (the partial
+  file is removed). Doesn't wait for the companion outbox.
+* ⏳ **1c.2 XTCH page turns (M).** XTCH is the format we'll recommend for manga, so it goes first: a
+  row/byte copy into the frame buffer instead of drawing every pixel in several passes (the XTC
+  column order needs a transposing copy; host-tested against known pages), then the refresh: a FAST
+  refresh is likely 1-bit and drops the grays until the next HALF, so XTCH may need a grayscale
+  partial or a HALF on every page. The speed-up is testable on the host; the waveform choice and
+  ghosting need the device. An optional FAST-only mode for 1-bit XTC with a manual full refresh.
+* 💤 **1c.3 CBZ reader (L).** For people who copy raw CBZ files without converting. lib/Cbz
+  (host-tested): JPEG/PNG entries only (WebP said not supported), natural sort (2 before 10),
+  `__MACOSX`, `._*`, `Thumbs.db` skipped, entry names sanitised before any path join, one rule for
+  flat and foldered zips (folders = chapters), ZIP64 / Deflate64 refused with a message. Pages
+  decode straight from the zip stream into the existing streaming decoder (no temp file), fitted to
+  480x800 with grayscale dither, kept as 2-3 .pxc pixel caches in a fixed pool; one decode at a
+  time; the next page is prepared only after the current refresh and .pxc write finish. Large scans
+  are scaled while decoding instead of refused. v1 is fit-to-screen only (no half-page scrolling:
+  it costs a refresh per half and fights the tap zones). Thumbnail from page 0 written once. .cbz
+  in the file type checks, Library, file browser and reader. CBR (RAR) won't open: rezip it or run
+  it through the converter.
+* 💤 **1c.4 Manga order and covers (M).** Right-to-left as a per-book flag that swaps what next and
+  previous mean (taps, swipes and buttons), never reversing the file; off by default, since the
+  converter's output order still has to be checked; set from ComicInfo.xml
+  (`<Manga>YesAndRightToLeft</Manga>`) once the CBZ reader exists. Covers in the Library, chapter
+  markers on the progress bar. Landscape spreads in raw CBZ: split left/right in reading order
+  (later, with RTL).
+* ❌ On-device conversion or panel detection, CBR/RAR, WebP.
+
+Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) → 1c.3 → 1c.4.
 
 ## 🚧 Phase 2 - Canvas, read only
 

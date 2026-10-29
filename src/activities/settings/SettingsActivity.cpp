@@ -201,12 +201,9 @@ void SettingsActivity::onEnter() {
   rebuildSettings();
   // Opened from the settings search: start on that row.
   if (focusName != StrId::STR_NONE_OPT) {
-    for (size_t i = 0; i < settings.size(); ++i) {
-      if (settings[i].nameId == focusName) {
-        nav.selected = static_cast<int>(i);
-        break;
-      }
-    }
+    const auto it = std::find_if(settings.begin(), settings.end(),
+                                 [this](const SettingInfo& setting) { return setting.nameId == focusName; });
+    if (it != settings.end()) nav.selected = static_cast<int>(it - settings.begin());
   }
 }
 

@@ -13,6 +13,8 @@ Keep it lightweight: it must stay fast and stable on the X4 Pro (ESP32-S3, 8 MB 
 ## 2. In scope
 
 * **Books:** everything CrossPoint does today (EPUB, TXT, XTC, fonts, hyphenation, bookmarks, OPDS).
+* **Comics and manga** (Phase 1c): XTC/XTCH/EPUB made with an external converter, later CBZ. No
+  conversion on the device.
 * **Vault reading:** the Obsidian Markdown features listed in SPECS.md 5.1, links, embeds, frontmatter,
   tags, backlinks, search.
 * **Canvas:** read-only JSON Canvas with pan and zoom.
