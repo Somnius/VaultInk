@@ -1,0 +1,8 @@
+.gradle/
+build/
+app/build/
+local.properties
+# Points at the signing keystore, which lives outside the repository.
+signing.properties
+*.jks
+*.keystore

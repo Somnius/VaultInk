@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The device's web server is plain HTTP on the local network (no certificate can be issued for
+     it). Everything else the app talks to (GitHub, for updates) is HTTPS. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

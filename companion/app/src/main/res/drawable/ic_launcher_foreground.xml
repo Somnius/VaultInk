@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An open book whose pages form a V, on white: the VaultInk mark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#111111"
+        android:pathData="M30,38 L54,46 L78,38 L78,72 L54,80 L30,72 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M35,44 L52,50 L52,73 L35,67 Z M73,44 L56,50 L56,73 L73,67 Z" />
+</vector>
