@@ -95,6 +95,18 @@ are actually nice for a long read. The idea came from kos25k.
 From left to right: the home screen, the same in Greek, quick settings pulled down over a book, the
 reading toolbar, settings, and About.
 
+### Library and book info (0.35)
+
+<p>
+  <img src="docs/images/vaultink/library-all.png" width="190" alt="Library, Recent tab, everything">
+  <img src="docs/images/vaultink/library-books-only.png" width="190" alt="Library with Books only on">
+  <img src="docs/images/vaultink/library-menu-info.png" width="190" alt="Long-press menu with Info">
+  <img src="docs/images/vaultink/book-info.png" width="190" alt="Book info">
+</p>
+
+The Library with everything, then with Books only (no vault notes), a book's long-press menu, and
+its Book info.
+
 ## Getting started
 
 The first time VaultInk starts, it shows a short welcome guide. The five pages are below.

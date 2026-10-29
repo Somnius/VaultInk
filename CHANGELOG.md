@@ -2,6 +2,13 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.35.3 (2026-10-29)
+
+- If you use one of the CrossPoint home screens, What's New now says so: VaultInk works best with its own home screen. New features arrive there first, and some are only there. Switch in Settings → Display → UI Theme → VaultInk.
+
+Tested in the simulator on Lyra 3 Covers: the tip shows at the top of What's New; on the VaultInk home it doesn't. Not confirmed on the device yet.
+
+
 ## 0.35.2 (2026-10-29)
 
 Book info on the home's recent books too (kos25k #15).

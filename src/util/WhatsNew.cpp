@@ -38,6 +38,9 @@ std::string running() {
 // The note with the releases after `since` (all when empty), newest first.
 bool write(const std::string& since, std::string& path) {
   std::string text = std::string("# ") + tr(STR_WHATS_NEW) + "\n\n";
+  // On a CrossPoint home style, point to the VaultInk home: the new features land there.
+  if (SETTINGS.uiTheme != CrossPointSettings::VAULTINK)
+    text += std::string("> ") + tr(STR_WHATS_NEW_THEME_TIP) + "\n\n";
   int count = 0;
   for (int i = 0; i < changelog_data::COUNT; ++i) {
     const auto& e = changelog_data::ENTRIES[i];
