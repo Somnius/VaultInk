@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.35.0 (2026-10-29)
+
+Book info and a books-only Library (kos25k #15).
+
+- Long-press a book for **Info**: title, author, file name, size, how far you've read and whether it's a favourite. In Browse Files, in every Library tab, and on the home's Continue card.
+- The Library has an **All | Books only** switch under its tabs. Books only hides the vault notes from Recent, Title and Author (search too). It's remembered.
+
+Tested in the simulator: Info from Browse Files, the Library menus and the Continue card; the switch on Recent and Title, remembered after reopening, and the long-press menu on the filtered list. A search with Books only on wasn't tried yet, and nothing here is confirmed on the device yet.
+
+
 ## 0.34.0 (2026-10-29)
 
 Comics: convert them from the X4 Pro.

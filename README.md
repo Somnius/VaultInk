@@ -194,6 +194,7 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 - **Search settings** by name, with a jump to your notes for the same words.
 - **Home screen rows** in any order (Settings → Display → Home Screen Rows).
 - **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.
+- **Book info** on a long press, and an **All | Books only** switch in the Library that hides the vault notes.
   See [docs/reading-and-files.md](docs/reading-and-files.md#favourites-0310).
 - **Page backgrounds**, from plain to papyrus to bath towel, [mostly for fun](#page-backgrounds).
 - **A new home screen.** The book you're reading sits at the top, followed by Books and Vaults, then

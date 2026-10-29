@@ -23,6 +23,7 @@
 #include "components/UiAppHelpers.h"
 #include "fontIds.h"
 #include "util/BookCacheUtils.h"
+#include "util/BookInfo.h"
 #include "util/BookmarkUtil.h"
 #include "util/FileOps.h"
 #include "util/TaskWatchdog.h"
@@ -417,10 +418,17 @@ void FileBrowserActivity::showEntryActions() {
   static constexpr StrId FOLDER_OPTIONS[] = {StrId::STR_OPEN,           StrId::STR_DELETE,  StrId::STR_RENAME,
                                              StrId::STR_MOVE,           StrId::STR_COPY_TO, StrId::STR_NEW_FOLDER,
                                              StrId::STR_OPEN_AS_GALLERY};
-  const bool zip = FsHelpers::checkFileExtension(files[nav.selected], ".zip");
-  const bool folder = files[nav.selected].back() == '/';
-  optionPopup.show(StrId::STR_FILENAME, folder ? FOLDER_OPTIONS : ZIP_OPTIONS, zip || folder ? 7 : 6, 0,
-                   [this, folder](const int index) {
+  // On a book the 7th is Info (kos25k #15).
+  static constexpr StrId BOOK_OPTIONS[] = {StrId::STR_OPEN, StrId::STR_DELETE,  StrId::STR_RENAME,
+                                           StrId::STR_MOVE, StrId::STR_COPY_TO, StrId::STR_NEW_FOLDER,
+                                           StrId::STR_INFO};
+  const std::string& selected = files[nav.selected];
+  const bool zip = FsHelpers::checkFileExtension(selected, ".zip");
+  const bool folder = selected.back() == '/';
+  const bool book =
+      !folder && (FsHelpers::hasReflowableBookExtension(selected) || FsHelpers::hasXtcExtension(selected));
+  optionPopup.show(StrId::STR_FILENAME, folder ? FOLDER_OPTIONS : (book ? BOOK_OPTIONS : ZIP_OPTIONS),
+                   zip || folder || book ? 7 : 6, 0, [this, folder, book](const int index) {
                      switch (index) {
                        case 0:
                          activateSelected();
@@ -441,7 +449,9 @@ void FileBrowserActivity::showEntryActions() {
                          startNewFolder();
                          break;
                        case 6:
-                         if (folder) {
+                         if (book) {
+                           showBookInfo();
+                         } else if (folder) {
                            const std::string entry = files[nav.selected];
                            activityManager.goToGallery((basepath.back() == '/' ? basepath : basepath + "/") +
                                                        entry.substr(0, entry.size() - 1));
@@ -453,6 +463,14 @@ void FileBrowserActivity::showEntryActions() {
                          break;
                      }
                    });
+  requestUpdate();
+}
+
+void FileBrowserActivity::showBookInfo() {
+  if (files.empty() || nav.selected < 0 || nav.selected >= listCount()) return;
+  const std::string path = (basepath.back() == '/' ? basepath : basepath + "/") + files[nav.selected];
+  infoText = bookinfo::text(path);
+  infoAt = millis() + bookinfo::SHOW_AFTER_MS;  // opened from the file menu: let it close first
   requestUpdate();
 }
 
@@ -693,6 +711,13 @@ void FileBrowserActivity::transferInto(const std::string& srcPath, const std::st
 
 bool FileBrowserActivity::handleCustomInput() {
   if (optionPopup.handleInput(mappedInput, [this] { requestUpdate(); })) return true;
+  if (infoAt != 0 && millis() >= infoAt && !optionPopup.isActive()) {
+    infoAt = 0;
+    static const char* const OK[] = {"OK"};
+    optionPopup.showMessage(tr(STR_BOOK_INFO), infoText.c_str(), OK, 1, 0, [this](int) { requestUpdate(); });
+    requestUpdate();
+    return true;
+  }
 
   // Long press BACK (1s+) goes to root folder (Books mode only).
   // In firmware-pick mode we keep navigation simple: short Back = up dir / cancel.

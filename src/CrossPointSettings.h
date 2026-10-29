@@ -424,6 +424,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint16_t paperCycle = 0;
   // VaultInk home row order (util/HomeRowOrder.h); 0 = default.
   uint32_t homeRowOrder = 0;
+  // Library: hide vault notes (.md, .canvas) from Recent/Title/Author (kos25k #15). 0 = show all.
+  uint8_t libraryBooksOnly = 0;
   // Bluetooth page turner, saved under the keys lib/BlePageTurner reads and writes (BlePageTurnerJson.h).
   bleturner::Config ble;
   // Quick Resume: keep current content visible with moon icon instead of showing a static sleep screen.

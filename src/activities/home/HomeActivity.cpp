@@ -17,6 +17,7 @@
 #include <cstring>
 #include <vector>
 
+#include "BookInfoActivity.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "HapticFeedback.h"
@@ -651,6 +652,11 @@ void HomeActivity::activateVaultInkItem(const int index) {
 void HomeActivity::loopVaultInkHome() {
   const int count = vaultInkUi->itemCount();
   const int touched = vaultInkUi->selectedAction(mappedInput);
+  if (vaultInkUi->takeInfoRequest() && !recentBooks.empty()) {
+    startActivityForResult(std::make_unique<BookInfoActivity>(renderer, mappedInput, recentBooks[0].path),
+                           [this](const ActivityResult&) { requestUpdate(); });
+    return;
+  }
   if (touched >= 0 && touched < count) {
     selectorIndex = touched;
     haptic_feedback::touchAction();

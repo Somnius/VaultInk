@@ -116,6 +116,22 @@ top: to the note you came from if you opened it through a link, otherwise to its
 seemed stuck (kos25k #15). In a note, the previous page is the left tap zone now. In books the
 swipe still turns to the previous page.
 
+## Book info (0.35.0)
+
+Long-press a book to see what it is without opening it: title, author, file name, size, how far
+you've read and whether it's a favourite (fields the book doesn't have are left out).
+
+- **Browse Files**: long-press a book (EPUB, TXT, XTC/XTCH), the last entry is **Info**.
+- **Library**: long-press a book in Recent, Title or Author (last entry), or in Favourites.
+- **Home**: long-press the Continue card.
+
+## Books only in the Library (0.35.0)
+
+Under the Library's tabs there's a switch, **All** | **Books only**. Books only leaves the vault
+notes (and canvases) out of Recent, Title and Author, so the list is just your books. Search still
+works with it on, and finds only books. The choice is remembered. Favourites only ever hold books,
+so the switch isn't shown there.
+
 ## Search settings (0.33.0)
 
 **Settings → Search settings** (the first row) finds a setting by name. Type part of it and press

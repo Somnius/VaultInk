@@ -34,6 +34,8 @@ class VaultInkHomeUi final : public UiAppHost {
   // Row for a flat index, or nullptr for the card.
   const Row* rowAt(int index) const;
   int selectedAction(const MappedInputManager& input);
+  // True once after a long press on the Continue card (book info).
+  bool takeInfoRequest();
   int thumbHeightFor() const;
   bool takeThumbHeightChanged();
 
@@ -41,6 +43,7 @@ class VaultInkHomeUi final : public UiAppHost {
   int cardCount() const { return hasContinueReading ? 1 : 0; }
   static void screenFn(UiScreen& screen, void* user);
   static void onAction(const freeink::ui::ActionEvent& event, void* user);
+  static void onCardInfo(const freeink::ui::ActionEvent& event, void* user);
   void draw(UiScreen& screen);
   void drawCard(UiScreen& screen, freeink::ui::Rect rect);
   void drawRows(UiScreen& screen);
@@ -53,6 +56,7 @@ class VaultInkHomeUi final : public UiAppHost {
   bool thumbHeightChanged = false;
   int selected = 0;
   int pending = -1;
+  bool infoRequested = false;
   int progress = -1;
   bool hasContinueReading = false;
   char progressText[12]{};

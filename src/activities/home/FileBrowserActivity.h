@@ -16,6 +16,9 @@ class FileBrowserActivity final : public UiListActivity {
  private:
   // File actions
   bool removeDirFile(const std::string& fullPath);
+  void showBookInfo();
+  std::string infoText;      // the info popup shows it, so it outlives the call
+  unsigned long infoAt = 0;  // when to open the info popup (0 = none pending)
   void showEntryActions();
   void startRename();
   void renameSelectedFile(const std::string& oldPath, const std::string& oldEntry, const std::string& newStem,

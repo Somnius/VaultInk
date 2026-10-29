@@ -124,6 +124,9 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   fourth tab lists it directly (not the library index). Toggles: reader menu (books only) and the
   Recent long-press popup. Rename/move (file browser, reader, web server) update the path; a
   delete removes the entry.
+- Books only (0.35.0): `libraryBooksOnly` in settings.json. Drops `.md`/`.canvas` rows from the
+  Library index lists and from the Recent pins (`pinnedStore` maps shown pins to store rows).
+  Book info (`util/BookInfo`): title/author from the index, else recents, favourites, file name.
 - Page backgrounds (kos25k's idea, mostly for fun): plain, paper, sandpaper, papyrus soft/medium/
   hard/cloudy (cloudy: value noise, no lines), toilet paper, kitchen paper, bath towel. Drawn as dots under the text in the B/W frame,
   computed from the pixel position (no memory, same on every page). Settings → Reader → Page

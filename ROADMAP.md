@@ -210,15 +210,15 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   result opens its section on that row; a last row searches the notes for the same words. Not done
   from #13: searching every file on the card (no file index; a full scan per search is too slow),
   category icons (the section name is shown instead), and "device storage" (the X4 Pro has none).
-* ⏳ kos25k #15 (planned with Fable, reviewed by Gemini and Grok):
+* ✅ kos25k #15 (planned with Fable, reviewed by Gemini and Grok):
   * ✅ Fixed in 0.33.1: in a vault note opened from a folder, the left-edge swipe (Back on the
     X4 Pro) was ignored by the reader and turned to the previous page (reproduced in the
     simulator). In notes the swipe now runs the same Back as the header arrow; books keep it as
     previous page.
-  * Book info on long-press: a popup with title, author, file name, size, progress and favourite
+  * ✅ 0.35.0: Book info on long-press: a popup with title, author, file name, size, progress and favourite
     (blank fields left out), from the file browser's long-press menu, the Library menus and the
     home's Continue card.
-  * Books without notes in the Library: a books-only switch on the Library screen, applied to every
+  * ✅ 0.35.0: Books without notes in the Library: an All | Books only switch on the Library screen, applied to every
     tab, instead of a two-line board under Recent (that tap already flips the sort).
 * ✅ (0.27.0, kos25k #12 and #10) The reader's Text panel has every layout setting (Even Word
   Gaps, word and character spacing, margin, indentation added; one shared list of choices in

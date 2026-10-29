@@ -67,6 +67,7 @@ class LibraryListActivity final : public UiTabListActivity {
   static constexpr freeink::ui::ActionId ACTION_SEARCH = ACTION_TAB_USER;
   static constexpr freeink::ui::ActionId ACTION_REBUILD = ACTION_SEARCH + 1;
   static constexpr freeink::ui::ActionId ACTION_BACK = ACTION_REBUILD + 1;
+  static constexpr freeink::ui::ActionId ACTION_FILTER = ACTION_BACK + 1;
 
   // Walk the card and write a fresh index. Blocking, with a popup: at ~70 books
   // it is well under a second, and it only runs when the index is missing or the
@@ -84,6 +85,13 @@ class LibraryListActivity final : public UiTabListActivity {
   void showRecentBookOptions(int entry);
   bool favouritesTab() const;
   void showFavouriteOptions(int entry);
+  void showBookInfo(const std::string& path);
+  // Search or "Books only": rows come from the filtered list.
+  bool filtering() const;
+  void buildFilterBar(UiScreen& screen);
+  static void filterActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
+  std::string infoText;      // the info popup shows it
+  unsigned long infoAt = 0;  // when to open the info popup (0 = none pending)
   void promptRemoveMissingFavourite(const std::string& path, const std::string& title);
   void promptRemoveRecentBook(const std::string& path, const std::string& title);
   // Long-press delete owns the gesture where grouping does not apply: the
@@ -188,6 +196,8 @@ class LibraryListActivity final : public UiTabListActivity {
   uint16_t pinnedAscRows[RecentBooksStore::MAX_RECENT_BOOKS] = {};
   uint16_t overlapRows[RecentBooksStore::MAX_RECENT_BOOKS] = {};
   uint8_t pinnedTotal = 0;
+  // Store position of each pin shown; Books only leaves the notes out (kos25k #15).
+  uint8_t pinnedStore[RecentBooksStore::MAX_RECENT_BOOKS] = {};
   uint8_t overlapCount = 0;
 
   bool lockNextConfirmRelease = false;

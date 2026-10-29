@@ -21,6 +21,7 @@
 namespace fui = freeink::ui;
 namespace {
 constexpr fui::ActionId SELECT = 1;
+constexpr fui::ActionId CARD_INFO = 2;  // long press on the Continue card: book info (kos25k #15)
 constexpr int16_t CARD_COVER_HEIGHT = 132;
 constexpr int16_t ROW_ICON_SIZE = 32;
 // Focus outline for button navigation: thick enough to find at a glance, white inside so a
@@ -45,6 +46,7 @@ void VaultInkHomeUi::begin(const std::vector<RecentBook>& recent, const bool con
   if (hasContinueReading) coverCache.begin();
   resetUi();
   app.on(SELECT, &VaultInkHomeUi::onAction, this);
+  app.on(CARD_INFO, &VaultInkHomeUi::onCardInfo, this);
   app.setScreen(&VaultInkHomeUi::screenFn, this);
   refreshCoverPath();
   progress = hasContinueReading ? loadBookProgress(books->front().path) : -1;
@@ -124,6 +126,14 @@ int VaultInkHomeUi::thumbHeightFor() const { return thumbHeight > 0 ? thumbHeigh
 
 bool VaultInkHomeUi::takeThumbHeightChanged() { return std::exchange(thumbHeightChanged, false); }
 
+bool VaultInkHomeUi::takeInfoRequest() { return std::exchange(infoRequested, false); }
+
+void VaultInkHomeUi::onCardInfo(const fui::ActionEvent&, void* user) {
+  auto& self = *static_cast<VaultInkHomeUi*>(user);
+  self.infoRequested = true;
+  self.app.clearTapFlash();
+}
+
 void VaultInkHomeUi::onAction(const fui::ActionEvent& event, void* user) {
   auto& self = *static_cast<VaultInkHomeUi*>(user);
   self.pending = event.value;
@@ -132,7 +142,8 @@ void VaultInkHomeUi::onAction(const fui::ActionEvent& event, void* user) {
 
 int VaultInkHomeUi::selectedAction(const MappedInputManager& input) {
   pending = -1;
-  const auto touch = routeTouch(input);
+  const auto touch = routeTouch(input, /*withLongPress=*/true);
+  if (infoRequested) return -1;  // a long press on the card is the info, not "open the book"
   return touch.snap.touchReleased ? pending : -1;
 }
 
@@ -199,6 +210,8 @@ void VaultInkHomeUi::drawCard(UiScreen& screen, fui::Rect rect) {
     return !self.coverPath.empty() && self.coverCache.paint(cover, 0, self.coverPath);
   };
   fui::bookCard(screen.frame(), rect, card);
+  // The card itself only takes taps; a long press over it asks for the book info.
+  screen.frame().hit(rect, CARD_INFO, 0, fui::InputLongPress, fui::StateNormal);
 }
 
 void VaultInkHomeUi::setCounts(const int books, const int vaults) {
