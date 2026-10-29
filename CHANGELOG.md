@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.33.1 (2026-10-29)
+
+A fix for kos25k's #15.
+
+- In a vault note, a swipe from the left edge to the right now goes back, the same as the arrow at the top: to the note you came from through a link, otherwise to the note's folder. Before, in a note opened from a folder that swipe was taken as previous page, so a one-page note seemed stuck. In notes, the previous page is the left tap zone. In books nothing changes: the swipe still turns to the previous page.
+- Also a small code clean-up the build checks asked for. Nothing you'd notice.
+
+Tested in the simulator: the swipe in a note opened from its folder (back to the folder), and in a book on page 2 (back to page 1, the book stays open). Not confirmed on the device yet.
+
+
 ## 0.33.0 (2026-10-29)
 
 Settings search, from kos25k's #13.

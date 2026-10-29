@@ -211,10 +211,10 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   from #13: searching every file on the card (no file index; a full scan per search is too slow),
   category icons (the section name is shown instead), and "device storage" (the X4 Pro has none).
 * ⏳ kos25k #15 (planned with Fable, reviewed by Gemini and Grok):
-  * Bug, next patch: in a vault note opened from a folder, the left-edge swipe (Back on the X4 Pro)
-    is ignored by the reader and turns to the previous page instead (reproduced in the simulator;
-    Back only works for notes opened by a link). Fix: in notes the swipe runs the same Back as the
-    header arrow. Books keep the swipe as previous page.
+  * ✅ Fixed in 0.33.1: in a vault note opened from a folder, the left-edge swipe (Back on the
+    X4 Pro) was ignored by the reader and turned to the previous page (reproduced in the
+    simulator). In notes the swipe now runs the same Back as the header arrow; books keep it as
+    previous page.
   * Book info on long-press: a popup with title, author, file name, size, progress and favourite
     (blank fields left out), from the file browser's long-press menu, the Library menus and the
     home's Continue card.

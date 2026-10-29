@@ -108,6 +108,14 @@ The four tabs are as wide as their names (in Greek too) instead of four equal qu
 The list is kept in `/.crosspoint/favourites.json`. If that file can't be read, it's kept as
 `favourites.json.bad` instead of being overwritten.
 
+## Going back from a note (0.33.1)
+
+In a vault note, a swipe from the left edge to the right goes back, the same as the arrow at the
+top: to the note you came from if you opened it through a link, otherwise to its folder. Before
+0.33.1 this swipe turned to the previous page in notes opened from a folder, so a one-page note
+seemed stuck (kos25k #15). In a note, the previous page is the left tap zone now. In books the
+swipe still turns to the previous page.
+
 ## Search settings (0.33.0)
 
 **Settings → Search settings** (the first row) finds a setting by name. Type part of it and press

@@ -980,6 +980,15 @@ void EpubReaderActivity::loop() {
     return;
   }
 
+  // In a note the left-edge swipe is Back, the same as the reading menu's Back (kos25k #15): the
+  // note before it, else its folder. Without this the reader dropped the gesture and the swipe
+  // turned to the previous page, so a one-page note opened from a folder could not be left.
+  // Books keep the swipe as previous page.
+  if (isVaultNote() && mappedInput.wasBackGesture()) {
+    if (!vaultnav::goBack()) activityManager.goToFileBrowser(bookPath);
+    return;
+  }
+
   // Back in a note opened from a link returns to the note before it.
   if (mappedInput.wasReleased(MappedInputManager::Button::Back) &&
       mappedInput.getHeldTime() < ReaderUtils::GO_BACK_OR_HOME_MS && vaultnav::goBack()) {
