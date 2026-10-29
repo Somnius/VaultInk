@@ -1,9 +1,10 @@
 name: CI (build)
 
-# Release tags only (plus a manual run): day-to-day builds and tests run locally.
+# Firmware release tags only (plus a manual run): day-to-day builds and tests run locally.
+# Companion app tags (companion-x.y.z) don't build the firmware.
 on:
   push:
-    tags: ["*"]
+    tags: ["*", "!companion-*"]
   workflow_dispatch:
 
 permissions:
