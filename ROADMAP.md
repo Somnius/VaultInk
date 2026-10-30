@@ -542,7 +542,7 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   walked note by note. A **Flashcards** home row opens the decks; the review screen shows the front,
   a tap reveals the back, four buttons rate it (touch and physical buttons). Needs the clock set.
 * Steps (one commit each): ✅ 1 parser + tests (`lib/Vault/Flashcards`, 14 host tests); ✅ 2 scheduler + tests (`lib/Vault/CardScheduler`, 8 host tests); ✅ 3 card store + tests (`lib/Vault/CardStore`, 9 host tests);
-  ⏳ 4 deck scan + tests; ⏳ 5 review and deck screens, settings, strings; ⏳ 6 home row, note More
+  ✅ 4 deck scan + tests (`lib/Vault/CardIndex`, 9 host tests); ⏳ 5 review and deck screens, settings, strings; ⏳ 6 home row, note More
   item, docs/flashcards.md, README, SPECS. Images in cards, learning steps and an Anki import are later.
 
 ## 💤 SD-card plugins
