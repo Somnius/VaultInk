@@ -449,6 +449,11 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
 ## 💤 Phase 5 - Bluetooth keyboard
 
 * BLE HID host (NimBLE), US and Greek layouts.
+* Checked 2026-10-31: the FreeInk SDK's `BleKeyboardHost` already decodes keyboard reports into typed characters (`KeyEvent.ch`, printable ASCII; special keys apart), and
+  `lib/BlePageTurner/src/Runtime.cpp` reads and throws them away (`drainRemote`, `pollEvent`). Nothing reaches `KeyboardEntryActivity`.
+  Missing before a keyboard types: a typed-key queue from the runtime into the text entry screen, a radio that stays up outside the reader,
+  a pairing flow for keyboards (they show a passkey to type on the keyboard; the SDK injects the passkey today), and the Greek layer (the SDK
+  gives ASCII only: Greek needs the host layout table and the tonos dead key). All of that needs a keyboard in hand to try, so it waits for the device.
 * Remote buttons on top of CrossPoint's BLE page turner (`lib/BlePageTurner`: up to 4 remotes,
   learned buttons, tap and hold): camera shutter remotes and page turners already work as BLE
   HID (volume / arrow keys). Add actions beyond page turns (open quick note, sync, home).
