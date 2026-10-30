@@ -9,8 +9,9 @@
 class BmpViewerActivity final : public Activity {
  public:
   // `backToCaller`: Back finishes (the gallery opened it) instead of going to the file browser.
+  // `askSleepCover`: open straight on the "Set as sleep cover?" question (the gallery's menu entry).
   BmpViewerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string filePath,
-                    bool backToCaller = false);
+                    bool backToCaller = false, bool askSleepCover = false);
 
   void onEnter() override;
   void onExit() override;
@@ -19,6 +20,7 @@ class BmpViewerActivity final : public Activity {
  private:
   void loadSiblingImages();
   void doSetSleepCover();
+  void askSetSleepCover();
   bool canSetSleepCover() const;
   bool renderImage();
   bool saveDecodedSleepCover();
@@ -27,4 +29,5 @@ class BmpViewerActivity final : public Activity {
   std::vector<std::string> siblingImages;
   int currentImageIndex = -1;
   bool backToCaller = false;
+  bool askSleepCover = false;
 };

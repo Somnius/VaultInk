@@ -45,8 +45,11 @@ bool overlaySleepMode() {
 }  // namespace
 
 BmpViewerActivity::BmpViewerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string path,
-                                     const bool backToCaller)
-    : Activity("BmpViewer", renderer, mappedInput), filePath(std::move(path)), backToCaller(backToCaller) {}
+                                     const bool backToCaller, const bool askSleepCover)
+    : Activity("BmpViewer", renderer, mappedInput),
+      filePath(std::move(path)),
+      backToCaller(backToCaller),
+      askSleepCover(askSleepCover) {}
 
 void BmpViewerActivity::loadSiblingImages() {
   siblingImages.clear();
@@ -449,6 +452,23 @@ void BmpViewerActivity::doSetSleepCover() {
   onEnter();
 }
 
+void BmpViewerActivity::askSetSleepCover() {
+  if (!canSetSleepCover()) return;
+  auto confirmation = makeUniqueNoThrow<ConfirmationActivity>(renderer, mappedInput, tr(STR_SET_SLEEP_COVER_CONFIRM),
+                                                              filePath.substr(filePath.find_last_of('/') + 1));
+  if (!confirmation) {
+    LOG_ERR("BMP", "OOM: sleep cover confirmation (%zu bytes)", sizeof(ConfirmationActivity));
+    return;
+  }
+  startActivityForResult(std::move(confirmation), [this](const ActivityResult& result) {
+    if (result.isCancelled) {
+      onEnter();
+      return;
+    }
+    doSetSleepCover();
+  });
+}
+
 void BmpViewerActivity::loop() {
   // Keep CPU awake/polling so 1st click works
   Activity::loop();
@@ -488,22 +508,9 @@ void BmpViewerActivity::loop() {
     return;
   }
 
-  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    if (!canSetSleepCover()) return;
-
-    auto confirmation = makeUniqueNoThrow<ConfirmationActivity>(renderer, mappedInput, tr(STR_SET_SLEEP_COVER_CONFIRM),
-                                                                filePath.substr(filePath.find_last_of('/') + 1));
-    if (!confirmation) {
-      LOG_ERR("BMP", "OOM: sleep cover confirmation (%zu bytes)", sizeof(ConfirmationActivity));
-      return;
-    }
-    startActivityForResult(std::move(confirmation), [this](const ActivityResult& result) {
-      if (result.isCancelled) {
-        onEnter();
-        return;
-      }
-      doSetSleepCover();
-    });
+  if (askSleepCover || mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+    askSleepCover = false;
+    askSetSleepCover();
     return;
   }
 

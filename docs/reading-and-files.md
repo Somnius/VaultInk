@@ -21,8 +21,8 @@ only redraws the page, nothing is laid out again.
 
 ## Your own sleep picture (PNG too, 0.41.0)
 
-Open a picture in the **Gallery** or **Browse Files** and press Confirm (or tap **Set as sleep
-cover**), then confirm. JPEG, PNG (since 0.41.0, kos25k #21) and BMP work. **Settings → Display →
+In the **Gallery**, tap a picture and choose **Set as sleep picture** (0.41.2), then confirm. Or open
+it in the Gallery or Browse Files and press the Confirm button. JPEG, PNG (since 0.41.0, kos25k #21) and BMP work. **Settings → Display →
 Sleep Screen Cover Mode** decides how it's sized: **Crop** fills the screen and cuts the edges,
 **Fit** shows it all. The picture is stored as `/sleep.bmp` in four grays. In the transparent
 overlay sleep modes a PNG is still used as an overlay, as before.

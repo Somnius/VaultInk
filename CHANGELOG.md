@@ -2,6 +2,13 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.41.2 (2026-10-30)
+
+- In the Gallery, tap a picture and choose **Set as sleep picture** (kos25k #21). Before, it was only on the Confirm button while viewing the picture, and the touch screen didn't show that.
+
+Tested in the simulator: a PNG set from the Gallery menu became the sleep picture. Not confirmed on the device yet.
+
+
 ## 0.41.1 (2026-10-30)
 
 - No change you can see: a code check fix for 0.41.0's PNG sleep picture.

@@ -219,11 +219,13 @@ void GalleryActivity::loop() {
 
 void GalleryActivity::pictureActions(const int index) {
   if (index < 0 || index >= static_cast<int>(pictures.size())) return;
-  static constexpr StrId OPTIONS[] = {StrId::STR_GALLERY_VIEW, StrId::STR_DELETE, StrId::STR_MOVE, StrId::STR_COPY_TO};
+  // Set as sleep cover is here too (kos25k #21): on touch screens the viewer shows no button hint for it.
+  static constexpr StrId OPTIONS[] = {StrId::STR_GALLERY_VIEW, StrId::STR_DELETE, StrId::STR_MOVE, StrId::STR_COPY_TO,
+                                      StrId::STR_SET_AS_SLEEP_PICTURE};
   const std::string path = pictures[index];
-  optionPopup.show(StrId::STR_GALLERY, OPTIONS, 4, 0, [this, path](const int choice) {
-    if (choice == 0) {
-      if (auto viewer = makeUniqueNoThrow<BmpViewerActivity>(renderer, mappedInput, path, true)) {
+  optionPopup.show(StrId::STR_GALLERY, OPTIONS, 5, 0, [this, path](const int choice) {
+    if (choice == 0 || choice == 4) {
+      if (auto viewer = makeUniqueNoThrow<BmpViewerActivity>(renderer, mappedInput, path, true, choice == 4)) {
         startActivityForResult(std::move(viewer), [this](const ActivityResult&) { requestUpdate(true); });
       }
     } else if (choice == 1) {
