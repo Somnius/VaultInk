@@ -257,8 +257,19 @@ The [roadmap](ROADMAP.md) has the details and the order. In short:
 4. **Editing notes** on the device, then a **Bluetooth keyboard**.
 5. **An Android companion app** (in `companion/` in this repo, released separately; the first
    version, `companion-0.1.0`, is out). It does: quick notes and sharing into a vault, the whole SD card (upload, download, rename,
-   move, delete) and the device settings from the phone. Later: typing into the device and bringing
-   in notes from other apps. Guide: [docs/companion.md](docs/companion.md).
+   move, delete) and the device settings from the phone. Since `companion-0.3.0`, books and comics
+   shared from other apps go straight to the reader's Books or Comics folder. Later: typing into the
+   device and bringing in notes from other apps. Guide: [docs/companion.md](docs/companion.md).
+
+   <p>
+     <img src="docs/images/companion/1-note.png" width="190" alt="Companion: a quick note into a vault">
+     <img src="docs/images/companion/2-files.png" width="190" alt="Companion: the reader's SD card">
+     <img src="docs/images/companion/3-settings.png" width="190" alt="Companion: the reader's settings">
+     <img src="docs/images/companion/0-noreader.png" width="190" alt="Companion: no reader found, with the app update check">
+   </p>
+   <p>
+     <img src="docs/images/companion/5-share.png" width="300" alt="Companion: a book shared from the file manager, sent to the reader">
+   </p>
 
 The full feature list is in [SPECS.md](SPECS.md), and what is in and out of scope is in
 [SCOPE.md](SCOPE.md).

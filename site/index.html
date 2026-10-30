@@ -13,12 +13,14 @@
   <meta property="og:title" content="VaultInk: books and Obsidian vaults on the Xteink X4 Pro">
   <meta property="og:description" content="Free firmware for the Xteink X4 Pro. Install it from your browser.">
   <meta property="og:url" content="https://somnius.github.io/VaultInk/">
-  <meta property="og:image" content="https://somnius.github.io/VaultInk/og.png">
+  <meta property="og:image" content="https://somnius.github.io/VaultInk/og-2.png">
+  <meta property="og:image:secure_url" content="https://somnius.github.io/VaultInk/og-2.png">
+  <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="The VaultInk logo next to two screens of the firmware">
+  <meta property="og:image:alt" content="The VaultInk logo next to a note and the home screen of the firmware">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:image" content="https://somnius.github.io/VaultInk/og.png">
+  <meta name="twitter:image" content="https://somnius.github.io/VaultInk/og-2.png">
   <link rel="icon" type="image/svg+xml" href="logo-light.svg">
   <script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
   <style>
@@ -198,6 +200,32 @@
     .list li { margin: .35em 0; break-inside: avoid; }
 
     /* Two-column text sections */
+    /* Animations, more screens, phone shots, back to top */
+    .motion { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 28px; }
+    .motion figure { margin: 0; }
+    img[src$=".gif"] { image-rendering: pixelated; }
+    .motion img { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); background: #fff; display: block; }
+    .motion figcaption { margin-top: 10px; color: var(--muted); font-size: .95rem; }
+    .strip { display: flex; align-items: flex-start; gap: 16px; overflow-x: auto; padding: 8px 2px 16px; margin-top: 24px; scroll-snap-type: x mandatory; }
+    .strip figure { flex: 0 0 168px; margin: 0; scroll-snap-align: start; }
+    .strip img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #fff; display: block; }
+    .strip figcaption { font-size: .85rem; color: var(--muted); margin-top: 6px; }
+    .phones { display: flex; align-items: flex-start; gap: 16px; margin-top: 28px; overflow-x: auto; padding-bottom: 12px; }
+    .phones img { flex: 0 0 auto; width: 200px; height: auto; border-radius: 14px; border: 1px solid var(--line); }
+    .to-top { position: fixed; right: 18px; bottom: 18px; width: 46px; height: 46px; border-radius: 50%;
+      border: 1px solid var(--control-line); background: var(--paper-2); color: var(--ink); font-size: 1.3rem;
+      cursor: pointer; box-shadow: var(--shadow); opacity: 0; transform: translateY(12px); pointer-events: none;
+      transition: opacity .25s, transform .25s; }
+    .to-top.show { opacity: 1; transform: none; pointer-events: auto; }
+    .to-top:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+    .js .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+    .js .reveal.in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .js .reveal { opacity: 1; transform: none; transition: none; }
+      .to-top { transition: none; }
+    }
+    @media (max-width: 720px) { .motion { grid-template-columns: 1fr; } .phones img { width: 160px; } }
     .split { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
 
     /* Credits */
@@ -404,6 +432,27 @@
     </div>
   </section>
 
+  <section id="motion">
+    <div class="wrap">
+      <p class="eyebrow sans">See it move</p>
+      <h2>A few seconds on the reader</h2>
+      <div class="motion">
+        <figure class="reveal">
+          <img src="anim-notes.gif" width="240" height="400" loading="lazy" alt="Opening a vault and reading a note">
+          <figcaption class="sans">A vault, a note, a link followed and back.</figcaption>
+        </figure>
+        <figure class="reveal">
+          <img src="anim-library.gif" width="240" height="400" loading="lazy" alt="The Library tabs and author folders">
+          <figcaption class="sans">The Library: by title, by author as folders, favourites.</figcaption>
+        </figure>
+        <figure class="reveal">
+          <img src="anim-paper.gif" width="320" height="533" loading="lazy" alt="Reading with different paper backgrounds">
+          <figcaption class="sans">Paper backgrounds and reading settings.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
   <section id="features">
     <div class="wrap">
       <p class="eyebrow sans">What it does</p>
@@ -467,8 +516,19 @@
         <li>Quick settings on a swipe down: light, warmth, night mode, refresh, sleep.</li>
         <li>Greek and English on-screen keyboard, switched with the globe key.</li>
         <li>Import a vault from a ZIP over the device's web page.</li>
-        <li>Updates over Wi-Fi from the device itself.</li>
+        <li>Updates over Wi-Fi from the device itself, with the release notes first.</li>
       </ul>
+
+      <h3 style="margin-top:2.4rem">More screens</h3>
+      <div class="strip" tabindex="0" aria-label="More screenshots, scroll sideways">
+        <figure><a href="shot-reading.png"><img src="shot-reading.png" width="480" height="800" loading="lazy" alt="Reading a book"></a><figcaption class="sans">Reading</figcaption></figure>
+        <figure><a href="shot-toolbar.png"><img src="shot-toolbar.png" width="480" height="800" loading="lazy" alt="The reading toolbar"></a><figcaption class="sans">Reading toolbar</figcaption></figure>
+        <figure><a href="shot-quick.png"><img src="shot-quick.png" width="480" height="800" loading="lazy" alt="Quick settings"></a><figcaption class="sans">Quick settings</figcaption></figure>
+        <figure><a href="shot-authors.png"><img src="shot-authors.png" width="480" height="800" loading="lazy" alt="Books by author, as folders"></a><figcaption class="sans">Authors as folders</figcaption></figure>
+        <figure><a href="shot-comic.png"><img src="shot-comic.png" width="480" height="800" loading="lazy" alt="A converted comic on the reader"></a><figcaption class="sans">A comic</figcaption></figure>
+        <figure><a href="shot-settings.png"><img src="shot-settings.png" width="480" height="800" loading="lazy" alt="Settings"></a><figcaption class="sans">Settings</figcaption></figure>
+        <figure><a href="shot-home-el.png"><img src="shot-home-el.png" width="480" height="800" loading="lazy" alt="The home screen in Greek"></a><figcaption class="sans">In Greek</figcaption></figure>
+      </div>
     </div>
   </section>
 
@@ -503,7 +563,7 @@
         <p class="eyebrow sans">Android companion app</p>
         <h2>Your phone, talking to the reader</h2>
         <p>The companion app connects to the reader over Wi-Fi while File Transfer is open. Write a
-          quick note or share text and pictures from any app straight into a vault; browse the whole
+          quick note or share text and pictures from any app straight into a vault, or books and comics straight to the reader; browse the whole
           SD card to upload, download, rename, move and delete; convert comics; and change the device
           settings from the phone.</p>
       </div>
@@ -514,6 +574,15 @@
           releases</a>. Download it on the phone and open it. It needs VaultInk 0.29.0 or newer on the
           device.</p>
         <p><a href="https://github.com/Somnius/VaultInk/blob/main/docs/companion.md">The companion guide</a></p>
+      </div>
+    </div>
+    <div class="wrap">
+      <div class="phones reveal" tabindex="0" aria-label="Companion app screenshots, scroll sideways">
+        <img src="phone-note.png" width="540" height="1110" loading="lazy" alt="A quick note into a vault">
+        <img src="phone-files.png" width="540" height="1110" loading="lazy" alt="The reader's SD card on the phone">
+        <img src="phone-settings.png" width="540" height="1110" loading="lazy" alt="The reader's settings on the phone">
+        <img src="phone-comic-convert.png" width="540" height="1110" loading="lazy" alt="Converting a comic inside the app">
+        <img src="phone-share.png" style="width:300px" width="540" height="375" loading="lazy" alt="A book shared from another app, sent to the reader">
       </div>
     </div>
   </section>
@@ -546,6 +615,8 @@
   </section>
 </main>
 
+<button class="to-top sans" id="toTop" type="button" aria-label="Back to top" title="Back to top">↑</button>
+
 <footer class="sans">
   <div class="wrap">
     <span>Made by <a href="https://lefteros.com">Lefteris Iliadis</a> ·
@@ -557,6 +628,7 @@
 </footer>
 
 <script>
+  document.documentElement.classList.add("js");
   // Flashing needs Web Serial (desktop Chromium). Without it, stop here instead of letting the
   // install button fail later.
   if (!("serial" in navigator)) {
@@ -582,6 +654,26 @@
     box.classList.toggle("disabled", !agree.checked);
     installBtn.disabled = !agree.checked;
   });
+  // Back to top, shown once the page is scrolled past the first screen.
+  const toTop = document.getElementById("toTop");
+  const onScroll = () => toTop.classList.toggle("show", window.scrollY > window.innerHeight * 0.8);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+  toTop.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    document.querySelector(".brand")?.focus({ preventScroll: true });
+  });
+  // Fade sections in as they come into view (skipped when the reader prefers less motion).
+  const reveals = document.querySelectorAll(".reveal, .feature");
+  if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    reveals.forEach(el => el.classList.add("reveal"));
+    const io = new IntersectionObserver(entries => entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+    }), { rootMargin: "0px 0px -8% 0px" });
+    reveals.forEach(el => io.observe(el));
+  } else {
+    reveals.forEach(el => el.classList.add("in"));
+  }
   fetch("manifest.json").then(r => r.json()).then(m => {
     document.getElementById("version").textContent = "Version " + m.version + " · built " + (m.built || "");
     document.getElementById("appBin").textContent = "vaultink-" + m.version + "-x4pro.bin";
