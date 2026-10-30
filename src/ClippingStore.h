@@ -68,6 +68,8 @@ class ClippingStore {
   bool nextDeletion(uint32_t& offset, char (&id)[65]) const;
   bool finishDeletions();
 
+  const std::string& title() const { return bookTitle; }
+  const std::string& author() const { return bookAuthor; }
   bool hasClippings() const { return clippingSize != 0; }
   size_t clippingCount() const { return clippingSize; }
   const Clipping* clippingAt(size_t index) const;

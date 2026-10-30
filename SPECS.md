@@ -146,6 +146,7 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   the stats screen, the default screen). Those settings keys are category-less, so Settings → System no
   longer lists them. Every built-in font carries U+2190-2193 (Noto Sans Symbols) and
   U+2610-2612 (Noto Sans Symbols 2).
+- Highlights export (next release): lib/Vault/HighlightsNote (build/isExport/fileNameFor; marker `%% VaultInk highlights %%` on the line after the title block) and src/util/ClippingExport (clippings sorted by chapter then offset, vault = newest `last.txt`, `<vault>/Highlights/<name>.md` through a .tmp, vaultedit::markChanged). Menu action EXPORT_CLIPPINGS for books with clippings.
 - PDF as text (next release, Phase 7): lib/Pdf/PdfText (random-access source callback, inflate callback; xref tables
   and streams with /Prev and hybrid /XRefStm, object streams, Flate with PNG predictors, ASCII85/Hex; page tree with
   inherited resources; content interpreter for Tf Td TD Tm T* TL Tc Tw Tz ' " Tj TJ q Q cm Do (forms); fonts: ToUnicode

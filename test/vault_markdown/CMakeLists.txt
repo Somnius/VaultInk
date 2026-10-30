@@ -7,6 +7,7 @@ add_executable(VaultMarkdownTest
   TaskToggleTest.cpp
   LineBufferTest.cpp
   FlashcardsTest.cpp
+  HighlightsNoteTest.cpp
   CardSchedulerTest.cpp
   CardStoreTest.cpp
   CardIndexTest.cpp
@@ -18,6 +19,7 @@ add_executable(VaultMarkdownTest
   ${REPO_ROOT}/lib/Vault/TaskToggle.cpp
   ${REPO_ROOT}/lib/Vault/LineBuffer.cpp
   ${REPO_ROOT}/lib/Vault/Flashcards.cpp
+  ${REPO_ROOT}/lib/Vault/HighlightsNote.cpp
   ${REPO_ROOT}/lib/Vault/CardScheduler.cpp
   ${REPO_ROOT}/lib/Vault/CardStore.cpp
   ${REPO_ROOT}/lib/Vault/CardIndex.cpp

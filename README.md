@@ -231,6 +231,7 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 - **Lock screen**: a 4-digit PIN or a long press on a corner, asked after 30 minutes asleep
   (Settings → System → Lock Screen, 0.49.0). The owner's name and phone can show on it and on the
   sleep screen (next release).
+- **Highlights to a vault note** (next release): a book's clippings written to `Highlights/<title>.md` in your vault, ready for LiveSync.
 - **PDF as text** (next release): a `.pdf` opens as reflowing text (Greek included, two columns in order, filled-in form fields, files locked
   only against copying); scans and pictures are not read. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text-next-release).
 - **Flashcards** (next release): cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}` in notes tagged

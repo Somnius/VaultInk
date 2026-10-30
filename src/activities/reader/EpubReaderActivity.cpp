@@ -66,6 +66,7 @@
 #include "util/BookmarkUtil.h"
 #include "util/ButtonNavigator.h"
 #include "util/CardsDevice.h"
+#include "util/ClippingExport.h"
 #include "util/LineSpacing.h"
 #include "util/LinkUpdate.h"
 #include "util/PaperTexture.h"
@@ -1392,6 +1393,23 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
     }
     case EpubReaderMenuActivity::MenuAction::VIEW_CLIPPINGS: {
       openClippings();
+      break;
+    }
+    case EpubReaderMenuActivity::MenuAction::EXPORT_CLIPPINGS: {
+      std::string notePath;
+      switch (clippingexport::exportToVault(notePath)) {
+        case clippingexport::Status::Ok:
+          clippingMessage = StrId::STR_EXPORT_CLIPPINGS_DONE;
+          break;
+        case clippingexport::Status::NoVault:
+          clippingMessage = StrId::STR_EXPORT_CLIPPINGS_NO_VAULT;
+          break;
+        case clippingexport::Status::NoClippings:
+          clippingMessage = StrId::STR_NO_CLIPPINGS;
+          break;
+        default:
+          clippingMessage = StrId::STR_EXPORT_CLIPPINGS_FAILED;
+      }
       break;
     }
     case EpubReaderMenuActivity::MenuAction::TOGGLE_BOOKMARK: {

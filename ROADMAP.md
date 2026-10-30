@@ -572,7 +572,7 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   * Vault upload from the browser, then hand the vault to LiveSync so only changes travel later
     (saves battery and data on big vaults).
   * Quick note from the phone into a vault inbox.
-  * Highlights from books exported to a vault note.
+  * ✅ (next release, built into the reading menu instead of a plugin) Highlights from books exported to a vault note: `Highlights/<title>.md`, host-tested builder, checked in the simulator with one clipping (the chapter heading shows only when the clipping has a chapter name).
   * Vault from a Git repo, public or private, with a fine-grained GitHub token (read-only,
     one repo), stored only on the SD card.
   * Anki deck download.

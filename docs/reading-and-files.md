@@ -352,3 +352,11 @@ scans without a text layer. Two columns are read left then right when the page h
 shows in Recent and on the Continue card (opening it from there goes straight to the text), but it isn't a Library book;
 find it again in Browse Files or by its link.
 
+## Highlights to a vault note (next release)
+
+In a book that has clippings, the reading menu has **Highlights to a Vault Note**. It writes them to
+`Highlights/<book title>.md` in your vault (the one you used last, when you have several): the title, the author, then each
+clipping as a block quote under a heading for its chapter, in reading order. Export again after more highlighting and the same
+note is rewritten. A note of that name that VaultInk didn't write is never touched: the export goes to `<title> (highlights).md`
+instead. The note counts as changed on the reader, so LiveSync Sync now sends it and it shows up in Obsidian.
+

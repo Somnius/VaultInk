@@ -67,6 +67,7 @@ void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, const 
   items.push_back({MenuAction::SAVE_CLIPPING, StrId::STR_SAVE_CLIPPING});
   if (hasClippings) {
     items.push_back({MenuAction::VIEW_CLIPPINGS, StrId::STR_VIEW_CLIPPINGS});
+    if (!isVaultNote) items.push_back({MenuAction::EXPORT_CLIPPINGS, StrId::STR_EXPORT_CLIPPINGS});
   }
   items.push_back({MenuAction::NIGHT_MODE, StrId::STR_NIGHT_MODE});
   if (Frontlight.present() && !slideSwitchOwnsLight()) {
