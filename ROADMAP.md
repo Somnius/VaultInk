@@ -523,6 +523,28 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   BLE), or a passphrase. Companion scans wallet QR codes. Needs Phase 5 (BLE) and Phase 6.
 * Done when: BIP84 test vectors pass on the host, and the simulator shows addresses and a QR.
 
+## 🚧 Phase 10 - Flashcards from vault notes
+
+**Goal:** review spaced-repetition cards written in your own notes, on the reader, with no companion
+and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and Grok per step.
+
+* Card syntax (a subset of the Obsidian Spaced Repetition plugin): `Front::Back`, `Front:::Back`
+  (both ways), multi-line cards split by a `?` or `??` line, and clozes `{{x}}` (plus `**x**` only
+  when the note has `sr-cloze: bold`). `==x==` is never a cloze (VaultInk shows it as a highlight).
+  Only notes tagged `#flashcards` (the tag name is a setting; `#flashcards/greek` makes a deck) are
+  read, so Dataview `key::value` lines don't turn into cards. The plugin's `<!--SR:...-->` comments
+  are skipped, never written.
+* Scheduling is SM-2 (Again, Hard, Good, Easy) in `lib/Vault/CardScheduler`, whole days; the state
+  of each card lives in a sidecar on the card, `/.vaultink/<vault>/cards.tsv` (an append-only
+  journal, newest line wins, compacted past 1 MB), never in the notes (LiveSync conflicts). A card
+  is known by a hash of its note path and folded text, so an edited card starts again as new.
+* The deck list comes from the search index's tags and a stamped `cards.idx`, so the SD card isn't
+  walked note by note. A **Flashcards** home row opens the decks; the review screen shows the front,
+  a tap reveals the back, four buttons rate it (touch and physical buttons). Needs the clock set.
+* Steps (one commit each): ⏳ 1 parser + tests; ⏳ 2 scheduler + tests; ⏳ 3 card store + tests;
+  ⏳ 4 deck scan + tests; ⏳ 5 review and deck screens, settings, strings; ⏳ 6 home row, note More
+  item, docs/flashcards.md, README, SPECS. Images in cards, learning steps and an Anki import are later.
+
 ## 💤 SD-card plugins
 
 * Extend VaultInk with SD-card plugins instead of adding to the firmware.
@@ -544,7 +566,7 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
 
 ## 💤 Later from CrossNext
 
-* Flashcards built from vault notes (spaced repetition), Habits, Pomodoro.
+* Flashcards built from vault notes: Phase 10 below. Habits, Pomodoro.
 
 ## 💤 Fonts
 
