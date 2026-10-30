@@ -158,7 +158,7 @@ class Lexer {
           return false;
         }
         out.a.push_back(std::move(item));
-        if (out.a.size() > 200000) return false;
+        if (out.a.size() > 30000) return false;  // an Obj is big; a longer array would not fit in memory
       }
     }
     if (c == ']' || c == '>' || c == ')' || c == '{' || c == '}') {
@@ -430,12 +430,21 @@ class Doc {
       if (v.type == Obj::Int) len = v.i;
     }
     std::string raw;
-    if (len < 0 || static_cast<uint64_t>(len) > limits.maxStreamBytes * 2 || stream.streamPos + len > src.size ||
+    if (len < 0 || static_cast<uint64_t>(len) > limits.maxStreamBytes || stream.streamPos > src.size ||
+        static_cast<uint64_t>(len) > src.size - stream.streamPos ||
         !readRange(stream.streamPos, static_cast<size_t>(len), raw)) {
       // A wrong /Length: read up to "endstream".
       if (!scanToEndstream(stream.streamPos, raw)) return false;
     } else {
-      // A /Length that stops short of "endstream" is also seen; trust it when "endstream" follows.
+      // A /Length that stops short of "endstream" is also seen: trust it only when "endstream" follows.
+      std::string after;
+      const uint64_t end = stream.streamPos + static_cast<uint64_t>(len);
+      if (readRange(end, static_cast<size_t>(std::min<uint64_t>(24, src.size - end)), after)) {
+        const size_t first = after.find_first_not_of(" \r\n\t");
+        if (first == std::string::npos || after.compare(first, 9, "endstream") != 0) {
+          if (!scanToEndstream(stream.streamPos, raw)) return false;
+        }
+      }
     }
     std::vector<std::string> filters;
     std::vector<Obj> parms;
@@ -478,7 +487,7 @@ class Doc {
           const Obj cols = resolveKey(parms[f], "Columns");
           const Obj colors = resolveKey(parms[f], "Colors");
           const Obj bpc = resolveKey(parms[f], "BitsPerComponent");
-          const int columns = cols.isNum() ? static_cast<int>(cols.num()) : 1;
+          const int columns = cols.isNum() ? static_cast<int>(std::clamp(cols.num(), 1.0, 1048576.0)) : 1;
           const int pixelBytes = std::max(1, (colors.isNum() ? static_cast<int>(colors.num()) : 1) *
                                                  (bpc.isNum() ? static_cast<int>(bpc.num()) : 8) / 8);
           if (!pngPredictor(data, columns * pixelBytes, pixelBytes)) return false;
@@ -493,7 +502,7 @@ class Doc {
 
  private:
   bool readRange(uint64_t offset, size_t len, std::string& out) {
-    if (offset + len > src.size) return false;
+    if (offset > src.size || len > src.size - offset) return false;
     out.resize(len);
     return len == 0 || src.read(offset, reinterpret_cast<uint8_t*>(&out[0]), len);
   }
@@ -502,7 +511,7 @@ class Doc {
     out.clear();
     std::string chunk;
     uint64_t at = pos;
-    while (at < src.size && out.size() <= limits.maxStreamBytes * 2) {
+    while (at < src.size && out.size() <= limits.maxStreamBytes) {
       const size_t n = static_cast<size_t>(std::min<uint64_t>(16384, src.size - at));
       if (!readRange(at, n, chunk)) return false;
       out += chunk;
@@ -707,7 +716,7 @@ class Doc {
 
   bool readXrefTable(uint64_t offset, Obj& trailer) {
     uint64_t pos = offset + 4;
-    while (true) {
+    for (int subsections = 0; subsections < 100000; ++subsections) {
       std::string buf;
       const size_t n = static_cast<size_t>(std::min<uint64_t>(4096, src.size - std::min(pos, src.size)));
       if (n == 0 || !readRange(pos, n, buf)) return false;
@@ -733,6 +742,7 @@ class Doc {
       if (!lx.object(startObj) || !lx.object(countObj) || startObj.type != Obj::Int || countObj.type != Obj::Int) {
         return false;
       }
+      if (startObj.i < 0 || countObj.i < 0 || countObj.i > 50000000) return false;
       uint64_t entriesAt = pos + lx.position();
       // Entries are 20 bytes each, after the newline that ends the subsection line.
       std::string tmp;
@@ -755,6 +765,7 @@ class Doc {
       }
       pos = entriesAt + static_cast<uint64_t>(countObj.i) * 20;
     }
+    return false;
   }
 
   bool readXrefStream(uint64_t offset, Obj& trailer) {
@@ -975,7 +986,9 @@ void parseToUnicode(const std::string& cmap, Font& font) {
         if (!lx.object(dst, &k2)) break;
         uint32_t a, b;
         size_t bytes;
-        if (!hexCode(lo, a, bytes) || !hexCode(hi, b, bytes) || b < a || b - a > 0xFFFF) continue;
+        if (!hexCode(lo, a, bytes) || !hexCode(hi, b, bytes) || b < a || b - a > 0xFFFF ||
+            font.toUnicode.size() + (b - a) > 80000)
+          continue;
         maxBytes = std::max(maxBytes, bytes);
         if (dst.type == Obj::Str) {
           std::string base = dst.s;
@@ -1010,14 +1023,14 @@ void loadWidths(Doc& doc, const Obj& fontDict, Font& font) {
     for (size_t k = 0; k < w.a.size() && font.cidWidths.size() < 70000;) {
       const Obj first = doc.resolve(w.a[k]);
       const Obj second = k + 1 < w.a.size() ? doc.resolve(w.a[k + 1]) : Obj();
-      if (!first.isNum()) break;
+      if (!first.isNum() || first.num() < 0 || first.num() > 4294967000.0) break;
       if (second.type == Obj::Arr) {
         for (size_t j = 0; j < second.a.size(); ++j) {
           font.cidWidths[static_cast<uint32_t>(first.num()) + static_cast<uint32_t>(j)] =
               doc.resolve(second.a[j]).num();
         }
         k += 2;
-      } else if (second.isNum() && k + 2 < w.a.size()) {
+      } else if (second.isNum() && second.num() >= first.num() && second.num() <= 4294967000.0 && k + 2 < w.a.size()) {
         const double width = doc.resolve(w.a[k + 2]).num();
         const uint32_t a = static_cast<uint32_t>(first.num());
         const uint32_t b = static_cast<uint32_t>(second.num());
@@ -1312,9 +1325,9 @@ class Interpreter {
 // Pages
 
 void collectPages(Doc& doc, const Obj& node, const Obj& inheritedResources, std::vector<std::pair<Obj, Obj>>& pages,
-                  std::set<const void*>& seenDepth, int depth, size_t maxPages) {
-  (void)seenDepth;
-  if (depth > 32 || pages.size() >= maxPages) return;
+                  size_t& visits, int depth, size_t maxPages) {
+  // A page tree that loops back on itself would be walked for ever: count every node.
+  if (depth > 32 || pages.size() >= maxPages || ++visits > 50000) return;
   Obj resources = inheritedResources;
   const Obj own = doc.resolveKey(node, "Resources");
   if (own.isDict()) resources = own;
@@ -1323,7 +1336,7 @@ void collectPages(Doc& doc, const Obj& node, const Obj& inheritedResources, std:
   if (kids.type == Obj::Arr && type.s != "Page") {
     for (const Obj& kid : kids.a) {
       const Obj child = doc.resolve(kid);
-      if (child.isDict()) collectPages(doc, child, resources, pages, seenDepth, depth + 1, maxPages);
+      if (child.isDict()) collectPages(doc, child, resources, pages, visits, depth + 1, maxPages);
       if (pages.size() >= maxPages) return;
     }
     return;
@@ -1352,8 +1365,8 @@ bool extractText(const Source& source, const Inflate& inflate,
   }
   pagesRoot = doc.resolveKey(rootObj, "Pages");
   std::vector<std::pair<Obj, Obj>> pages;
-  std::set<const void*> unused;
-  collectPages(doc, pagesRoot, Obj(), pages, unused, 0, limits.maxPages);
+  size_t visits = 0;
+  collectPages(doc, pagesRoot, Obj(), pages, visits, 0, limits.maxPages);
   result.pages = pages.size();
 
   std::unordered_map<uint32_t, std::unique_ptr<Font>> fonts;

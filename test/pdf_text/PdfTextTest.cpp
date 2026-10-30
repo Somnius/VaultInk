@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <fstream>
 #include <sstream>
+#include <vector>
 #include <string>
 
 #include "InflateStream.h"
@@ -145,4 +146,72 @@ TEST(PdfText, FilledFormFieldsFollowThePageText) {
   const std::string text = squeeze(run.text);
   EXPECT_NE(text.find("Quartz draws each word Name: Ceren Yurdakul Clan: \xCE\x91\xCE\x9B\xCE\xA6"), std::string::npos)
       << text;
+}
+
+namespace {
+
+// A small uncompressed PDF from object bodies, with a correct classic cross-reference table.
+std::string buildPdf(const std::vector<std::string>& bodies, const std::string& trailerExtra = "") {
+  std::string out = "%PDF-1.4\n";
+  std::vector<size_t> offsets;
+  for (size_t i = 0; i < bodies.size(); ++i) {
+    offsets.push_back(out.size());
+    out += std::to_string(i + 1) + " 0 obj\n" + bodies[i] + "\nendobj\n";
+  }
+  const size_t xref = out.size();
+  out += "xref\n0 " + std::to_string(bodies.size() + 1) + "\n0000000000 65535 f \n";
+  for (const size_t o : offsets) {
+    char line[32];
+    snprintf(line, sizeof(line), "%010zu 00000 n \n", o);
+    out += line;
+  }
+  out += "trailer\n<< /Size " + std::to_string(bodies.size() + 1) + " /Root 1 0 R " + trailerExtra + ">>\nstartxref\n" +
+         std::to_string(xref) + "\n%%EOF\n";
+  return out;
+}
+
+std::string contentObject(const std::string& content) {
+  return "<< /Length " + std::to_string(content.size()) + " >>\nstream\n" + content + "\nendstream";
+}
+
+}  // namespace
+
+TEST(PdfText, PlainUncompressedFile) {
+  const std::string pdf =
+      buildPdf({"<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                "<< /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+                contentObject("BT /F1 12 Tf 72 700 Td (Plain text) Tj ET"),
+                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
+  const Extracted run = extract(pdf);
+  ASSERT_TRUE(run.ok);
+  EXPECT_EQ(run.text, "Plain text");
+}
+
+TEST(PdfText, PageTreeThatLoopsBackDoesNotHang) {
+  // Pages 2 lists itself, twice, as its kids.
+  const std::string pdf =
+      buildPdf({"<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [2 0 R 2 0 R] /Count 2 >>"});
+  const Extracted run = extract(pdf);
+  EXPECT_TRUE(run.ok);
+  EXPECT_EQ(run.pages, 0u);
+}
+
+TEST(PdfText, EncryptedFileIsReportedNotRead) {
+  const std::string pdf =
+      buildPdf({"<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [] /Count 0 >>"}, "/Encrypt 3 0 R ");
+  const Extracted run = extract(pdf);
+  EXPECT_FALSE(run.ok);
+  EXPECT_TRUE(run.result.encrypted);
+}
+
+TEST(PdfText, WrongStreamLengthIsRecovered) {
+  std::string content = "BT /F1 12 Tf 72 700 Td (Short length) Tj ET";
+  const std::string pdf =
+      buildPdf({"<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                "<< /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+                "<< /Length 5 >>\nstream\n" + content + "\nendstream",
+                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
+  const Extracted run = extract(pdf);
+  ASSERT_TRUE(run.ok);
+  EXPECT_EQ(run.text, "Short length");
 }
