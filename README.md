@@ -42,6 +42,15 @@ It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or C
 
 ## Screenshots
 
+<p>
+  <img src="docs/images/vaultink/notes.gif" width="240" alt="Opening the demo vault, a note, and following a link to another note">
+  <img src="docs/images/vaultink/library.gif" width="240" alt="The Library: Authors as folders, an author's folder, and the Title tab with Books only">
+</p>
+
+Left: a vault opens like a folder, a note reads like a book page, and a link goes to the other
+note (Back returns). Right: the Library with Authors as folders, one author's folder, and the
+Title tab with Books only.
+
 ### Vaults, notes and search
 
 <p>
