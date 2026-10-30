@@ -2008,6 +2008,11 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
       entry.depth = self->depth;
       entry.hasTextDecoration = true;
       entry.textDecoration = CssTextDecoration::Underline;
+      // An explicit text-decoration on the link wins (a note's task box: text-decoration:none),
+      // also in documents without a stylesheet.
+      CssStyle linkStyle = cssStyle;
+      if (!self->cssParser && !styleAttr.empty()) linkStyle.applyOver(CssParser::parseInlineStyle(styleAttr));
+      if (linkStyle.defined.textDecoration) entry.textDecoration = linkStyle.textDecoration;
       applyInlinePresentationToEntry(entry, cssStyle);
       applyDirectionToEntry(entry, cssStyle);
       applyVerticalAlignToEntry(entry, cssStyle);

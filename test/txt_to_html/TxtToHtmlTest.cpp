@@ -50,10 +50,22 @@ TEST(TxtToHtmlTest, PreservesCacheVersionTagsForBothFormats) {
   StringPrint out;
   ASSERT_TRUE(TxtToHtml::stream("test.MD", "text", out));
   EXPECT_EQ(out.str,
-            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!-- MD_CACHE_VERSION: 7 -->\n"
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!-- MD_CACHE_VERSION: 8 -->\n"
             "<!DOCTYPE html>\n<html>\n<head><title>test</title></head>\n<body>\n<p>text</p>\n</body>\n</html>\n");
   EXPECT_NE(out.str.find(TxtToHtml::cacheVersionTag("test.MD")), std::string::npos);
   EXPECT_NE(convert("text").find(TxtToHtml::cacheVersionTag("test.txt")), std::string::npos);
+}
+
+TEST(TxtToHtmlTest, TaskBoxesChangeTheCacheTagAndTheTasks) {
+  TxtToHtml::setTaskBoxes(true);
+  StringPrint out;
+  ASSERT_TRUE(TxtToHtml::stream("n.md", "- [ ] a\n- [x] b\n", out));
+  TxtToHtml::setTaskBoxes(false);
+  EXPECT_NE(out.str.find("<!-- MD_CACHE_VERSION: 8 boxes -->"), std::string::npos);
+  EXPECT_NE(out.str.find("\xE2\x98\x90</a> a"), std::string::npos);  // the tickable link holds the box
+  EXPECT_NE(out.str.find("\xE2\x98\x91</a> b"), std::string::npos);
+  EXPECT_EQ(out.str.find("[ ]"), std::string::npos);
+  EXPECT_STRNE(TxtToHtml::cacheVersionTag("n.md"), "<!-- MD_CACHE_VERSION: 8 boxes -->");
 }
 
 }  // namespace

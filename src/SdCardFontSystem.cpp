@@ -5,6 +5,7 @@
 #include <Logging.h>
 #include <Memory.h>
 #include <TtfEpdFont.h>
+#include <TxtToHtml.h>
 #include <esp_heap_caps.h>
 
 #include <algorithm>
@@ -134,6 +135,8 @@ void SdCardFontSystem::ensureLoaded(GfxRenderer& renderer) {
   }
 
   const char* wantedFamily = SETTINGS.sdFontFamilyName;
+  // Note tasks as boxes only with the built-in fonts, which carry the glyphs.
+  TxtToHtml::setTaskBoxes(wantedFamily[0] == '\0');
 
 #if CROSSPOINT_VECTOR_FONTS
   // Vector (.ttf/.otf) family selected: route through the FreeInkFont path and

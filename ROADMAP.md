@@ -35,10 +35,11 @@ In this order, each also listed in its phase below:
    clash, full card, dropped Wi-Fi.
 5. ✅ companion-0.3.0 (share to the reader, Not now, update check without a reader). Next:
    companion-0.4.0, the outbox (shares and notes kept until the reader is reachable).
-6. Phase 1 leftovers: ✅ 0.47.0 heading anchors in the index (search opens at the heading); checkbox glyphs for tasks (✅ 0.36.2: a note
+6. Phase 1 leftovers: ✅ 0.47.0 heading anchors in the index (search opens at the heading); ✅ 0.50.0 checkbox glyphs for tasks (✅ 0.36.2: a note
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
+✅ 0.50.0: tasks as real ☐ / ☑ boxes in notes (built-in fonts).
 ✅ 0.49.0: kos25k #22 lock screen: 4-digit PIN or a long press on a corner, after 30 minutes asleep.
 ✅ 0.48.0: kos25k #6 New folder from a long press on blank space; #8 phone photos (JPEG up to 50 MP), Gallery refresh, chosen folders.
 ✅ 0.47.0: search finds headings, `Note > Heading`, and opens the note at that heading.
@@ -127,8 +128,8 @@ asks for it.
   under its title, one level, up to 32 KB). ✅ (0.10.0) Heading and block embeds:
   `![[Note#Heading]]` shows that heading's section, `![[Note#^id]]` the list item or paragraph
   with that block id (the whole note when the anchor isn't found). ✅ (0.36.2) A note is rebuilt when a note it embeds
-  changes (its size, like the note itself). To do: tasks show as `[ ]` / `[x]` text (the built-in Noto Sans has no
-  ☐/☑ glyphs; real boxes need a symbol font added to every built-in size). ✅ (0.18.0) Image
+  changes (its size, like the note itself). ✅ (0.50.0) Tasks show as real boxes ☐ / ☑ in the built-in
+  fonts (Noto Sans Symbols 2 glyphs added to every size); an SD-card font keeps `[ ]` / `[x]`. ✅ (0.18.0) Image
   sizes `![[pic.png|300]]` are honoured on the device (the width also goes in as CSS, which
   the layout reads). ✅ (0.13.0) `==highlight==` is a light gray band behind the text
   (like Kindle and Kobo), not an underline, so it doesn't look like a link or cut descenders.

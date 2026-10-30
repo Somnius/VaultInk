@@ -247,7 +247,7 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 | Highlight `==text==` | should | done (0.13.0): a light gray band behind the text (`<mark>`), drawn in the black-and-white pass only, so the letters stay black. 0.14.0: Settings → Vaults → Highlight style picks Light gray (default), Inverted (black band, white letters) or Dark gray (black band in the black-and-white pass, lightened to dark gray by the two gray passes, letters cut back out; plain black without text anti-aliasing) |
 | Paragraphs, line breaks | must | reflow, hyphenation per language; Greek with 1/1 minima (one-letter syllables may split off, as in babel-greek) |
 | Bullet, numbered, nested lists | must | done; nested levels indented, numbers keep their start (0.8.0); inside quotes as lines with the marker |
-| Task lists `- [ ]` / `- [x]` | must | read only in Phase 1, toggle in Phase 4 |
+| Task lists `- [ ]` / `- [x]` | must | read only in Phase 1, toggle in Phase 4; ☐ / ☑ (U+2610/2611 from Noto Sans Symbols 2 in the built-in fonts, 0.50.0; SD fonts keep `[ ]`, cache tag `MD_CACHE_VERSION: 8 boxes`) |
 | Block quotes | must | done, indented |
 | Callouts `> [!type] title` | must | done (0.11.0): a framed box (1 px border, padding) with the title in bold, or the type ("Note") when there is no title; no per-type icon yet |
 | Foldable callouts `+`/`-` | should | Phase 1 shows them open; tap-to-fold needs re-pagination |

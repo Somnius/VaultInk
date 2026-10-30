@@ -9,6 +9,9 @@ Tap the box of a task (`- [ ]` or `- [x]`) in a note. It flips, the note is save
 comes back with the box ticked or unticked. This works even with touch reader controls off. The
 box is narrow, so a tap a little to its left or right counts too.
 
+Since 0.50.0 the box is drawn as ☐ / ☑ with the built-in reading font. With a font from the SD
+card it stays `[ ]` / `[x]`, since those fonts may not have the symbols.
+
 The note is checked again before it's saved. If it changed since the page was drawn (for example
 LiveSync brought a new version), nothing is ticked and the note is shown again as it is now.
 

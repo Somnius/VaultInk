@@ -15,7 +15,7 @@ Third-party code and assets in this repository keep their own licences:
 - Expat (lib/expat): MIT License.
 - miniz (lib/miniz): Unlicense (see the end of miniz.h).
 - uzlib (lib/uzlib): zlib License.
-- Noto Sans, Noto Serif, Noto Sans Arabic, Noto Sans Hebrew, OpenDyslexic
+- Noto Sans, Noto Sans Symbols 2 (the task boxes), Noto Serif, Noto Sans Arabic, Noto Sans Hebrew, OpenDyslexic
   (built-in fonts): SIL Open Font License 1.1.
 - Ubuntu font (built-in UI fonts): Ubuntu Font Licence 1.0.
 - Lucide icons (src/components/icons): ISC License, Copyright (c) Lucide Contributors.

@@ -43,6 +43,8 @@ class MarkdownToHtml {
   // Task boxes become "task:<line>:<hash>" links (TaskToggle.h) the reader can tick. Only for the
   // note itself: embedded notes keep plain boxes, their lines are in another file.
   void setTaskLinks(bool on) { taskLinks = on; }
+  // Tasks as ☐ / ☑ instead of [ ] / [x]: only for fonts that have the glyphs (the built-in ones).
+  void setTaskBoxes(bool on) { taskBoxes = on; }
 
   // Writes the XHTML head; title is the note name. `prolog` goes right after the XML declaration
   // (the reader's cache-version comment).
@@ -100,6 +102,7 @@ class MarkdownToHtml {
   size_t tableBytes = 0;
   bool inContinuation = false;
   bool taskLinks = false;
+  bool taskBoxes = false;
   uint32_t sourceLine = 0;       // 0-based line of the source being converted
   std::string_view currentLine;  // that whole line, while line() runs
 };

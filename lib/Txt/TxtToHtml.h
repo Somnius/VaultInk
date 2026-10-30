@@ -30,6 +30,9 @@ class TxtToHtml {
   }
 
   static const char* cacheVersionTag(std::string_view filename);
+  // Markdown tasks as ☐ / ☑ (the built-in reading fonts have them) or [ ] / [x] (an SD-card font
+  // may not). Part of the cache tag, so switching fonts rebuilds the notes.
+  static void setTaskBoxes(bool on) { taskBoxes = on; }
 
  private:
   static bool streamMarkdown(std::string_view filename, void* readerCtx,
@@ -45,4 +48,7 @@ class TxtToHtml {
                      Print& out, const MarkdownToHtml::ImageResolver* images = nullptr,
                      const MarkdownToHtml::NoteLoader* notes = nullptr);
   static bool stream(std::string_view filename, std::string_view content, Print& out);
+
+ private:
+  static inline bool taskBoxes = false;
 };

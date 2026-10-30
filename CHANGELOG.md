@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.50.0 (2026-10-30)
+
+Real checkboxes for tasks.
+
+- Tasks in your notes (`- [ ]` and `- [x]`) now show as boxes, ☐ and ☑, instead of the `[ ]` / `[x]` text. Tap a box to tick it, like before; the box has no underline any more.
+- The boxes come with the built-in reading font (in every size and style). With a font from the SD card the tasks stay `[ ]` / `[x]`, because those fonts may not have the box symbols.
+- Notes are laid out again once after the update.
+
+Tested in the simulator: a note with open and done tasks, in a list and a numbered list, shows the boxes; tapping a box ticked the task in the file. Not looked at on the device's screen yet.
+
+
 ## 0.49.0 (2026-10-30)
 
 A lock screen (kos25k #22).

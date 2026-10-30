@@ -642,6 +642,11 @@ void MarkdownToHtml::listItem(const int indent, const bool ordered, const int nu
   }
   sink.write("<li>");
   listItemOpen = true;
+  // U+2610 ballot box, U+2611 with a check.
+  const auto taskMark = [this](const bool unticked) -> std::string_view {
+    if (taskBoxes) return unticked ? "\xE2\x98\x90" : "\xE2\x98\x91";
+    return unticked ? "[ ]" : "[x]";
+  };
   const bool open = startsWith(content, "[ ] ") || content == "[ ]";
   const bool done = startsWith(content, "[x] ") || startsWith(content, "[X] ") || content == "[x]" || content == "[X]";
   if (open || done) {
@@ -650,9 +655,13 @@ void MarkdownToHtml::listItem(const int indent, const bool ordered, const int nu
     if (taskLinks && !inContinuation && tasktoggle::markOffset(currentLine) != std::string_view::npos) {
       sink.write("<a href=\"");
       sink.write(tasktoggle::href(sourceLine, tasktoggle::lineHash(currentLine)));
-      sink.write(open ? "\">[ ]</a> " : "\">[x]</a> ");
+      // A box needs no underline to look tappable; the old [ ] keeps it.
+      sink.write(taskBoxes ? "\" style=\"text-decoration:none\">" : "\">");
+      sink.write(taskMark(open));
+      sink.write("</a> ");
     } else {
-      sink.write(open ? "[ ] " : "[x] ");
+      sink.write(taskMark(open));
+      sink.write(" ");
     }
     content = content.substr(std::min<size_t>(4, content.size()));
   }
