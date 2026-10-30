@@ -76,26 +76,26 @@ bool CbzReaderActivity::handleFormatInput() {
   if (!mappedInput.wasReleased(MappedInputManager::Button::Confirm) && !touchMenu) return false;
   std::vector<cbz::Chapter> chapters;
   if (book.chapters.size() >= 2) chapters = book.chapters;
-  startActivityForResult(
-      std::make_unique<CbzChapterActivity>(renderer, mappedInput, std::move(chapters), currentPage, book.pages.size(), rightToLeft),
-      [this](const ActivityResult& result) {
-        if (!result.isCancelled) {
-          const uint32_t page = std::get<PageResult>(result.data).page;
-          if (page == CbzChapterActivity::TOGGLE_RIGHT_TO_LEFT) {
-            rightToLeft = !rightToLeft;
-            const uint8_t flag = rightToLeft ? 1 : 0;
-            HalFile f;
-            if (Storage.openFileForWrite("CBZ", cachePath + "/rtl.bin", f)) {
-              f.write(&flag, 1);
-              f.close();
-            }
-          } else {
-            currentPage = page;
-            currentHalf = 0;
-          }
-        }
-        requestUpdate();
-      });
+  startActivityForResult(std::make_unique<CbzChapterActivity>(renderer, mappedInput, std::move(chapters), currentPage,
+                                                              book.pages.size(), rightToLeft),
+                         [this](const ActivityResult& result) {
+                           if (!result.isCancelled) {
+                             const uint32_t page = std::get<PageResult>(result.data).page;
+                             if (page == CbzChapterActivity::TOGGLE_RIGHT_TO_LEFT) {
+                               rightToLeft = !rightToLeft;
+                               const uint8_t flag = rightToLeft ? 1 : 0;
+                               HalFile f;
+                               if (Storage.openFileForWrite("CBZ", cachePath + "/rtl.bin", f)) {
+                                 f.write(&flag, 1);
+                                 f.close();
+                               }
+                             } else {
+                               currentPage = page;
+                               currentHalf = 0;
+                             }
+                           }
+                           requestUpdate();
+                         });
   return true;
 }
 
@@ -125,16 +125,19 @@ void CbzReaderActivity::dropStalePageCaches() const {
     size = static_cast<uint32_t>(f.fileSize());
     f.close();
   }
-  uint32_t stored = 0;
+  // The file size and the cache layout: 0.53.0 caches (no split spreads, a 4-byte stamp) go too.
+  constexpr uint32_t CACHE_LAYOUT = 2;
+  const uint32_t stamped[2] = {size, CACHE_LAYOUT};
+  uint32_t stored[2] = {0, 0};
   const std::string stamp = cachePath + "/size.bin";
   if (Storage.openFileForRead("CBZ", stamp, f)) {
-    if (f.read(&stored, 4) != 4) stored = 0;
+    if (f.read(stored, 8) != 8) stored[0] = stored[1] = 0;
     f.close();
   }
-  if (stored == size) return;
+  if (stored[0] == stamped[0] && stored[1] == stamped[1]) return;
   for (size_t page = 0; page < book.pages.size(); ++page) removePageCaches(page);
   if (Storage.openFileForWrite("CBZ", stamp, f)) {
-    f.write(&size, 4);
+    f.write(stamped, 8);
     f.close();
   }
 }
