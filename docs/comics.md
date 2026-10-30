@@ -70,16 +70,20 @@ to try again or open it in the browser.
 A CBZ copied straight onto the card (not converted) opens like a book, from Browse Files or the
 Library. Each page is fitted to the screen in grayscale; swipe or use the buttons to turn, and the
 book remembers its page. Only JPEG and PNG pages are shown, in natural order ("2" before "10");
-`__MACOSX` and other leftovers are skipped. Not yet:
+`__MACOSX` and other leftovers are skipped.
 
-- PNG pages bigger than 8 megapixels (2000×3000 and 2048×4096 are fine) show "Page load error".
-  JPEG pages are let in up to 50 megapixels since 0.48.0 (not timed on the device yet).
+Since 0.53.0 a page is decoded once and kept on the card as a screen-sized picture, and while you
+look at a page the next one is prepared, so turning forward (or back to a page you just saw) only
+draws the kept picture. The first page of a session still takes the full decode. PNG pages go up
+to 24 megapixels and 3072 pixels wide (4096 for PNGs without transparency); JPEG up to 50
+megapixels (since 0.48.0). Not timed on the device yet. Not yet:
+
 - WebP pages, CBR (RAR) files: run them through the converter.
 - Since 0.43.0, manga read right to left: a CBZ whose ComicInfo.xml says so (Manga: YesAndRightToLeft)
   opens that way, and Confirm or the menu tap shows **Right to left (manga): On/Off** to change it
   for that book. The pages stay in their order; next and previous swap. (Since 0.40.0: Confirm or the menu tap opens the list of chapter folders,
-  and the first page is the cover on the home with the progress bar.) Each page is decoded when it's shown, so
-  turning is slower than XTCH.
+  and the first page is the cover on the home with the progress bar.) XTCH still turns faster: its
+  pages need no decoding at all.
 
 ## Getting the file onto the X4 Pro
 
@@ -104,6 +108,6 @@ All in [Phase 1c of the roadmap](../ROADMAP.md):
 2. **Faster XTCH page turns**: since 0.36.1 an XTCH page made for the X4 / X4 Pro (480×800) is
    copied into the screen buffer a byte at a time instead of pixel by pixel. Still to do on the
    device: timing it, and the grayscale refresh.
-3. More for CBZ: chapters to jump to, covers in the Library, a cache so pages turn faster, and
-   pages over 8 megapixels.
+3. More for CBZ: ✅ chapters, covers, ✅ a page cache and PNG pages over 8 megapixels (0.53.0).
+   Next: chapter marks on the progress bar, landscape spreads.
 4. **Right-to-left** page order for manga, per book, and covers in the Library.

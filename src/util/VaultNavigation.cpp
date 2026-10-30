@@ -48,7 +48,8 @@ void openFrom(const std::string& currentPath, const std::string& path) {
 
 void openAtHeading(const std::string& path, const std::string& heading) {
   history.clear();
-  pendingAnchor = heading.empty() ? std::string() : MarkdownToHtml::headingId(heading);
+  // A block id is its own anchor; a heading goes by MarkdownToHtml's id.
+  pendingAnchor = heading.empty() || heading.front() == '^' ? heading : MarkdownToHtml::headingId(heading);
   open(path);
 }
 

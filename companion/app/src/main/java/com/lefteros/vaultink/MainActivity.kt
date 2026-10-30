@@ -182,6 +182,9 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
     var intro by remember { mutableStateOf(!prefs(context).getBoolean("intro_seen", false)) }
     val scope = rememberCoroutineScope()
+    // The outbox (notes and shares waiting for the reader) and the last line about it.
+    var waiting by remember { mutableIntStateOf(Outbox.count(context)) }
+    var outboxNote by remember { mutableStateOf("") }
 
     // Tries the remembered address, then mDNS; remembers what answered.
     var search by remember { mutableStateOf<Job?>(null) }
@@ -209,6 +212,12 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
                 prefs(context).edit().putString("host", h).apply()
             }
             searching = false
+            // Reader found: send what waited for it.
+            if (found != null && Outbox.count(context) > 0) {
+                val sent = withContext(Dispatchers.IO) { Outbox.send(context, DeviceClient(found!!.first)) }
+                waiting = Outbox.count(context)
+                if (sent > 0) outboxNote = context.resources.getQuantityString(R.plurals.outbox_sent, sent, sent)
+            }
         }
     }
     LaunchedEffect(Unit) { connect() }
@@ -245,19 +254,42 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val connected = status
+            // Books and comics shared with no reader around go to the outbox at once.
+            if (!searching && connected == null && draft.books.isNotEmpty()) {
+                LaunchedEffect(draft.books) {
+                    val n = withContext(Dispatchers.IO) {
+                        draft.books.count { book ->
+                            shareFolderFor(book.name)?.let { Outbox.addFile(context, it, book); true } ?: false
+                        }
+                    }
+                    onDraft(draft.copy(books = emptyList()))
+                    waiting = Outbox.count(context)
+                    outboxNote = context.resources.getQuantityString(R.plurals.outbox_files_kept, n, n)
+                }
+            }
+            if (outboxNote.isNotEmpty()) Text(outboxNote)
+            if (waiting > 0) Text(pluralStringResource(R.plurals.outbox_waiting, waiting, waiting))
             when {
                 searching -> Searching()
-                connected == null -> DeviceSearch(host, onConnect = { connect(it) }, onSearch = { connect() })
+                connected == null -> {
+                    DeviceSearch(host, onConnect = { connect(it) }, onSearch = { connect() })
+                    // A note can still be written: it waits in the outbox (needs a vault used before).
+                    if (!prefs(context).getString("vault", "").isNullOrEmpty()) {
+                        Text(stringResource(R.string.offline_note_hint), Modifier.padding(top = 8.dp))
+                        NoteScreen(null, draft, onDraft) { waiting = Outbox.count(context) }
+                    }
+                }
                 else -> {
                     if (draft.books.isNotEmpty() || draft.refused.isNotEmpty() || draft.unreadable.isNotEmpty()) {
-                        ShareBooksDialog(DeviceClient(host), draft.books, draft.refused, draft.unreadable) {
+                        ShareBooksDialog(DeviceClient(host), draft.books, draft.refused, draft.unreadable,
+                            onKept = { waiting = Outbox.count(context) }) {
                             draft.books.forEach { it.delete() }
                             onDraft(draft.copy(books = emptyList(), refused = emptyList(), unreadable = emptyList()))
                         }
                     }
                     Hint(listOf(R.string.hint_note, R.string.hint_files, R.string.settings_hint, R.string.hint_device)[tab])
                     when (tab) {
-                        0 -> NoteScreen(DeviceClient(host), draft, onDraft)
+                        0 -> NoteScreen(DeviceClient(host), draft, onDraft) { waiting = Outbox.count(context) }
                         1 -> FilesScreen(remember(host) { DeviceClient(host) })
                         2 -> SettingsScreen(remember(host) { DeviceClient(host) })
                         else -> DeviceScreen(host, connected, onSearch = { connect() }, onIntro = { intro = true })
@@ -309,7 +341,7 @@ fun DeviceScreen(host: String, status: DeviceStatus, onSearch: () -> Unit, onInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NoteScreen(client: DeviceClient, draft: Draft, onDraft: (Draft) -> Unit) {
+fun NoteScreen(client: DeviceClient?, draft: Draft, onDraft: (Draft) -> Unit, onOutbox: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var vaults by remember { mutableStateOf<List<String>?>(null) }
@@ -318,7 +350,9 @@ fun NoteScreen(client: DeviceClient, draft: Draft, onDraft: (Draft) -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
     LaunchedEffect(client) {
-        vaults = withContext(Dispatchers.IO) { runCatching { client.vaults() }.getOrDefault(emptyList()) }
+        // Offline the only vault offered is the last one used (its name is all the outbox needs).
+        vaults = if (client == null) listOf(vault).filter { it.isNotEmpty() }
+        else withContext(Dispatchers.IO) { runCatching { client.vaults() }.getOrDefault(emptyList()) }
         if (vault !in vaults.orEmpty()) vault = vaults.orEmpty().firstOrNull().orEmpty()
     }
     val list = vaults ?: return
@@ -348,7 +382,16 @@ fun NoteScreen(client: DeviceClient, draft: Draft, onDraft: (Draft) -> Unit) {
         busy = true
         message = context.getString(R.string.sending)
         scope.launch {
+            // Keeps the note (and its pictures) on the phone until the reader is found.
+            fun keep(): String {
+                Outbox.addNote(context, vault, folder, title, draft.text, draft.pictures)
+                prefs(context).edit().putString("vault", vault).putString("folder", folder).apply()
+                onDraft(Draft())
+                onOutbox()
+                return context.getString(R.string.outbox_kept)
+            }
             message = withContext(Dispatchers.IO) {
+                if (client == null) return@withContext keep()
                 runCatching {
                     val vaultPath = "/Vaults/$vault"
                     val notePath = "$vaultPath/" + folder.trim('/').ifEmpty { "" }
@@ -362,13 +405,13 @@ fun NoteScreen(client: DeviceClient, draft: Draft, onDraft: (Draft) -> Unit) {
                             links.append("\n![[").append(saved).append("]]")
                         }
                     }
-                    val body = "# $title\n\n${draft.text.trimEnd()}\n" + (if (links.isEmpty()) "" else "$links\n")
+                    val body = Outbox.noteBody(title, draft.text, links.toString())
                     val saved = client.upload(notePath, "$title.md", body.toByteArray(), "text/markdown")
                     prefs(context).edit().putString("vault", vault).putString("folder", folder).apply()
                     draft.pictures.forEach { it.delete() }
                     onDraft(Draft())
                     context.getString(R.string.sent, saved)
-                }.getOrElse { context.getString(R.string.send_failed, it.message ?: "") }
+                }.getOrElse { if (it is java.io.IOException) keep() else context.getString(R.string.send_failed, it.message ?: "") }
             }
             busy = false
         }
@@ -452,7 +495,8 @@ fun SettingRow(s: Setting, onChange: (Int) -> Unit) {
 
 /** Shared books and comics: send them to /Books or /Comics on the reader, one after the other. */
 @Composable
-fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<String>, unreadable: List<String>, onDone: () -> Unit) {
+fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<String>, unreadable: List<String>,
+                     onKept: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -490,8 +534,12 @@ fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<Stri
                                     client.upload(folder, book.name, book.length(), { book.inputStream() }) { done, total ->
                                         if (total > 0) main.post { progress = (i + done.toFloat() / total) / books.size }
                                     }
-                                }.fold({ context.getString(R.string.share_sent, it, folder.trim('/')) },
-                                    { context.getString(R.string.comics_send_failed, it.message ?: "") })
+                                }.fold({ context.getString(R.string.share_sent, it, folder.trim('/')) }, {
+                                    // Not lost: the outbox sends it when the reader is back.
+                                    Outbox.addFile(context, folder, book)
+                                    main.post { onKept() }
+                                    context.getString(R.string.outbox_file_kept, book.name)
+                                })
                             }
                             messages = results.toList()
                         }

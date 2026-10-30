@@ -115,4 +115,19 @@
     <string name="comics_retry">Try again</string>
     <string name="comics_open_browser">Open in the browser</string>
     <string name="close">Close</string>
+    <string name="outbox_kept">Couldn\'t reach the reader. The note is kept on the phone and goes to the reader as soon as it\'s found.</string>
+    <string name="outbox_file_kept">Couldn\'t send %1$s now; it\'s kept on the phone and sent when the reader is found.</string>
+    <string name="offline_note_hint">No reader right now, but you can still write a note: it\'s kept on the phone and sent when the reader is found.</string>
+    <plurals name="outbox_waiting">
+        <item quantity="one">%d item waiting for the reader</item>
+        <item quantity="other">%d items waiting for the reader</item>
+    </plurals>
+    <plurals name="outbox_sent">
+        <item quantity="one">Sent %d waiting item to the reader.</item>
+        <item quantity="other">Sent %d waiting items to the reader.</item>
+    </plurals>
+    <plurals name="outbox_files_kept">
+        <item quantity="one">No reader found: %d file is kept on the phone and sent when it\'s found.</item>
+        <item quantity="other">No reader found: %d files are kept on the phone and sent when it\'s found.</item>
+    </plurals>
 </resources>

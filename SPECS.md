@@ -159,8 +159,14 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   on a tap there (before the status-band quick-settings tap); hidden on the home screen; setting
   `headerHomeButton` (default on, touch only). PNG sleep cover: `saveDecodedSleepCover` for JPEG/PNG.
 - CBZ (0.39.0): `cbz::pages` from `ZipFile::enumerateFilePaths`; CbzReaderActivity copies the page
-  entry to /.crosspoint/cbz_<hash>/page.jpg|png and decodes it BW + LSB + MSB + BW (as BmpViewer);
-  progress.bin holds the page. Decoder cap 8 MP (ImageToFramebufferDecoder::MAX_SOURCE_PIXELS); JPEG 50 MP since 0.48.0
+  entry to /.crosspoint/cbz_<hash>/page.jpg|png and draws it BW + LSB + MSB + BW (as BmpViewer);
+  progress.bin holds the page. (0.53.0) Page cache: the first decode writes p<N>.pxc (2-bit, the
+  fitted size, RenderConfig::cachePath) and every pass draws from it (renderImagePixelCache, RAM
+  slot released after the page); after a page is shown the next one in reading order (RTL aware)
+  is decoded into its .pxc between storeBwBuffer/restoreBwBuffer; caches 3 pages away are
+  removed; size.bin (the CBZ's byte size) drops all page caches when the file changes. Decoder
+  cap: PNG 24 MP (MAX_SOURCE_PIXELS, was 8 MP), PNG_MAX_BUFFERED_PIXELS 24640 (two rows: RGBA
+  3072 px, RGB 4096 px wide; was 16416), PNG heap guard 52 KB + 16 KB; JPEG 50 MP since 0.48.0
   (MAX_JPEG_SOURCE_PIXELS, decoded at up to 1/8 scale).
 - Link rewrite (0.38.0): `linkupdate::plan` before `renameNote` (backlinks from the index, each
   target checked with `vaultlink::resolve` == old path, targets kept per note), then a confirm, then
@@ -234,7 +240,11 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   space, outside code fences, trailing `#`s dropped), a field before the words, within 3/4 of the
   line. A search hit gets the first heading holding every query word (prefix match), unless the
   title already does; it scores +3, reads `Note > Heading`, and opens at MarkdownToHtml's heading
-  id (vaultnav::openAtHeading). An older index is rebuilt once. Block ids aren't indexed yet.
+  id (vaultnav::openAtHeading). An older index is rebuilt once. (0.53.0, version 5) Block ids too,
+  in the same field as `^id`: a line ending in ` ^id` (or `^id` alone) of letters, digits and
+  dashes, outside code, up to 64 per note; their parts go into the words at any length, so
+  `table-2` is found. A hit on one reads `Note > ^id` and opens at that block (the reader's own
+  anchor, as `[[Note#^id]]` links do).
 - Incremental: compare the stamp per file; re-read only changed or new files, copy the rest.
   Runs when Search opens, with a progress popup. Not yet: a background task that can be cancelled.
 - Search: case and accent folding for Latin and Greek, monotonic and polytonic (`ά`/`ἄ`/`ᾄ`→`α`,

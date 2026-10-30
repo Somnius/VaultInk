@@ -245,6 +245,31 @@ TEST(VaultIndex, HeadingsAreIndexedAndMatched) {
   EXPECT_EQ(vaultindex::search(INDEX, "kitchen", m.fs())[0].heading, "");
 }
 
+TEST(VaultIndex, BlockIdsAreIndexedAndMatched) {
+  MemFs m;
+  m.dirs = {"/V"};
+  m.files["/V/Quotes.md"] =
+      "Some text\n\nA line to remember ^keeper\n\n| a | b |\n|---|---|\n^table-2\n\n```\nnot ^code\n```\n"
+      "x^notid\n\n## Title line ^headid\n";
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  auto hits = vaultindex::search(INDEX, "keeper", m.fs());
+  ASSERT_EQ(hits.size(), 1u);
+  EXPECT_EQ(hits[0].heading, "^keeper");
+  hits = vaultindex::search(INDEX, "^table-2", m.fs());
+  ASSERT_EQ(hits.size(), 1u);
+  EXPECT_EQ(hits[0].heading, "^table-2");
+  hits = vaultindex::search(INDEX, "code", m.fs());
+  ASSERT_EQ(hits.size(), 1u);
+  EXPECT_EQ(hits[0].heading, "");
+  hits = vaultindex::search(INDEX, "notid", m.fs());
+  ASSERT_EQ(hits.size(), 1u);
+  EXPECT_EQ(hits[0].heading, "");
+  // A heading keeps its text as the anchor, an id at its end doesn't make it a block.
+  hits = vaultindex::search(INDEX, "headid", m.fs());
+  ASSERT_EQ(hits.size(), 1u);
+  EXPECT_EQ(hits[0].heading, "Title line ^headid");
+}
+
 TEST(VaultIndex, HeadingsRoundTrip) {
   vaultindex::Note n = vaultindex::scanNote("/V/A.md", "## One\n#tag not heading\n###### Six\n####### seven\n");
   EXPECT_EQ(n.headings, (std::vector<std::string>{"One", "Six"}));

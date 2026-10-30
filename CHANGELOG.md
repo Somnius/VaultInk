@@ -2,6 +2,18 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.53.0 (2026-10-30)
+
+Back to the roadmap: faster comics, block ids in search, and the companion's outbox (companion-0.4.0, released with it).
+
+- **CBZ pages turn faster**: each page is decoded once and kept on the card as a screen-sized picture, and while you look at a page the next one is prepared. Turning forward, or back to a page you just saw, only draws the kept picture. A changed CBZ under the same name starts fresh.
+- **Bigger PNG pages**: PNG pages and pictures go up to 24 megapixels (was 8), and up to 3072 pixels wide with transparency (4096 without). Before, a big scan showed "Page load error".
+- **Search finds block ids**: search for a block's `^id` (with or without the `^`) and the result reads `Note > ^id` and opens the note at that block. The search index is rebuilt once.
+- **Companion 0.4.0, the outbox**: with no reader around, the app still lets you write a note, and keeps it on the phone. Books and comics shared while the reader isn't reachable are kept too. Everything waiting is sent the next time the app finds the reader.
+
+Tested in the simulator: a test CBZ with a 2400×4000 PNG page (decoded and cached, pages turned forward and back from the cache, the next one prepared ahead), and the block id search in the host tests. The companion's outbox on a phone against the simulator: a note written offline was kept and sent after connecting. Not tried yet: a book shared with no reader, page turn times and the bigger PNGs on the device, the search screen with a block id on the device.
+
+
 ## 0.52.0 (2026-10-30)
 
 Fixes and more lock options, from kos25k's first tries (#23, #22, #9).

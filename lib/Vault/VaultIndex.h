@@ -14,12 +14,13 @@
 // file line by line, so memory stays bounded. File access goes through callbacks for host tests.
 namespace vaultindex {
 
-constexpr const char* INDEX_VERSION = "vaultink-index 4";  // 3: outgoing links, 4: headings
+constexpr const char* INDEX_VERSION = "vaultink-index 5";  // 3: outgoing links, 4: headings, 5: block ids
 // Per note: words kept for search and bytes read from the note.
 constexpr size_t MAX_TERMS_PER_NOTE = 1500;
 constexpr size_t MAX_NOTE_BYTES = 256 * 1024;
 constexpr size_t MAX_LINKS_PER_NOTE = 200;
 constexpr size_t MAX_HEADINGS_PER_NOTE = 64;
+constexpr size_t MAX_BLOCK_IDS_PER_NOTE = 64;
 // Longest index line written; the reader's line buffer must be at least this big.
 constexpr size_t MAX_LINE_BYTES = 60 * 1024;
 
@@ -30,7 +31,7 @@ struct Note {
   std::vector<std::string> aliases;
   std::vector<std::string> tags;      // without '#', as written
   std::vector<std::string> links;     // link targets as written, without |alias, #heading or .md
-  std::vector<std::string> headings;  // heading texts as written, without the '#'s
+  std::vector<std::string> headings;  // heading texts as written, without the '#'s; block ids as "^id"
   std::vector<std::string> terms;     // folded words, unique
 };
 
@@ -78,7 +79,8 @@ struct Hit {
   std::string path;
   std::string title;
   int score = 0;
-  // The first heading that matches every word of the query, or "": search opens the note there.
+  // The first heading (or block id, "^id") that matches every word of the query, or "": search
+  // opens the note there.
   std::string heading;
 };
 // Notes that link to the note at `notePath` in the vault at `root`: by name, or by a path from the

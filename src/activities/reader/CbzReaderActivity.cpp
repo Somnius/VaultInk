@@ -1,5 +1,6 @@
 #include "CbzReaderActivity.h"
 
+#include <Epub/blocks/ImageBlock.h>
 #include <Epub/converters/JpegToFramebufferConverter.h>
 #include <Epub/converters/PngToFramebufferConverter.h>
 #include <FsHelpers.h>
@@ -51,6 +52,7 @@ bool CbzReaderActivity::loadBook() {
   }
   cachePath = cbzcover::cachePathFor(bookPath);
   Storage.ensureDirectoryExists(cachePath.c_str());
+  dropStalePageCaches();
   loadProgress();
   loadDirection(zip);
   LOG_DBG("CBZ", "%s: %u pages, %u chapters", bookPath.c_str(), static_cast<unsigned>(book.pages.size()),
@@ -106,18 +108,114 @@ bool CbzReaderActivity::extractPage(const size_t page, std::string& outPath) con
   return ok;
 }
 
-// Like the full-screen picture viewer: black and white first, then the two gray planes.
-bool CbzReaderActivity::drawPage(const std::string& imagePath) {
+// The page caches are keyed by the book's path; a different file under the same name (another
+// size) gets them dropped.
+void CbzReaderActivity::dropStalePageCaches() const {
+  uint32_t size = 0;
+  HalFile f;
+  if (Storage.openFileForRead("CBZ", bookPath, f)) {
+    size = static_cast<uint32_t>(f.fileSize());
+    f.close();
+  }
+  uint32_t stored = 0;
+  const std::string stamp = cachePath + "/size.bin";
+  if (Storage.openFileForRead("CBZ", stamp, f)) {
+    if (f.read(&stored, 4) != 4) stored = 0;
+    f.close();
+  }
+  if (stored == size) return;
+  for (size_t page = 0; page < book.pages.size(); ++page) {
+    const std::string pxc = pagePxcPath(page);
+    if (Storage.exists(pxc.c_str())) Storage.remove(pxc.c_str());
+  }
+  if (Storage.openFileForWrite("CBZ", stamp, f)) {
+    f.write(&size, 4);
+    f.close();
+  }
+}
+
+std::string CbzReaderActivity::pagePxcPath(const size_t page) const {
+  return cachePath + "/p" + std::to_string(page) + ".pxc";
+}
+
+// The page fitted to the screen as a 2-bit pixel cache (<cache>/p<N>.pxc), decoded once; false on
+// a page that can't be read. Leaves the framebuffer with whatever the decoder drew.
+bool CbzReaderActivity::preparePage(const size_t page, int& width, int& height) {
+  const std::string pxc = pagePxcPath(page);
+  HalFile f;
+  if (Storage.openFileForRead("CBZ", pxc, f)) {
+    uint16_t dims[2] = {0, 0};
+    const bool ok = f.read(dims, 4) == 4 && dims[0] > 0 && dims[1] > 0 &&
+                    f.fileSize() >= 4 + static_cast<size_t>((dims[0] + 3) / 4) * dims[1];
+    f.close();
+    if (ok) {
+      width = dims[0];
+      height = dims[1];
+      return true;
+    }
+    Storage.remove(pxc.c_str());
+  }
+  std::string imagePath;
+  if (!extractPage(page, imagePath)) return false;
   const bool jpeg = FsHelpers::hasJpgExtension(imagePath);
   JpegToFramebufferConverter jpegDecoder;
   PngToFramebufferConverter pngDecoder;
   ImageToFramebufferDecoder& decoder =
       jpeg ? static_cast<ImageToFramebufferDecoder&>(jpegDecoder) : static_cast<ImageToFramebufferDecoder&>(pngDecoder);
   ImageDimensions dimensions;
-  if (!decoder.getDimensions(imagePath, dimensions) || dimensions.width <= 0 || dimensions.height <= 0) return false;
-  const auto config = fitPage(dimensions, renderer);
+  bool ok = decoder.getDimensions(imagePath, dimensions) && dimensions.width > 0 && dimensions.height > 0;
+  if (ok) {
+    auto config = fitPage(dimensions, renderer);
+    config.cachePath = pxc;
+    renderer.clearScreen();
+    ok = decoder.decodeToFramebuffer(imagePath, renderer, config);
+    width = config.maxWidth;
+    height = config.maxHeight;
+  }
+  Storage.remove(imagePath.c_str());
+  if (!ok) {
+    Storage.remove(pxc.c_str());
+    return false;
+  }
+  // The decoder may round the box by a pixel: take the size it wrote.
+  if (Storage.openFileForRead("CBZ", pxc, f)) {
+    uint16_t dims[2] = {0, 0};
+    if (f.read(dims, 4) == 4 && dims[0] > 0 && dims[1] > 0) {
+      width = dims[0];
+      height = dims[1];
+    } else {
+      ok = false;
+    }
+    f.close();
+  } else {
+    ok = false;
+  }
+  return ok;
+}
+
+// Like the full-screen picture viewer: black and white first, then the two gray planes, all from
+// the page's pixel cache.
+bool CbzReaderActivity::drawPage(const size_t page) {
+  struct PxcSlotGuard {
+    ~PxcSlotGuard() { ImageBlock::releaseRenderCache(); }
+  } pxcSlotGuard;
+  int width = 0;
+  int height = 0;
+  if (!preparePage(page, width, height)) {
+    // No pixel cache (card full, a write failed): decode for every pass, as before 0.53.0.
+    std::string imagePath;
+    return extractPage(page, imagePath) && drawDecoded(imagePath);
+  }
+  const std::string pxc = pagePxcPath(page);
+  const int x = (renderer.getScreenWidth() - width) / 2;
+  const int y = (renderer.getScreenHeight() - height) / 2;
+  return drawPasses([&] { return renderImagePixelCache(renderer, pxc, x, y, width, height); });
+}
+
+// Black and white first, then the two gray planes, then black and white again for the next turn.
+bool CbzReaderActivity::drawPasses(const std::function<bool()>& draw) {
   renderer.clearScreen();
-  if (!decoder.decodeToFramebuffer(imagePath, renderer, config)) return false;
+  if (!draw()) return false;
 
   const bool absolute = renderer.grayscaleCapabilities(HalDisplay::GrayscaleMode::Absolute).supported();
   if (absolute && !renderer.displayGrayscaleBase(HalDisplay::GrayscaleMode::Absolute)) return false;
@@ -126,7 +224,7 @@ bool CbzReaderActivity::drawPage(const std::string& imagePath) {
   for (const auto mode : {GfxRenderer::GRAYSCALE_LSB, GfxRenderer::GRAYSCALE_MSB}) {
     renderer.clearScreen(absolute ? 0xFF : 0x00);
     renderer.setRenderMode(mode);
-    if (!decoder.decodeToFramebuffer(imagePath, renderer, config)) {
+    if (!draw()) {
       ready = false;
       break;
     }
@@ -139,15 +237,47 @@ bool CbzReaderActivity::drawPage(const std::string& imagePath) {
   if (ready) renderer.displayGrayBuffer();
   renderer.setRenderMode(GfxRenderer::BW);
   renderer.clearScreen();
-  if (!decoder.decodeToFramebuffer(imagePath, renderer, config)) ready = false;
+  if (!draw()) ready = false;
   renderer.cleanupGrayscaleWithFrameBuffer();
   return ready;
 }
 
+// Without a pixel cache: the decoder runs for every pass.
+bool CbzReaderActivity::drawDecoded(const std::string& imagePath) {
+  const bool jpeg = FsHelpers::hasJpgExtension(imagePath);
+  JpegToFramebufferConverter jpegDecoder;
+  PngToFramebufferConverter pngDecoder;
+  ImageToFramebufferDecoder& decoder =
+      jpeg ? static_cast<ImageToFramebufferDecoder&>(jpegDecoder) : static_cast<ImageToFramebufferDecoder&>(pngDecoder);
+  ImageDimensions dimensions;
+  if (!decoder.getDimensions(imagePath, dimensions) || dimensions.width <= 0 || dimensions.height <= 0) return false;
+  const auto config = fitPage(dimensions, renderer);
+  return drawPasses([&] { return decoder.decodeToFramebuffer(imagePath, renderer, config); });
+}
+
+// After a page is up: the next page in reading order is decoded into its pixel cache, so the turn
+// only reads the cache. The framebuffer is kept around it. Caches more than two pages away go.
+void CbzReaderActivity::prefetchNext() {
+  for (const int far : {-3, 3}) {
+    const int64_t p = static_cast<int64_t>(currentPage) + far;
+    if (p >= 0 && p < static_cast<int64_t>(book.pages.size())) Storage.remove(pagePxcPath(p).c_str());
+  }
+  const int64_t next = static_cast<int64_t>(currentPage) + (rightToLeft ? -1 : 1);
+  if (next < 0 || next >= static_cast<int64_t>(book.pages.size())) return;
+  if (Storage.exists(pagePxcPath(next).c_str())) return;
+  if (!renderer.storeBwBuffer()) return;
+  int width = 0;
+  int height = 0;
+  if (!preparePage(static_cast<size_t>(next), width, height)) {
+    LOG_DBG("CBZ", "Couldn't prepare page %lld ahead", static_cast<long long>(next + 1));
+  }
+  renderer.restoreBwBuffer(/*resyncPanelBaseline=*/false);
+}
+
 void CbzReaderActivity::renderBook() {
   if (book.pages.empty() || currentPage >= book.pages.size()) return;
-  std::string imagePath;
-  if (!extractPage(currentPage, imagePath) || !drawPage(imagePath)) {
+  const bool drawn = drawPage(currentPage);
+  if (!drawn) {
     renderer.setRenderMode(GfxRenderer::BW);
     renderer.clearScreen();
     renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_PAGE_LOAD_ERROR), true, EpdFontFamily::BOLD);
@@ -157,6 +287,7 @@ void CbzReaderActivity::renderBook() {
   saveProgress();
   markPageRendered();
   publishLiveBookProgress(getScreenshotInfo().progressPercent);
+  if (drawn) prefetchNext();
 }
 
 // Right to left (manga, Phase 1c.4): the book's own choice in rtl.bin, else its ComicInfo.xml.

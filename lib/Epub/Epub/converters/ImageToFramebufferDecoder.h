@@ -54,7 +54,9 @@ class ImageToFramebufferDecoder {
   // the row callbacks yield periodically so a long decode cannot starve the idle
   // task's watchdog.
   static constexpr int64_t MAX_SOURCE_DIMENSION = INT16_MAX;
-  static constexpr int64_t MAX_SOURCE_PIXELS = 8388608;  // 8 MP (e.g. 2048 * 4096)
+  // 24 MP for PNG: CBZ scans go past 8 MP, and the comic reader decodes each page once into a
+  // pixel cache (the row buffer still limits the width: 3072 px RGBA, 4096 px RGB).
+  static constexpr int64_t MAX_SOURCE_PIXELS = 25165824;  // 24 MP (e.g. 2048 * 12288)
   // JPEG decodes at 1/8 scale for small boxes, so phone photos (12 to 48 MP) are let in too:
   // the Gallery thumbnails them once and keeps a pixel cache (kos25k #8).
   static constexpr int64_t MAX_JPEG_SOURCE_PIXELS = 50000000;

@@ -212,15 +212,35 @@ Note scanNote(const std::string& path, std::string_view text) {
     }
   }
 
-  // Headings, for searches that open a note at its heading. Code blocks are skipped.
+  // Headings and block ids (kept as "^id"), for searches that open a note there. Code blocks are
+  // skipped.
   bool inCode = false;
-  for (size_t start = 0; start < body.size() && note.headings.size() < MAX_HEADINGS_PER_NOTE;) {
+  size_t blocks = 0;
+  for (size_t start = 0; start < body.size();) {
     const size_t nl = body.find('\n', start);
     std::string_view line = body.substr(start, nl == std::string_view::npos ? std::string_view::npos : nl - start);
     start = nl == std::string_view::npos ? body.size() : nl + 1;
     if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
     if (startsWith(line, "```") || startsWith(line, "~~~")) inCode = !inCode;
     if (inCode) continue;
+    // A block id: " ^id" ending the line (or "^id" alone, under a table or quote), letters, digits
+    // and dashes. Not on a heading: that one is found by its text.
+    const std::string_view trimmed = trim(line);
+    const bool isHeading = startsWith(line, "#") && line.find_first_not_of('#') != std::string_view::npos &&
+                           line[line.find_first_not_of('#')] == ' ';
+    const size_t caret = trimmed.rfind('^');
+    if (caret != std::string_view::npos && caret + 1 < trimmed.size() && (caret == 0 || trimmed[caret - 1] == ' ') &&
+        blocks < MAX_BLOCK_IDS_PER_NOTE && !isHeading) {
+      const std::string_view id = trimmed.substr(caret + 1);
+      if (std::all_of(id.begin(), id.end(), [](const char c) {
+            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-';
+          })) {
+        note.headings.push_back("^" + std::string(id));
+        ++blocks;
+        continue;
+      }
+    }
+    if (note.headings.size() - blocks >= MAX_HEADINGS_PER_NOTE) continue;
     size_t level = 0;
     while (level < line.size() && line[level] == '#') ++level;
     if (level == 0 || level > 6 || level >= line.size() || line[level] != ' ') continue;
@@ -231,14 +251,18 @@ Note scanNote(const std::string& path, std::string_view text) {
   }
 
   std::set<std::string> seen;
-  auto addTerms = [&](std::string_view s) {
-    for (auto& w : textfold::words(s)) {
+  auto addTerms = [&](std::string_view s, const size_t minLength = 2) {
+    for (auto& w : textfold::words(s, minLength)) {
       if (note.terms.size() >= MAX_TERMS_PER_NOTE) return;
       if (seen.insert(w).second) note.terms.push_back(std::move(w));
     }
   };
   addTerms(note.title);
   for (const auto& alias : note.aliases) addTerms(alias);
+  // Block ids whole, short parts too ("^table-2"), so searching for one finds it.
+  for (const auto& h : note.headings) {
+    if (!h.empty() && h.front() == '^') addTerms(h, 1);
+  }
   addTerms(body);
   return note;
 }

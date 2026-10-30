@@ -319,7 +319,8 @@ At the top right (kos25k #8):
 
 Phone photos: since 0.48.0 JPEGs up to 50 megapixels are shown (before, anything over 8 MP, so most
 phone photos, showed only its name). The first draw of a big photo takes longer; after that its
-thumbnail comes from the cache. PNG still stops at 8 MP.
+thumbnail comes from the cache. PNG stopped at 8 MP until 0.53.0, now 24 MP (and 3072 pixels wide with
+transparency, 4096 without).
 
 ## What's New after an update (0.24.0)
 

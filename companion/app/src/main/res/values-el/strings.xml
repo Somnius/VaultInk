@@ -114,4 +114,19 @@
     <string name="comics_retry">Δοκίμασε ξανά</string>
     <string name="comics_open_browser">Άνοιγμα στον browser</string>
     <string name="close">Κλείσιμο</string>
+    <string name="outbox_kept">Η συσκευή δεν βρέθηκε. Η σημείωση κρατιέται στο κινητό και στέλνεται μόλις βρεθεί.</string>
+    <string name="outbox_file_kept">Το %1$s δεν στάλθηκε τώρα· κρατιέται στο κινητό και στέλνεται μόλις βρεθεί η συσκευή.</string>
+    <string name="offline_note_hint">Δεν υπάρχει συσκευή τώρα, αλλά μπορείς να γράψεις σημείωση: κρατιέται στο κινητό και στέλνεται μόλις βρεθεί.</string>
+    <plurals name="outbox_waiting">
+        <item quantity="one">%d στοιχείο περιμένει τη συσκευή</item>
+        <item quantity="other">%d στοιχεία περιμένουν τη συσκευή</item>
+    </plurals>
+    <plurals name="outbox_sent">
+        <item quantity="one">Στάλθηκε %d στοιχείο που περίμενε.</item>
+        <item quantity="other">Στάλθηκαν %d στοιχεία που περίμεναν.</item>
+    </plurals>
+    <plurals name="outbox_files_kept">
+        <item quantity="one">Δεν βρέθηκε συσκευή: %d αρχείο κρατιέται στο κινητό και στέλνεται μόλις βρεθεί.</item>
+        <item quantity="other">Δεν βρέθηκε συσκευή: %d αρχεία κρατιούνται στο κινητό και στέλνονται μόλις βρεθεί.</item>
+    </plurals>
 </resources>

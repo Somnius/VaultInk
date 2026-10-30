@@ -184,7 +184,7 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
   and any folder with `.obsidian` in it), and the home screen shows how many there are. Each vault
   remembers the note you read last and opens on it (Settings → Vaults → Open last note). Under the vaults, **Recent notes** lists the last five notes you read, from any vault (0.37.0). Search
   looks through all of them by title, alias, tag, heading and text; a match in a heading shows as
-  `Note > Heading` and opens the note there (0.47.0). Accents don't matter, so `καλημερα` finds `Καλημέρα`. In a note, **More → Backlinks** lists
+  `Note > Heading` and opens the note there (0.47.0); searching for a block id (`^id`) opens the note at that block (0.53.0). Accents don't matter, so `καλημερα` finds `Καλημέρα`. In a note, **More → Backlinks** lists
   the notes that link to it. The search index lives outside the vault (`/.vaultink/` on the SD
   card) and also keeps a list of the vault's files, so links and images open without scanning the
   card; Settings → Vaults → Rebuild Search Index starts it over.
@@ -262,7 +262,9 @@ The [roadmap](ROADMAP.md) has the details and the order. In short:
 5. **An Android companion app** (in `companion/` in this repo, released separately; the first
    version, `companion-0.1.0`, is out). It does: quick notes and sharing into a vault, the whole SD card (upload, download, rename,
    move, delete) and the device settings from the phone. Since `companion-0.3.0`, books and comics
-   shared from other apps go straight to the reader's Books or Comics folder. Later: typing into the
+   shared from other apps go straight to the reader's Books or Comics folder. Since `companion-0.4.0`,
+   notes and shares made while the reader can't be reached wait on the phone and are sent when it's
+   found. Later: typing into the
    device and bringing in notes from other apps. Guide: [docs/companion.md](docs/companion.md).
 
    <p>

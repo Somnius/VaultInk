@@ -3,13 +3,15 @@
 #include <CbzPages.h>
 #include <ZipFile.h>
 
+#include <functional>
 #include <string>
 
 #include "ReaderActivity.h"
 
-// CBZ comics (Phase 1c.3), v1: each JPEG/PNG page fitted to the screen in grayscale, one page at a
-// time. The page is copied out of the zip into the book's cache folder, then drawn like the full-
-// screen picture viewer. Progress is the page number in <cache>/progress.bin.
+// CBZ comics (Phase 1c.3): each JPEG/PNG page fitted to the screen in grayscale, one page at a
+// time. A page is copied out of the zip, decoded once into a pixel cache (<cache>/p<N>.pxc) and
+// drawn from it like the full-screen picture viewer; after each turn the next page is prepared the
+// same way. Progress is the page number in <cache>/progress.bin.
 class CbzReaderActivity final : public ReaderActivity {
  public:
   explicit CbzReaderActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string bookPath,
@@ -31,7 +33,13 @@ class CbzReaderActivity final : public ReaderActivity {
   bool handleFormatInput() override;  // Confirm or the menu gesture: the chapter list
 
   bool extractPage(size_t page, std::string& outPath) const;
-  bool drawPage(const std::string& imagePath);
+  void dropStalePageCaches() const;
+  std::string pagePxcPath(size_t page) const;
+  bool preparePage(size_t page, int& width, int& height);
+  bool drawPage(size_t page);
+  bool drawDecoded(const std::string& imagePath);
+  bool drawPasses(const std::function<bool()>& draw);
+  void prefetchNext();
   void saveProgress() const;
   void loadProgress();
   void loadDirection(ZipFile& zip);

@@ -4,7 +4,7 @@ The companion is an Android app that talks to the device over Wi-Fi, through the
 device runs while **File Transfer** is open. Its code is in [`companion/`](../companion/) in this
 repo, and it has its own releases, tagged `companion-x.y.z`.
 
-Status: `companion-0.3.0` is out (needs VaultInk 0.29.0 or newer on the device). Download the APK
+Status: `companion-0.4.0` is out (needs VaultInk 0.29.0 or newer on the device). Download the APK
 from the [newest companion release](https://github.com/Somnius/VaultInk/releases?q=companion&expanded=true)
 on the phone and open it. After an update the reader shows a QR code that opens this page. It's tested on one phone (Android 16) against the simulator, not yet
 against a real X4 Pro. See "Tested so far" below.
@@ -50,6 +50,16 @@ companion read is named too, so nothing disappears without a word.
 <p>
   <img src="images/companion/5-share.png" width="300" alt="A book shared from the file manager, sent to the reader">
 </p>
+
+### When the reader isn't there (0.4.0)
+
+With no reader found you can still write a note: under the "No VaultInk found" steps there's the
+note form, with the vaults the app saw last time. **Send to VaultInk** then keeps the note on the
+phone ("kept, it goes to the reader when it's found"). Books and comics shared with no reader, or
+whose upload breaks off, are kept the same way. The kept items survive closing the app; the top of
+the Note tab says how many are waiting. The next time the app finds the reader it sends them,
+oldest first, and says how many went. An item is deleted from the phone only after the reader took
+it; if the reader goes away halfway, the rest wait for the next time.
 
 Notes saved this way, or uploaded through the web page into `/Vaults`, are marked as changed, so
 the device's next LiveSync sync sends them to the server (from 0.29.0).
@@ -146,6 +156,9 @@ On a OnePlus phone (Android 16) against the simulator's web server, over USB deb
 - 0.3.0 (2026-10-30): an EPUB shared from the OnePlus file manager's share sheet went to
   `/Books` on the simulator's card; a share the app couldn't read now says so; Check for app update
   on the not-found screen. Not tried: **Not now** (it needs a newer release to show up).
+- 0.4.0 (2026-10-30): with no reader, a note written in the offline form was kept ("1 item waiting
+  for the reader"); after connecting to the simulator the app said "Sent 1 waiting item" and the
+  note was on the card. Not tried yet: a book shared with no reader, and a reader lost halfway.
 
 Not tested yet:
 

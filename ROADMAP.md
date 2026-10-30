@@ -30,15 +30,17 @@ In this order, each also listed in its phase below:
    tab order (needs tab ids split from tab positions first; maybe only a default tab).
 2. kos25k #17: a home button in the status bar, between the time and the battery, on every screen.
 3. 1c.2: ✅ 0.36.1 XTCH pages drawn byte-wise; the refresh choice needs the device.
-   1c.3: ✅ 0.39.0 CBZ reader v1 (JPEG/PNG up to 8 MP); next chapters, cover, page cache.
+   1c.3: ✅ 0.39.0 CBZ reader v1; ✅ 0.40.0 chapters, cover; ✅ 0.53.0 page cache, next page
+   prepared ahead, PNG up to 24 MP.
 4. 1c.1: ✅ Share to VaultInk from other apps into /Comics (companion-0.3.0). Still to check: name
    clash, full card, dropped Wi-Fi.
-5. ✅ companion-0.3.0 (share to the reader, Not now, update check without a reader). Next:
-   companion-0.4.0, the outbox (shares and notes kept until the reader is reachable).
-6. Phase 1 leftovers: ✅ 0.47.0 heading anchors in the index (search opens at the heading); ✅ 0.50.0 checkbox glyphs for tasks (✅ 0.36.2: a note
+5. ✅ companion-0.3.0 (share to the reader, Not now, update check without a reader).
+   ✅ companion-0.4.0, the outbox (notes and shares kept on the phone until the reader is found).
+6. Phase 1 leftovers: ✅ 0.47.0 heading anchors in the index (search opens at the heading); ✅ 0.53.0 block ids too; ✅ 0.50.0 checkbox glyphs for tasks (✅ 0.36.2: a note
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
+✅ 0.53.0 (with companion-0.4.0): the companion's outbox; CBZ page cache and PNG pages over 8 MP; block ids in search.
 ✅ 0.52.0: reading time saved when a book is left (not only at sleep); lock options (after, corner, hold); arrows and task boxes in every built-in font.
 ✅ 0.51.0: kos25k #23 reading statistics sleep screen (reading log on the card, times, last 3 books, month calendar).
 ✅ 0.50.0: tasks as real ☐ / ☑ boxes in notes (built-in fonts).
@@ -143,7 +145,8 @@ and PBKDF2 timing, the hardware checklist. Reading statistics: ✅ 0.51.0 the fi
   aliases, tags, outgoing links, words), updated by size and modification time. ✅ (0.9.1) Links,
   images and note embeds are found from the index's file list, so they don't scan the SD card
   (the scan is the fallback for files added since the last index update). ✅ (0.47.0) Headings stored: a
-  search match in a heading opens the note there. To do: block ids.
+  search match in a heading opens the note there. ✅ (0.53.0) Block ids `^id`: searching for one
+  opens the note at that block.
 * 🚧 Search: ✅ Search row on home, all vaults at once, Greek and accent folding, tags and aliases,
   exact words ranked first. ✅ Greek on-screen keyboard (with English, switched by the globe
   key; offered to the FreeInk SDK upstream). ✅ Backlinks: More → Backlinks in a note lists the
@@ -321,8 +324,9 @@ EPUB comics show their pictures; the companion app's Files tab can upload any fi
 * 🚧 **1c.3 CBZ reader (L).** ✅ 0.39.0 v1: lib/Cbz/CbzPages (host-tested page list: JPEG/PNG,
   natural order, junk skipped, folders as chapters) and CbzReaderActivity (page copied to the cache
   folder, drawn in grayscale like the picture viewer, progress kept; .cbz in the browser, Library,
-  next-book and cache handling). ✅ 0.40.0 chapter list (folders), cover and progress on the home. To do: the 8 MP decode cap, .pxc cache,
-  decoding straight from the zip. Planned as: For people who copy raw CBZ files without converting. lib/Cbz
+  next-book and cache handling). ✅ 0.40.0 chapter list (folders), cover and progress on the home.
+  ✅ 0.53.0 .pxc page cache (decoded once, next page prepared after the refresh, caches 3 pages
+  away dropped), PNG cap 24 MP and rows up to 3072 px RGBA. To do: decoding straight from the zip. Planned as: For people who copy raw CBZ files without converting. lib/Cbz
   (host-tested): JPEG/PNG entries only (WebP said not supported), natural sort (2 before 10),
   `__MACOSX`, `._*`, `Thumbs.db` skipped, entry names sanitised before any path join, one rule for
   flat and foldered zips (folders = chapters), ZIP64 / Deflate64 refused with a message. Pages
@@ -485,8 +489,11 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   `/Comics` on the reader, with a progress bar; files it can't open or read are named, not dropped.
   "Not now" in the update dialog, and the app update check on the not-found screen too. Tested on a
   phone against the simulator (a share from the file manager); "Not now" waits for a newer release.
-* ⏳ `companion-0.4.0`: an outbox. Notes and shares are saved on the phone first and sent when the
-  device is found, so nothing is lost if the device isn't reachable or the app is closed.
+* ✅ `companion-0.4.0` (2026-10-30): an outbox. A note written or a book shared while the reader
+  can't be reached is kept on the phone (it survives the app closing) and sent, oldest first, the
+  next time the reader is found; each item is deleted only once the reader took it. Notes can be
+  written with no reader, into a vault the app saw before. Tested on a phone against the
+  simulator (a note kept offline, sent after connecting); the book share path not tried yet.
 * 💤 Type into the device from the phone (live keyboard).
 * 💤 Bring notes in: convert to Markdown into a vault folder (e.g. `Imported/Keep/`). Order:
   Google Keep (Takeout) -> Samsung Notes (`.sdocx` export) -> contacts (one note per contact plus a
