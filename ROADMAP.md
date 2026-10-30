@@ -520,7 +520,7 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   ✅ (next release) wired in: a `.pdf` in Browse Files (or a link to one) opens as reflowing text through a cached `.txt`
   (`src/util/PdfConvert`), tested in the simulator with Greek text; a scan says it has no text; a read PDF shows in Recent and on the Continue card.
   Still to do: timing and memory on the device (big PDFs: a 30 MB file is read in pieces, never whole), a link in a note to a PDF in another
-  folder (links to other file types are not tried yet), tables, three or more columns, and CID fonts without a ToUnicode map. ✅ Two columns come out in reading order (a gutter found from where the text lines sit; host-tested).
+  folder (a `[[Rules.pdf]]` link resolves, host-tested, but opening one is not driven in the simulator), tables, three or more columns, AES-256 files, and CID fonts without a ToUnicode map. ✅ PDFs locked only against copying or printing (an empty user password: RC4 40/128 and AES-128) are read; checked on files from Ghostscript and LibreOffice and a generated AES-128 file; one that needs a password says so. ✅ Two columns come out in reading order (a gutter found from where the text lines sit; host-tested).
 
 ## 💤 Phase 8 - Website
 

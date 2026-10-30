@@ -151,7 +151,7 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   inherited resources; content interpreter for Tf Td TD Tm T* TL Tc Tw Tz ' " Tj TJ q Q cm Do (forms); fonts: ToUnicode
   CMaps (bfchar/bfrange), simple fonts by WinAnsi + Differences, widths from /Widths and /W for word spaces; widget /V
   values appended; a page with a clear gutter is read left column then right, `twoColumnOrder`). src/util/PdfConvert writes `/.vaultink/pdf/<hash(path)>/<name>.txt` plus `stamp.txt` (the PDF's
-  size and date); ActivityManager::goToReader converts then opens the .txt. Not read: scans, encrypted files, LZW/DCT
+  size and date); ActivityManager::goToReader converts then opens the .txt. Standard security handler V1-V4 / R2-R4 with the empty user password (lib/Pdf/PdfCrypt: MD5, RC4, AES-128-CBC; strings and streams decrypted per object, not xref streams or object-stream members). Not read: scans, password-locked and AES-256 files, LZW/DCT
   as content, Type3 fonts and CID fonts without a ToUnicode map.
 - Flashcards (next release, Phase 10): lib/Vault/Flashcards (parser: `::`, `:::`, `?`/`??` blocks, `{{}}` and
   `sr-cloze: bold` clozes; ids = FNV-1a 64 of the note path and the folded text), CardScheduler (SM-2,

@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "PdfCrypt.h"
+
 namespace pdf {
 
 std::string pageSeparator(std::string& previous, const std::string& next) {
@@ -80,10 +82,11 @@ namespace {
 
 struct Obj {
   enum Type : uint8_t { Null, Bool, Int, Real, Name, Str, Arr, Dict, Ref, Stream } type = Null;
-  int64_t i = 0;  // Int, Bool, Ref number
-  double r = 0;   // Real
-  uint32_t gen = 0;
-  std::string s;  // Name, Str
+  int64_t i = 0;        // Int, Bool, Ref number
+  double r = 0;         // Real
+  uint32_t gen = 0;     // Ref: the generation it names; a loaded object: its own
+  uint32_t objNum = 0;  // a loaded object: its number (for decrypting)
+  std::string s;        // Name, Str
   std::vector<Obj> a;
   std::map<std::string, Obj> d;  // Dict and Stream
   uint64_t streamPos = 0;        // Stream: file offset of the data
@@ -408,16 +411,17 @@ class Doc {
       if (first) {
         root = trailerRoot(trailer);
         first = false;
-        if (trailer.get("Encrypt")) {
-          result.encrypted = true;
-          return false;
-        }
+        firstTrailer = trailer;
       }
       const Obj* prev = trailer.get("Prev");
       xref = prev && prev->isNum() ? static_cast<uint64_t>(prev->num()) : 0;
     }
     if (root == 0) {
       result.xrefFailed = true;
+      return false;
+    }
+    if (firstTrailer.get("Encrypt") && !setupEncryption(firstTrailer)) {
+      result.encrypted = true;
       return false;
     }
     return true;
@@ -488,6 +492,10 @@ class Doc {
         }
       }
     }
+    const bool xrefStream = stream.d.count("Type") && stream.d.at("Type").s == "XRef";
+    if (encrypted && !xrefStream && stream.objNum != encryptNum && !decryptBytes(stream.objNum, stream.gen, raw)) {
+      return false;
+    }
     std::vector<std::string> filters;
     std::vector<Obj> parms;
     collectFilters(stream, filters, parms);
@@ -538,6 +546,127 @@ class Doc {
     }
     out = std::move(data);
     return true;
+  }
+
+  // The standard security handler, revisions 2 to 4 (RC4 and AES-128), opened with the empty user password.
+  // Files that need a password, or use AES-256, are not read.
+  bool setupEncryption(const Obj& trailer) {
+    const Obj* ref = trailer.get("Encrypt");
+    if (!ref) return true;
+    if (ref->type == Obj::Ref) encryptNum = static_cast<uint32_t>(ref->i);
+    const Obj enc = resolve(*ref);
+    if (!enc.isDict() || resolveKey(enc, "Filter").s != "Standard") return false;
+    const Obj v = resolveKey(enc, "V");
+    const Obj r = resolveKey(enc, "R");
+    if (!v.isNum() || !r.isNum()) return false;
+    const int version = static_cast<int>(v.num());
+    const int revision = static_cast<int>(r.num());
+    if (version < 1 || version > 4 || revision < 2 || revision > 4) return false;
+    int keyBytes = 5;
+    bool useAes = false;
+    if (version >= 2) {
+      const Obj length = resolveKey(enc, "Length");
+      keyBytes = length.isNum() ? static_cast<int>(length.num()) / 8 : 5;
+    }
+    if (version == 4) {
+      const Obj cf = resolveKey(enc, "CF");
+      const Obj stmF = resolveKey(enc, "StmF");
+      keyBytes = 16;
+      if (stmF.type == Obj::Name && stmF.s != "Identity") {
+        const Obj filter = cf.isDict() ? resolveKey(cf, stmF.s) : Obj();
+        const std::string method = filter.isDict() ? resolveKey(filter, "CFM").s : std::string();
+        if (method == "AESV2") {
+          useAes = true;
+        } else if (method != "V2") {
+          return false;
+        }
+      } else {
+        return false;  // Identity: no encryption on streams; treat it as unsupported rather than guess
+      }
+    }
+    if (keyBytes < 5 || keyBytes > 16) return false;
+    const Obj o = resolveKey(enc, "O");
+    const Obj u = resolveKey(enc, "U");
+    const Obj p = resolveKey(enc, "P");
+    if (o.type != Obj::Str || u.type != Obj::Str || o.s.size() < 32 || u.s.size() < 32 || !p.isNum()) return false;
+    const Obj meta = resolveKey(enc, "EncryptMetadata");
+    const bool encryptMetadata = !(meta.type == Obj::Bool && meta.i == 0);
+    std::string id;
+    const Obj* idArray = trailer.get("ID");
+    if (idArray) {
+      const Obj ids = resolve(*idArray);
+      if (ids.type == Obj::Arr && !ids.a.empty()) id = resolve(ids.a[0]).s;
+    }
+    static const uint8_t pad[32] = {0x28, 0xBF, 0x4E, 0x5E, 0x4E, 0x75, 0x8A, 0x41, 0x64, 0x00, 0x4E,
+                                    0x56, 0xFF, 0xFA, 0x01, 0x08, 0x2E, 0x2E, 0x00, 0xB6, 0xD0, 0x68,
+                                    0x3E, 0x80, 0x2F, 0x0C, 0xA9, 0xFE, 0x64, 0x53, 0x69, 0x7A};
+    const std::string padding(reinterpret_cast<const char*>(pad), 32);
+    std::string material = padding + o.s.substr(0, 32);
+    const uint32_t flags = static_cast<uint32_t>(static_cast<int64_t>(p.num()));
+    for (int k = 0; k < 4; ++k) material += static_cast<char>((flags >> (8 * k)) & 0xFF);
+    material += id;
+    if (revision >= 4 && !encryptMetadata) material.append(4, '\xFF');
+    std::string key = crypt::md5(material);
+    if (revision >= 3) {
+      for (int round = 0; round < 50; ++round) key = crypt::md5(key.substr(0, static_cast<size_t>(keyBytes)));
+    }
+    key.resize(static_cast<size_t>(revision == 2 ? 5 : keyBytes));
+    // The empty password must be the right one: check the key against /U.
+    std::string check;
+    if (revision == 2) {
+      check = padding;
+      crypt::rc4(reinterpret_cast<const uint8_t*>(key.data()), key.size(), reinterpret_cast<uint8_t*>(check.data()),
+                 32);
+      if (check != u.s.substr(0, 32)) return false;
+    } else {
+      check = crypt::md5(padding + id);
+      crypt::rc4(reinterpret_cast<const uint8_t*>(key.data()), key.size(), reinterpret_cast<uint8_t*>(check.data()),
+                 16);
+      for (int round = 1; round <= 19; ++round) {
+        std::string roundKey = key;
+        for (char& c : roundKey) c = static_cast<char>(c ^ round);
+        crypt::rc4(reinterpret_cast<const uint8_t*>(roundKey.data()), roundKey.size(),
+                   reinterpret_cast<uint8_t*>(check.data()), 16);
+      }
+      if (check.substr(0, 16) != u.s.substr(0, 16)) return false;
+    }
+    fileKey = key;
+    aes = useAes;
+    encrypted = true;
+    cache.clear();  // objects read before the key was known
+    return true;
+  }
+
+  // Decrypts the strings and stream data of object `num` in place. False when AES data is malformed.
+  bool decryptBytes(uint32_t num, uint32_t gen, std::string& data) const {
+    if (!encrypted) return true;
+    std::string key = fileKey;
+    for (int k = 0; k < 3; ++k) key += static_cast<char>((num >> (8 * k)) & 0xFF);
+    for (int k = 0; k < 2; ++k) key += static_cast<char>((gen >> (8 * k)) & 0xFF);
+    if (aes) key += "sAlT";
+    const std::string hash = crypt::md5(key);
+    const size_t keyLen = std::min<size_t>(fileKey.size() + 5, 16);
+    if (aes) {
+      std::string plain;
+      if (!crypt::aes128CbcDecrypt(reinterpret_cast<const uint8_t*>(hash.data()),
+                                   reinterpret_cast<const uint8_t*>(data.data()), data.size(), plain)) {
+        return false;
+      }
+      data = std::move(plain);
+      return true;
+    }
+    crypt::rc4(reinterpret_cast<const uint8_t*>(hash.data()), keyLen, reinterpret_cast<uint8_t*>(data.data()),
+               data.size());
+    return true;
+  }
+
+  void decryptStrings(Obj& o, uint32_t num, uint32_t gen) const {
+    if (o.type == Obj::Str) {
+      std::string copy = o.s;
+      if (decryptBytes(num, gen, copy)) o.s = std::move(copy);
+    }
+    for (Obj& item : o.a) decryptStrings(item, num, gen);
+    for (auto& entry : o.d) decryptStrings(entry.second, num, gen);
   }
 
   uint32_t rootNum() const { return root; }
@@ -704,6 +833,11 @@ class Doc {
         out.streamLen = len && len->type == Obj::Int ? len->i : -1;
       }
       (void)depth;
+      out.objNum = static_cast<uint32_t>(numObj.i);
+      out.gen = static_cast<uint32_t>(genObj.i);
+      // Strings are encrypted too, except in the encryption dictionary itself and in cross-reference streams.
+      const bool xrefStream = out.type == Obj::Stream && out.d.count("Type") && out.d.at("Type").s == "XRef";
+      if (encrypted && out.objNum != encryptNum && !xrefStream) decryptStrings(out, out.objNum, out.gen);
       return true;
     }
     return false;
@@ -869,6 +1003,11 @@ class Doc {
   std::unordered_map<uint32_t, XEntry> xref;
   std::unordered_map<uint32_t, Obj> cache;
   uint32_t root = 0;
+  Obj firstTrailer;
+  bool encrypted = false;
+  bool aes = false;
+  std::string fileKey;
+  uint32_t encryptNum = 0;
   uint32_t cachedStm = 0;
   std::string stmData;
   size_t stmN = 0, stmFirst = 0;

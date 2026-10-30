@@ -348,7 +348,7 @@ page's text). It checked out on 30 real PDFs (character sheets, notes saved from
 the word count matched the desktop tool `pdftotext` within a few percent on 28 of them.
 
 What it doesn't: pictures, tables as tables, more than two columns, page numbers as pages, and
-scans without a text layer. Two columns are read left then right when the page has a clear gutter (a title across both is kept in place). A scan says "This PDF has no text to read". An encrypted PDF says so too. A PDF you have read
+scans without a text layer. Two columns are read left then right when the page has a clear gutter (a title across both is kept in place). A scan says "This PDF has no text to read". A PDF locked with a password you need to open it says so (PDFs that are only locked against copying or printing, with no password to open, are read: RC4 and AES-128, which most shop-bought ones use; AES-256 ones are not). A PDF you have read
 shows in Recent and on the Continue card (opening it from there goes straight to the text), but it isn't a Library book;
 find it again in Browse Files or by its link.
 

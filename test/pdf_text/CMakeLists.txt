@@ -1,6 +1,8 @@
 add_executable(PdfTextTest
   PdfTextTest.cpp
+  PdfCryptTest.cpp
   ${REPO_ROOT}/lib/Pdf/PdfText.cpp
+  ${REPO_ROOT}/lib/Pdf/PdfCrypt.cpp
   ${REPO_ROOT}/lib/miniz/src/InflateStream.cpp
   ${REPO_ROOT}/lib/miniz/src/miniz_impl.c
   ${REPO_ROOT}/lib/Memory/BuildScratch.cpp

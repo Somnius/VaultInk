@@ -252,3 +252,29 @@ TEST(PdfText, TwoColumnsReadLeftThenRight) {
   EXPECT_LT(left12, right1);  // the whole left column comes first
   EXPECT_LT(right1, right12);
 }
+
+TEST(PdfText, EncryptedWithAnEmptyUserPasswordIsRead) {
+  for (const char* file : {"rc4-40.pdf", "rc4-128.pdf"}) {
+    SCOPED_TRACE(file);
+    const Extracted run = extract(slurp(file));
+    ASSERT_TRUE(run.ok);
+    EXPECT_FALSE(run.result.encrypted);
+    const std::string text = squeeze(run.text);
+    EXPECT_NE(text.find("The Haunted Lighthouse"), std::string::npos) << text;
+    EXPECT_NE(text.find("Η καλημέρα είναι ευχή."), std::string::npos) << text;
+  }
+}
+
+TEST(PdfText, Aes128StreamsAndStringsAreDecrypted) {
+  const Extracted run = extract(slurp("aes128.pdf"));
+  ASSERT_TRUE(run.ok);
+  const std::string text = squeeze(run.text);
+  EXPECT_NE(text.find("Encrypted with AES-128 and read anyway"), std::string::npos) << text;
+  EXPECT_NE(text.find("Clan: Ventrue"), std::string::npos) << text;
+}
+
+TEST(PdfText, AFileThatNeedsAPasswordIsNotRead) {
+  const Extracted run = extract(slurp("needs-password.pdf"));
+  EXPECT_FALSE(run.ok);
+  EXPECT_TRUE(run.result.encrypted);
+}
