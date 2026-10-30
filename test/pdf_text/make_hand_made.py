@@ -3,7 +3,8 @@
 Page 1: content stream filtered by ASCII85 then Flate, a TJ array with kerning and word-space kerns,
 a Differences encoding, and text inside a Form XObject.
 Page 2: every word drawn by its own `q ... cm BT ... Td Tj` block with a font size of 1, as Quartz does,
-and a gap between the words that only the positions show; plus two filled-in form fields (one
+and a gap between the words that only the positions show; Page 3: two columns drawn row by row (left line, right line, ...) under a title that spans both, so
+only the layout pass can put the columns in reading order; plus two filled-in form fields (one
 UTF-16, one Latin-1) that go after the text."""
 import base64, zlib, sys
 
@@ -27,8 +28,14 @@ for word in ("Quartz", "draws", "each", "word"):
     page2 += b"q 12 0 0 12 %.2f 700 cm BT 1 0 0 1 0 0 Tm /F1 1 Tf (%s) Tj ET Q\n" % (word_x, word.encode())
     word_x += 12 * (len(word) * 0.5 + 0.5)  # glyph widths are 500 each; half an em of space follows
 
+page3 = b"BT /F1 12 Tf 150 760 Td (A title across both columns of this page) Tj ET\n"
+for row in range(12):
+    y = 700 - row * 14
+    page3 += b"BT /F1 10 Tf 72 %d Td (Left %02d) Tj ET\n" % (y, row + 1)
+    page3 += b"BT /F1 10 Tf 320 %d Td (Right %02d) Tj ET\n" % (y, row + 1)
+
 add(1, "<< /Type /Catalog /Pages 2 0 R >>")
-add(2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>")
+add(2, "<< /Type /Pages /Kids [3 0 R 4 0 R 12 0 R] /Count 3 >>")
 add(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 7 0 R /F2 8 0 R >> /XObject << /Fm1 9 0 R >> >> >>")
 add(4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Annots [10 0 R 11 0 R] /Resources << /Font << /F1 7 0 R >> >> >>")
 add(5, stream("/Filter [/ASCII85Decode /FlateDecode]", a85))
@@ -37,6 +44,8 @@ add(7, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEn
 add(8, "<< /Type /Font /Subtype /Type1 /BaseFont /Symbol /Encoding << /Type /Encoding /Differences [1 /eacute /uni03B1] >> >>")
 add(10, "<< /Type /Annot /Subtype /Widget /FT /Tx /T (Name) /V (Ceren Yurdakul) /Rect [0 0 1 1] >>")
 add(11, "<< /Type /Annot /Subtype /Widget /FT /Tx /T (Clan) /V <FEFF0391039B03A6> /Rect [0 0 1 1] >>")
+add(12, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 13 0 R /Resources << /Font << /F1 7 0 R >> >> >>")
+add(13, stream("", page3))
 add(9, stream("/Type /XObject /Subtype /Form /BBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >>", form))
 
 out = bytearray(b"%PDF-1.4\n")

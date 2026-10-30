@@ -1188,9 +1188,137 @@ Matrix multiply(const Matrix& m, const Matrix& n) {
                 m.c * n.b + m.d * n.d, m.e * n.a + m.f * n.c + n.e, m.e * n.b + m.f * n.d + n.f};
 }
 
+// One text-showing operator's text with where it sat on the page (x across, row down).
+struct Fragment {
+  double x0 = 0, x1 = 0;  // left edge and where the last glyph ended
+  double row = 0;         // smaller is higher on the page
+  double size = 10;       // line height scale, for deciding what is a new line
+  double unit = 10;       // the em across, for deciding what is a word gap
+  std::string text;
+};
+
+struct PageText {
+  std::vector<Fragment> frags;
+  size_t bytes = 0;
+  size_t maxBytes = 0;
+  bool full() const { return bytes >= maxBytes; }
+};
+
+// Text order for a page set in two columns: the fragments read top to bottom in the left column and then the
+// right one, with anything that crosses the gutter (a title, a table) as a break between bands. Other pages
+// keep the order the content stream drew them in. Empty when the page isn't two columns.
+std::vector<size_t> twoColumnOrder(const std::vector<Fragment>& frags) {
+  if (frags.size() < 12) return {};
+  double minX = frags[0].x0, maxX = frags[0].x1;
+  for (const Fragment& f : frags) {
+    minX = std::min(minX, f.x0);
+    maxX = std::max(maxX, f.x1);
+  }
+  const double width = maxX - minX;
+  if (width < 150) return {};
+  // The best gutter: the x in the middle part of the page that the fewest fragments cross.
+  double gutter = 0;
+  size_t fewest = frags.size() + 1;
+  double runStart = 0;
+  size_t bestRunLength = 0, runLength = 0;
+  for (int step = 30; step <= 70; ++step) {
+    const double x = minX + width * step / 100.0;
+    size_t crossing = 0;
+    for (const Fragment& f : frags) crossing += f.x0 < x && f.x1 > x;
+    if (crossing < fewest) {
+      fewest = crossing;
+      gutter = x;
+      runStart = x;
+      runLength = 1;
+      bestRunLength = 1;
+    } else if (crossing == fewest) {
+      ++runLength;
+      if (runLength > bestRunLength) {
+        bestRunLength = runLength;
+        gutter = runStart + (x - runStart) / 2;
+      }
+    } else {
+      runLength = 0;
+      runStart = x;
+    }
+  }
+  size_t left = 0, right = 0, spanning = 0;
+  for (const Fragment& f : frags) {
+    if (f.x1 <= gutter) {
+      ++left;
+    } else if (f.x0 >= gutter) {
+      ++right;
+    } else {
+      ++spanning;
+    }
+  }
+  const size_t n = frags.size();
+  if (left * 5 < n || right * 5 < n || spanning * 12 > n) return {};
+  // Lines first: fragments by row, a new line when the row moves more than a part of a line height, each
+  // line left to right. Then band by band: a line that crosses the gutter splits the page into bands, and
+  // a band is its left column's lines and then its right column's.
+  std::vector<size_t> byRow(n);
+  for (size_t i = 0; i < n; ++i) byRow[i] = i;
+  std::stable_sort(byRow.begin(), byRow.end(), [&](size_t a, size_t b) { return frags[a].row < frags[b].row; });
+  std::vector<size_t> order;
+  std::vector<size_t> leftBand, rightBand;
+  const auto flushBand = [&] {
+    order.insert(order.end(), leftBand.begin(), leftBand.end());
+    order.insert(order.end(), rightBand.begin(), rightBand.end());
+    leftBand.clear();
+    rightBand.clear();
+  };
+  for (size_t start = 0; start < n;) {
+    size_t end = start + 1;
+    const double lineRow = frags[byRow[start]].row;
+    const double tolerance = 0.4 * std::max(frags[byRow[start]].size, 1.0);
+    while (end < n && std::fabs(frags[byRow[end]].row - lineRow) <= tolerance) ++end;
+    std::vector<size_t> line(byRow.begin() + static_cast<std::ptrdiff_t>(start),
+                             byRow.begin() + static_cast<std::ptrdiff_t>(end));
+    std::stable_sort(line.begin(), line.end(), [&](size_t a, size_t b) { return frags[a].x0 < frags[b].x0; });
+    bool crosses = false;
+    for (const size_t i : line) crosses = crosses || (frags[i].x0 < gutter && frags[i].x1 > gutter);
+    if (crosses) {
+      flushBand();
+      order.insert(order.end(), line.begin(), line.end());
+    } else {
+      for (const size_t i : line) (frags[i].x1 <= gutter ? leftBand : rightBand).push_back(i);
+    }
+    start = end;
+  }
+  flushBand();
+  return order;
+}
+
+// The page's text: fragments in reading order, with the spaces, line joins and paragraph breaks their
+// positions imply.
+std::string layoutPage(const PageText& page) {
+  TextOut out;
+  out.maxBytes = page.maxBytes;
+  std::vector<size_t> order = twoColumnOrder(page.frags);
+  if (order.empty()) {
+    order.resize(page.frags.size());
+    for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+  }
+  const Fragment* prev = nullptr;
+  for (const size_t i : order) {
+    const Fragment& f = page.frags[i];
+    bool needSpace = false;
+    if (prev) {
+      const double gap = f.x0 - prev->x1;  // where the last glyph ended against where this one starts
+      needSpace = gap > 0.15 * f.unit || gap < -2 * f.unit;
+    }
+    out.gap(f.row, f.size, needSpace);
+    out.text += f.text;
+    prev = &f;
+    if (out.full()) break;
+  }
+  return out.text;
+}
+
 class Interpreter {
  public:
-  Interpreter(Doc& doc, std::unordered_map<uint32_t, std::unique_ptr<Font>>& fonts, TextOut& out)
+  Interpreter(Doc& doc, std::unordered_map<uint32_t, std::unique_ptr<Font>>& fonts, PageText& out)
       : doc(doc), fonts(fonts), out(out) {}
 
   void run(const std::string& content, const Obj& resources, int depth, const Matrix& base = Matrix()) {
@@ -1203,8 +1331,8 @@ class Interpreter {
     Matrix ctm = base;
     std::vector<Matrix> saved;
     double leading = 0, charSpace = 0, wordSpace = 0, hScale = 1;
-    double endE = 0;
-    bool haveEnd = false;
+    Fragment cur;
+    bool open = false;
     const Obj fontDict = doc.resolveKey(resources, "Font");
     const Obj xobjects = doc.resolveKey(resources, "XObject");
 
@@ -1213,22 +1341,32 @@ class Interpreter {
       tm.e += textX * tm.a;
       tm.f += textX * tm.b;
     };
+    const auto closeFragment = [&] {
+      if (open && !cur.text.empty()) {
+        cur.x1 = multiply(tm, ctm).e;
+        out.bytes += cur.text.size();
+        out.frags.push_back(std::move(cur));
+      }
+      cur = Fragment();
+      open = false;
+    };
     const auto showBytes = [&](const std::string& s) {
       if (!font || out.full()) return;
-      const Matrix trm = multiply(tm, ctm);  // text space to the page
-      const double unit = size * std::hypot(trm.a, trm.b);
-      bool needSpace = false;
-      if (haveEnd) {
-        const double gap = trm.e - endE;  // where the last glyph ended against where this string starts
-        needSpace = gap > 0.15 * unit || gap < -2 * unit;
+      if (!open) {
+        const Matrix trm = multiply(tm, ctm);  // text space to the page
+        cur = Fragment();
+        cur.x0 = trm.e;
+        cur.row = trm.d >= 0 ? -trm.f : trm.f;
+        cur.size = size * std::max(std::fabs(trm.d), std::fabs(trm.c));
+        cur.unit = size * std::hypot(trm.a, trm.b);
+        open = true;
       }
-      out.gap(trm.f, size * std::max(std::fabs(trm.d), std::fabs(trm.c)), needSpace);
       double advance = 0;
       if (font->twoByte) {
         for (size_t k = 0; k + 1 < s.size(); k += 2) {
           const uint32_t code = (static_cast<uint8_t>(s[k]) << 8) | static_cast<uint8_t>(s[k + 1]);
           const auto it = font->toUnicode.find(code);
-          if (it != font->toUnicode.end()) out.text += it->second;
+          if (it != font->toUnicode.end()) cur.text += it->second;
           advance += (font->width(code) / 1000.0 * size + charSpace) * hScale;
         }
       } else {
@@ -1237,19 +1375,17 @@ class Interpreter {
           if (font->hasToUnicode) {
             const auto it = font->toUnicode.find(b);
             if (it != font->toUnicode.end()) {
-              out.text += it->second;
+              cur.text += it->second;
             } else if (b >= 32 && b < 127) {
-              out.text += ch;
+              cur.text += ch;
             }
           } else {
-            out.text += font->simple[b];
+            cur.text += font->simple[b];
           }
           advance += (font->width(b) / 1000.0 * size + charSpace + (b == 32 ? wordSpace : 0)) * hScale;
         }
       }
       move(advance);
-      endE = multiply(tm, ctm).e;
-      haveEnd = true;
     };
 
     std::string_view kw;
@@ -1320,20 +1456,23 @@ class Interpreter {
         hScale = num(0) / 100.0;
       } else if (op == "Tj" && !stack.empty()) {
         showBytes(stack.back().s);
+        closeFragment();
       } else if (op == "'" || op == "\"") {
         line.f -= leading * line.d;
         tm = line;
         if (!stack.empty()) showBytes(stack.back().s);
+        closeFragment();
       } else if (op == "TJ" && !stack.empty() && stack.back().type == Obj::Arr) {
         for (const Obj& item : stack.back().a) {
           if (item.type == Obj::Str) {
             showBytes(item.s);
           } else if (item.isNum()) {
             move(-item.num() / 1000.0 * size * hScale);
-            endE = multiply(tm, ctm).e;
-            if (item.num() < -200 && !out.text.empty() && out.text.back() != ' ') out.text += ' ';  // a word space
+            if (item.num() < -200 && open && !cur.text.empty() && cur.text.back() != ' ')
+              cur.text += ' ';  // a word space
           }
         }
+        closeFragment();
       } else if (op == "Do" && !stack.empty() && stack.back().type == Obj::Name) {
         if (const Obj* ref = xobjects.get(stack.back().s)) {
           const Obj form = doc.resolve(*ref);
@@ -1360,7 +1499,7 @@ class Interpreter {
   Doc& doc;
   std::unordered_map<uint32_t, std::unique_ptr<Font>>& fonts;
   std::vector<std::unique_ptr<Font>> inlineFonts;
-  TextOut& out;
+  PageText& out;
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -1414,8 +1553,8 @@ bool extractText(const Source& source, const Inflate& inflate,
   std::unordered_map<uint32_t, std::unique_ptr<Font>> fonts;
   for (size_t p = 0; p < pages.size(); ++p) {
     const Obj& node = pages[p].first;
-    TextOut out;
-    out.maxBytes = limits.maxPageText;
+    PageText pageText;
+    pageText.maxBytes = limits.maxPageText;
     const Obj contents = doc.resolveKey(node, "Contents");
     std::string content;
     const auto addStream = [&](const Obj& s) {
@@ -1435,9 +1574,11 @@ bool extractText(const Source& source, const Inflate& inflate,
       addStream(*raw);
     }
     if (!content.empty()) {
-      Interpreter interp(doc, fonts, out);
+      Interpreter interp(doc, fonts, pageText);
       interp.run(content, pages[p].second, 0);
     }
+    TextOut out;
+    out.text = layoutPage(pageText);
     // Filled-in form fields (a character sheet): "Name: value" after the page text.
     const Obj annots = doc.resolveKey(node, "Annots");
     if (annots.type == Obj::Arr) {

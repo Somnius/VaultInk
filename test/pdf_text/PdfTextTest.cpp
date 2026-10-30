@@ -121,7 +121,7 @@ TEST(PdfText, Utf8Encoding) {
 TEST(PdfText, HandMadeFileCoversFiltersFormsAndPositions) {
   const Extracted run = extract(slurp("hand-made.pdf"));
   ASSERT_TRUE(run.ok);
-  ASSERT_EQ(run.pages, 2u);
+  ASSERT_EQ(run.pages, 3u);
   const std::string text = squeeze(run.text);
   // ASCII85 + Flate stream, kerns as word spaces, a Differences encoding for the control codes.
   EXPECT_NE(text.find("Hello world from ASCII85"), std::string::npos) << text;
@@ -234,4 +234,21 @@ TEST(PdfText, PagesJoinInTheMiddleOfASentence) {
   EXPECT_EQ(pdf::pageSeparator(prev, "Η καλημέρα"), "\n\n");
   prev = "";
   EXPECT_EQ(pdf::pageSeparator(prev, "text"), "");
+}
+
+TEST(PdfText, TwoColumnsReadLeftThenRight) {
+  const Extracted run = extract(slurp("hand-made.pdf"));
+  ASSERT_TRUE(run.ok);
+  const std::string text = squeeze(run.text);
+  const size_t title = text.find("A title across both columns of this page");
+  const size_t left1 = text.find("Left 01");
+  const size_t left12 = text.find("Left 12");
+  const size_t right1 = text.find("Right 01");
+  const size_t right12 = text.find("Right 12");
+  ASSERT_NE(title, std::string::npos) << text;
+  ASSERT_NE(right12, std::string::npos) << text;
+  EXPECT_LT(title, left1);
+  EXPECT_LT(left1, left12);
+  EXPECT_LT(left12, right1);  // the whole left column comes first
+  EXPECT_LT(right1, right12);
 }
