@@ -55,6 +55,8 @@ void CrossPointState::toJson(JsonDocument& doc) const {
   doc["welcomeGuideSeen"] = welcomeGuideSeen;
   doc["lastVersionRun"] = lastVersionRun;
   doc["companionQrPending"] = companionQrPending;
+  doc["lockSleptAtUs"] = lockSleptAtUs;
+  doc["lockPending"] = lockPending;
   doc["showBootScreen"] = showBootScreen;
 }
 
@@ -95,6 +97,8 @@ bool CrossPointState::fromJson(JsonVariantConst doc) {
   welcomeGuideSeen = doc["welcomeGuideSeen"] | static_cast<uint8_t>(0);
   lastVersionRun = doc["lastVersionRun"] | "";
   companionQrPending = doc["companionQrPending"] | static_cast<uint8_t>(0);
+  lockSleptAtUs = doc["lockSleptAtUs"] | static_cast<uint64_t>(0);
+  lockPending = doc["lockPending"] | static_cast<uint8_t>(0);
   showBootScreen = doc["showBootScreen"] | true;
   return true;
 }

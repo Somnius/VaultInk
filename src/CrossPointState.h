@@ -28,6 +28,10 @@ class CrossPointState : public PersistableStore<CrossPointState> {
   // Set when What's New opens after an update; the home screen then shows the companion app QR.
   uint8_t companionQrPending = 0;
   std::string lastVersionRun;  // "0.24.0": the What's New note after an update lists what came since
+  // Lock screen (kos25k #22): the RTC clock (microseconds since power-on) when the device went to
+  // sleep, and 1 while the lock screen is up, so sleeping on it doesn't skip the PIN next time.
+  uint64_t lockSleptAtUs = 0;
+  uint8_t lockPending = 0;
 
   static const char* getFilePath() { return "/.crosspoint/state.json"; }
   void toJson(JsonDocument& doc) const;

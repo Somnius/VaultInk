@@ -130,6 +130,11 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
+- Lock screen (0.49.0): `lockMode` 0 off / 1 PIN / 2 corner; PIN as an FNV-1a digest in
+  /.vaultink/lock-pin.txt (no file = PIN lock off). enterDeepSleep stores esp_rtc_get_time_us() in
+  `lockSleptAtUs`; setup() shows LockActivity first when asleep >= 30 min, the clock went back (cold
+  start) or `lockPending` (the lock was up at sleep); unlocking runs the normal wake routing
+  (routeWake). Not on silent reboots, recovery or the crash report.
 - Gallery filter (0.45.0): `galleryFilter` 0 all / 1 .png / 2 under a vault root (vaultfiles::findVaults);
   gear (settings2 icon) at the header's right opens it. (0.48.0) 3 = chosen folders, listed in
   /.vaultink/gallery-folders.txt (only when the gallery root is "/"); Add a folder (PickFolder) and

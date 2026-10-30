@@ -42,6 +42,7 @@ enum class SettingAction {
   WelcomeGuide,
   RebuildSearchIndex,
   LiveSync,
+  LockScreen,
 };
 
 struct SettingInfo {

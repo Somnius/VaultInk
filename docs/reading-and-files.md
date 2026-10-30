@@ -196,6 +196,24 @@ gives a believable value (kos25k #20). The X4 Pro's gauge (Cellwise CW2017) keep
 count or battery health, and the firmware can't stop charging at a set level, so those aren't
 there.
 
+## Lock screen (0.49.0)
+
+**Settings → System → Lock Screen** (kos25k #22):
+
+- **4-digit PIN**: you type a new PIN twice. From then on the reader asks for it on a keypad when
+  it wakes after sleeping 30 minutes or more, and after a restart or a flat battery. Shorter naps
+  don't ask. A wrong PIN just clears the dots.
+- **Hold a corner**: the same times, the reader shows "Locked" and opens after a long press on any
+  of the four corners. It keeps a stray tap in a bag from opening a book, but it's no protection.
+- **Change the PIN** shows up once a PIN is set; **Off** turns the lock off and deletes the PIN.
+
+Forgot the PIN? Take the SD card out and delete `/.vaultink/lock-pin.txt` on a computer: the PIN
+lock is then off. That's also why the PIN stops someone picking the reader up and reading, not
+someone who takes the card out; the notes on the card aren't encrypted.
+
+If the reader goes to sleep while the lock screen is up, it asks again on the next wake, however
+short the sleep.
+
 ## Library in quick settings (0.27.0)
 
 When quick settings is opened anywhere except over a book, the second row has a **Library** tile

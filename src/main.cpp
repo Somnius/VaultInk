@@ -48,6 +48,7 @@
 #include "activities/Activity.h"
 #include "activities/ActivityManager.h"
 #include "activities/settings/SdFirmwareUpdateActivity.h"
+#include "activities/util/LockActivity.h"
 #include "activities/util/WelcomeGuideActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -56,6 +57,7 @@
 #include "util/DebugLog.h"
 #include "util/LiveSyncDevice.h"
 #include "util/PluginEvents.h"
+#include "util/ScreenLock.h"
 #include "util/ScreenshotUtil.h"
 #include "util/Timezones.h"
 #include "util/WhatsNew.h"
@@ -515,6 +517,7 @@ void enterDeepSleep(bool fromTimeout = false) {
   // it visible until the first useful reader or home paint replaces it.
   APP_STATE.showBootScreen = false;
 
+  screenlock::noteSleep();  // the lock screen asks again after 30 minutes asleep
   APP_STATE.saveToFile();
 
   activityManager.goToSleep(fromTimeout);
@@ -819,6 +822,44 @@ void setup() {
   // Output polarity is resolved per render by ActivityManager (night mode
   // inverts only the reading surfaces), so nothing to restore here.
 
+  // The usual wake routing: What's New after an update, automatic LiveSync, then the open book or
+  // home. With the lock screen on (kos25k #22) it waits until the lock is passed.
+  const auto routeWake = [allowFastInitialReaderRefresh, needsWakeRefresh]() {
+    if (std::string note; whatsnew::afterUpdate(note)) {
+      // The first boot after an update opens what changed (kos25k #9); Back leaves it. Then the
+      // home screen offers the companion app once.
+      APP_STATE.companionQrPending = 1;
+      APP_STATE.saveToFile();
+      activityManager.goToReader(note);
+    } else if (livesyncdev::autoSyncDue() && joinSavedWifiForSync()) {
+      // Automatic LiveSync on wake. The restart after it lands where this wake would have: the book
+      // that was open when the device went to sleep, else home.
+      activityManager.goToLiveSyncNow(
+          !APP_STATE.openEpubPath.empty() && APP_STATE.lastSleepFromReader && APP_STATE.readerActivityLoadCount == 0,
+          true);
+    } else if (APP_STATE.openEpubPath.empty() || !APP_STATE.lastSleepFromReader ||
+               mappedInputManager.isPressed(MappedInputManager::Button::Back) ||
+               APP_STATE.readerActivityLoadCount > 0) {
+      // Boot to home screen if no book is open, last sleep was not from reader, back button is held, or reader activity
+      // crashed (indicated by readerActivityLoadCount > 0). A new or changed welcome guide comes first; finishing it
+      // leaves the stack empty, which lands on home.
+      if (WelcomeGuideActivity::shouldShowAtBoot()) {
+        activityManager.goToWelcomeGuide();
+      } else {
+        activityManager.goHome(HomeMenuItem::NONE, needsWakeRefresh);
+      }
+    } else {
+      // Clear app state to avoid getting into a boot loop if the epub doesn't load
+      const auto path = APP_STATE.openEpubPath;
+      APP_STATE.openEpubPath = "";
+      APP_STATE.readerActivityLoadCount++;
+      APP_STATE.saveToFile();
+      activityManager.goToReader(path, allowFastInitialReaderRefresh);
+    }
+  };
+  const bool lockFirst =
+      !recoveryFirmwareMode && !rebootedFromPanic && resume != BootResume::Silent && screenlock::lockAtBoot();
+
   if (recoveryFirmwareMode) {
     // Skip normal home/reader routing: jump straight into the SD firmware picker.
     activityManager.replaceActivity(
@@ -841,35 +882,11 @@ void setup() {
     // through to the sleep-wake "resume reader" logic, which fires on stale
     // openEpubPath + lastSleepFromReader from a prior session.
     activityManager.goHome();
-  } else if (std::string note; whatsnew::afterUpdate(note)) {
-    // The first boot after an update opens what changed (kos25k #9); Back leaves it. Then the
-    // home screen offers the companion app once.
-    APP_STATE.companionQrPending = 1;
-    APP_STATE.saveToFile();
-    activityManager.goToReader(note);
-  } else if (livesyncdev::autoSyncDue() && joinSavedWifiForSync()) {
-    // Automatic LiveSync on wake. The restart after it lands where this wake would have: the book
-    // that was open when the device went to sleep, else home.
-    activityManager.goToLiveSyncNow(
-        !APP_STATE.openEpubPath.empty() && APP_STATE.lastSleepFromReader && APP_STATE.readerActivityLoadCount == 0,
-        true);
-  } else if (APP_STATE.openEpubPath.empty() || !APP_STATE.lastSleepFromReader ||
-             mappedInputManager.isPressed(MappedInputManager::Button::Back) || APP_STATE.readerActivityLoadCount > 0) {
-    // Boot to home screen if no book is open, last sleep was not from reader, back button is held, or reader activity
-    // crashed (indicated by readerActivityLoadCount > 0). A new or changed welcome guide comes first; finishing it
-    // leaves the stack empty, which lands on home.
-    if (WelcomeGuideActivity::shouldShowAtBoot()) {
-      activityManager.goToWelcomeGuide();
-    } else {
-      activityManager.goHome(HomeMenuItem::NONE, needsWakeRefresh);
-    }
+  } else if (lockFirst) {
+    activityManager.replaceActivity(
+        std::make_unique<LockActivity>(renderer, mappedInputManager, LockActivity::Mode::Unlock, routeWake));
   } else {
-    // Clear app state to avoid getting into a boot loop if the epub doesn't load
-    const auto path = APP_STATE.openEpubPath;
-    APP_STATE.openEpubPath = "";
-    APP_STATE.readerActivityLoadCount++;
-    APP_STATE.saveToFile();
-    activityManager.goToReader(path, allowFastInitialReaderRefresh);
+    routeWake();
   }
 
   if (resume == BootResume::Silent) {

@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.49.0 (2026-10-30)
+
+A lock screen (kos25k #22).
+
+- **Settings → System → Lock Screen**: **4-digit PIN** or **Hold a corner**. With a PIN, the reader asks for it on a keypad when it wakes after sleeping 30 minutes or more (and after a restart or a flat battery). With Hold a corner, a long press on any corner opens it.
+- Forgot the PIN? Take the SD card out and delete `/.vaultink/lock-pin.txt` on a computer. The PIN keeps someone from picking the reader up and reading; the card itself isn't encrypted.
+- Change the PIN or turn the lock off in the same menu.
+
+Tested in the simulator: setting a PIN (typed twice, saved), a wrong PIN, the right PIN opening the home screen, and Hold a corner (a long press in the middle does nothing, a corner opens it). The 30-minute rule needs a real deep sleep, so it isn't confirmed on the device yet.
+
+
 ## 0.48.0 (2026-10-30)
 
 Gallery and Browse Files fixes from kos25k (#8, #6).

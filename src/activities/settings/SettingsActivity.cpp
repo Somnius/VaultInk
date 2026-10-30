@@ -42,6 +42,7 @@
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/reader/QrDisplayActivity.h"
 #include "activities/util/IntervalSelectionActivity.h"
+#include "activities/util/LockActivity.h"
 #include "activities/util/WelcomeGuideActivity.h"
 #include "activities/vault/LiveSyncActivity.h"
 #include "components/UITheme.h"
@@ -50,6 +51,7 @@
 #include "fontIds.h"
 #include "util/DebugLog.h"
 #include "util/PluginEvents.h"
+#include "util/ScreenLock.h"
 #include "util/VaultFiles.h"
 #include "util/WhatsNew.h"
 
@@ -185,6 +187,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   }
   addAction(SettingsSection::General, StrId::STR_WELCOME_GUIDE, SettingAction::WelcomeGuide);
   addAction(SettingsSection::General, StrId::STR_BATTERY, SettingAction::Battery);
+  addAction(SettingsSection::General, StrId::STR_LOCK_SCREEN, SettingAction::LockScreen);
   addAction(SettingsSection::General, StrId::STR_ABOUT, SettingAction::About);
 }
 
@@ -512,6 +515,37 @@ void SettingsActivity::toggleSelectedSetting() {
           LOG_ERR("SETTINGS", "OOM: WelcomeGuideActivity");
         }
         break;
+      case SettingAction::LockScreen: {
+        // Off, PIN or corner (kos25k #22). Picking PIN asks for a new one; a PIN already set can be
+        // changed from the fourth row.
+        static constexpr StrId OPTIONS[] = {StrId::STR_LOCK_MODE_OFF, StrId::STR_LOCK_MODE_PIN,
+                                            StrId::STR_LOCK_MODE_CORNER, StrId::STR_LOCK_CHANGE_PIN};
+        const int count = screenlock::hasPin() ? 4 : 3;
+        optionPopup.show(StrId::STR_LOCK_SCREEN, OPTIONS, count, SETTINGS.lockMode, [this](const int idx) {
+          if (idx < 0) return;
+          const bool needPin = (idx == 1 && !screenlock::hasPin()) || idx == 3;
+          if (!needPin) {
+            SETTINGS.lockMode = static_cast<uint8_t>(idx);
+            if (idx == 0) screenlock::removePin();
+            SETTINGS.saveToFile();
+            screenlock::noteSleep();  // starts the 30 minutes from now, not from the last sleep
+            rebuildSettings();
+            return;
+          }
+          auto setter = makeUniqueNoThrow<LockActivity>(renderer, mappedInput, LockActivity::Mode::SetPin);
+          if (!setter) return;
+          startActivityForResult(std::move(setter), [this](const ActivityResult& result) {
+            if (!result.isCancelled) {
+              SETTINGS.lockMode = 1;
+              SETTINGS.saveToFile();
+              screenlock::noteSleep();
+            }
+            rebuildSettings();
+          });
+        });
+        requestUpdate();
+        return;
+      }
       case SettingAction::Battery:
         if (auto activity = makeUniqueNoThrow<BatteryActivity>(renderer, mappedInput)) {
           startActivityForResult(std::move(activity), nullptr);
