@@ -33,8 +33,8 @@ In this order, each also listed in its phase below:
 4. 1c.1: Share to VaultInk from other apps into /Comics (name clash, full card, dropped Wi-Fi).
 5. companion-0.3.0: the outbox (shares and notes kept until the reader is reachable), "Not now"
    in the update dialog, the update check without a reader.
-6. Phase 1 leftovers: recent notes on the home, heading anchors in the index, checkbox glyphs for
-   tasks (✅ 0.36.2: a note rebuilt when an embedded note changes).
+6. Phase 1 leftovers: heading anchors in the index, checkbox glyphs for tasks (✅ 0.36.2: a note
+   rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: links rewritten when a note is renamed.
 
 Waiting on kos25k: #16 (File Transfer address not found, 0.35.3) and #19 (justified text like
@@ -99,7 +99,7 @@ asks for it.
   (`partitions_vaultink.csv`). Firmware now uses 71% of a slot (0.8.0). Done before the first test build,
   so nobody needs an extra USB flash.
 * ✅ Home: **Vaults** right after **Books**; vault picker (`/Vaults/*` and top-level folders with
-  `.obsidian`), each vault opens in the folder browser. ⏳ Recent notes, Greek path checks on device.
+  `.obsidian`), each vault opens in the folder browser. ✅ (0.37.0) Recent notes: the last five vault notes read, under the vaults in the picker. ⏳ Greek path checks on device.
 * ✅ Continue card covers vault notes too; ✅ each vault remembers its last note (0.9.0): the picker
   shows "Last: <note>" and opening the vault lands on it, selected in its folder.
 * ✅ Settings: a Vaults group (0.9.0), under Reading: Open Vault at Last Note, Rebuild Search Index.

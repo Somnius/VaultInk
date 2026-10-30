@@ -130,6 +130,8 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
+- Recent notes (0.37.0): VaultPicker lists up to 5 RECENT_BOOKS entries ending in .md that exist and
+  sit inside a found vault, under a "Recent notes" heading; a tap goes to the reader.
 - Embeds (0.36.2): after a full .md conversion, `<cache>/embeds.txt` lists each embedded note as
   "size\tpath"; `Txt::validateCache` rebuilds when one is missing or its size changed.
 - XTCH drawing (0.36.1): `GfxRenderer::blitXtchPlanes` in Portrait at 480x800, no clip or strip;

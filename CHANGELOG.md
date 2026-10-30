@@ -2,6 +2,15 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.37.0 (2026-10-30)
+
+Recent notes.
+
+- The Vaults screen lists your **Recent notes** under the vaults: the last five notes you read, from any vault, with the vault's name. Tap one to open it.
+
+Tested in the simulator: the list shows the demo vault's last notes (What's New and other notes outside a vault are left out), and a tap opens the note. Not confirmed on the device yet.
+
+
 ## 0.36.2 (2026-10-30)
 
 A fix for notes that embed other notes.
