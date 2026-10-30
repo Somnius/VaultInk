@@ -47,4 +47,6 @@ class CardReviewActivity final : public Activity {
   unsigned good = 0;
   unsigned again = 0;
   size_t total = 0;
+  size_t firstAnswers = 0;         // cards answered at least once, for the "3/24" counter
+  std::vector<bool> answeredOnce;  // by index into `cards`
 };

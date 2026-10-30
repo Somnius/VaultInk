@@ -117,9 +117,12 @@ void FlashcardsActivity::startReview(const std::string& deck, const bool all) {
     return;
   }
   startActivityForResult(std::move(review), [this](const ActivityResult&) {
-    const int keep = openVault;
+    const std::string keep = openVault >= 0 ? vaults[static_cast<size_t>(openVault)].vault.path : std::string();
     load();  // the counts moved
-    openVault = keep < static_cast<int>(vaults.size()) ? keep : -1;
+    openVault = -1;
+    for (size_t i = 0; i < vaults.size(); ++i) {
+      if (vaults[i].vault.path == keep) openVault = static_cast<int>(i);
+    }
     buildRows();
     requestUpdate();
   });

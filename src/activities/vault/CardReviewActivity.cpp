@@ -42,6 +42,7 @@ void CardReviewActivity::onEnter() {
     cards = cardindex::collectSession(cardindex::cardIndexPathFor(vault.path), vaultfiles::sdFs(), store, day, spec);
     for (size_t i = 0; i < cards.size(); ++i) queue.push_back(i);
     total = cards.size();
+    answeredOnce.assign(cards.size(), false);
   }
   finished = clockUnset || queue.empty();
   requestUpdate(true);
@@ -80,6 +81,10 @@ void CardReviewActivity::answer(const cardsched::Answer a) {
   card.state = cardsched::review(card.state, a, day, cardsdev::config(), static_cast<uint32_t>(card.id));
   if (!store.save(card.id, card.state)) LOG_ERR("CRD", "Could not save a card's state");
   ++reviewed;
+  if (!answeredOnce[index]) {
+    answeredOnce[index] = true;
+    ++firstAnswers;
+  }
   if (a == cardsched::Answer::Again) {
     ++again;
     queue.push_back(index);  // shows again before the session ends
@@ -166,7 +171,7 @@ void CardReviewActivity::drawText(const std::string& markdown, const int top, co
 void CardReviewActivity::drawCard() {
   const auto& card = cards[queue.front()];
   char head[48];
-  snprintf(head, sizeof(head), "%u/%u", static_cast<unsigned>(reviewed + 1 > total ? total : reviewed + 1),
+  snprintf(head, sizeof(head), "%u/%u", static_cast<unsigned>(firstAnswers + 1 > total ? total : firstAnswers + 1),
            static_cast<unsigned>(total));
   renderer.drawText(SMALL_FONT_ID, MARGIN, 24, head);
   if (!title.empty()) {

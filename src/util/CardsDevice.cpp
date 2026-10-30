@@ -94,7 +94,7 @@ void refresh(const GfxRenderer& renderer, const vaultfiles::Vault& vault) {
 
   cardstore::Store store(storeFs(), cardindex::storePathFor(vault.path));
   store.load();
-  if (store.needsCompaction()) {
+  if (store.needsCompaction() && today() > 0) {
     std::set<uint64_t> present;
     cardindex::allIds(cards, fs, [&](uint64_t id) { present.insert(id); });
     store.compact(today(), [&](uint64_t id) { return present.count(id) > 0; });
