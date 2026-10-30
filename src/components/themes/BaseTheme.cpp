@@ -17,6 +17,7 @@
 #include "RecentBooksStore.h"
 #include "clippings/SelectionGeometry.h"
 #include "components/HeaderBackTapTarget.h"
+#include "components/HeaderHomeTapTarget.h"
 #include "components/UIScale.h"
 #include "components/UITheme.h"
 #include "components/UIThemeTokens.h"
@@ -387,6 +388,20 @@ void BaseTheme::applyHeaderStatus(const GfxRenderer& renderer, freeink::ui::Head
   }
 }
 
+bool BaseTheme::headerHomeRect(const freeink::ui::Rect band, freeink::ui::Rect& icon) {
+  const auto& metrics = UITheme::getInstance().getMetrics();
+  if (!gpio.hasTouch() || !SETTINGS.headerHomeButton || HeaderHomeTapTarget::hidden ||
+      (metrics.headerClockCentered && SETTINGS.clockShowInHeader)) {
+    HeaderHomeTapTarget::clear();
+    return false;
+  }
+  constexpr int16_t SIZE = 24;
+  icon = freeink::ui::Rect{static_cast<int16_t>(band.x + (band.width - SIZE) / 2), band.y, SIZE, SIZE};
+  // A finger-sized target around the small icon, kept to the strip's top edge.
+  HeaderHomeTapTarget::set(icon.x - 20, icon.y, SIZE + 40, SIZE + 12);
+  return true;
+}
+
 freeink::ui::Rect BaseTheme::headerBand(const GfxRenderer& renderer, const freeink::ui::Rect rect,
                                         freeink::ui::HeaderProps& props) {
   int top, right, bottom, left;
@@ -467,6 +482,10 @@ void BaseTheme::drawHeader(const GfxRenderer& renderer, Rect rect, const char* t
     props.styles.normal.borderWidth = tokens.headerUnderline;
   }
   fui::header(ui.frame, band, props);
+  fui::Rect home;
+  if (headerHomeRect(band, home)) {
+    ui.frame.target().bitmap(home, fui::bitmapFromIcon(icon_house_24), fui::BitmapMode::Center);
+  }
 }
 
 void BaseTheme::drawSubHeader(const GfxRenderer& renderer, Rect rect, const char* label, const char* rightLabel) const {

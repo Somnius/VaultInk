@@ -19,6 +19,22 @@ All ticked is saved as "all", so a background added in a later version joins the
 Settings → Reader → Page Background still picks any background directly. A background change
 only redraws the page, nothing is laid out again.
 
+## Your own sleep picture (PNG too, 0.41.0)
+
+Open a picture in the **Gallery** or **Browse Files** and press Confirm (or tap **Set as sleep
+cover**), then confirm. JPEG, PNG (since 0.41.0, kos25k #21) and BMP work. **Settings → Display →
+Sleep Screen Cover Mode** decides how it's sized: **Crop** fills the screen and cuts the edges,
+**Fit** shows it all. The picture is stored as `/sleep.bmp` in four grays. In the transparent
+overlay sleep modes a PNG is still used as an overlay, as before.
+
+## Home button at the top (0.41.0)
+
+On screens with the top bar (the Library, Settings, Browse Files, the quick settings panel and the
+rest), a small house sits in the middle, between the time and the battery (kos25k #17). Tap it to
+go to the home screen. It isn't drawn on book and note pages, where the top is text (swipe down for
+the panel, which has it), nor on the home screen itself, nor when the clock is set to the centre.
+Turn it off in **Settings → Display → Home Button at the Top**.
+
 ## Battery percent on the sleep screen
 
 While the device sleeps, the battery percent shows at the bottom right, black on a small white

@@ -57,6 +57,9 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                          "refreshFrequency", StrId::STR_CAT_DISPLAY));
   emit(SettingInfo::Enum(StrId::STR_UI_THEME, &CrossPointSettings::uiTheme, homeThemeValues(), "uiTheme",
                          StrId::STR_CAT_DISPLAY));
+  if (BoardConfig::hasTouch())
+    emit(SettingInfo::Toggle(StrId::STR_HEADER_HOME_BUTTON, &CrossPointSettings::headerHomeButton, "headerHomeButton",
+                             StrId::STR_CAT_DISPLAY));
   if (!BoardConfig::hasTouch())
     emit(SettingInfo::Toggle(StrId::STR_SUNLIGHT_FADING_FIX, &CrossPointSettings::fadingFix, "fadingFix",
                              StrId::STR_CAT_DISPLAY));

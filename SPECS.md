@@ -130,6 +130,10 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
+- Header home button (0.41.0): `BaseTheme::headerHomeRect` draws icon_house_24 at the strip's
+  centre and records HeaderHomeTapTarget (like HeaderBackTapTarget); ActivityManager::loop goes home
+  on a tap there (before the status-band quick-settings tap); hidden on the home screen; setting
+  `headerHomeButton` (default on, touch only). PNG sleep cover: `saveDecodedSleepCover` for JPEG/PNG.
 - CBZ (0.39.0): `cbz::pages` from `ZipFile::enumerateFilePaths`; CbzReaderActivity copies the page
   entry to /.crosspoint/cbz_<hash>/page.jpg|png and decodes it BW + LSB + MSB + BW (as BmpViewer);
   progress.bin holds the page. Decoder cap 8 MP (ImageToFramebufferDecoder::MAX_SOURCE_PIXELS).

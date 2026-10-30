@@ -278,6 +278,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t clockDst = CLOCK_DST_AUTO;
   // Show the clock opposite the battery in every header band that draws one.
   uint8_t clockShowInHeader = 0;
+  // House icon at the top centre of headers that goes home (kos25k #17); touch boards only.
+  uint8_t headerHomeButton = 1;
   // Set once an NTP sync succeeds. Used to skip re-syncing on every WiFi connect.
   // Resetting to 0 (e.g. via the web UI) forces a re-sync on next WiFi connect.
   uint8_t clockHasBeenSynced = 0;

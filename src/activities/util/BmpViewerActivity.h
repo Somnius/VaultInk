@@ -21,7 +21,7 @@ class BmpViewerActivity final : public Activity {
   void doSetSleepCover();
   bool canSetSleepCover() const;
   bool renderImage();
-  bool saveJpegSleepCover();
+  bool saveDecodedSleepCover();
 
   std::string filePath;
   std::vector<std::string> siblingImages;

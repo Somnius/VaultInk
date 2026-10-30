@@ -10,6 +10,8 @@
 
 #include "HeaderBackTapTarget.h"
 #include "UITheme.h"
+#include "components/icons/customListIcons.h"
+#include "components/themes/BaseTheme.h"
 #include "icons/headerIcons.h"
 
 namespace fui = freeink::ui;
@@ -59,6 +61,10 @@ void catalogScreenHeader(UiAppHost::UiScreen& screen, const GfxRenderer& rendere
   header.sidePadding = theme.headerSidePadding;
   header.minTouchSize = theme.minTouchSize;
   fui::header(screen.frame(), band, header);
+  fui::Rect home;
+  if (BaseTheme::headerHomeRect(band, home)) {
+    screen.frame().target().bitmap(home, fui::bitmapFromIcon(icon_house_24), fui::BitmapMode::Center);
+  }
   screen.setContentMarginFromScreen(
       fui::Insets{static_cast<int16_t>(metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing), 0,
                   static_cast<int16_t>(metrics.buttonHintsHeight), 0});

@@ -11,6 +11,7 @@
 
 #include "CrossPointSettings.h"
 #include "components/HeaderBackTapTarget.h"
+#include "components/HeaderHomeTapTarget.h"
 #include "components/UITheme.h"
 
 namespace fui = freeink::ui;
@@ -201,7 +202,7 @@ bool MappedInputManager::wasScreenTapped(int& x, int& y) const {
   // A tap on the header back button is Button::Back (wasBackGesture), not a
   // screen tap: screens that route every tap (the keyboard's key router)
   // would otherwise swallow it before their Back check.
-  if (HeaderBackTapTarget::contains(tapX, tapY)) return false;
+  if (HeaderBackTapTarget::contains(tapX, tapY) || HeaderHomeTapTarget::contains(tapX, tapY)) return false;
   x = tapX;
   y = tapY;
   rememberTouchHeldTime();

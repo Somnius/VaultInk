@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.41.0 (2026-10-30)
+
+A home button at the top, and PNG sleep pictures (kos25k #17, #21).
+
+- A small house in the middle of the top bar, between the time and the battery, goes to the home screen with one tap. It's on every screen with that bar, the quick settings panel too, but not on book or note pages, where the top is text. Off in Settings → Display → Home Button at the Top.
+- PNG pictures can now be the sleep picture like JPEG: open one in the Gallery or Browse Files, Set as sleep cover, and Settings → Display → Sleep Screen Cover Mode crops it to fill the screen or fits it. The battery percent stays in its corner.
+
+Tested in the simulator: the house in the Library and on the quick settings panel over a book, and a tap on it going home from both; a PNG set as the sleep picture in Fit and in Crop, and the sleep screen showing it with the battery percent. Not confirmed on the device yet.
+
+
 ## 0.40.0 (2026-10-30)
 
 - CBZ covers and progress: the first page is the cover on the home's Continue card, with the progress bar.

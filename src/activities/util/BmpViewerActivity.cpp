@@ -102,7 +102,7 @@ void BmpViewerActivity::loadSiblingImages() {
 
 bool BmpViewerActivity::canSetSleepCover() const {
   return FsHelpers::hasBmpExtension(filePath) || FsHelpers::hasJpgExtension(filePath) ||
-         (overlaySleepMode() && FsHelpers::hasPngExtension(filePath));
+         FsHelpers::hasPngExtension(filePath);
 }
 
 bool BmpViewerActivity::renderImage() {
@@ -301,7 +301,7 @@ void BmpViewerActivity::onExit() {
   renderer.displayBuffer(HalDisplay::HALF_REFRESH);
 }
 
-bool BmpViewerActivity::saveJpegSleepCover() {
+bool BmpViewerActivity::saveDecodedSleepCover() {
   if (Storage.exists(JPEG_SLEEP_TMP_PXC) && !Storage.remove(JPEG_SLEEP_TMP_PXC)) {
     LOG_ERR("BMP", "Failed to remove previous sleep image pixels");
     return false;
@@ -312,7 +312,12 @@ bool BmpViewerActivity::saveJpegSleepCover() {
     if (!keepBmpTemp) Storage.remove(CUSTOM_SLEEP_TMP_BMP);
   }};
 
-  JpegToFramebufferConverter decoder;
+  // JPEG, and PNG since 0.41.0 (kos25k #21): both decoders write the same 2-bit pixel cache.
+  const bool jpeg = FsHelpers::hasJpgExtension(filePath);
+  JpegToFramebufferConverter jpegDecoder;
+  PngToFramebufferConverter pngDecoder;
+  ImageToFramebufferDecoder& decoder =
+      jpeg ? static_cast<ImageToFramebufferDecoder&>(jpegDecoder) : static_cast<ImageToFramebufferDecoder&>(pngDecoder);
   ImageDimensions dimensions;
   if (!decoder.getDimensions(filePath, dimensions)) return false;
   auto config = fitImage(dimensions, renderer);
@@ -331,8 +336,11 @@ bool BmpViewerActivity::saveJpegSleepCover() {
   }
   config.cachePath = JPEG_SLEEP_TMP_PXC;
   renderer.clearScreen();
-  bool cacheWritten;
-  if (!decoder.decodeToFramebuffer(filePath, renderer, config, cacheWritten) || !cacheWritten) {
+  bool cacheWritten = false;
+  const bool decoded = jpeg ? jpegDecoder.decodeToFramebuffer(filePath, renderer, config, cacheWritten)
+                            : pngDecoder.decodeToFramebuffer(filePath, renderer, config);
+  if (!jpeg) cacheWritten = Storage.exists(JPEG_SLEEP_TMP_PXC);
+  if (!decoded || !cacheWritten) {
     LOG_ERR("BMP", "Failed to decode sleep image pixels");
     return false;
   }
@@ -392,6 +400,7 @@ void BmpViewerActivity::doSetSleepCover() {
   GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
 
   const bool jpeg = FsHelpers::hasJpgExtension(filePath);
+  const bool png = FsHelpers::hasPngExtension(filePath);
   const bool transparentMode = !jpeg && overlaySleepMode();
   if (!canSetSleepCover()) return;
 
@@ -400,8 +409,8 @@ void BmpViewerActivity::doSetSleepCover() {
                       : CUSTOM_SLEEP_ROOT_BMP;
   bool success = filePath == destination;
 
-  if (jpeg) {
-    success = saveJpegSleepCover();
+  if (jpeg || (png && !transparentMode)) {
+    success = saveDecodedSleepCover();
   } else if (!success) {
     auto buffer = makeUniqueNoThrow<uint8_t[]>(COPY_BUFFER_SIZE);
     if (!buffer) {

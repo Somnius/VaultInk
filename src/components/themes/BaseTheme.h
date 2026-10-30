@@ -267,6 +267,10 @@ class BaseTheme {
   // drawHeader). The label strings point at internal static buffers refreshed
   // per call (headers draw on the single render task).
   static void applyHeaderStatus(const GfxRenderer& renderer, freeink::ui::HeaderProps& props);
+  // Where to draw the header's home icon (24 px, top centre of the status strip), with its tap
+  // rect recorded in HeaderHomeTapTarget; false when it isn't shown (setting off, no touch, the
+  // home screen, or a centred clock in that spot).
+  static bool headerHomeRect(freeink::ui::Rect band, freeink::ui::Rect& icon);
   // The header band every screen draws in: the caller's full-width rect inset
   // by the board's side insets, its top edge lowered by the board's
   // headerOffsetY (bottom edge fixed, so content below keeps its boundary).

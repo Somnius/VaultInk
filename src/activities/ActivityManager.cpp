@@ -20,6 +20,7 @@
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
 #include "components/HeaderBackTapTarget.h"
+#include "components/HeaderHomeTapTarget.h"
 #include "home/CrashActivity.h"
 #include "home/FileBrowserActivity.h"
 #include "home/GalleryActivity.h"
@@ -125,6 +126,23 @@ void ActivityManager::loop() {
   }
 
   if (currentActivity) {
+    // The house icon at the top of a header (kos25k #17): straight home, also from the quick
+    // settings panel, whose own home gesture only closes it.
+    if (!HeaderHomeTapTarget::hidden && mappedInput.hasTouch()) {
+      float nx = 0.0f;
+      float ny = 0.0f;
+      if (gpio.wasTouchTap(nx, ny)) {
+        int tx = 0;
+        int ty = 0;
+        renderer.tapToLogical(nx, ny, tx, ty);
+        if (HeaderHomeTapTarget::contains(tx, ty)) {
+          haptic_feedback::touchAction();
+          HeaderHomeTapTarget::clear();
+          goHome();
+          return;
+        }
+      }
+    }
     if (!currentActivity->isHomeActivity() && mappedInput.wasHomeGesture()) {
       if (currentActivity->handleHomeGesture()) {
         return;
@@ -144,7 +162,8 @@ void ActivityManager::loop() {
       int tx = 0;
       int ty = 0;
       // The header back button shares this band; its taps stay Back.
-      statusBarTap = mappedInput.wasScreenTapped(tx, ty) && ty < 44 && !HeaderBackTapTarget::contains(tx, ty);
+      statusBarTap = mappedInput.wasScreenTapped(tx, ty) && ty < 44 && !HeaderBackTapTarget::contains(tx, ty) &&
+                     !HeaderHomeTapTarget::contains(tx, ty);
     }
     // Only boards whose frontlight was detected get the panel.
     if (Frontlight.present() && currentActivity->name != "FrontlightPanel" && !currentActivity->hasOpenMenu() &&
@@ -190,6 +209,7 @@ void ActivityManager::loop() {
 
       } else {
         currentActivity = std::move(stackActivities.back());
+        HeaderHomeTapTarget::hidden = currentActivity && currentActivity->isHomeActivity();
         stackActivities.pop_back();
         LOG_DBG("ACT", "Popped from activity stack, new size = %zu", stackActivities.size());
         // Handle result if necessary
@@ -230,11 +250,13 @@ void ActivityManager::loop() {
         // The parent's header back rect must not route taps on the pushed
         // screen (which may draw no header of its own).
         HeaderBackTapTarget::clear();
+        HeaderHomeTapTarget::clear();
         LOG_DBG("ACT", "Pushed to activity stack, new size = %zu", stackActivities.size());
       }
       ++screenVisit;
       pendingAction = PendingAction::None;
       currentActivity = std::move(pendingActivity);
+      HeaderHomeTapTarget::hidden = currentActivity && currentActivity->isHomeActivity();
 
       lock.unlock();  // onEnter may acquire its own lock
       currentActivity->onEnter();
@@ -262,6 +284,7 @@ void ActivityManager::exitActivity(const RenderLock& lock) {
   // The outgoing screen's header back button must not eat taps on the next
   // screen; the next header draw re-records it.
   HeaderBackTapTarget::clear();
+  HeaderHomeTapTarget::clear();
 }
 
 void ActivityManager::replaceActivity(std::unique_ptr<Activity>&& newActivity) {
@@ -275,6 +298,7 @@ void ActivityManager::replaceActivity(std::unique_ptr<Activity>&& newActivity) {
   } else {
     // No current activity, safe to launch immediately
     currentActivity = std::move(newActivity);
+    HeaderHomeTapTarget::hidden = currentActivity && currentActivity->isHomeActivity();
     currentActivity->onEnter();
   }
 }

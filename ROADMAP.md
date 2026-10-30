@@ -38,8 +38,11 @@ In this order, each also listed in its phase below:
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
-Waiting on kos25k: #16 (File Transfer address not found, 0.35.3) and #19 (justified text like
-KOReader; VaultInk has no "word expansion" yet). Device-only: the dimmer, LiveSync certificates
+✅ 0.41.0: kos25k #17 home button in the header strip, #21 PNG as the sleep picture (crop or fit).
+kos25k #20 battery: no charger chip the firmware can drive (CW2017 gauge only), so no charge limit;
+health/cycles depend on the CW2017 datasheet (to check); sleep-screen percent while charging would
+need timed wakes. Waiting on kos25k: #16 (File Transfer address not found, 0.35.3) and #19
+(justified text like KOReader; his photo compares a much wider screen, asked for a close-up). Device-only: the dimmer, LiveSync certificates
 and PBKDF2 timing, the hardware checklist. Reading statistics (L) stays behind the list: no issue
 asks for it.
 

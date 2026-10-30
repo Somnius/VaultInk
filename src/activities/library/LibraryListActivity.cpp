@@ -23,9 +23,11 @@
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UIScale.h"
 #include "components/UITheme.h"
+#include "components/icons/customListIcons.h"
 #include "components/icons/headerIcons.h"
 #include "components/icons/listIcons.h"
 #include "components/icons/search32.h"
+#include "components/themes/BaseTheme.h"
 #include "fontIds.h"
 #include "util/BookCacheUtils.h"
 #include "util/BookInfo.h"
@@ -1299,6 +1301,10 @@ void LibraryListActivity::buildHeader(UiScreen& screen) {
                                                          frameRect.width, static_cast<int16_t>(metrics.headerHeight)},
                                                header);
   fui::header(screen.frame(), band, header);
+  fui::Rect home;
+  if (BaseTheme::headerHomeRect(band, home)) {
+    screen.frame().target().bitmap(home, fui::bitmapFromIcon(icon_house_24), fui::BitmapMode::Center);
+  }
 }
 
 void LibraryListActivity::buildScreen(UiScreen& screen) {
