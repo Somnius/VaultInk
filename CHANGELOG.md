@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.38.0 (2026-10-30)
+
+Renaming a note keeps the links to it working.
+
+- When you rename a note that other notes link to, VaultInk asks **Update links?** and says how many links in how many notes. **Update** changes `[[Old]]`, `[[Old|text]]`, `[[Old#Heading]]`, `![[Old]]` and paths like `[[People/Old]]` to the new name, only where they really lead to that note. **Leave them** keeps them as they are.
+- The Backlinks list now also finds links that give only the end of a path, like `[[People/Nikos]]` for `Notes/People/Nikos.md`, the way Obsidian matches them.
+- Not changed: links inside code, Markdown links like `[text](Old.md)`, canvases, notes over 256 KB, and links in the renamed note to itself.
+
+Tested in the simulator on the demo vault: renaming Nikos updated the embed in Features and the path link in Welcome (one line each, the rest of both notes byte for byte the same), and left the link written inside code alone; host tests for the link rewriting. Not confirmed on the device yet.
+
+
 ## 0.37.0 (2026-10-30)
 
 Recent notes.

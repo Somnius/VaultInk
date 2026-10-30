@@ -20,6 +20,10 @@
 #include "ReaderToolbarUi.h"
 #include "components/OptionPopup.h"
 
+namespace linkupdate {
+struct Plan;
+}
+
 class EpubReaderActivity final : public ReaderActivity {
   std::shared_ptr<Epub> epub;
   std::unique_ptr<Section> section = nullptr;
@@ -169,6 +173,8 @@ class EpubReaderActivity final : public ReaderActivity {
   void toggleTask(const std::string& href);
   void askNoteTitle(bool rename);
   void confirmDeleteNote();
+  void askUpdateLinks(const std::shared_ptr<linkupdate::Plan>& links, const std::string& oldPath,
+                      const std::string& newPath);
   void jumpToPercent(int percent);
   void onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action);
   int currentTocIndex() const;

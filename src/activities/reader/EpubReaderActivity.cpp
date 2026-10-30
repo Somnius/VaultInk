@@ -65,6 +65,7 @@
 #include "util/BookmarkUtil.h"
 #include "util/ButtonNavigator.h"
 #include "util/LineSpacing.h"
+#include "util/LinkUpdate.h"
 #include "util/PaperTexture.h"
 #include "util/ScreenshotUtil.h"
 #include "util/TextOptions.h"
@@ -3431,10 +3432,20 @@ void EpubReaderActivity::askNoteTitle(const bool rename) {
     }
     const std::string title = std::get<KeyboardResult>(result.data).text;
     std::string path;
+    // The links to a renamed note are found while they still lead to its old name.
+    auto links = std::make_shared<linkupdate::Plan>();
+    const std::string oldPath = bookPath;
+    if (rename && vaultedit::validTitle(title)) {
+      RenderLock lock;
+      GUI.drawPopup(renderer, tr(STR_FINDING_LINKS));
+      *links = linkupdate::plan(oldPath);
+    }
     const auto r = rename ? vaultedit::renameNote(bookPath, title, path)
                           : vaultedit::createNote(FsHelpers::extractFolderPath(bookPath), title, path);
     if (r == vaultedit::Result::Ok) {
-      if (rename) {
+      if (rename && links->links > 0) {
+        askUpdateLinks(links, oldPath, path);
+      } else if (rename) {
         reopenNote(path);
       } else {
         activityManager.goToReader(path);
@@ -3445,6 +3456,48 @@ void EpubReaderActivity::askNoteTitle(const bool rename) {
     GUI.drawPopup(renderer, I18N.get(r == vaultedit::Result::Exists    ? StrId::STR_NOTE_EXISTS
                                      : r == vaultedit::Result::BadName ? StrId::STR_NOTE_BAD_NAME
                                                                        : StrId::STR_NOTE_SAVE_FAILED));
+  });
+}
+
+// After a rename: asks before changing the notes that link to it (Phase 4), then reports.
+void EpubReaderActivity::askUpdateLinks(const std::shared_ptr<linkupdate::Plan>& links, const std::string& oldPath,
+                                        const std::string& newPath) {
+  char body[96];
+  snprintf(body, sizeof(body), tr(STR_UPDATE_LINKS_BODY), static_cast<unsigned>(links->links),
+           static_cast<unsigned>(links->notes.size()));
+  auto dialog = makeUniqueNoThrow<ConfirmationActivity>(renderer, mappedInput, tr(STR_UPDATE_LINKS), body,
+                                                        tr(STR_LEAVE_LINKS), tr(STR_UPDATE_LINKS_YES));
+  if (!dialog) {
+    reopenNote(newPath);
+    return;
+  }
+  startActivityForResult(std::move(dialog), [this, links, oldPath, newPath](const ActivityResult& result) {
+    if (result.isCancelled) {
+      reopenNote(newPath);
+      return;
+    }
+    linkupdate::Outcome outcome;
+    {
+      RenderLock lock;
+      GUI.drawPopup(renderer, tr(STR_UPDATING_LINKS));
+      outcome = linkupdate::apply(*links, oldPath, newPath, FsHelpers::getFileNameWithoutExtension(newPath));
+    }
+    char text[128];
+    snprintf(text, sizeof(text), tr(STR_LINKS_UPDATED), static_cast<unsigned>(outcome.links),
+             static_cast<unsigned>(outcome.notes));
+    std::string message = text;
+    if (outcome.failed + links->skipped > 0) {
+      snprintf(text, sizeof(text), tr(STR_LINKS_NOT_UPDATED), static_cast<unsigned>(outcome.failed + links->skipped));
+      message += " ";
+      message += text;
+    }
+    const std::string ok = tr(STR_OK_BUTTON);
+    auto report = makeUniqueNoThrow<ConfirmationActivity>(renderer, mappedInput, tr(STR_UPDATE_LINKS), message, ok, ok);
+    if (!report) {
+      reopenNote(newPath);
+      return;
+    }
+    startActivityForResult(std::move(report), [this, newPath](const ActivityResult&) { reopenNote(newPath); });
   });
 }
 

@@ -209,3 +209,18 @@ TEST(VaultIndex, BacklinksByRelativePathAndGreekCase) {
   EXPECT_EQ(hits[0].title, "Sib");
   EXPECT_EQ(vaultindex::backlinks(INDEX, "/V", "/V/Καλημέρα.md", m.fs()).size(), 1u);
 }
+
+TEST(VaultIndex, BacklinksByTheEndOfAPath) {
+  MemFs m;
+  m.dirs = {"/V", "/V/Notes", "/V/Notes/People", "/V/Deep"};
+  m.files["/V/Notes/People/Nikos.md"] = "x";
+  m.files["/V/Deep/Note.md"] = "y";
+  m.files["/V/Welcome.md"] = "Part of a path: [[People/Nikos]], and [[Deep/Note]].";
+  m.files["/V/Other.md"] = "[[Notes/People/Nikos]] in full, [[ople/Nikos]] is not a folder.";
+  m.files["/V/Shadow.md"] = "[[Note]]";
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  auto hits = vaultindex::backlinks(INDEX, "/V", "/V/Notes/People/Nikos.md", m.fs());
+  ASSERT_EQ(hits.size(), 2u);
+  EXPECT_EQ(hits[0].title, "Other");
+  EXPECT_EQ(hits[1].title, "Welcome");
+}

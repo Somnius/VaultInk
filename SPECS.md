@@ -130,6 +130,10 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
+- Link rewrite (0.38.0): `linkupdate::plan` before `renameNote` (backlinks from the index, each
+  target checked with `vaultlink::resolve` == old path, targets kept per note), then a confirm, then
+  `apply` via `saveNote` (markChanged + writeAtomic). `linkrewrite::rewrite` skips fences and inline
+  code, keeps prefix, `.md`, `#anchor`, `|alias`. `backlinks` also matches a path's end (resolve order).
 - Recent notes (0.37.0): VaultPicker lists up to 5 RECENT_BOOKS entries ending in .md that exist and
   sit inside a found vault, under a "Recent notes" heading; a tap goes to the reader.
 - Embeds (0.36.2): after a full .md conversion, `<cache>/embeds.txt` lists each embedded note as

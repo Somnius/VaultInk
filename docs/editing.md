@@ -21,9 +21,14 @@ In a note, open the reading menu (tap the middle of the screen), then **More**:
 
 - **New note** asks for a name and makes `<name>.md` in the same folder, with the name as its
   title, then opens it.
-- **Rename note** asks for the new name. The reading position comes along. Links to the note in
-  other notes are **not** changed, so `[[Old name]]` stops working. Rename those yourself, or in
-  Obsidian.
+- **Rename note** asks for the new name. The reading position comes along. If other notes link
+  to it (0.38.0), you're asked **Update links?** with how many links in how many notes; **Update**
+  changes them to the new name, **Leave them** doesn't. Changed are `[[Old]]`, `[[Old|text]]`,
+  `[[Old#Heading]]`, `[[Old#^block]]`, `![[Old]]` and paths ending in the name (`[[People/Old]]`),
+  only where they lead to this note: a note with the same name in another folder is left alone.
+  Not changed: links inside code, Markdown links (`[text](Old.md)`), canvases, notes over 256 KB,
+  and links in the renamed note to itself. The changed notes are sent to LiveSync like any edit.
+  The links are found with the vault's search index, which is brought up to date first.
 - **Delete note** asks first, then moves the note to the vault's **`.trash`** folder, the same
   folder Obsidian uses for "Move to Obsidian trash". If a note with that name is already in the
   trash, the time is added to the name. Nothing is deleted outright.

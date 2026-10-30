@@ -45,7 +45,7 @@ bool validTitle(const std::string& title);
 
 // "<folder>/<title>.md" holding "# <title>"; `outPath` is the new note.
 Result createNote(const std::string& folder, const std::string& title, std::string& outPath);
-// Renames a note in its folder (links to it are not rewritten); its reading position moves along.
+// Renames a note in its folder; its reading position moves along. Links to it: util/LinkUpdate.
 Result renameNote(const std::string& notePath, const std::string& title, std::string& outPath);
 // Moves a note to "<vault>/.trash/<path in the vault>", with a time suffix when that name is taken.
 Result trashNote(const std::string& notePath);

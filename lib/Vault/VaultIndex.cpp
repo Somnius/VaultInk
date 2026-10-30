@@ -408,10 +408,17 @@ std::vector<Hit> backlinks(const std::string& indexPath, const std::string& root
     auto pointsHere = [&](const std::string& link) {
       if (link.find('/') == std::string::npos) return key(link) == title;
       std::string resolved;
+      bool foundElsewhere = false;
       for (const std::string& base : {root, dir}) {
-        if (normalize(base + "/" + link, resolved) && key(resolved) == target) return true;
+        if (!normalize(base + "/" + link, resolved)) continue;
+        if (key(resolved) == target) return true;
+        foundElsewhere = foundElsewhere || (fs.exists && fs.exists(vaultlink::fileNameFor(resolved)));
       }
-      return false;
+      // Like vaultlink::resolve: when neither path exists, the link names the end of a path
+      // ("People/Anna" is "Notes/People/Anna.md").
+      if (foundElsewhere || link.find("..") != std::string::npos) return false;
+      const std::string tail = "/" + key(link[0] == '/' ? link.substr(1) : link);
+      return target.size() > tail.size() && target.compare(target.size() - tail.size(), tail.size(), tail) == 0;
     };
     if (std::any_of(note.links.begin(), note.links.end(), pointsHere)) hits.push_back({note.path, note.title, 0});
     return true;

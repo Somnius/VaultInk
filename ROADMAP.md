@@ -35,7 +35,7 @@ In this order, each also listed in its phase below:
    in the update dialog, the update check without a reader.
 6. Phase 1 leftovers: heading anchors in the index, checkbox glyphs for tasks (✅ 0.36.2: a note
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
-7. Phase 4 leftover: links rewritten when a note is renamed.
+7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
 Waiting on kos25k: #16 (File Transfer address not found, 0.35.3) and #19 (justified text like
 KOReader; VaultInk has no "word expansion" yet). Device-only: the dimmer, LiveSync certificates
@@ -410,7 +410,9 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
   over a newer server version (the pull keeps both, then both go up). Sync now = push, pull, push
   again after conflicts. Checked end to end in the simulator against the Docker CouchDB and the
   official LiveSync CLI (new, edit, stale edit refused, delete, conflict).
-* Later: split/join lines, a multi-line keyboard, rewriting links on rename, push for vaults with
+* ✅ (0.38.0) Links rewritten on rename, after asking (wiki-links that resolve to the note, not in
+  code; util/LinkUpdate + lib/Vault/LinkRewrite, reviewed by Gemini and Grok).
+* Later: split/join lines, a multi-line keyboard, Markdown links on rename, push for vaults with
   the newer id scheme or no path obfuscation, a test against a real Obsidian install.
 * Touch keyboard editor (English + Greek; the Greek layout is done, 0.5.0), atomic save, task toggles, new/rename/delete.
 * Push with the plugin's chunker, conflict copies.
