@@ -7,8 +7,6 @@
 // PIN. It stops someone picking the reader up, not someone who reads the card on a computer.
 namespace screenlock {
 
-constexpr unsigned long LOCK_AFTER_MS = 30UL * 60UL * 1000UL;  // asked after 30 minutes asleep
-
 // True when the lock is on and usable (PIN mode needs its file).
 bool enabled();
 bool hasPin();
@@ -18,7 +16,7 @@ void removePin();
 
 // Call just before deep sleep: remembers when it went to sleep.
 void noteSleep();
-// At boot: should the lock screen come first? (asleep 30 minutes or more, a cold start, or the
+// At boot: should the lock screen come first? (asleep as long as Lock After Sleeping or more, a cold start, or the
 // lock screen was still up when it slept)
 bool lockAtBoot();
 // The lock screen is up / was passed.

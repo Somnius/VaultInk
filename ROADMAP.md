@@ -39,6 +39,7 @@ In this order, each also listed in its phase below:
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
+✅ 0.52.0: reading time saved when a book is left (not only at sleep); lock options (after, corner, hold); arrows and task boxes in every built-in font.
 ✅ 0.51.0: kos25k #23 reading statistics sleep screen (reading log on the card, times, last 3 books, month calendar).
 ✅ 0.50.0: tasks as real ☐ / ☑ boxes in notes (built-in fonts).
 ✅ 0.49.0: kos25k #22 lock screen: 4-digit PIN or a long press on a corner, after 30 minutes asleep.

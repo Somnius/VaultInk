@@ -75,9 +75,10 @@ void OtaUpdateActivity::wrapNotes(const int width) {
     if (end == std::string::npos) end = notes.size();
     std::string para = notes.substr(start, end - start);
     if (!para.empty() && para.back() == '\r') para.pop_back();
-    // Plain text: drop Markdown bold markers, and the UI font has no arrow.
+    // Plain text: drop Markdown bold markers (arrows and task boxes are in the UI font since 0.52.0).
     for (size_t at; (at = para.find("**")) != std::string::npos;) para.erase(at, 2);
-    for (size_t at; (at = para.find("\xE2\x86\x92")) != std::string::npos;) para.replace(at, 3, ">");
+    // Code backticks read as clutter.
+    para.erase(std::remove(para.begin(), para.end(), '`'), para.end());
     if (para.empty()) {
       // Keep one blank line between paragraphs, none at the top.
       if (!noteLines.empty() && !noteLines.back().empty()) noteLines.emplace_back();

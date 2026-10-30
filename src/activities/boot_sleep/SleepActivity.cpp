@@ -1044,6 +1044,7 @@ namespace {
 
 // "3h 05m", "42m".
 std::string formatDuration(const uint32_t seconds) {
+  if (seconds > 0 && seconds < 60) return "<1m";
   const uint32_t minutes = seconds / 60;
   char out[24];
   if (minutes >= 60) {

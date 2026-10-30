@@ -100,6 +100,9 @@ void ReaderActivity::rememberBookOnceRendered() {
 
 void ReaderActivity::onExit() {
   Activity::onExit();
+  // Leaving the book (Back, home) ends the session too, not only sleep (kos25k #23: reading then
+  // going home logged nothing).
+  flushReaderSession();
 
   // Keep rebuildable font buffers from pinning the heap between reading sessions.
   if (auto* fontCache = renderer.getFontCacheManager()) {

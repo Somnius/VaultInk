@@ -231,6 +231,18 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Toggle(StrId::STR_WHATS_NEW_AFTER_UPDATE, &CrossPointSettings::whatsNewAfterUpdate,
                            "whatsNewAfterUpdate", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_DEBUG_LOGS, &CrossPointSettings::debugLogs, "debugLogs", StrId::STR_CAT_SYSTEM));
+  // Lock screen details (kos25k #22); the lock itself is the Lock Screen row below.
+  emit(SettingInfo::Enum(
+      StrId::STR_LOCK_AFTER, &CrossPointSettings::lockAfter,
+      {StrId::STR_LOCK_AFTER_0, StrId::STR_LOCK_AFTER_5, StrId::STR_LOCK_AFTER_10, StrId::STR_LOCK_AFTER_15,
+       StrId::STR_LOCK_AFTER_30, StrId::STR_LOCK_AFTER_60, StrId::STR_LOCK_AFTER_120, StrId::STR_LOCK_AFTER_180},
+      "lockAfter", StrId::STR_CAT_SYSTEM));
+  emit(SettingInfo::Enum(StrId::STR_LOCK_CORNER, &CrossPointSettings::lockCorner,
+                         {StrId::STR_LOCK_CORNER_ANY, StrId::STR_LOCK_CORNER_TL, StrId::STR_LOCK_CORNER_TR,
+                          StrId::STR_LOCK_CORNER_BL, StrId::STR_LOCK_CORNER_BR},
+                         "lockCorner", StrId::STR_CAT_SYSTEM));
+  emit(SettingInfo::Value(StrId::STR_LOCK_HOLD_SECONDS, &CrossPointSettings::lockHoldSeconds, {0, 10, 1},
+                          "lockHoldSeconds", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_SHOW_HIDDEN_FILES, &CrossPointSettings::showHiddenFiles, "showHiddenFiles",
                            StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_LIBRARY_USE_METADATA, &CrossPointSettings::libraryUseMetadata,

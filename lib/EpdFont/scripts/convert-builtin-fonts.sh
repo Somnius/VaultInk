@@ -5,6 +5,8 @@ set -e
 cd "$(dirname "$0")"
 
 READER_FONT_STYLES=("Regular" "Italic" "Bold" "BoldItalic")
+# Arrows and ballot boxes, for every built-in font (see the font stacks below).
+SYMBOL_INTERVALS=(--additional-intervals 0x2190,0x2193 --additional-intervals 0x2610,0x2612)
 NOTOSANS_FONT_SIZES=(12 14 16 18)
 
 for size in ${NOTOSANS_FONT_SIZES[@]}; do
@@ -13,11 +15,15 @@ for size in ${NOTOSANS_FONT_SIZES[@]}; do
     font_path="../builtinFonts/source/NotoSans/NotoSans-${style}.ttf"
     output_path="../builtinFonts/${font_name}.h"
     # Greek, monotonic and polytonic, so Greek books and notes read without an SD-card font.
-    # Ballot boxes (U+2610-2612) from Noto Sans Symbols 2 for note tasks (Noto Sans has none).
-    python fontconvert.py $font_name $size $font_path ../builtinFonts/source/NotoSansSymbols2/NotoSansSymbols2-Regular.ttf \
+    # Arrows (U+2190-2193, Noto Sans Symbols) and ballot boxes (U+2610-2612, Noto Sans Symbols 2):
+    # Noto Sans has neither; menu paths use the arrows, note tasks the boxes.
+    case $style in Bold|BoldItalic) sym_style=Bold ;; *) sym_style=Regular ;; esac
+    python fontconvert.py $font_name $size $font_path \
+      ../builtinFonts/source/NotoSansSymbols/NotoSansSymbols-${sym_style}.ttf \
+      ../builtinFonts/source/NotoSansSymbols2/NotoSansSymbols2-Regular.ttf \
       --2bit --compress --pnum --zopfli \
       --additional-intervals 0x0370,0x03FF --additional-intervals 0x1F00,0x1FFF \
-      --additional-intervals 0x2610,0x2612 > $output_path
+      "${SYMBOL_INTERVALS[@]}" > $output_path
     echo "Generated $output_path"
   done
 done
@@ -71,8 +77,12 @@ for size in ${UI_FONT_SIZES[@]}; do
     # (fontstack is ordered by descending priority).
     viet_path="../builtinFonts/source/Ubuntu/Ubuntu-Vietnamese-${style}.ttf"
     output_path="../builtinFonts/${font_name}.h"
+    symbols_path="../builtinFonts/source/NotoSansSymbols/NotoSansSymbols-${style}.ttf"
+    symbols2_path="../builtinFonts/source/NotoSansSymbols2/NotoSansSymbols2-Regular.ttf"
     python fontconvert.py $font_name $size $font_path $latin_fallback_path $hebrew_path $arabic_path $viet_path \
-      --additional-intervals 0x05D0,0x05EA "${ARABIC_INTERVALS[@]}" "${GREEK_INTERVALS[@]}" > $output_path
+      $symbols_path $symbols2_path \
+      --additional-intervals 0x05D0,0x05EA "${ARABIC_INTERVALS[@]}" "${GREEK_INTERVALS[@]}" \
+      "${SYMBOL_INTERVALS[@]}" > $output_path
     echo "Generated $output_path"
   done
 done
@@ -84,7 +94,10 @@ python fontconvert.py ubuntu_8_regular 8 \
   ../builtinFonts/source/NotoSansHebrew/NotoSansHebrew-Regular.ttf \
   ../builtinFonts/source/NotoSansArabic/NotoSansArabic-Regular.ttf \
   ../builtinFonts/source/Ubuntu/Ubuntu-Vietnamese-Regular.ttf \
-  --additional-intervals 0x05D0,0x05EA "${ARABIC_INTERVALS[@]}" "${GREEK_INTERVALS[@]}" > ../builtinFonts/ubuntu_8_regular.h
+  ../builtinFonts/source/NotoSansSymbols/NotoSansSymbols-Regular.ttf \
+  ../builtinFonts/source/NotoSansSymbols2/NotoSansSymbols2-Regular.ttf \
+  --additional-intervals 0x05D0,0x05EA "${ARABIC_INTERVALS[@]}" "${GREEK_INTERVALS[@]}" \
+  "${SYMBOL_INTERVALS[@]}" > ../builtinFonts/ubuntu_8_regular.h
 
 echo ""
 echo "Running compression verification..."

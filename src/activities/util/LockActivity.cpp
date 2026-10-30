@@ -51,19 +51,23 @@ void LockActivity::render(RenderLock&&) {
   const int height = renderer.getScreenHeight();
 
   if (cornerMode) {
-    // Small corner marks show where to hold.
+    // A mark on the corner (or corners) that open it.
     const int m = 18;
     const int len = 40;
-    renderer.fillRect(m, m, len, 4);
-    renderer.fillRect(m, m, 4, len);
-    renderer.fillRect(width - m - len, m, len, 4);
-    renderer.fillRect(width - m - 4, m, 4, len);
-    renderer.fillRect(m, height - m - 4, len, 4);
-    renderer.fillRect(m, height - m - len, 4, len);
-    renderer.fillRect(width - m - len, height - m - 4, len, 4);
-    renderer.fillRect(width - m - 4, height - m - len, 4, len);
+    const uint8_t only = SETTINGS.lockCorner;
+    const auto mark = [&](const bool right, const bool bottom) {
+      const int x = right ? width - m - len : m;
+      const int y = bottom ? height - m - 4 : m;
+      renderer.fillRect(x, y, len, 4);
+      renderer.fillRect(right ? width - m - 4 : m, bottom ? height - m - len : m, 4, len);
+    };
+    if (only == 0 || only == 1) mark(false, false);
+    if (only == 0 || only == 2) mark(true, false);
+    if (only == 0 || only == 3) mark(false, true);
+    if (only == 0 || only == 4) mark(true, true);
     renderer.drawCenteredText(UI_12_FONT_ID, height / 2 - 30, tr(STR_LOCKED), true, EpdFontFamily::BOLD);
-    renderer.drawCenteredText(UI_10_FONT_ID, height / 2 + 10, tr(STR_LOCK_HOLD_CORNER));
+    renderer.drawCenteredText(UI_10_FONT_ID, height / 2 + 10,
+                              SETTINGS.lockCorner == 0 ? tr(STR_LOCK_HOLD_CORNER) : tr(STR_LOCK_HOLD_THIS_CORNER));
     renderer.displayBuffer(HalDisplay::FAST_REFRESH);
     return;
   }
@@ -164,6 +168,8 @@ void LockActivity::digitsComplete() {
 }
 
 void LockActivity::unlocked() {
+  if (done) return;  // a finger still on the corner keeps calling until the screen is gone
+  done = true;
   screenlock::setPending(false);
   LOG_INF("LCK", "Unlocked");
   auto next = std::move(onUnlock);
@@ -174,16 +180,40 @@ void LockActivity::unlocked() {
   }
 }
 
+bool LockActivity::inUnlockCorner(const int x, const int y) const {
+  const int width = renderer.getScreenWidth();
+  const int height = renderer.getScreenHeight();
+  const bool left = x < CORNER;
+  const bool right = x > width - CORNER;
+  const bool top = y < CORNER;
+  const bool bottom = y > height - CORNER;
+  switch (SETTINGS.lockCorner) {
+    case 1:
+      return left && top;
+    case 2:
+      return right && top;
+    case 3:
+      return left && bottom;
+    case 4:
+      return right && bottom;
+    default:
+      return (left || right) && (top || bottom);
+  }
+}
+
 void LockActivity::loop() {
   int x = 0;
   int y = 0;
   if (cornerMode) {
-    if (mappedInput.wasScreenLongPress(x, y)) {
-      const int width = renderer.getScreenWidth();
-      const int height = renderer.getScreenHeight();
-      const bool nearX = x < CORNER || x > width - CORNER;
-      const bool nearY = y < CORNER || y > height - CORNER;
-      if (nearX && nearY) unlocked();
+    // A finger on the chosen corner, held for Corner Hold seconds (0: the touch itself).
+    if (mappedInput.isScreenTouchHeld(x, y) && inUnlockCorner(x, y)) {
+      if (!holding) {
+        holding = true;
+        holdSince = millis();
+      }
+      if (millis() - holdSince >= SETTINGS.lockHoldSeconds * 1000UL) unlocked();
+    } else {
+      holding = false;
     }
     return;
   }

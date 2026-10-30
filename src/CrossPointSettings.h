@@ -433,6 +433,12 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t galleryFilter = 0;
   // Lock screen (kos25k #22): 0 off, 1 a 4-digit PIN, 2 a long press on any corner.
   uint8_t lockMode = 0;
+  // Corner mode: 0 any corner, 1 top left, 2 top right, 3 bottom left, 4 bottom right; how long to
+  // hold it (0 = one touch, up to 10 s); and the sleep before the lock asks (LOCK_AFTER_MINUTES).
+  uint8_t lockCorner = 0;
+  uint8_t lockHoldSeconds = 1;
+  uint8_t lockAfter = 4;
+  static constexpr uint16_t LOCK_AFTER_MINUTES[] = {0, 5, 10, 15, 30, 60, 120, 180};
   // Library: hide vault notes (.md, .canvas) from Recent/Title/Author (kos25k #15). 0 = show all.
   uint8_t libraryBooksOnly = 0;
   // Library Author tab as folders (kos25k #18): 2+ books by one author fold into a folder.

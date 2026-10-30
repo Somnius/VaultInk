@@ -50,8 +50,11 @@ bool write(const std::string& since, std::string& path) {
     ++count;
   }
   if (count == 0) return false;
-  // The reading font has no arrow; menu paths read fine with ">".
-  for (size_t at; (at = text.find("\xE2\x86\x92")) != std::string::npos;) text.replace(at, 3, ">");
+  // The built-in reading fonts have the arrow (0.52.0); an SD-card font may not, and menu paths
+  // read fine with ">".
+  if (SETTINGS.sdFontFamilyName[0] != '\0') {
+    for (size_t at; (at = text.find("\xE2\x86\x92")) != std::string::npos;) text.replace(at, 3, ">");
+  }
   Storage.ensureDirectoryExists("/.vaultink");
   if (!Storage.writeFile(NOTE, String(text.c_str()))) return false;
   // The note's page cache is keyed by its path: drop it so the new text is laid out.

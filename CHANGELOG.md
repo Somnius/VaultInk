@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.52.0 (2026-10-30)
+
+Fixes and more lock options, from kos25k's first tries (#23, #22, #9).
+
+- **Reading stats counted nothing** when you left a book with Back or Home before the reader slept: only a sleep straight from the book saved the reading time. Now leaving the book saves it too, for EPUB, XTC/XTCH and CBZ.
+- **Lock screen options** (Settings → System): **Lock After Sleeping** (always, or after 5, 10, 15, 30 minutes, 1, 2 or 3 hours; 30 minutes as before), **Unlock Corner** (any, or one of the four; only that one is marked), and **Corner Hold** (0 = a single touch, up to 10 seconds).
+- **Symbols in the menus and update screen**: the interface fonts now have the task boxes ☐ ☑ and the arrows (→), so the release notes before an update show them instead of a box with a question mark. The reading fonts have the arrows now too, so What's New shows → instead of > (with an SD-card font it stays >).
+
+Tested in the simulator: reading a book, going home and then sleeping logged the session; the corner lock with bottom right and 3 seconds (the wrong corner and a short hold stay locked, 3 seconds opens it). The new font symbols are built for every built-in size; not looked at on the device yet.
+
+
 ## 0.51.0 (2026-10-30)
 
 Reading statistics on the sleep screen (kos25k #23).

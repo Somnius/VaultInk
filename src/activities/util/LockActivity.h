@@ -26,10 +26,14 @@ class LockActivity final : public Activity {
   void pressKey(int key);
   void digitsComplete();
   void unlocked();
+  bool inUnlockCorner(int x, int y) const;
 
   Mode mode;
   std::function<void()> onUnlock;
   bool cornerMode = false;
+  bool done = false;            // unlocked once already
+  bool holding = false;         // a finger is on the unlock corner
+  unsigned long holdSince = 0;  // millis() when it landed
   std::string digits;
   std::string firstPin;           // SetPin: the first entry, waiting for the repeat
   const char* message = nullptr;  // i18n string under the dots, or nullptr

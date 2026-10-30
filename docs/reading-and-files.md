@@ -223,6 +223,9 @@ there.
 - **Hold a corner**: the same times, the reader shows "Locked" and opens after a long press on any
   of the four corners. It keeps a stray tap in a bag from opening a book, but it's no protection.
 - **Change the PIN** shows up once a PIN is set; **Off** turns the lock off and deletes the PIN.
+- (0.52.0) **Lock After Sleeping**: always, or after 5, 10, 15, 30 minutes (the default), 1, 2 or
+  3 hours asleep. **Unlock Corner**: any corner, or only one (the only one marked). **Corner Hold**:
+  how long to hold it, from 0 (a single touch) to 10 seconds. All three are in Settings → System.
 
 Forgot the PIN? Take the SD card out and delete `/.vaultink/lock-pin.txt` on a computer: the PIN
 lock is then off. That's also why the PIN stops someone picking the reader up and reading, not

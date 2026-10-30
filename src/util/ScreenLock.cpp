@@ -77,7 +77,9 @@ bool lockAtBoot() {
   const uint64_t slept = APP_STATE.lockSleptAtUs;
   // A clock that went back means a cold start (battery out, power off): lock to be safe.
   if (slept == 0 || now < slept) return true;
-  return (now - slept) / 1000ULL >= LOCK_AFTER_MS;
+  const uint8_t idx = SETTINGS.lockAfter < 8 ? SETTINGS.lockAfter : 4;
+  const uint64_t afterMs = static_cast<uint64_t>(CrossPointSettings::LOCK_AFTER_MINUTES[idx]) * 60000ULL;
+  return (now - slept) / 1000ULL >= afterMs;
 }
 
 void setPending(const bool pending) {

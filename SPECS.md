@@ -130,7 +130,7 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
-- Reading log (0.51.0): lib/ReadingLog (host-tested) + src/util/ReadingStats. ReaderActivity::flushReaderSession
+- Reading log (0.51.0): lib/ReadingLog (host-tested) + src/util/ReadingStats. ReaderActivity::flushReaderSession (on exit and before sleep, 0.52.0)
   appends `start\tseconds\tprogressBp\tpath` to /.vaultink/reading-log.tsv for books (not .md/.txt) when the
   session is dated (trustedtime) and >= 10 s. Sleep mode READING_STATS = 9 streams it twice (totals and
   recent books; then the calendar book's last progress per local day, carried forward).
@@ -138,7 +138,10 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   /.vaultink/lock-pin.txt (no file = PIN lock off). enterDeepSleep stores esp_rtc_get_time_us() in
   `lockSleptAtUs`; setup() shows LockActivity first when asleep >= 30 min, the clock went back (cold
   start) or `lockPending` (the lock was up at sleep); unlocking runs the normal wake routing
-  (routeWake). Not on silent reboots, recovery or the crash report.
+  (routeWake). Not on silent reboots, recovery or the crash report. (0.52.0) `lockAfter` indexes
+  LOCK_AFTER_MINUTES {0,5,10,15,30,60,120,180}; `lockCorner` 0 any/1 TL/2 TR/3 BL/4 BR; `lockHoldSeconds`
+  0-10 timed with isScreenTouchHeld. Every built-in font carries U+2190-2193 (Noto Sans Symbols) and
+  U+2610-2612 (Noto Sans Symbols 2).
 - Gallery filter (0.45.0): `galleryFilter` 0 all / 1 .png / 2 under a vault root (vaultfiles::findVaults);
   gear (settings2 icon) at the header's right opens it. (0.48.0) 3 = chosen folders, listed in
   /.vaultink/gallery-folders.txt (only when the gallery root is "/"); Add a folder (PickFolder) and
