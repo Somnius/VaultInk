@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.42.0 (2026-10-30)
+
+The home button works on the first tap, and the companion app is one scan away.
+
+- The house at the top (kos25k #17) is easier to hit: its tap area is wider and reaches the very top edge, and a tap that slips a little no longer opens quick settings instead. A real pull-down still opens quick settings.
+- After What's New, the reader shows a QR code for the Android companion app (once per update). Scan it with your phone to get the app.
+
+Tested in the simulator: taps at the top edge, beside the icon and a short slip all went home, a long pull-down opened quick settings; the QR decoded to the companion page and showed only once. Not confirmed on the device yet.
+
+
 ## 0.41.2 (2026-10-30)
 
 - In the Gallery, tap a picture and choose **Set as sleep picture** (kos25k #21). Before, it was only on the Confirm button while viewing the picture, and the touch screen didn't show that.

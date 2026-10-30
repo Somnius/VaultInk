@@ -344,6 +344,27 @@ bool MappedInputManager::wasEdgeSwipe(const freeink::ui::ScreenEdge edge) const 
   return hit;
 }
 
+bool MappedInputManager::wasHeaderHomeTap() const {
+  float nx = 0.0f;
+  float ny = 0.0f;
+  if (gpio.wasTouchTap(nx, ny)) {
+    int x = 0;
+    int y = 0;
+    renderer.tapToLogical(nx, ny, x, y);
+    return HeaderHomeTapTarget::contains(x, y);
+  }
+  // On the glass a tap at the top edge often moves a few pixels and arrives as a swipe, which
+  // would open quick settings instead. Swipes start counting at about 60 px; a real pull-down for
+  // the panel is longer than 100 px (or starts away from the house).
+  int sx = 0;
+  int sy = 0;
+  int ex = 0;
+  int ey = 0;
+  if (!decodeSwipe(sx, sy, ex, ey) || !HeaderHomeTapTarget::contains(sx, sy)) return false;
+  constexpr int SLIP = 100;
+  return std::abs(ex - sx) < SLIP && std::abs(ey - sy) < SLIP;
+}
+
 bool MappedInputManager::wasBackGesture() const {
   // Tap on the header back button (rect recorded by BaseTheme::drawHeader;
   // empty on screens without one). Folded into Button::Back alongside the

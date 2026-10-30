@@ -4,9 +4,9 @@ The companion is an Android app that talks to the device over Wi-Fi, through the
 device runs while **File Transfer** is open. Its code is in [`companion/`](../companion/) in this
 repo, and it has its own releases, tagged `companion-x.y.z`.
 
-Status: `companion-0.1.0` is out (needs VaultInk 0.29.0 or newer on the device). Download the APK
-from the [companion-0.1.0 release](https://github.com/Somnius/VaultInk/releases/tag/companion-0.1.0)
-on the phone and open it. It's tested on one phone (Android 16) against the simulator, not yet
+Status: `companion-0.2.0` is out (needs VaultInk 0.29.0 or newer on the device). Download the APK
+from the [newest companion release](https://github.com/Somnius/VaultInk/releases?q=companion&expanded=true)
+on the phone and open it. After an update the reader shows a QR code that opens this page. It's tested on one phone (Android 16) against the simulator, not yet
 against a real X4 Pro. See "Tested so far" below.
 
 ## First start

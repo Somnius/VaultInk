@@ -33,7 +33,7 @@ On screens with the top bar (the Library, Settings, Browse Files, the quick sett
 rest), a small house sits in the middle, between the time and the battery (kos25k #17). Tap it to
 go to the home screen. It isn't drawn on book and note pages, where the top is text (swipe down for
 the panel, which has it), nor on the home screen itself, nor when the clock is set to the centre.
-Turn it off in **Settings → Display → Home Button at the Top**.
+Its tap area is wide and reaches the top edge, and a short slip of the finger counts as a tap (0.42.0); a longer pull-down still opens quick settings. Turn it off in **Settings → Display → Home Button at the Top**.
 
 ## Battery percent on the sleep screen
 

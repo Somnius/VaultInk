@@ -130,6 +130,9 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
+- Companion QR (0.42.0): `APP_STATE.companionQrPending` set with What's New; HomeActivity::onEnter shows
+  QrDisplayActivity with docs/companion.md once. Home tap (0.42.0): `wasHeaderHomeTap` = tap in the rect
+  (y 0 to under the strip, 48 px each side) or a swipe starting there shorter than 100 px.
 - Header home button (0.41.0): `BaseTheme::headerHomeRect` draws icon_house_24 at the strip's
   centre and records HeaderHomeTapTarget (like HeaderBackTapTarget); ActivityManager::loop goes home
   on a tap there (before the status-band quick-settings tap); hidden on the home screen; setting

@@ -397,8 +397,10 @@ bool BaseTheme::headerHomeRect(const freeink::ui::Rect band, freeink::ui::Rect& 
   }
   constexpr int16_t SIZE = 24;
   icon = freeink::ui::Rect{static_cast<int16_t>(band.x + (band.width - SIZE) / 2), band.y, SIZE, SIZE};
-  // A finger-sized target around the small icon, kept to the strip's top edge.
-  HeaderHomeTapTarget::set(icon.x - 20, icon.y, SIZE + 40, SIZE + 12);
+  // A finger-sized target: well beyond the small icon sideways, and from the very top edge of the
+  // screen (a finger lands above the icon as often as on it) to just under the strip.
+  constexpr int16_t SIDE = 48;
+  HeaderHomeTapTarget::set(icon.x - SIDE, 0, SIZE + 2 * SIDE, band.y + SIZE + 16);
   return true;
 }
 

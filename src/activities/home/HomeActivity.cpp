@@ -24,10 +24,14 @@
 #include "MappedInputManager.h"
 #include "OpdsServerStore.h"
 #include "RecentBooksStore.h"
+#include "activities/reader/QrDisplayActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/CbzCover.h"
 #include "util/VaultFiles.h"
+
+// The companion app's guide, which links its newest release (a fixed URL for the QR code).
+static constexpr char COMPANION_URL[] = "https://github.com/Somnius/VaultInk/blob/main/docs/companion.md";
 
 int HomeActivity::getMenuItemCount() const {
   int count = coverGridUi ? 4 : 5;  // File Browser, Library, (Gallery,) File transfer, Settings
@@ -255,6 +259,17 @@ void HomeActivity::loadRecentCovers(int coverHeight) {
 
 void HomeActivity::onEnter() {
   Activity::onEnter();
+
+  // After What's New: the companion app's QR, once per update.
+  if (APP_STATE.companionQrPending) {
+    APP_STATE.companionQrPending = 0;
+    APP_STATE.saveToFile();
+    if (auto qr = makeUniqueNoThrow<QrDisplayActivity>(renderer, mappedInput, COMPANION_URL, tr(STR_COMPANION_APP),
+                                                       tr(STR_COMPANION_APP_CAPTION))) {
+      startActivityForResult(std::move(qr), [this](const ActivityResult&) { requestUpdate(true); });
+      return;
+    }
+  }
 
   hasOpdsServers = OPDS_STORE.hasServers();
   // Plugin System is the global opt-in. Once enabled, expose the Plugins entry

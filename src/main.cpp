@@ -842,7 +842,10 @@ void setup() {
     // openEpubPath + lastSleepFromReader from a prior session.
     activityManager.goHome();
   } else if (std::string note; whatsnew::afterUpdate(note)) {
-    // The first boot after an update opens what changed (kos25k #9); Back leaves it.
+    // The first boot after an update opens what changed (kos25k #9); Back leaves it. Then the
+    // home screen offers the companion app once.
+    APP_STATE.companionQrPending = 1;
+    APP_STATE.saveToFile();
     activityManager.goToReader(note);
   } else if (livesyncdev::autoSyncDue() && joinSavedWifiForSync()) {
     // Automatic LiveSync on wake. The restart after it lands where this wake would have: the book

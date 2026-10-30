@@ -128,20 +128,11 @@ void ActivityManager::loop() {
   if (currentActivity) {
     // The house icon at the top of a header (kos25k #17): straight home, also from the quick
     // settings panel, whose own home gesture only closes it.
-    if (!HeaderHomeTapTarget::hidden && mappedInput.hasTouch()) {
-      float nx = 0.0f;
-      float ny = 0.0f;
-      if (gpio.wasTouchTap(nx, ny)) {
-        int tx = 0;
-        int ty = 0;
-        renderer.tapToLogical(nx, ny, tx, ty);
-        if (HeaderHomeTapTarget::contains(tx, ty)) {
-          haptic_feedback::touchAction();
-          HeaderHomeTapTarget::clear();
-          goHome();
-          return;
-        }
-      }
+    if (!HeaderHomeTapTarget::hidden && mappedInput.hasTouch() && mappedInput.wasHeaderHomeTap()) {
+      haptic_feedback::touchAction();
+      HeaderHomeTapTarget::clear();
+      goHome();
+      return;
     }
     if (!currentActivity->isHomeActivity() && mappedInput.wasHomeGesture()) {
       if (currentActivity->handleHomeGesture()) {
