@@ -77,7 +77,7 @@ bool CbzReaderActivity::handleFormatInput() {
   std::vector<cbz::Chapter> chapters;
   if (book.chapters.size() >= 2) chapters = book.chapters;
   startActivityForResult(
-      std::make_unique<CbzChapterActivity>(renderer, mappedInput, std::move(chapters), currentPage, rightToLeft),
+      std::make_unique<CbzChapterActivity>(renderer, mappedInput, std::move(chapters), currentPage, book.pages.size(), rightToLeft),
       [this](const ActivityResult& result) {
         if (!result.isCancelled) {
           const uint32_t page = std::get<PageResult>(result.data).page;

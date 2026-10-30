@@ -7,6 +7,10 @@
 
 namespace fui = freeink::ui;
 
+namespace {
+constexpr int16_t BAR_HEIGHT = 12;
+}
+
 void CbzChapterActivity::onEnter() {
   UiListActivity::onEnter();
   rows.clear();
@@ -38,11 +42,30 @@ void CbzChapterActivity::activateIndex(const int index) {
   finish();
 }
 
+// Over the rendered list, in the band buildScreen kept free.
+void CbzChapterActivity::drawFooter() {
+  UiListActivity::drawFooter();
+  if (pageCount == 0 || bar.width <= 2) return;
+  renderer.drawRect(bar.x, bar.y, bar.width, bar.height);
+  const int inner = bar.width - 2;
+  const int filled = static_cast<int>((static_cast<uint64_t>(currentPage) + 1) * inner / pageCount);
+  renderer.fillRect(rightToLeft ? bar.x + 1 + inner - filled : bar.x + 1, bar.y + 1, filled, bar.height - 2);
+  // White on the read part, black on the rest, so a tick shows on both.
+  for (const auto& chapter : chapters) {
+    if (chapter.firstPage == 0) continue;
+    const int offset = static_cast<int>(static_cast<uint64_t>(chapter.firstPage) * inner / pageCount);
+    const int x = rightToLeft ? bar.x + inner - offset : bar.x + 1 + offset;
+    renderer.fillRect(x, bar.y + 1, 1, bar.height - 2, chapter.firstPage > currentPage);
+  }
+}
+
 void CbzChapterActivity::buildScreen(UiScreen& screen) {
   const auto& metrics = UITheme::getInstance().getMetrics();
   screen.setContentMarginFromScreen(fui::Insets{static_cast<int16_t>(metrics.topPadding + metrics.headerHeight), 0,
                                                 static_cast<int16_t>(metrics.buttonHintsHeight), 0});
   screen.spacer(static_cast<int16_t>(metrics.verticalSpacing));
+  const auto side = static_cast<int16_t>(metrics.contentSidePadding);
+  bar = screen.takeTop(BAR_HEIGHT, static_cast<int16_t>(metrics.verticalSpacing)).inset(fui::Insets{0, side, 0, side});
   fui::ListProps props;
   props.items = rows.data();
   props.count = static_cast<uint16_t>(rows.size());

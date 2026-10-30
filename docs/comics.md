@@ -111,6 +111,6 @@ All in [Phase 1c of the roadmap](../ROADMAP.md):
 2. **Faster XTCH page turns**: since 0.36.1 an XTCH page made for the X4 / X4 Pro (480×800) is
    copied into the screen buffer a byte at a time instead of pixel by pixel. Still to do on the
    device: timing it, and the grayscale refresh.
-3. More for CBZ: ✅ chapters, covers, ✅ a page cache and PNG pages over 8 megapixels (0.53.0).
-   Next: chapter marks on the progress bar, landscape spreads.
+3. More for CBZ: ✅ chapters, covers, ✅ a page cache and PNG pages over 8 megapixels (0.53.0), landscape spreads shown
+   as two halves, a progress bar with chapter ticks at the top of the CBZ menu (next release).
 4. **Right-to-left** page order for manga, per book, and covers in the Library.
