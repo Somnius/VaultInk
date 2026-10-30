@@ -39,6 +39,12 @@ bool extractText(const Source& source, const Inflate& inflate,
                  const std::function<void(size_t pageIndex, size_t pageCount, const std::string& text)>& page,
                  Result* result = nullptr, const Limits& limits = Limits());
 
+// What goes between a page and the next one in a flowing text. A page that stops in the middle of a
+// sentence (no closing punctuation, and the next page starts with a lower-case letter) continues with a
+// space, and a trailing hyphen between two letters is dropped so the word is whole; otherwise a paragraph
+// break. May shorten `previous`.
+std::string pageSeparator(std::string& previous, const std::string& next);
+
 // UTF-8 of a code point (exposed for tests).
 void appendUtf8(std::string& out, uint32_t cp);
 

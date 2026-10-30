@@ -92,13 +92,22 @@ Status ensureText(const GfxRenderer& renderer, const std::string& pdfPath, std::
     popup = GUI.drawPopup(renderer, tr(STR_PDF_READING));
   }
   bool writeOk = true;
+  std::string pending;  // the last page with text, held back until the next one says how they join
+  const auto flushPending = [&](const std::string& next) {
+    if (pending.empty()) return;
+    const std::string separator = next.empty() ? std::string("\n\n") : pdf::pageSeparator(pending, next);
+    writeOk = writeOk && out.write(pending.data(), pending.size()) == pending.size() &&
+              (separator.empty() || out.write(separator.data(), separator.size()) == separator.size());
+    pending.clear();
+  };
   pdf::Result result;
   const bool opened = pdf::extractText(
       src, inflateZlib,
       [&](size_t page, size_t pages, const std::string& text) {
         delay(1);  // a long file takes a while; let the other tasks run
-        if (!text.empty() && writeOk) {
-          writeOk = out.write(text.data(), text.size()) == text.size() && out.write("\n\n", 2) == 2;
+        if (!text.empty()) {
+          flushPending(text);
+          pending = text;
         }
         if (pages > 0 && (page % 4 == 0 || page + 1 == pages)) {
           RenderLock lock;
@@ -106,6 +115,7 @@ Status ensureText(const GfxRenderer& renderer, const std::string& pdfPath, std::
         }
       },
       &result);
+  flushPending("");
   out.flush();
   out.close();
   source.close();

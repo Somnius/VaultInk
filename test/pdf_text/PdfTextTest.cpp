@@ -215,3 +215,23 @@ TEST(PdfText, WrongStreamLengthIsRecovered) {
   ASSERT_TRUE(run.ok);
   EXPECT_EQ(run.text, "Short length");
 }
+
+TEST(PdfText, PagesJoinInTheMiddleOfASentence) {
+  std::string prev = "the keeper climbed the";
+  EXPECT_EQ(pdf::pageSeparator(prev, "stairs and"), " ");
+  prev = "He counted the steps.";
+  EXPECT_EQ(pdf::pageSeparator(prev, "then the door"), "\n\n");  // a full stop ends the paragraph
+  prev = "a sentence ends here";
+  EXPECT_EQ(pdf::pageSeparator(prev, "The next one"), "\n\n");  // the next page starts a new sentence
+  prev = "a hyphen-";
+  EXPECT_EQ(pdf::pageSeparator(prev, "ated word"), "");
+  EXPECT_EQ(prev, "a hyphen");
+  prev = "an en dash -";
+  EXPECT_EQ(pdf::pageSeparator(prev, "dash"), "\n\n");  // a lone dash isn't a hyphenated word
+  prev = "ο φάρος στέκεται στην άκρη του";
+  EXPECT_EQ(pdf::pageSeparator(prev, "νησιού, και"), " ");  // Greek lower case continues
+  prev = "ο φάρος";
+  EXPECT_EQ(pdf::pageSeparator(prev, "Η καλημέρα"), "\n\n");
+  prev = "";
+  EXPECT_EQ(pdf::pageSeparator(prev, "text"), "");
+}

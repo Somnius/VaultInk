@@ -1,6 +1,7 @@
 #include "PdfText.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -12,6 +13,47 @@
 #include <vector>
 
 namespace pdf {
+
+std::string pageSeparator(std::string& previous, const std::string& next) {
+  if (previous.empty() || next.empty()) return "";
+  // The last and first code points as bytes: a letter is ASCII or any multi-byte character that isn't
+  // typographic punctuation (U+2000-U+206F, U+00B7, U+037E), good enough to tell "mid-sentence".
+  const auto lastCodePoint = [](const std::string& s) {
+    size_t i = s.size() - 1;
+    while (i > 0 && (static_cast<uint8_t>(s[i]) & 0xC0) == 0x80) --i;
+    uint32_t cp = static_cast<uint8_t>(s[i]);
+    size_t extra = cp >= 0xF0 ? 3 : cp >= 0xE0 ? 2 : cp >= 0xC0 ? 1 : 0;
+    if (extra) cp &= 0x3F >> extra;
+    for (size_t k = 1; k <= extra && i + k < s.size(); ++k) cp = (cp << 6) | (static_cast<uint8_t>(s[i + k]) & 0x3F);
+    return cp;
+  };
+  const auto isLetter = [](uint32_t cp) {
+    if (cp < 0x80) return std::isalpha(static_cast<int>(cp)) != 0;
+    if (cp == 0xB7 || cp == 0x37E || (cp >= 0x2000 && cp <= 0x206F) || cp == 0xAB || cp == 0xBB) return false;
+    return cp >= 0xC0;
+  };
+  const auto isLower = [](uint32_t cp) {
+    if (cp < 0x80) return std::islower(static_cast<int>(cp)) != 0;
+    // Greek lower case and the Latin-1 and Latin Extended lower-case blocks, enough for the common cases.
+    return (cp >= 0x3AC && cp <= 0x3CE) || (cp >= 0xDF && cp <= 0xFF && cp != 0xF7) || (cp >= 0x430 && cp <= 0x45F);
+  };
+  const uint32_t last = lastCodePoint(previous);
+  // The first code point of `next`.
+  uint32_t first = static_cast<uint8_t>(next[0]);
+  if (first >= 0xC0 && next.size() >= 2) {
+    const size_t extra = first >= 0xF0 ? 3 : first >= 0xE0 ? 2 : 1;
+    first &= 0x3F >> extra;
+    for (size_t k = 1; k <= extra && k < next.size(); ++k)
+      first = (first << 6) | (static_cast<uint8_t>(next[k]) & 0x3F);
+  }
+  if (last == '-' && previous.size() >= 2 && isLetter(lastCodePoint(previous.substr(0, previous.size() - 1))) &&
+      isLower(first)) {
+    previous.pop_back();
+    return "";
+  }
+  if ((isLetter(last) || last == ',') && isLower(first)) return " ";
+  return "\n\n";
+}
 
 void appendUtf8(std::string& out, uint32_t cp) {
   if (cp < 0x80) {
