@@ -6,10 +6,10 @@ scope is in [SCOPE.md](SCOPE.md). VaultInk is a fork of CrossPoint Reader; its u
 
 Status: ✅ done · 🚧 in progress · ⏳ next · 💤 later · ❌ dropped
 
-**Where it stands (0.30.0, 2026-10-29):** Phases 0-3 are done in software; what is left there
+**Where it stands (0.35.3, 2026-10-30):** Phases 0-3 are done in software; what is left there
 needs the device (timings, certificate checks against real servers, refresh behaviour). Phase 4 is
-done: ticking tasks, new/rename/delete notes, the line editor, and sending changes back to LiveSync. Phase 6 (Android companion) is in progress: `companion-0.1.0` is out, tested against the
-simulator on one phone (see [docs/companion.md](docs/companion.md)). Everything since 0.19.0
+done: ticking tasks, new/rename/delete notes, the line editor, and sending changes back to LiveSync. Phase 6 (Android companion) is in progress: `companion-0.2.0` is out (with the comic converter
+inside), tested against the simulator on one phone (see [docs/companion.md](docs/companion.md)). Everything since 0.19.0
 is tested in the simulator and on the host. kos25k confirmed on his X4 Pro (2026-10-28, issues
 #1-#12): paper backgrounds, line spacing, Hide Status Bar, sleep battery %, the file explorer,
 What's New, Even Word Gaps, the book card tap/long press, the Text panel rows and the gallery's
@@ -20,6 +20,26 @@ Target device: Xteink X4 Pro only. Until the device arrives, testing is in the s
 and host tests.
 
 ---
+
+## Next (reviewed by Gemini and Grok, 2026-10-30)
+
+In this order, each also listed in its phase below:
+
+1. kos25k #18: the Library's Author tab folded into one folder per author (names compared without
+   case), and the tab order chosen in Settings → Library.
+2. kos25k #17: a home button in the status bar, between the time and the battery, on every screen.
+3. 1c.2: faster XTCH page turns (pages are drawn pixel by pixel today).
+4. 1c.1: Share to VaultInk from other apps into /Comics (name clash, full card, dropped Wi-Fi).
+5. companion-0.3.0: the outbox (shares and notes kept until the reader is reachable), "Not now"
+   in the update dialog, the update check without a reader.
+6. Phase 1 leftovers: recent notes on the home, heading anchors in the index, a note rebuilt when
+   an embedded note changes, checkbox glyphs for tasks.
+7. Phase 4 leftover: links rewritten when a note is renamed.
+
+Waiting on kos25k: #16 (File Transfer address not found, 0.35.3) and #19 (justified text like
+KOReader; VaultInk has no "word expansion" yet). Device-only: the dimmer, LiveSync certificates
+and PBKDF2 timing, the hardware checklist. Reading statistics (L) stays behind the list: no issue
+asks for it.
 
 ## 🚧 Phase 0 - Setup
 
@@ -141,7 +161,7 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
 * Built as a new home style and made the default; CrossPoint's styles stay selectable for now.
 * 🚧 Quick settings on CrossPoint's control centre (status-bar tap, top swipe or a bound button):
   done: Sleep / Transfer / Home tiles, book title and live progress over an EPUB, TXT or note
-  (they share the EPUB reader), and ✅ (0.15.0) over an XTC book. To do: Sync tile (Phase 3).
+  (they share the EPUB reader), and ✅ (0.15.0) over an XTC book. ✅ Sync tile (0.21.0, Phase 3).
 * ⏳ Dimmer lowest light (kos25k): tried in 0.8.11 as 11-bit PWM at 25 kHz; on his device the light
   then neither changed nor switched off, so 0.8.11 was withdrawn and reverted. Next: find why the
   11-bit LEDC setup fails on the device (clock source / ledcAttach result) before trying again.
@@ -411,7 +431,7 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
 * ✅ In this repo, `companion/` (`com.lefteros.vaultink`), Kotlin + Compose, signed release APK.
   Its releases are tagged `companion-x.y.z` and never marked Latest.
 * ✅ Finding the device: last address, `vaultink.local`, then mDNS (the device now announces
-  `vaultink` and `_http._tcp`; uncommitted firmware change for 0.29.0).
+  `vaultink` and `_http._tcp`, since 0.29.0).
 * ✅ Note tab: quick note into a vault folder, share target for text and pictures (pictures to
   `attachments/`, linked with `![[...]]`).
 * ✅ Files tab: browse the whole card, upload and download with a progress bar, new folder,
@@ -424,7 +444,7 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   and a one-line hint on each tab; reviewed with Gemini and Grok.
 * ✅ Simulator: deletes from the app got a garbled path (request arguments freed by the main loop
   while the handler ran on the simulator's server thread); fixed for simulator builds only.
-* ✅ Firmware for 0.29.0 (uncommitted): notes uploaded, renamed, moved or deleted through the web
+* ✅ Firmware 0.29.0: notes uploaded, renamed, moved or deleted through the web
   server in `/Vaults` are marked changed for LiveSync; the OTA check ignores non-firmware tags.
 * ⏳ Phone test of the intro, then a real X4 Pro over Wi-Fi when it arrives: mDNS, transfers and
   their progress bar at Wi-Fi speed; installing an app update once a second companion release exists.

@@ -82,8 +82,8 @@ and cover.
 
 All in [Phase 1c of the roadmap](../ROADMAP.md):
 
-1. A **Convert a comic** button in the companion app that opens the converter, and **Share to
-   VaultInk** for converted files, uploading them straight to /Comics.
+1. **Share to VaultInk** from other apps for converted files, uploading them straight to /Comics
+   (converting inside the companion app is done, see above).
 2. **Faster XTCH page turns**: pages are drawn pixel by pixel today, which is slow. The grayscale
    refresh will also be checked on the device.
 3. A **CBZ reader** for comics copied without converting (JPEG and PNG pages; CBR and WebP won't
