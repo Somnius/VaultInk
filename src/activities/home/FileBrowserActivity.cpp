@@ -114,7 +114,8 @@ void FileBrowserActivity::loadFiles() {
         }
       } else if (FsHelpers::hasReflowableBookExtension(filename) || FsHelpers::hasXtcExtension(filename) ||
                  FsHelpers::hasCbzExtension(filename) || FsHelpers::hasImageExtension(filename) ||
-                 FsHelpers::hasCanvasExtension(filename) || FsHelpers::checkFileExtension(filename, ".zip")) {
+                 FsHelpers::hasCanvasExtension(filename) || FsHelpers::hasPdfExtension(filename) ||
+                 FsHelpers::checkFileExtension(filename, ".zip")) {
         files.emplace_back(filename);
       }
     }

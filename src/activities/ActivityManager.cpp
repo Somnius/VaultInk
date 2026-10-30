@@ -36,6 +36,7 @@
 #include "util/BmpViewerActivity.h"
 #include "util/FrontlightPanelActivity.h"
 #include "util/FullScreenMessageActivity.h"
+#include "util/PdfConvert.h"
 #include "util/VaultEdit.h"
 #include "util/WelcomeGuideActivity.h"
 #include "vault/CanvasActivity.h"
@@ -381,6 +382,19 @@ void ActivityManager::goToReader(std::string path, const bool allowFastInitialRe
     }
     replaceActivity(std::move(activity));
     return;
+  }
+
+  // A PDF is read as text: converted once on the card, then the text file opens like a book.
+  if (FsHelpers::hasPdfExtension(path)) {
+    std::string textPath;
+    const auto status = pdfconvert::ensureText(renderer, path, textPath);
+    if (status != pdfconvert::Status::Ok) {
+      pdfconvert::showFailure(renderer, status);
+      const size_t slash = path.find_last_of('/');
+      goToFileBrowser(slash == std::string::npos || slash == 0 ? "/" : path.substr(0, slash));
+      return;
+    }
+    path = std::move(textPath);
   }
 
   if (FsHelpers::hasImageExtension(path)) {

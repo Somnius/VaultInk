@@ -334,3 +334,21 @@ After an update, the first start opens a note with what changed since the versio
 What's New** opens the last twelve releases any time, and **Show What's New After Updates** turns
 the note after updates off. Updating from 0.23.0 or older shows only the newest release's notes,
 because older versions didn't remember which version they were.
+
+## PDF as text (next release)
+
+A `.pdf` in **Browse Files** (or a `[[Rules.pdf]]` link in a note) opens as text: the first time, VaultInk reads the
+PDF's text and writes it to a text file on the card (`/.vaultink/pdf/<id>/<name>.txt`, with a progress bar), then
+opens that file in the book reader. So it reflows, hyphenates, and keeps your place like any book. Opening it again
+is instant until the PDF changes.
+
+What it reads: the text of every page, in the order the PDF draws it, with Greek and other scripts when the PDF carries
+its text properly (most do), and the filled-in values of form fields (a character sheet's name, clan and so on, after the
+page's text). It checked out on 30 real PDFs (character sheets, notes saved from a phone, print exports): all opened, and
+the word count matched the desktop tool `pdftotext` within a few percent on 28 of them.
+
+What it doesn't: pictures, tables as tables, columns (two columns can come out interleaved), page numbers as pages, and
+scans without a text layer. A scan says "This PDF has no text to read". An encrypted PDF says so too. It isn't in the
+Library or Continue card (the text file lives outside the folders those scan); open it again from Browse Files or its
+link.
+

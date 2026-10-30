@@ -68,6 +68,7 @@ inline bool hasTxtExtension(const String& fileName) {
 bool hasMarkdownExtension(std::string_view fileName);
 // Obsidian canvas (JSON Canvas 1.0), opened by the canvas viewer.
 bool hasCanvasExtension(std::string_view fileName);
+bool hasPdfExtension(std::string_view fileName);  // read as text (src/util/PdfConvert)
 
 bool hasReflowableBookExtension(std::string_view fileName);
 

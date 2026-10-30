@@ -1,0 +1,1429 @@
+#include "PdfText.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <map>
+#include <memory>
+#include <set>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
+
+namespace pdf {
+
+void appendUtf8(std::string& out, uint32_t cp) {
+  if (cp < 0x80) {
+    out += static_cast<char>(cp);
+  } else if (cp < 0x800) {
+    out += static_cast<char>(0xC0 | (cp >> 6));
+    out += static_cast<char>(0x80 | (cp & 0x3F));
+  } else if (cp < 0x10000) {
+    out += static_cast<char>(0xE0 | (cp >> 12));
+    out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+    out += static_cast<char>(0x80 | (cp & 0x3F));
+  } else if (cp <= 0x10FFFF) {
+    out += static_cast<char>(0xF0 | (cp >> 18));
+    out += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
+    out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+    out += static_cast<char>(0x80 | (cp & 0x3F));
+  }
+}
+
+namespace {
+
+// ---------------------------------------------------------------------------------------------
+// Objects
+
+struct Obj {
+  enum Type : uint8_t { Null, Bool, Int, Real, Name, Str, Arr, Dict, Ref, Stream } type = Null;
+  int64_t i = 0;  // Int, Bool, Ref number
+  double r = 0;   // Real
+  uint32_t gen = 0;
+  std::string s;  // Name, Str
+  std::vector<Obj> a;
+  std::map<std::string, Obj> d;  // Dict and Stream
+  uint64_t streamPos = 0;        // Stream: file offset of the data
+  int64_t streamLen = -1;        // Stream: /Length when it was a direct number, else -1 until resolved
+
+  bool isNum() const { return type == Int || type == Real; }
+  double num() const { return type == Int ? static_cast<double>(i) : r; }
+  bool isDict() const { return type == Dict || type == Stream; }
+  const Obj* get(const std::string& key) const {
+    if (!isDict()) return nullptr;
+    const auto it = d.find(key);
+    return it == d.end() ? nullptr : &it->second;
+  }
+};
+
+bool isWhite(char c) { return c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == '\f' || c == '\0'; }
+bool isDelim(char c) {
+  return c == '(' || c == ')' || c == '<' || c == '>' || c == '[' || c == ']' || c == '{' || c == '}' || c == '/' ||
+         c == '%';
+}
+
+int hexVal(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+// Tokenizer and object parser over a byte buffer. `truncated` is set when the buffer ended inside an
+// object, so the caller can read more and try again.
+class Lexer {
+ public:
+  explicit Lexer(std::string_view buf, size_t pos = 0) : buf(buf), pos(pos) {}
+  size_t position() const { return pos; }
+  void seek(size_t p) { pos = p; }
+  bool truncated = false;
+
+  void skipSpace() {
+    while (pos < buf.size()) {
+      if (isWhite(buf[pos])) {
+        ++pos;
+      } else if (buf[pos] == '%') {
+        while (pos < buf.size() && buf[pos] != '\n' && buf[pos] != '\r') ++pos;
+      } else {
+        break;
+      }
+    }
+  }
+  bool atEnd() {
+    skipSpace();
+    return pos >= buf.size();
+  }
+
+  // A bare word (keyword or operator): letters, digits and the rest up to a delimiter.
+  std::string_view word() {
+    skipSpace();
+    const size_t start = pos;
+    while (pos < buf.size() && !isWhite(buf[pos]) && !isDelim(buf[pos])) ++pos;
+    return buf.substr(start, pos - start);
+  }
+
+  bool peekIs(std::string_view w) {
+    skipSpace();
+    return buf.substr(pos, w.size()) == w;
+  }
+
+  // Parses one object. Names, numbers, strings, arrays, dictionaries and "n g R" references. Returns false
+  // at a keyword (operator) or on error, leaving `kw` with the keyword when it was one.
+  bool object(Obj& out, std::string_view* kw = nullptr, int depth = 0) {
+    if (depth > 24) return false;
+    skipSpace();
+    if (pos >= buf.size()) {
+      truncated = true;
+      return false;
+    }
+    const char c = buf[pos];
+    if (c == '/') {
+      ++pos;
+      out = Obj();
+      out.type = Obj::Name;
+      while (pos < buf.size() && !isWhite(buf[pos]) && !isDelim(buf[pos])) {
+        if (buf[pos] == '#' && pos + 2 < buf.size() && hexVal(buf[pos + 1]) >= 0 && hexVal(buf[pos + 2]) >= 0) {
+          out.s += static_cast<char>(hexVal(buf[pos + 1]) * 16 + hexVal(buf[pos + 2]));
+          pos += 3;
+        } else {
+          out.s += buf[pos++];
+        }
+      }
+      return true;
+    }
+    if (c == '(') return literalString(out);
+    if (c == '<' && pos + 1 < buf.size() && buf[pos + 1] == '<') return dict(out, depth);
+    if (c == '<') return hexString(out);
+    if (c == '[') {
+      ++pos;
+      out = Obj();
+      out.type = Obj::Arr;
+      while (true) {
+        skipSpace();
+        if (pos >= buf.size()) {
+          truncated = true;
+          return false;
+        }
+        if (buf[pos] == ']') {
+          ++pos;
+          return true;
+        }
+        Obj item;
+        std::string_view word;
+        if (!object(item, &word, depth + 1)) {
+          if (word == "true" || word == "false" || word == "null") continue;
+          if (truncated) return false;
+          if (!word.empty()) continue;  // a stray keyword inside an array: skip it
+          return false;
+        }
+        out.a.push_back(std::move(item));
+        if (out.a.size() > 200000) return false;
+      }
+    }
+    if (c == ']' || c == '>' || c == ')' || c == '{' || c == '}') {
+      ++pos;
+      return false;
+    }
+    // number, boolean, null, reference or keyword
+    const std::string_view w = word();
+    if (w.empty()) return false;
+    const bool numeric = (w[0] >= '0' && w[0] <= '9') || w[0] == '+' || w[0] == '-' || w[0] == '.';
+    if (numeric) {
+      const std::string text(w);
+      char* end = nullptr;
+      const double v = std::strtod(text.c_str(), &end);
+      if (end == text.c_str()) {
+        if (kw) *kw = w;
+        return false;
+      }
+      const bool isInt = text.find_first_of(".eE") == std::string::npos;
+      out = Obj();
+      if (isInt) {
+        out.type = Obj::Int;
+        out.i = static_cast<int64_t>(v);
+        // "n g R"?
+        if (out.i >= 0) {
+          const size_t save = pos;
+          const std::string_view w2 = word();
+          if (!w2.empty() && w2.find_first_not_of("0123456789") == std::string_view::npos && w2.size() < 6) {
+            const std::string_view w3 = word();
+            if (w3 == "R") {
+              out.type = Obj::Ref;
+              out.gen = static_cast<uint32_t>(std::strtoul(std::string(w2).c_str(), nullptr, 10));
+              return true;
+            }
+          }
+          pos = save;
+        }
+      } else {
+        out.type = Obj::Real;
+        out.r = v;
+      }
+      return true;
+    }
+    if (w == "true" || w == "false") {
+      out = Obj();
+      out.type = Obj::Bool;
+      out.i = w == "true";
+      return true;
+    }
+    if (w == "null") {
+      out = Obj();
+      return true;
+    }
+    if (kw) *kw = w;
+    return false;
+  }
+
+ private:
+  bool dict(Obj& out, int depth) {
+    pos += 2;
+    out = Obj();
+    out.type = Obj::Dict;
+    while (true) {
+      skipSpace();
+      if (pos >= buf.size()) {
+        truncated = true;
+        return false;
+      }
+      if (buf.substr(pos, 2) == ">>") {
+        pos += 2;
+        return true;
+      }
+      Obj key;
+      if (buf[pos] != '/' || !object(key, nullptr, depth + 1)) return false;
+      Obj value;
+      std::string_view word;
+      if (!object(value, &word, depth + 1)) {
+        if (truncated) return false;
+        if (word == "endobj" || word == "stream") return false;
+        continue;  // a key without a value
+      }
+      out.d[key.s] = std::move(value);
+    }
+  }
+
+  bool literalString(Obj& out) {
+    ++pos;
+    out = Obj();
+    out.type = Obj::Str;
+    int nesting = 1;
+    while (pos < buf.size()) {
+      const char c = buf[pos++];
+      if (c == '\\') {
+        if (pos >= buf.size()) break;
+        const char e = buf[pos++];
+        switch (e) {
+          case 'n':
+            out.s += '\n';
+            break;
+          case 'r':
+            out.s += '\r';
+            break;
+          case 't':
+            out.s += '\t';
+            break;
+          case 'b':
+            out.s += '\b';
+            break;
+          case 'f':
+            out.s += '\f';
+            break;
+          case '\r':
+            if (pos < buf.size() && buf[pos] == '\n') ++pos;
+            break;
+          case '\n':
+            break;
+          default:
+            if (e >= '0' && e <= '7') {
+              int v = e - '0';
+              for (int k = 0; k < 2 && pos < buf.size() && buf[pos] >= '0' && buf[pos] <= '7'; ++k) {
+                v = v * 8 + (buf[pos++] - '0');
+              }
+              out.s += static_cast<char>(v & 0xFF);
+            } else {
+              out.s += e;
+            }
+        }
+      } else if (c == '(') {
+        ++nesting;
+        out.s += c;
+      } else if (c == ')') {
+        if (--nesting == 0) return true;
+        out.s += c;
+      } else {
+        out.s += c;
+      }
+    }
+    truncated = true;
+    return false;
+  }
+
+  bool hexString(Obj& out) {
+    ++pos;
+    out = Obj();
+    out.type = Obj::Str;
+    int high = -1;
+    while (pos < buf.size()) {
+      const char c = buf[pos++];
+      if (c == '>') {
+        if (high >= 0) out.s += static_cast<char>(high * 16);
+        return true;
+      }
+      const int v = hexVal(c);
+      if (v < 0) continue;
+      if (high < 0) {
+        high = v;
+      } else {
+        out.s += static_cast<char>(high * 16 + v);
+        high = -1;
+      }
+    }
+    truncated = true;
+    return false;
+  }
+
+  std::string_view buf;
+  size_t pos;
+};
+
+// ---------------------------------------------------------------------------------------------
+// The file: cross-reference table, objects, streams
+
+struct XEntry {
+  enum Kind : uint8_t { Free, InFile, InStream } kind = Free;
+  uint64_t offset = 0;  // InFile
+  uint32_t stream = 0;  // InStream: the object stream's number
+  uint32_t index = 0;   // InStream: position inside it
+};
+
+class Doc {
+ public:
+  Doc(const Source& src, const Inflate& inflate, const Limits& limits) : src(src), inflate(inflate), limits(limits) {}
+
+  bool open(Result& result) {
+    if (src.size < 20) return false;
+    std::string head;
+    if (!readRange(0, std::min<uint64_t>(1024, src.size), head) || head.find("%PDF-") == std::string::npos) {
+      return false;
+    }
+    uint64_t xref = 0;
+    if (!findStartXref(xref)) {
+      result.xrefFailed = true;
+      return false;
+    }
+    std::set<uint64_t> seen;
+    bool first = true;
+    while (xref != 0 && !seen.count(xref) && seen.size() < 200) {
+      seen.insert(xref);
+      Obj trailer;
+      if (!readXref(xref, trailer)) {
+        result.xrefFailed = first;
+        if (first) return false;
+        break;
+      }
+      if (first) {
+        root = trailerRoot(trailer);
+        first = false;
+        if (trailer.get("Encrypt")) {
+          result.encrypted = true;
+          return false;
+        }
+      }
+      const Obj* prev = trailer.get("Prev");
+      xref = prev && prev->isNum() ? static_cast<uint64_t>(prev->num()) : 0;
+    }
+    if (root == 0) {
+      result.xrefFailed = true;
+      return false;
+    }
+    return true;
+  }
+
+  // Loads object `num`. Streams keep their data position; the data is read with streamData().
+  bool load(uint32_t num, Obj& out, int depth = 0) {
+    if (depth > 8) return false;
+    const auto cached = cache.find(num);
+    if (cached != cache.end()) {
+      out = cached->second;
+      return true;
+    }
+    const auto it = xref.find(num);
+    if (it == xref.end()) return false;
+    bool ok = false;
+    if (it->second.kind == XEntry::InFile) {
+      ok = loadAt(it->second.offset, num, out, depth);
+    } else if (it->second.kind == XEntry::InStream) {
+      ok = loadFromObjStm(it->second.stream, it->second.index, num, out, depth);
+    }
+    if (ok && out.type != Obj::Stream) {
+      if (cache.size() > 600) cache.clear();
+      cache[num] = out;
+    }
+    return ok;
+  }
+
+  // Follows references until a direct object (or gives up and returns Null).
+  Obj resolve(const Obj& o) {
+    Obj cur = o;
+    for (int hops = 0; cur.type == Obj::Ref && hops < 8; ++hops) {
+      Obj next;
+      if (!load(static_cast<uint32_t>(cur.i), next)) return Obj();
+      cur = std::move(next);
+    }
+    return cur.type == Obj::Ref ? Obj() : cur;
+  }
+
+  Obj resolveKey(const Obj& dict, const std::string& key) {
+    const Obj* v = dict.get(key);
+    return v ? resolve(*v) : Obj();
+  }
+
+  // The decoded bytes of a stream object. False for filters this reader doesn't do.
+  bool streamData(const Obj& stream, std::string& out) {
+    out.clear();
+    if (stream.type != Obj::Stream) return false;
+    int64_t len = stream.streamLen;
+    if (const Obj* l = stream.get("Length")) {
+      const Obj v = resolve(*l);
+      if (v.type == Obj::Int) len = v.i;
+    }
+    std::string raw;
+    if (len < 0 || static_cast<uint64_t>(len) > limits.maxStreamBytes * 2 || stream.streamPos + len > src.size ||
+        !readRange(stream.streamPos, static_cast<size_t>(len), raw)) {
+      // A wrong /Length: read up to "endstream".
+      if (!scanToEndstream(stream.streamPos, raw)) return false;
+    } else {
+      // A /Length that stops short of "endstream" is also seen; trust it when "endstream" follows.
+    }
+    std::vector<std::string> filters;
+    std::vector<Obj> parms;
+    collectFilters(stream, filters, parms);
+    std::string data = std::move(raw);
+    for (size_t f = 0; f < filters.size(); ++f) {
+      if (filters[f] == "ASCII85Decode" || filters[f] == "A85") {
+        std::string decoded;
+        if (!ascii85(data, decoded)) return false;
+        data = std::move(decoded);
+        continue;
+      }
+      if (filters[f] == "ASCIIHexDecode" || filters[f] == "AHx") {
+        std::string decoded;
+        int high = -1;
+        for (const char c : data) {
+          if (c == '>') break;
+          const int v = hexVal(c);
+          if (v < 0) continue;
+          if (high < 0) {
+            high = v;
+          } else {
+            decoded += static_cast<char>(high * 16 + v);
+            high = -1;
+          }
+        }
+        if (high >= 0) decoded += static_cast<char>(high * 16);
+        data = std::move(decoded);
+        continue;
+      }
+      if (filters[f] != "FlateDecode" && filters[f] != "Fl") return false;
+      std::string inflated;
+      if (!inflate(reinterpret_cast<const uint8_t*>(data.data()), data.size(), inflated, limits.maxStreamBytes)) {
+        return false;
+      }
+      data = std::move(inflated);
+      if (f < parms.size() && parms[f].isDict()) {
+        const Obj p = resolveKey(parms[f], "Predictor");
+        if (p.isNum() && p.num() >= 10) {
+          const Obj cols = resolveKey(parms[f], "Columns");
+          const Obj colors = resolveKey(parms[f], "Colors");
+          const Obj bpc = resolveKey(parms[f], "BitsPerComponent");
+          const int columns = cols.isNum() ? static_cast<int>(cols.num()) : 1;
+          const int pixelBytes = std::max(1, (colors.isNum() ? static_cast<int>(colors.num()) : 1) *
+                                                 (bpc.isNum() ? static_cast<int>(bpc.num()) : 8) / 8);
+          if (!pngPredictor(data, columns * pixelBytes, pixelBytes)) return false;
+        }
+      }
+    }
+    out = std::move(data);
+    return true;
+  }
+
+  uint32_t rootNum() const { return root; }
+
+ private:
+  bool readRange(uint64_t offset, size_t len, std::string& out) {
+    if (offset + len > src.size) return false;
+    out.resize(len);
+    return len == 0 || src.read(offset, reinterpret_cast<uint8_t*>(&out[0]), len);
+  }
+
+  bool scanToEndstream(uint64_t pos, std::string& out) {
+    out.clear();
+    std::string chunk;
+    uint64_t at = pos;
+    while (at < src.size && out.size() <= limits.maxStreamBytes * 2) {
+      const size_t n = static_cast<size_t>(std::min<uint64_t>(16384, src.size - at));
+      if (!readRange(at, n, chunk)) return false;
+      out += chunk;
+      const size_t e = out.find("endstream");
+      if (e != std::string::npos) {
+        out.resize(e);
+        while (!out.empty() && (out.back() == '\n' || out.back() == '\r')) out.pop_back();
+        return true;
+      }
+      at += n;
+    }
+    return false;
+  }
+
+  void collectFilters(const Obj& stream, std::vector<std::string>& filters, std::vector<Obj>& parms) {
+    Obj f = resolveKey(stream, "Filter");
+    if (f.type == Obj::Null) f = resolveKey(stream, "F");
+    Obj p = resolveKey(stream, "DecodeParms");
+    if (p.type == Obj::Null) p = resolveKey(stream, "DP");
+    if (f.type == Obj::Name) {
+      filters.push_back(f.s);
+      parms.push_back(p);
+    } else if (f.type == Obj::Arr) {
+      for (size_t k = 0; k < f.a.size(); ++k) {
+        const Obj fk = resolve(f.a[k]);
+        filters.push_back(fk.s);
+        parms.push_back(p.type == Obj::Arr && k < p.a.size() ? resolve(p.a[k]) : (k == 0 ? p : Obj()));
+      }
+    }
+  }
+
+  static bool ascii85(const std::string& in, std::string& out) {
+    uint32_t group[5];
+    int n = 0;
+    size_t i = 0;
+    if (in.compare(0, 2, "<~") == 0) i = 2;
+    for (; i < in.size(); ++i) {
+      const char c = in[i];
+      if (isWhite(c)) continue;
+      if (c == '~') break;
+      if (c == 'z' && n == 0) {
+        out.append(4, '\0');
+        continue;
+      }
+      if (c < '!' || c > 'u') return false;
+      group[n++] = static_cast<uint32_t>(c - '!');
+      if (n == 5) {
+        uint32_t v = 0;
+        for (int k = 0; k < 5; ++k) v = v * 85 + group[k];
+        for (int k = 3; k >= 0; --k) out += static_cast<char>((v >> (8 * k)) & 0xFF);
+        n = 0;
+      }
+    }
+    if (n > 1) {
+      for (int k = n; k < 5; ++k) group[k] = 84;
+      uint32_t v = 0;
+      for (int k = 0; k < 5; ++k) v = v * 85 + group[k];
+      for (int k = 3; k > 4 - n; --k) out += static_cast<char>((v >> (8 * k)) & 0xFF);
+    }
+    return true;
+  }
+
+  static bool pngPredictor(std::string& data, int rowBytes, int pixelBytes) {
+    if (rowBytes <= 0) return false;
+    const size_t stride = static_cast<size_t>(rowBytes) + 1;
+    const size_t rows = data.size() / stride;
+    std::string out(rows * static_cast<size_t>(rowBytes), '\0');
+    for (size_t row = 0; row < rows; ++row) {
+      const uint8_t filter = static_cast<uint8_t>(data[row * stride]);
+      const uint8_t* in = reinterpret_cast<const uint8_t*>(&data[row * stride + 1]);
+      uint8_t* cur = reinterpret_cast<uint8_t*>(&out[row * rowBytes]);
+      const uint8_t* up = row ? cur - rowBytes : nullptr;
+      for (int x = 0; x < rowBytes; ++x) {
+        const int a = x >= pixelBytes ? cur[x - pixelBytes] : 0;
+        const int b = up ? up[x] : 0;
+        const int c = up && x >= pixelBytes ? up[x - pixelBytes] : 0;
+        int v = in[x];
+        switch (filter) {
+          case 0:
+            break;
+          case 1:
+            v += a;
+            break;
+          case 2:
+            v += b;
+            break;
+          case 3:
+            v += (a + b) / 2;
+            break;
+          case 4: {
+            const int p = a + b - c;
+            const int pa = std::abs(p - a), pb = std::abs(p - b), pc = std::abs(p - c);
+            v += (pa <= pb && pa <= pc) ? a : (pb <= pc ? b : c);
+            break;
+          }
+          default:
+            return false;
+        }
+        cur[x] = static_cast<uint8_t>(v & 0xFF);
+      }
+    }
+    data = std::move(out);
+    return true;
+  }
+
+  bool findStartXref(uint64_t& out) {
+    const size_t n = static_cast<size_t>(std::min<uint64_t>(2048, src.size));
+    std::string tail;
+    if (!readRange(src.size - n, n, tail)) return false;
+    const size_t at = tail.rfind("startxref");
+    if (at == std::string::npos) return false;
+    Lexer lx(tail, at + 9);
+    Obj v;
+    if (!lx.object(v) || v.type != Obj::Int || v.i <= 0) return false;
+    out = static_cast<uint64_t>(v.i);
+    return true;
+  }
+
+  static uint32_t trailerRoot(const Obj& trailer) {
+    const Obj* r = trailer.get("Root");
+    return r && r->type == Obj::Ref ? static_cast<uint32_t>(r->i) : 0;
+  }
+
+  // Reads "N G obj <object> [stream]" at `offset`; the buffer window grows until the object fits.
+  bool loadAt(uint64_t offset, uint32_t expectNum, Obj& out, int depth) {
+    for (size_t window = 8192; window <= (1u << 21); window *= 4) {
+      const size_t n = static_cast<size_t>(std::min<uint64_t>(window, src.size - std::min(offset, src.size)));
+      std::string buf;
+      if (n == 0 || !readRange(offset, n, buf)) return false;
+      Lexer lx(buf);
+      Obj numObj, genObj;
+      if (!lx.object(numObj) || numObj.type != Obj::Int) return false;
+      if (!lx.object(genObj) || genObj.type != Obj::Int) return false;
+      if (lx.word() != "obj") return false;
+      if (expectNum != 0 && static_cast<uint32_t>(numObj.i) != expectNum) return false;
+      if (!lx.object(out)) {
+        if (lx.truncated && n == window && offset + n < src.size) continue;
+        return false;
+      }
+      if (out.type == Obj::Dict && lx.peekIs("stream")) {
+        lx.word();
+        size_t p = lx.position();
+        if (p < buf.size() && buf[p] == '\r') ++p;
+        if (p < buf.size() && buf[p] == '\n') ++p;
+        out.type = Obj::Stream;
+        out.streamPos = offset + p;
+        const Obj* len = out.get("Length");
+        out.streamLen = len && len->type == Obj::Int ? len->i : -1;
+      }
+      (void)depth;
+      return true;
+    }
+    return false;
+  }
+
+  bool loadFromObjStm(uint32_t stmNum, uint32_t index, uint32_t wantNum, Obj& out, int depth) {
+    if (cachedStm != stmNum) {
+      Obj stm;
+      if (!load(stmNum, stm, depth + 1) || stm.type != Obj::Stream) return false;
+      if (!streamData(stm, stmData)) {
+        cachedStm = 0;
+        return false;
+      }
+      cachedStm = stmNum;
+      stmN = 0;
+      stmFirst = 0;
+      const Obj n = resolveKey(stm, "N");
+      const Obj first = resolveKey(stm, "First");
+      if (n.type != Obj::Int || first.type != Obj::Int || n.i < 0 || n.i > 100000) {
+        cachedStm = 0;
+        return false;
+      }
+      stmN = static_cast<size_t>(n.i);
+      stmFirst = static_cast<size_t>(first.i);
+    }
+    Lexer head(stmData);
+    size_t offset = 0;
+    bool found = false;
+    for (size_t k = 0; k < stmN; ++k) {
+      Obj on, oo;
+      if (!head.object(on) || !head.object(oo)) return false;
+      if (k == index || static_cast<uint32_t>(on.i) == wantNum) {
+        if (static_cast<uint32_t>(on.i) != wantNum) continue;
+        offset = static_cast<size_t>(oo.i);
+        found = true;
+        break;
+      }
+    }
+    if (!found || stmFirst + offset >= stmData.size()) return false;
+    Lexer lx(stmData, stmFirst + offset);
+    return lx.object(out);
+  }
+
+  bool readXref(uint64_t offset, Obj& trailer) {
+    std::string head;
+    if (!readRange(offset, static_cast<size_t>(std::min<uint64_t>(16, src.size - std::min(offset, src.size))), head)) {
+      return false;
+    }
+    if (head.compare(0, 4, "xref") == 0) return readXrefTable(offset, trailer);
+    return readXrefStream(offset, trailer);
+  }
+
+  bool readXrefTable(uint64_t offset, Obj& trailer) {
+    uint64_t pos = offset + 4;
+    while (true) {
+      std::string buf;
+      const size_t n = static_cast<size_t>(std::min<uint64_t>(4096, src.size - std::min(pos, src.size)));
+      if (n == 0 || !readRange(pos, n, buf)) return false;
+      Lexer lx(buf);
+      lx.skipSpace();
+      if (lx.peekIs("trailer")) {
+        lx.word();
+        if (!lx.object(trailer)) {
+          // A big trailer: read it with more room.
+          std::string bigger;
+          if (!readRange(pos, static_cast<size_t>(std::min<uint64_t>(65536, src.size - pos)), bigger)) return false;
+          Lexer l2(bigger);
+          l2.word();
+          if (!l2.object(trailer)) return false;
+        }
+        if (const Obj* stm = trailer.get("XRefStm")) {
+          Obj ignored;
+          if (stm->isNum()) readXrefStream(static_cast<uint64_t>(stm->num()), ignored);
+        }
+        return trailer.isDict();
+      }
+      Obj startObj, countObj;
+      if (!lx.object(startObj) || !lx.object(countObj) || startObj.type != Obj::Int || countObj.type != Obj::Int) {
+        return false;
+      }
+      uint64_t entriesAt = pos + lx.position();
+      // Entries are 20 bytes each, after the newline that ends the subsection line.
+      std::string tmp;
+      if (!readRange(entriesAt, std::min<uint64_t>(4, src.size - entriesAt), tmp)) return false;
+      size_t skip = 0;
+      while (skip < tmp.size() && isWhite(tmp[skip])) ++skip;
+      entriesAt += skip;
+      for (int64_t k = 0; k < countObj.i; ++k) {
+        std::string entry;
+        if (!readRange(entriesAt + static_cast<uint64_t>(k) * 20, 20, entry)) return false;
+        const uint32_t num = static_cast<uint32_t>(startObj.i + k);
+        if (entry[17] == 'n' && !xref.count(num)) {
+          XEntry e;
+          e.kind = XEntry::InFile;
+          e.offset = std::strtoull(entry.substr(0, 10).c_str(), nullptr, 10);
+          xref[num] = e;
+        } else if (entry[17] == 'f' && !xref.count(num)) {
+          xref[num] = XEntry();
+        }
+      }
+      pos = entriesAt + static_cast<uint64_t>(countObj.i) * 20;
+    }
+  }
+
+  bool readXrefStream(uint64_t offset, Obj& trailer) {
+    Obj stm;
+    if (!loadAt(offset, 0, stm, 0) || stm.type != Obj::Stream) return false;
+    const Obj type = resolveKey(stm, "Type");
+    if (type.s != "XRef") return false;
+    std::string data;
+    if (!streamData(stm, data)) return false;
+    const Obj w = resolveKey(stm, "W");
+    if (w.type != Obj::Arr || w.a.size() != 3) return false;
+    const int w0 = static_cast<int>(w.a[0].num()), w1 = static_cast<int>(w.a[1].num()),
+              w2 = static_cast<int>(w.a[2].num());
+    if (w0 < 0 || w1 < 0 || w2 < 0 || w0 > 8 || w1 > 8 || w2 > 8 || w0 + w1 + w2 == 0) return false;
+    const Obj size = resolveKey(stm, "Size");
+    std::vector<std::pair<int64_t, int64_t>> ranges;
+    const Obj index = resolveKey(stm, "Index");
+    if (index.type == Obj::Arr) {
+      for (size_t k = 0; k + 1 < index.a.size(); k += 2) {
+        ranges.emplace_back(static_cast<int64_t>(index.a[k].num()), static_cast<int64_t>(index.a[k + 1].num()));
+      }
+    } else {
+      ranges.emplace_back(0, size.isNum() ? static_cast<int64_t>(size.num()) : 0);
+    }
+    const size_t rowLen = static_cast<size_t>(w0 + w1 + w2);
+    size_t at = 0;
+    const auto field = [&](int width) {
+      uint64_t v = 0;
+      for (int k = 0; k < width; ++k) v = (v << 8) | static_cast<uint8_t>(data[at++]);
+      return v;
+    };
+    for (const auto& [start, count] : ranges) {
+      for (int64_t k = 0; k < count; ++k) {
+        if (at + rowLen > data.size()) break;
+        const uint64_t t = w0 ? field(w0) : 1;
+        const uint64_t f2 = field(w1);
+        const uint64_t f3 = field(w2);
+        const uint32_t num = static_cast<uint32_t>(start + k);
+        if (xref.count(num)) continue;
+        XEntry e;
+        if (t == 1) {
+          e.kind = XEntry::InFile;
+          e.offset = f2;
+        } else if (t == 2) {
+          e.kind = XEntry::InStream;
+          e.stream = static_cast<uint32_t>(f2);
+          e.index = static_cast<uint32_t>(f3);
+        }
+        xref[num] = e;
+      }
+    }
+    trailer = stm;
+    return true;
+  }
+
+  const Source& src;
+  const Inflate& inflate;
+  const Limits& limits;
+  std::unordered_map<uint32_t, XEntry> xref;
+  std::unordered_map<uint32_t, Obj> cache;
+  uint32_t root = 0;
+  uint32_t cachedStm = 0;
+  std::string stmData;
+  size_t stmN = 0, stmFirst = 0;
+};
+
+// ---------------------------------------------------------------------------------------------
+// Fonts
+
+struct Font {
+  bool twoByte = false;
+  std::unordered_map<uint32_t, std::string> toUnicode;  // code -> UTF-8
+  bool hasToUnicode = false;
+  std::string simple[256];  // simple fonts without a ToUnicode map
+  bool simpleReady = false;
+  // Glyph widths in 1/1000 em, to know where a string ends and so where a word space is.
+  double defaultWidth = 500;
+  int firstChar = 0;
+  std::vector<double> widths;                      // simple fonts, from FirstChar
+  std::unordered_map<uint32_t, double> cidWidths;  // CID fonts
+  double width(uint32_t code) const {
+    if (twoByte) {
+      const auto it = cidWidths.find(code);
+      return it == cidWidths.end() ? defaultWidth : it->second;
+    }
+    const int k = static_cast<int>(code) - firstChar;
+    return k >= 0 && static_cast<size_t>(k) < widths.size() ? widths[static_cast<size_t>(k)] : defaultWidth;
+  }
+};
+
+// cp1252 for 0x80-0x9F, latin-1 elsewhere.
+uint32_t winAnsi(uint8_t c) {
+  static const uint16_t high[32] = {0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,
+                                    0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x008D, 0x017D, 0x008F,
+                                    0x0090, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+                                    0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178};
+  return c >= 0x80 && c < 0xA0 ? high[c - 0x80] : c;
+}
+
+uint32_t glyphNameToUnicode(const std::string& n) {
+  static const std::map<std::string, uint32_t> names = {{"space", 32},
+                                                        {"exclam", 33},
+                                                        {"quotedbl", 34},
+                                                        {"numbersign", 35},
+                                                        {"dollar", 36},
+                                                        {"percent", 37},
+                                                        {"ampersand", 38},
+                                                        {"quotesingle", 39},
+                                                        {"parenleft", 40},
+                                                        {"parenright", 41},
+                                                        {"asterisk", 42},
+                                                        {"plus", 43},
+                                                        {"comma", 44},
+                                                        {"hyphen", 45},
+                                                        {"minus", 0x2212},
+                                                        {"period", 46},
+                                                        {"slash", 47},
+                                                        {"zero", 48},
+                                                        {"one", 49},
+                                                        {"two", 50},
+                                                        {"three", 51},
+                                                        {"four", 52},
+                                                        {"five", 53},
+                                                        {"six", 54},
+                                                        {"seven", 55},
+                                                        {"eight", 56},
+                                                        {"nine", 57},
+                                                        {"colon", 58},
+                                                        {"semicolon", 59},
+                                                        {"less", 60},
+                                                        {"equal", 61},
+                                                        {"greater", 62},
+                                                        {"question", 63},
+                                                        {"at", 64},
+                                                        {"bracketleft", 91},
+                                                        {"backslash", 92},
+                                                        {"bracketright", 93},
+                                                        {"underscore", 95},
+                                                        {"grave", 96},
+                                                        {"braceleft", 123},
+                                                        {"bar", 124},
+                                                        {"braceright", 125},
+                                                        {"asciitilde", 126},
+                                                        {"endash", 0x2013},
+                                                        {"emdash", 0x2014},
+                                                        {"quoteleft", 0x2018},
+                                                        {"quoteright", 0x2019},
+                                                        {"quotedblleft", 0x201C},
+                                                        {"quotedblright", 0x201D},
+                                                        {"bullet", 0x2022},
+                                                        {"ellipsis", 0x2026},
+                                                        {"fi", 0xFB01},
+                                                        {"fl", 0xFB02},
+                                                        {"eacute", 0xE9},
+                                                        {"egrave", 0xE8},
+                                                        {"agrave", 0xE0},
+                                                        {"aacute", 0xE1},
+                                                        {"ccedilla", 0xE7},
+                                                        {"ntilde", 0xF1},
+                                                        {"odieresis", 0xF6},
+                                                        {"udieresis", 0xFC},
+                                                        {"adieresis", 0xE4},
+                                                        {"germandbls", 0xDF}};
+  if (n.size() == 1) return static_cast<uint8_t>(n[0]);
+  if (n.size() == 7 && n.compare(0, 3, "uni") == 0)
+    return static_cast<uint32_t>(std::strtoul(n.c_str() + 3, nullptr, 16));
+  const auto it = names.find(n);
+  if (it != names.end()) return it->second;
+  return 0;
+}
+
+void parseToUnicode(const std::string& cmap, Font& font) {
+  Lexer lx(cmap);
+  const auto hexCode = [](const Obj& o, uint32_t& code, size_t& bytes) {
+    if (o.type != Obj::Str || o.s.empty() || o.s.size() > 4) return false;
+    code = 0;
+    for (const char c : o.s) code = (code << 8) | static_cast<uint8_t>(c);
+    bytes = o.s.size();
+    return true;
+  };
+  const auto utf16ToUtf8 = [](const std::string& s) {
+    std::string out;
+    for (size_t k = 0; k + 1 < s.size(); k += 2) {
+      uint32_t u = (static_cast<uint8_t>(s[k]) << 8) | static_cast<uint8_t>(s[k + 1]);
+      if (u >= 0xD800 && u < 0xDC00 && k + 3 < s.size()) {
+        const uint32_t lo = (static_cast<uint8_t>(s[k + 2]) << 8) | static_cast<uint8_t>(s[k + 3]);
+        u = 0x10000 + ((u - 0xD800) << 10) + (lo - 0xDC00);
+        k += 2;
+      }
+      appendUtf8(out, u);
+    }
+    return out;
+  };
+  size_t maxBytes = 0;
+  while (!lx.atEnd()) {
+    Obj o;
+    std::string_view kw;
+    if (lx.object(o, &kw)) continue;
+    if (kw == "beginbfchar") {
+      while (true) {
+        Obj src, dst;
+        std::string_view k2;
+        if (!lx.object(src, &k2)) break;
+        if (!lx.object(dst, &k2)) break;
+        uint32_t code;
+        size_t bytes;
+        if (hexCode(src, code, bytes) && dst.type == Obj::Str) {
+          font.toUnicode[code] = utf16ToUtf8(dst.s);
+          maxBytes = std::max(maxBytes, bytes);
+        }
+      }
+    } else if (kw == "beginbfrange") {
+      while (true) {
+        Obj lo, hi, dst;
+        std::string_view k2;
+        if (!lx.object(lo, &k2)) break;
+        if (!lx.object(hi, &k2)) break;
+        if (!lx.object(dst, &k2)) break;
+        uint32_t a, b;
+        size_t bytes;
+        if (!hexCode(lo, a, bytes) || !hexCode(hi, b, bytes) || b < a || b - a > 0xFFFF) continue;
+        maxBytes = std::max(maxBytes, bytes);
+        if (dst.type == Obj::Str) {
+          std::string base = dst.s;
+          for (uint32_t c = a; c <= b; ++c) {
+            font.toUnicode[c] = utf16ToUtf8(base);
+            // Increment the last UTF-16 unit.
+            if (base.size() >= 2) {
+              for (size_t p = base.size(); p-- > base.size() - 2;) {
+                if (++reinterpret_cast<uint8_t&>(base[p]) != 0) break;
+              }
+            }
+          }
+        } else if (dst.type == Obj::Arr) {
+          for (uint32_t c = a; c <= b && c - a < dst.a.size(); ++c) font.toUnicode[c] = utf16ToUtf8(dst.a[c - a].s);
+        }
+      }
+    }
+  }
+  font.hasToUnicode = !font.toUnicode.empty();
+  if (maxBytes >= 2) font.twoByte = true;
+}
+
+void loadWidths(Doc& doc, const Obj& fontDict, Font& font) {
+  if (font.twoByte) {
+    const Obj desc = doc.resolveKey(fontDict, "DescendantFonts");
+    const Obj cid = desc.type == Obj::Arr && !desc.a.empty() ? doc.resolve(desc.a[0]) : Obj();
+    if (!cid.isDict()) return;
+    const Obj dw = doc.resolveKey(cid, "DW");
+    font.defaultWidth = dw.isNum() ? dw.num() : 1000;
+    const Obj w = doc.resolveKey(cid, "W");
+    if (w.type != Obj::Arr) return;
+    for (size_t k = 0; k < w.a.size() && font.cidWidths.size() < 70000;) {
+      const Obj first = doc.resolve(w.a[k]);
+      const Obj second = k + 1 < w.a.size() ? doc.resolve(w.a[k + 1]) : Obj();
+      if (!first.isNum()) break;
+      if (second.type == Obj::Arr) {
+        for (size_t j = 0; j < second.a.size(); ++j) {
+          font.cidWidths[static_cast<uint32_t>(first.num()) + static_cast<uint32_t>(j)] =
+              doc.resolve(second.a[j]).num();
+        }
+        k += 2;
+      } else if (second.isNum() && k + 2 < w.a.size()) {
+        const double width = doc.resolve(w.a[k + 2]).num();
+        const uint32_t a = static_cast<uint32_t>(first.num());
+        const uint32_t b = static_cast<uint32_t>(second.num());
+        for (uint32_t c = a; c <= b && c - a < 70000; ++c) font.cidWidths[c] = width;
+        k += 3;
+      } else {
+        break;
+      }
+    }
+    return;
+  }
+  const Obj first = doc.resolveKey(fontDict, "FirstChar");
+  const Obj widths = doc.resolveKey(fontDict, "Widths");
+  if (first.isNum()) font.firstChar = static_cast<int>(first.num());
+  if (widths.type == Obj::Arr) {
+    for (const Obj& item : widths.a) font.widths.push_back(doc.resolve(item).num());
+  }
+  const Obj desc = doc.resolveKey(fontDict, "FontDescriptor");
+  if (desc.isDict()) {
+    const Obj missing = doc.resolveKey(desc, "MissingWidth");
+    if (missing.isNum() && missing.num() > 0) font.defaultWidth = missing.num();
+  }
+}
+
+Font loadFont(Doc& doc, const Obj& fontDict) {
+  Font font;
+  const Obj subtype = doc.resolveKey(fontDict, "Subtype");
+  if (subtype.s == "Type0") font.twoByte = true;
+  loadWidths(doc, fontDict, font);
+  const Obj toUni = doc.resolveKey(fontDict, "ToUnicode");
+  if (toUni.type == Obj::Stream) {
+    std::string cmap;
+    if (doc.streamData(toUni, cmap)) parseToUnicode(cmap, font);
+  }
+  if (font.twoByte || font.hasToUnicode) return font;
+  // A simple font by its encoding.
+  const Obj enc = doc.resolveKey(fontDict, "Encoding");
+  for (int c = 0; c < 256; ++c) {
+    if (c < 32 && c != '\t') continue;  // control codes show nothing unless a Differences entry says so
+    std::string s;
+    appendUtf8(s, winAnsi(static_cast<uint8_t>(c)));
+    font.simple[c] = s;
+  }
+  if (enc.isDict()) {
+    const Obj diff = doc.resolveKey(enc, "Differences");
+    if (diff.type == Obj::Arr) {
+      int code = 0;
+      for (const Obj& item : diff.a) {
+        const Obj v = doc.resolve(item);
+        if (v.type == Obj::Int) {
+          code = static_cast<int>(v.i);
+        } else if (v.type == Obj::Name && code >= 0 && code < 256) {
+          const uint32_t u = glyphNameToUnicode(v.s);
+          if (u) {
+            std::string s;
+            appendUtf8(s, u);
+            font.simple[code] = s;
+          }
+          ++code;
+        }
+      }
+    }
+  }
+  font.simpleReady = true;
+  return font;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Content streams
+
+struct TextOut {
+  std::string text;
+  double lastY = 0;
+  bool haveY = false;
+  double fontSize = 10;
+  size_t maxBytes = 0;
+
+  bool full() const { return text.size() >= maxBytes; }
+
+  void gap(double y, double size, bool needSpace) {
+    if (!haveY) {
+      haveY = true;
+      lastY = y;
+      return;
+    }
+    const double dy = std::fabs(y - lastY);
+    const double ref = std::max(size, 1.0);
+    if (dy > 0.4 * ref) {
+      // A new line: a paragraph when the gap is wide, the line joins otherwise (a hyphen at the end goes).
+      if (dy > 1.9 * ref) {
+        while (!text.empty() && text.back() == ' ') text.pop_back();
+        text += "\n\n";
+      } else if (text.size() >= 2 && text.back() == '-' && text[text.size() - 2] != ' ' &&
+                 static_cast<uint8_t>(text[text.size() - 2]) >= 0x41) {
+        text.pop_back();
+      } else if (!text.empty() && text.back() != ' ' && text.back() != '\n') {
+        text += ' ';
+      }
+    } else if (needSpace && !text.empty() && text.back() != ' ' && text.back() != '\n') {
+      text += ' ';
+    }
+    lastY = y;
+  }
+};
+
+struct Matrix {
+  double a = 1, b = 0, c = 0, d = 1, e = 0, f = 0;
+};
+
+// p' = p x M, row vectors as in the PDF spec: the result applies m first and then n.
+Matrix multiply(const Matrix& m, const Matrix& n) {
+  return Matrix{m.a * n.a + m.b * n.c, m.a * n.b + m.b * n.d,       m.c * n.a + m.d * n.c,
+                m.c * n.b + m.d * n.d, m.e * n.a + m.f * n.c + n.e, m.e * n.b + m.f * n.d + n.f};
+}
+
+class Interpreter {
+ public:
+  Interpreter(Doc& doc, std::unordered_map<uint32_t, std::unique_ptr<Font>>& fonts, TextOut& out)
+      : doc(doc), fonts(fonts), out(out) {}
+
+  void run(const std::string& content, const Obj& resources, int depth, const Matrix& base = Matrix()) {
+    if (depth > 3) return;
+    Lexer lx(content);
+    std::vector<Obj> stack;
+    Font* font = nullptr;
+    double size = 10;
+    Matrix tm, line;
+    Matrix ctm = base;
+    std::vector<Matrix> saved;
+    double leading = 0, charSpace = 0, wordSpace = 0, hScale = 1;
+    double endE = 0;
+    bool haveEnd = false;
+    const Obj fontDict = doc.resolveKey(resources, "Font");
+    const Obj xobjects = doc.resolveKey(resources, "XObject");
+
+    const auto num = [&](size_t k) { return k < stack.size() ? stack[k].num() : 0.0; };
+    const auto move = [&](double textX) {  // the text position along its line
+      tm.e += textX * tm.a;
+      tm.f += textX * tm.b;
+    };
+    const auto showBytes = [&](const std::string& s) {
+      if (!font || out.full()) return;
+      const Matrix trm = multiply(tm, ctm);  // text space to the page
+      const double unit = size * std::hypot(trm.a, trm.b);
+      bool needSpace = false;
+      if (haveEnd) {
+        const double gap = trm.e - endE;  // where the last glyph ended against where this string starts
+        needSpace = gap > 0.15 * unit || gap < -2 * unit;
+      }
+      out.gap(trm.f, size * std::max(std::fabs(trm.d), std::fabs(trm.c)), needSpace);
+      double advance = 0;
+      if (font->twoByte) {
+        for (size_t k = 0; k + 1 < s.size(); k += 2) {
+          const uint32_t code = (static_cast<uint8_t>(s[k]) << 8) | static_cast<uint8_t>(s[k + 1]);
+          const auto it = font->toUnicode.find(code);
+          if (it != font->toUnicode.end()) out.text += it->second;
+          advance += (font->width(code) / 1000.0 * size + charSpace) * hScale;
+        }
+      } else {
+        for (const char ch : s) {
+          const uint8_t b = static_cast<uint8_t>(ch);
+          if (font->hasToUnicode) {
+            const auto it = font->toUnicode.find(b);
+            if (it != font->toUnicode.end()) {
+              out.text += it->second;
+            } else if (b >= 32 && b < 127) {
+              out.text += ch;
+            }
+          } else {
+            out.text += font->simple[b];
+          }
+          advance += (font->width(b) / 1000.0 * size + charSpace + (b == 32 ? wordSpace : 0)) * hScale;
+        }
+      }
+      move(advance);
+      endE = multiply(tm, ctm).e;
+      haveEnd = true;
+    };
+
+    std::string_view kw;
+    while (!lx.atEnd() && !out.full()) {
+      Obj o;
+      if (lx.object(o, &kw)) {
+        stack.push_back(std::move(o));
+        if (stack.size() > 64) stack.erase(stack.begin());
+        continue;
+      }
+      if (kw.empty()) {
+        if (lx.truncated) break;
+        continue;  // a stray delimiter
+      }
+      const std::string op(kw);
+      kw = std::string_view();
+      if (op == "BT") {
+        tm = Matrix();
+        line = Matrix();
+      } else if (op == "q") {
+        if (saved.size() < 64) saved.push_back(ctm);
+      } else if (op == "Q") {
+        if (!saved.empty()) {
+          ctm = saved.back();
+          saved.pop_back();
+        }
+      } else if (op == "cm" && stack.size() >= 6) {
+        ctm = multiply(Matrix{num(0), num(1), num(2), num(3), num(4), num(5)}, ctm);
+      } else if (op == "Tf" && stack.size() >= 2) {
+        size = num(stack.size() - 1);
+        const Obj nameObj = stack[stack.size() - 2];
+        font = nullptr;
+        if (const Obj* ref = fontDict.get(nameObj.s)) {
+          const uint32_t key = ref->type == Obj::Ref ? static_cast<uint32_t>(ref->i) : 0;
+          auto it = key ? fonts.find(key) : fonts.end();
+          if (it == fonts.end()) {
+            auto loaded = std::make_unique<Font>(loadFont(doc, doc.resolve(*ref)));
+            font = loaded.get();
+            if (key)
+              fonts[key] = std::move(loaded);
+            else
+              inlineFonts.push_back(std::move(loaded));
+          } else {
+            font = it->second.get();
+          }
+        }
+      } else if (op == "Td" && stack.size() >= 2) {
+        line.e += num(0) * line.a + num(1) * line.c;
+        line.f += num(0) * line.b + num(1) * line.d;
+        tm = line;
+      } else if (op == "TD" && stack.size() >= 2) {
+        leading = -num(1);
+        line.e += num(0) * line.a + num(1) * line.c;
+        line.f += num(0) * line.b + num(1) * line.d;
+        tm = line;
+      } else if (op == "Tm" && stack.size() >= 6) {
+        tm = line = Matrix{num(0), num(1), num(2), num(3), num(4), num(5)};
+      } else if (op == "T*") {
+        line.f -= leading * line.d;
+        tm = line;
+      } else if (op == "TL" && !stack.empty()) {
+        leading = num(0);
+      } else if (op == "Tc" && !stack.empty()) {
+        charSpace = num(0);
+      } else if (op == "Tw" && !stack.empty()) {
+        wordSpace = num(0);
+      } else if (op == "Tz" && !stack.empty()) {
+        hScale = num(0) / 100.0;
+      } else if (op == "Tj" && !stack.empty()) {
+        showBytes(stack.back().s);
+      } else if (op == "'" || op == "\"") {
+        line.f -= leading * line.d;
+        tm = line;
+        if (!stack.empty()) showBytes(stack.back().s);
+      } else if (op == "TJ" && !stack.empty() && stack.back().type == Obj::Arr) {
+        for (const Obj& item : stack.back().a) {
+          if (item.type == Obj::Str) {
+            showBytes(item.s);
+          } else if (item.isNum()) {
+            move(-item.num() / 1000.0 * size * hScale);
+            endE = multiply(tm, ctm).e;
+            if (item.num() < -200 && !out.text.empty() && out.text.back() != ' ') out.text += ' ';  // a word space
+          }
+        }
+      } else if (op == "Do" && !stack.empty() && stack.back().type == Obj::Name) {
+        if (const Obj* ref = xobjects.get(stack.back().s)) {
+          const Obj form = doc.resolve(*ref);
+          if (form.type == Obj::Stream && doc.resolveKey(form, "Subtype").s == "Form") {
+            std::string data;
+            if (doc.streamData(form, data)) {
+              const Obj res = doc.resolveKey(form, "Resources");
+              Matrix formMatrix;
+              const Obj fm = doc.resolveKey(form, "Matrix");
+              if (fm.type == Obj::Arr && fm.a.size() == 6) {
+                formMatrix =
+                    Matrix{fm.a[0].num(), fm.a[1].num(), fm.a[2].num(), fm.a[3].num(), fm.a[4].num(), fm.a[5].num()};
+              }
+              run(data, res.isDict() ? res : resources, depth + 1, multiply(formMatrix, ctm));
+            }
+          }
+        }
+      }
+      stack.clear();
+    }
+  }
+
+ private:
+  Doc& doc;
+  std::unordered_map<uint32_t, std::unique_ptr<Font>>& fonts;
+  std::vector<std::unique_ptr<Font>> inlineFonts;
+  TextOut& out;
+};
+
+// ---------------------------------------------------------------------------------------------
+// Pages
+
+void collectPages(Doc& doc, const Obj& node, const Obj& inheritedResources, std::vector<std::pair<Obj, Obj>>& pages,
+                  std::set<const void*>& seenDepth, int depth, size_t maxPages) {
+  (void)seenDepth;
+  if (depth > 32 || pages.size() >= maxPages) return;
+  Obj resources = inheritedResources;
+  const Obj own = doc.resolveKey(node, "Resources");
+  if (own.isDict()) resources = own;
+  const Obj type = doc.resolveKey(node, "Type");
+  const Obj kids = doc.resolveKey(node, "Kids");
+  if (kids.type == Obj::Arr && type.s != "Page") {
+    for (const Obj& kid : kids.a) {
+      const Obj child = doc.resolve(kid);
+      if (child.isDict()) collectPages(doc, child, resources, pages, seenDepth, depth + 1, maxPages);
+      if (pages.size() >= maxPages) return;
+    }
+    return;
+  }
+  if (node.isDict()) pages.emplace_back(node, resources);
+}
+
+}  // namespace
+
+bool extractText(const Source& source, const Inflate& inflate,
+                 const std::function<void(size_t, size_t, const std::string&)>& page, Result* resultOut,
+                 const Limits& limits) {
+  Result result;
+  Doc doc(source, inflate, limits);
+  const bool opened = doc.open(result);
+  if (!opened) {
+    if (resultOut) *resultOut = result;
+    return false;
+  }
+  Obj rootObj;
+  Obj pagesRoot;
+  if (!doc.load(doc.rootNum(), rootObj)) {
+    result.xrefFailed = true;
+    if (resultOut) *resultOut = result;
+    return false;
+  }
+  pagesRoot = doc.resolveKey(rootObj, "Pages");
+  std::vector<std::pair<Obj, Obj>> pages;
+  std::set<const void*> unused;
+  collectPages(doc, pagesRoot, Obj(), pages, unused, 0, limits.maxPages);
+  result.pages = pages.size();
+
+  std::unordered_map<uint32_t, std::unique_ptr<Font>> fonts;
+  for (size_t p = 0; p < pages.size(); ++p) {
+    const Obj& node = pages[p].first;
+    TextOut out;
+    out.maxBytes = limits.maxPageText;
+    const Obj contents = doc.resolveKey(node, "Contents");
+    std::string content;
+    const auto addStream = [&](const Obj& s) {
+      const Obj stream = doc.resolve(s);
+      std::string data;
+      if (stream.type == Obj::Stream && doc.streamData(stream, data)) {
+        content += data;
+        content += '\n';
+      }
+    };
+    if (contents.type == Obj::Stream) {
+      std::string data;
+      if (doc.streamData(contents, data)) content = std::move(data);
+    } else if (contents.type == Obj::Arr) {
+      for (const Obj& item : contents.a) addStream(item);
+    } else if (const Obj* raw = node.get("Contents")) {
+      addStream(*raw);
+    }
+    if (!content.empty()) {
+      Interpreter interp(doc, fonts, out);
+      interp.run(content, pages[p].second, 0);
+    }
+    // Filled-in form fields (a character sheet): "Name: value" after the page text.
+    const Obj annots = doc.resolveKey(node, "Annots");
+    if (annots.type == Obj::Arr) {
+      std::string fields;
+      for (const Obj& item : annots.a) {
+        const Obj annot = doc.resolve(item);
+        if (!annot.isDict() || fields.size() > 16384) continue;
+        const Obj value = doc.resolveKey(annot, "V");
+        if (value.type != Obj::Str || value.s.empty()) continue;
+        Obj name = doc.resolveKey(annot, "T");
+        if (name.type != Obj::Str) {
+          const Obj parent = doc.resolveKey(annot, "Parent");
+          if (parent.isDict()) name = doc.resolveKey(parent, "T");
+        }
+        const auto text = [](const std::string& raw) {
+          if (raw.size() >= 2 && static_cast<uint8_t>(raw[0]) == 0xFE && static_cast<uint8_t>(raw[1]) == 0xFF) {
+            std::string utf8;
+            for (size_t k = 2; k + 1 < raw.size(); k += 2) {
+              appendUtf8(utf8, (static_cast<uint8_t>(raw[k]) << 8) | static_cast<uint8_t>(raw[k + 1]));
+            }
+            return utf8;
+          }
+          std::string utf8;
+          for (const char c : raw) appendUtf8(utf8, static_cast<uint8_t>(c));
+          return utf8;
+        };
+        if (!fields.empty()) fields += '\n';
+        if (name.type == Obj::Str && !name.s.empty()) fields += text(name.s) + ": ";
+        fields += text(value.s);
+      }
+      if (!fields.empty()) {
+        if (!out.text.empty()) out.text += "\n\n";
+        out.text += fields;
+      }
+    }
+    while (!out.text.empty() && (out.text.back() == ' ' || out.text.back() == '\n')) out.text.pop_back();
+    if (!out.text.empty()) ++result.textPages;
+    page(p, pages.size(), out.text);
+  }
+  if (resultOut) *resultOut = result;
+  return true;
+}
+
+}  // namespace pdf

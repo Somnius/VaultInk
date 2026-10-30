@@ -982,3 +982,7 @@ STR_CARDS_CLOCK_UNSET: "Ρύθμισε πρώτα το ρολόι (Ρυθμίσ�
 STR_CARDS_NEW_PER_SESSION: "Νέες κάρτες ανά συνεδρία"
 STR_CARDS_MAX_REVIEWS: "Επαναλήψεις ανά συνεδρία"
 STR_CARDS_MAX_INTERVAL: "Μέγιστο διάστημα (μήνες)"
+STR_PDF_READING: "Ανάγνωση PDF..."
+STR_PDF_NO_TEXT: "Αυτό το PDF δεν έχει κείμενο (σκαναρισμένο ή μόνο εικόνες)"
+STR_PDF_ENCRYPTED: "Αυτό το PDF είναι κρυπτογραφημένο"
+STR_PDF_UNREADABLE: "Δεν μπορώ να διαβάσω αυτό το PDF"
