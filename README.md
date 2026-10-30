@@ -115,6 +115,17 @@ reading toolbar, settings, and About.
 The Library by title with Books only on (no vault notes), the Author tab with Authors as folders
 (0.36.0: an author with two or more books is a folder), and a page of a book.
 
+### Flashcards
+
+<p>
+  <img src="docs/images/vaultink/flashcards-decks.png" width="190" alt="Flashcard decks with due and new counts">
+  <img src="docs/images/vaultink/flashcards-review.png" width="190" alt="A flashcard with its answer and four buttons">
+</p>
+
+Cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}`) with spaced repetition, from Vaults → Flashcards (next release):
+the decks with how many are due and new, and a card with the four answers and when each brings it back. The guide:
+[docs/flashcards.md](docs/flashcards.md).
+
 ## Getting started
 
 The first time VaultInk starts, it shows a short welcome guide. The five pages are below.
