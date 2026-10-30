@@ -28,16 +28,14 @@ If your device isn't USB-locked, flash it over USB instead — it's safer and mu
 
 ### 1. Obtain a Firmware Image
 
-Two options:
+Dump one yourself from a working, unlocked device of the same model over USB. (Do not reuse a flash dump from someone else's device: a full dump carries that device's saved settings, including Wi-Fi credentials.)
 
-- Use the backup provided by @Uri-Tauber at `crosspoint-reader/docs/images/spiflash/crosspoint_spiflash_backup.tar.xz`, and extract the `.bin` file. (⚠️ WARNING: This firmware file is for xteink x4/x3 alone! ⚠️)
-- Dump one yourself from a working, unlocked device over USB:
-    - Turn the device on, connect the USB cable and do:
-    ```bash
-    ~$ pio pkg exec -p tool-esptoolpy -- esptool.py --chip esp32c3 -p /dev/ttyACM0 -b 921600 read_flash 0x000000     0x1000000 crosspoint_backup.bin
-     # or
-    ~$ esptool.py --chip esp32c3 -p /dev/ttyACM0 -b 921600 read_flash 0x000000 0x1000000 crosspoint_backup.bin
-    ```
+- Turn the device on, connect the USB cable and do:
+  ```bash
+  ~$ pio pkg exec -p tool-esptoolpy -- esptool.py --chip esp32c3 -p /dev/ttyACM0 -b 921600 read_flash 0x000000     0x1000000 crosspoint_backup.bin
+   # or
+  ~$ esptool.py --chip esp32c3 -p /dev/ttyACM0 -b 921600 read_flash 0x000000 0x1000000 crosspoint_backup.bin
+  ```
 
 ### 2. Disconnect Power Sources and Accessories
 
