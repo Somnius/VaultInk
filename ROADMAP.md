@@ -496,7 +496,7 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   can't be reached is kept on the phone (it survives the app closing) and sent, oldest first, the
   next time the reader is found; each item is deleted only once the reader took it. Notes can be
   written with no reader, into a vault the app saw before. Tested on a phone against the
-  simulator (a note kept offline, sent after connecting); the book share path not tried yet.
+  simulator (a note kept offline, sent after connecting; a comic shared from the Files app with no reader, kept as "1 item waiting" and sent after connecting, same size on the card).
 * 💤 Type into the device from the phone (live keyboard).
 * 💤 Bring notes in: convert to Markdown into a vault folder (e.g. `Imported/Keep/`). Order:
   Google Keep (Takeout) -> Samsung Notes (`.sdocx` export) -> contacts (one note per contact plus a
