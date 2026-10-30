@@ -24,7 +24,7 @@ Good to know:
   turn into cards.
 - Lines inside code blocks, the frontmatter and the Spaced Repetition plugin's `<!--SR:...-->`
   comments are skipped. VaultInk never writes into your notes.
-- Cards longer than 2,000 bytes are dropped, and a note gives at most 500 cards.
+- A card whose front or back is over 2,000 bytes is dropped, a note gives at most 500 cards, and a vault keeps the history of at most 20,000 cards.
 
 ## Reviewing
 

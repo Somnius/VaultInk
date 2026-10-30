@@ -218,7 +218,7 @@ there.
 **Settings → System → Lock Screen** (kos25k #22):
 
 - **4-digit PIN**: you type a new PIN twice. From then on the reader asks for it on a keypad when
-  it wakes after sleeping 30 minutes or more, and after a restart or a flat battery. Shorter naps
+  it wakes after sleeping 30 minutes or more (the default; see Lock After Sleeping below), and after a restart or a flat battery. Shorter naps
   don't ask. A wrong PIN just clears the dots.
 - **Hold a corner**: the same times, the reader shows "Locked" and opens after a long press on any
   of the four corners. It keeps a stray tap in a bag from opening a book, but it's no protection.
