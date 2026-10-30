@@ -592,6 +592,17 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
 * Indic languages and Burmese as UI languages loaded from the SD card, not built into the
   firmware (they need their own fonts and text shaping). Check first whether the firmware can load
   a UI language from the SD card at all; if not, design that.
+* Checked 2026-10-31: no, every language is compiled into flash (36 YAML files, 990 keys, about 480 KB
+  of strings and offset tables in `lib/I18n/I18nStrings.cpp`; `I18N.get` reads those tables only, a
+  missing key falls back to English). A pack could be a file `/.languages/xx.tsv` keyed by the
+  `STR_*` name (never the StrId number, which moves when a key is added), read into RAM at the
+  language switch (about 10-20 KB for a full language) and asked first by `I18N.get`; the generator
+  would have to emit the name table. UI text in a script the built-in fonts lack already falls back to
+  the SD font (`SdCardFontSystem`, probes for Greek, Cyrillic, Han, Arabic and others). The real
+  blocker for Indic and Burmese is shaping: the firmware only does bidi and Arabic forms
+  (`lib/MiniBidi`), so syllables would be drawn unreordered. Plan: the pack loader first (it also
+  lets people add a language without a firmware build), shaping only once someone brings a font
+  and a test text.
 
 ## 💤 Hardware checks (when the X4 Pro arrives)
 
