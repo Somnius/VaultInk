@@ -28,7 +28,9 @@ class VaultPickerActivity final : public UiListActivity {
   };
   static constexpr size_t MAX_RECENT_NOTES = 5;
 
-  int listCount() const override { return static_cast<int>(vaults.size() + recentNotes.size()); }
+  // The first row opens the flashcards (Phase 10); the vaults and recent notes follow it.
+  static constexpr int EXTRA_ROWS = 1;
+  int listCount() const override { return EXTRA_ROWS + static_cast<int>(vaults.size() + recentNotes.size()); }
   void buildScreen(UiScreen& screen) override;
   void activateIndex(int index) override;
   const char* headerTitle() const override;

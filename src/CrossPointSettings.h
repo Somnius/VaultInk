@@ -246,6 +246,10 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t readingPaper = 0;
   // Opening a vault lands on the note read last there (1) or on the vault's top folder (0).
   uint8_t vaultOpenLastNote = 1;
+  // Flashcards (Phase 10): new cards and reviews per session, and the longest interval in months.
+  uint8_t cardsNewPerSession = 20;
+  uint8_t cardsMaxReviews = 100;
+  uint8_t cardsMaxIntervalMonths = 12;
   uint8_t highlightStyle = 0;       // TextBlock::HighlightStyle: gray, inverted, dark gray
   uint8_t sleepBattery = 1;         // battery percent on the sleep screen
   uint8_t sleepOwner = 0;           // owner's name and phone on the sleep screen (kos25k #21)

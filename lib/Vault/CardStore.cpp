@@ -91,18 +91,21 @@ bool Store::readAll(const std::function<bool(uint64_t)>& wanted, std::vector<Ent
     Entry e;
     if (!fromLine(line, e)) return true;  // a torn last line or junk: skip it
     if (wanted && !wanted(e.id)) return true;
-    auto at = std::lower_bound(into.begin(), into.end(), e.id, [](const Entry& a, uint64_t id) { return a.id < id; });
-    if (at != into.end() && at->id == e.id) {
-      at->state = e.state;  // newest wins
-    } else {
-      into.insert(at, e);
-    }
+    into.push_back(e);  // sorted once at the end: inserting one by one moves the whole tail each time
     return true;
   });
   if (!opened) {
     into.clear();
     return false;
   }
+  // Stable by id keeps the journal's order inside a card, so the last of each run is the newest.
+  std::stable_sort(into.begin(), into.end(), [](const Entry& a, const Entry& b) { return a.id < b.id; });
+  size_t out = 0;
+  for (size_t i = 0; i < into.size(); ++i) {
+    if (i + 1 < into.size() && into[i + 1].id == into[i].id) continue;
+    into[out++] = into[i];
+  }
+  into.resize(out);
   return true;
 }
 
@@ -148,7 +151,7 @@ bool Store::compact(const uint32_t today, const std::function<bool(uint64_t)>& p
   std::vector<Entry> keep;
   keep.reserve(all.size());
   for (const Entry& e : all) {
-    const bool stale = e.state.last + FORGET_AFTER_DAYS < today;
+    const bool stale = !e.state.isNew() && e.state.last + FORGET_AFTER_DAYS < today;
     if (stale && !(present && present(e.id))) continue;
     keep.push_back(e);
   }

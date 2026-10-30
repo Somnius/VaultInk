@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <map>
+#include <unordered_set>
 
 namespace cardindex {
 namespace {
@@ -60,12 +61,19 @@ std::vector<std::string_view> split(std::string_view line, char sep, size_t maxF
 
 bool parseHex(std::string_view s, uint64_t& out) {
   if (s.size() != 16) return false;
-  char buf[17];
-  s.copy(buf, 16);
-  buf[16] = 0;
-  char* end = nullptr;
-  out = std::strtoull(buf, &end, 16);
-  return end == buf + 16;
+  uint64_t v = 0;
+  for (const char c : s) {
+    v <<= 4;
+    if (c >= '0' && c <= '9') {
+      v |= static_cast<uint64_t>(c - '0');
+    } else if (c >= 'a' && c <= 'f') {
+      v |= static_cast<uint64_t>(c - 'a' + 10);
+    } else {
+      return false;
+    }
+  }
+  out = v;
+  return true;
 }
 
 std::string relativePath(const std::string& root, const std::string& path) {
@@ -250,6 +258,7 @@ std::vector<SessionCard> collectSession(const std::string& cardsPath, const vaul
                                         const cardstore::Store& store, const uint32_t today, const SessionSpec& spec) {
   std::vector<SessionCard> reviews;
   std::vector<SessionCard> fresh;
+  std::unordered_set<uint64_t> seen;  // the same card under two decks or tags is studied once
   eachCard(cardsPath, fs,
            [&](const std::string& path, std::string_view decks, uint64_t id, uint32_t line, std::string_view front,
                std::string_view back) {
@@ -259,13 +268,7 @@ std::vector<SessionCard> collectSession(const std::string& cardsPath, const vaul
              const bool isNew = !state || state->isNew();
              if (!isNew && state->due > today) return;
              if (isNew && fresh.size() >= spec.newLimit) return;
-             // The same card under two decks (or two tags) is studied once.
-             for (const auto& c : reviews) {
-               if (c.id == id) return;
-             }
-             for (const auto& c : fresh) {
-               if (c.id == id) return;
-             }
+             if (!seen.insert(id).second) return;
              SessionCard c;
              c.id = id;
              c.front = unescape(front);

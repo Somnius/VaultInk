@@ -259,6 +259,52 @@ uint64_t cardId(const std::string_view relPath, const Card& card) {
   return h;
 }
 
+std::string plainText(const std::string_view md) {
+  std::string out;
+  out.reserve(md.size());
+  size_t i = 0;
+  while (i < md.size()) {
+    const bool embed = md.compare(i, 3, "![[") == 0;
+    if (embed || md.compare(i, 2, "[[") == 0) {
+      const size_t open = i + (embed ? 3 : 2);
+      const size_t close = md.find("]]", open);
+      if (close != std::string_view::npos && md.find('\n', open) > close) {
+        if (embed) {
+          out += "[image]";
+        } else {
+          std::string_view inner = md.substr(open, close - open);
+          const size_t bar = inner.find('|');
+          if (bar != std::string_view::npos) inner.remove_prefix(bar + 1);
+          out.append(inner);
+        }
+        i = close + 2;
+        continue;
+      }
+    }
+    if (md[i] == '[') {  // [text](url)
+      const size_t close = md.find(']', i + 1);
+      if (close != std::string_view::npos && close + 1 < md.size() && md[close + 1] == '(') {
+        const size_t paren = md.find(')', close + 2);
+        if (paren != std::string_view::npos && md.find('\n', i) > paren) {
+          out.append(md.substr(i + 1, close - i - 1));
+          i = paren + 1;
+          continue;
+        }
+      }
+    }
+    if (md.compare(i, 2, "**") == 0 || md.compare(i, 2, "~~") == 0 || md.compare(i, 2, "==") == 0) {
+      i += 2;
+      continue;
+    }
+    if (md[i] == '`') {
+      ++i;
+      continue;
+    }
+    out += md[i++];
+  }
+  return out;
+}
+
 std::string idToHex(const uint64_t id) {
   char buf[17];
   snprintf(buf, sizeof(buf), "%016llx", static_cast<unsigned long long>(id));

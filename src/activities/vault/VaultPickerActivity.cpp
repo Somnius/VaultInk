@@ -3,12 +3,14 @@
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
+#include <Memory.h>
 
 #include <algorithm>
 #include <cstring>
 #include <iterator>
 
 #include "CrossPointSettings.h"
+#include "FlashcardsActivity.h"
 #include "MappedInputManager.h"
 #include "RecentBooksStore.h"
 #include "activities/ActivityManager.h"
@@ -65,19 +67,23 @@ void VaultPickerActivity::onEnter() {
   UiListActivity::onEnter();
   findVaults();
   findRecentNotes();
-  rowItems.assign(vaults.size() + recentNotes.size(), fui::ListItem{});
+  rowItems.assign(EXTRA_ROWS + vaults.size() + recentNotes.size(), fui::ListItem{});
+  rowItems[0].label = tr(STR_FLASHCARDS);
+  rowItems[0].icon = fui::bitmapFromIcon(icon_file_text_32);
+  rowItems[0].actionValue = 0;
   for (size_t i = 0; i < vaults.size(); ++i) {
-    rowItems[i].label = vaults[i].name.c_str();
-    rowItems[i].subtitle = vaults[i].subtitle.c_str();
-    rowItems[i].icon = fui::bitmapFromIcon(icon_vault_32);
-    rowItems[i].actionValue = static_cast<int16_t>(i);
+    auto& item = rowItems[EXTRA_ROWS + i];
+    item.label = vaults[i].name.c_str();
+    item.subtitle = vaults[i].subtitle.c_str();
+    item.icon = fui::bitmapFromIcon(icon_vault_32);
+    item.actionValue = static_cast<int16_t>(EXTRA_ROWS + i);
   }
   for (size_t i = 0; i < recentNotes.size(); ++i) {
-    auto& item = rowItems[vaults.size() + i];
+    auto& item = rowItems[EXTRA_ROWS + vaults.size() + i];
     item.label = recentNotes[i].title.c_str();
     item.subtitle = recentNotes[i].vault.c_str();
     item.icon = fui::bitmapFromIcon(icon_file_text_32);
-    item.actionValue = static_cast<int16_t>(vaults.size() + i);
+    item.actionValue = static_cast<int16_t>(EXTRA_ROWS + vaults.size() + i);
     if (i == 0) item.sectionHeading = tr(STR_RECENT_NOTES);
   }
   requestUpdate();
@@ -109,12 +115,19 @@ void VaultPickerActivity::buildScreen(UiScreen& screen) {
 void VaultPickerActivity::activateIndex(const int index) {
   if (index < 0 || index >= listCount()) return;
   app.clearTapFlash();
-  if (index >= static_cast<int>(vaults.size())) {
-    activityManager.goToReader(recentNotes[static_cast<size_t>(index) - vaults.size()].path);
+  if (index < EXTRA_ROWS) {
+    if (auto cards = makeUniqueNoThrow<FlashcardsActivity>(renderer, mappedInput)) {
+      startActivityForResult(std::move(cards), nullptr);
+    }
+    return;
+  }
+  const size_t row = static_cast<size_t>(index - EXTRA_ROWS);
+  if (row >= vaults.size()) {
+    activityManager.goToReader(recentNotes[row - vaults.size()].path);
     return;
   }
   // Open on the note read last (its folder, with the note selected), else the vault's top.
-  const auto& v = vaults[static_cast<size_t>(index)];
+  const auto& v = vaults[row];
   activityManager.goToFileBrowser(v.last.empty() || !SETTINGS.vaultOpenLastNote ? v.path : v.last);
 }
 

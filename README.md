@@ -220,6 +220,8 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 - **Lock screen**: a 4-digit PIN or a long press on a corner, asked after 30 minutes asleep
   (Settings → System → Lock Screen, 0.49.0). The owner's name and phone can show on it and on the
   sleep screen (next release).
+- **Flashcards** (next release): cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}` in notes tagged
+  `#flashcards`), reviewed with spaced repetition from Vaults → Flashcards. [docs/flashcards.md](docs/flashcards.md).
 - **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.
 - **Book info** on a long press, and an **All | Books only** switch in the Library that hides the vault notes.
 - **Authors as folders**: the Library's Author tab can show one folder per author.

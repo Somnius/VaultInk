@@ -152,6 +152,12 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                          StrId::STR_CAT_READER));
   emit(SettingInfo::Toggle(StrId::STR_VAULT_OPEN_LAST, &CrossPointSettings::vaultOpenLastNote, "vaultOpenLastNote",
                            StrId::STR_CAT_VAULTS));
+  emit(SettingInfo::Value(StrId::STR_CARDS_NEW_PER_SESSION, &CrossPointSettings::cardsNewPerSession, {0, 100, 5},
+                          "cardsNewPerSession", StrId::STR_CAT_VAULTS));
+  emit(SettingInfo::Value(StrId::STR_CARDS_MAX_REVIEWS, &CrossPointSettings::cardsMaxReviews, {10, 250, 10},
+                          "cardsMaxReviews", StrId::STR_CAT_VAULTS));
+  emit(SettingInfo::Value(StrId::STR_CARDS_MAX_INTERVAL, &CrossPointSettings::cardsMaxIntervalMonths, {1, 120, 1},
+                          "cardsMaxIntervalMonths", StrId::STR_CAT_VAULTS));
   emit(SettingInfo::Enum(StrId::STR_HIGHLIGHT_STYLE, &CrossPointSettings::highlightStyle,
                          {StrId::STR_HIGHLIGHT_GRAY, StrId::STR_HIGHLIGHT_INVERTED, StrId::STR_HIGHLIGHT_DARK},
                          "highlightStyle", StrId::STR_CAT_VAULTS));

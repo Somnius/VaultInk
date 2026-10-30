@@ -30,6 +30,10 @@ std::vector<Card> parseCards(std::string_view text);
 // text, so retyping an accent or the spacing keeps the card's history, an edit starts it again.
 uint64_t cardId(std::string_view relPath, const Card& card);
 
+// A card's Markdown as plain text for the screen: wiki-links show their alias or name, image
+// embeds become "[image]", Markdown links their text, and the emphasis marks (** ~~ == `) go.
+std::string plainText(std::string_view markdown);
+
 // "%016llx" of an id, for the sidecar files.
 std::string idToHex(uint64_t id);
 

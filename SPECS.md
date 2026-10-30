@@ -146,6 +146,13 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   the stats screen, the default screen). Those settings keys are category-less, so Settings → System no
   longer lists them. Every built-in font carries U+2190-2193 (Noto Sans Symbols) and
   U+2610-2612 (Noto Sans Symbols 2).
+- Flashcards (next release, Phase 10): lib/Vault/Flashcards (parser: `::`, `:::`, `?`/`??` blocks, `{{}}` and
+  `sr-cloze: bold` clozes; ids = FNV-1a 64 of the note path and the folded text), CardScheduler (SM-2,
+  integer days, fuzz from the id), CardStore (`cards.tsv`: `vaultink-cards 1`, then `id due interval ease
+  reps lapses last` per answer, newest wins, compacted past 1 MB), CardIndex (`cards.idx`: `N path stamp decks`
+  then `C id line front back`, tab/newline/backslash escaped; a note keeps its block while its index stamp is
+  unchanged). Entry: first row of the vault picker; FlashcardsActivity (decks), CardReviewActivity (review).
+  Settings cardsNewPerSession / cardsMaxReviews / cardsMaxIntervalMonths (Vaults group).
 - Gallery filter (0.45.0): `galleryFilter` 0 all / 1 .png / 2 under a vault root (vaultfiles::findVaults);
   gear (settings2 icon) at the header's right opens it. (0.48.0) 3 = chosen folders, listed in
   /.vaultink/gallery-folders.txt (only when the gallery root is "/"); Add a folder (PickFolder) and

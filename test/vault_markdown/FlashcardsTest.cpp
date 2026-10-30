@@ -94,6 +94,16 @@ TEST(Flashcards, CrLfAndNoFinalNewline) {
   EXPECT_EQ(cards[1].back, "d");
 }
 
+TEST(Flashcards, PlainTextDropsMarkup) {
+  using flashcards::plainText;
+  EXPECT_EQ(plainText("a **bold** and ==marked== ~~gone~~ `code`"), "a bold and marked gone code");
+  EXPECT_EQ(plainText("see [[Note]] and [[Note#Head|the head]]"), "see Note and the head");
+  EXPECT_EQ(plainText("pic ![[a.png|300]] here"), "pic [image] here");
+  EXPECT_EQ(plainText("a [link](https://x.org) b"), "a link b");
+  EXPECT_EQ(plainText("unclosed [[x and [y"), "unclosed [[x and [y");
+  EXPECT_EQ(plainText("two\nlines"), "two\nlines");
+}
+
 TEST(Flashcards, IdIgnoresAccentsCaseAndSpacingButNotEdits) {
   const Card a{"Καλημέρα  κόσμε", "hello", 1};
   const Card b{"καλημερα κοσμε", "HELLO", 9};
