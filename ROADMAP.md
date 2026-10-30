@@ -327,11 +327,11 @@ EPUB comics show their pictures; the companion app's Files tab can upload any fi
   folder, drawn in grayscale like the picture viewer, progress kept; .cbz in the browser, Library,
   next-book and cache handling). ✅ 0.40.0 chapter list (folders), cover and progress on the home.
   ✅ 0.53.0 .pxc page cache (decoded once, next page prepared after the refresh, caches 3 pages
-  away dropped), PNG cap 24 MP and rows up to 3072 px RGBA. To do: decoding straight from the zip. Planned as: For people who copy raw CBZ files without converting. lib/Cbz
+  away dropped), PNG cap 24 MP and rows up to 3072 px RGBA. ❌ Decoding straight from the zip is dropped: JPEGDEC and PNGdec seek in the file, which a Deflate stream can't do, and the temp page is already deleted once its .pxc exists. For people who copy raw CBZ files without converting. lib/Cbz
   (host-tested): JPEG/PNG entries only (WebP said not supported), natural sort (2 before 10),
   `__MACOSX`, `._*`, `Thumbs.db` skipped, entry names sanitised before any path join, one rule for
   flat and foldered zips (folders = chapters), ZIP64 / Deflate64 refused with a message. Pages
-  decode straight from the zip stream into the existing streaming decoder (no temp file), fitted to
+  are copied from the zip to a temp file (removed after decoding) and decoded by the existing streaming decoder, fitted to
   480x800 with grayscale dither, kept as 2-3 .pxc pixel caches in a fixed pool; one decode at a
   time; the next page is prepared only after the current refresh and .pxc write finish. Large scans
   are scaled while decoding instead of refused. v1 is fit-to-screen only (no half-page scrolling:
