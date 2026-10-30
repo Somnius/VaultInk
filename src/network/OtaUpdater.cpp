@@ -51,7 +51,7 @@ OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
   }
   char assetName[48] = {};
   bool assetNameSet = false;
-  const bool ok = HttpDownloader::fetchUrl(latestReleaseUrl, [&](const uint8_t* data, size_t len) {
+  const auto feedRelease = [&](const uint8_t* data, size_t len) {
     size_t offset = 0;
     while (!assetNameSet && offset < len) {
       releaseParser.feed(reinterpret_cast<const char*>(data + offset), 1);
@@ -64,7 +64,8 @@ OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
     }
     if (offset < len) releaseParser.feed(reinterpret_cast<const char*>(data + offset), len - offset);
     return true;
-  });
+  };
+  const bool ok = HttpDownloader::fetchUrl(latestReleaseUrl, feedRelease);
   if (!ok) {
     LOG_ERR("OTA", "Release check fetch failed");
     return HTTP_ERROR;
@@ -84,6 +85,7 @@ OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
   }
 
   latestVersion = releaseParser.getTagName();
+  releaseNotes = releaseParser.getBody();
   // Only a firmware tag ("0.29.0") is a firmware release: a companion app release
   // ("companion-0.1.0") marked Latest by mistake must never be offered to the device.
   {

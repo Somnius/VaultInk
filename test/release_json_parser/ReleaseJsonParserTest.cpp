@@ -650,3 +650,22 @@ TEST(ReleaseJsonParser, ChunkedRealisticEveryBoundary) {
     EXPECT_EQ(p.getFirmwareSize(), 9999u) << "split=" << split;
   }
 }
+
+TEST(ReleaseJsonParser, BodyIsCaptured) {
+  const char* json = R"({"tag_name":"0.46.0","body":"Line one\nLine \"two\"","author":{"body":"nested"},)"
+                     R"("assets":[{"name":"firmware.bin","browser_download_url":"https://x/f.bin","size":5}]})";
+  ReleaseJsonParser p;
+  feedChunked(p, json, 7);
+  EXPECT_STREQ(p.getBody(), "Line one\nLine \"two\"");
+  EXPECT_TRUE(p.foundFirmware());
+}
+
+TEST(ReleaseJsonParser, OverlongBodyIsEmptyButFirmwareStillFound) {
+  std::string json = R"({"tag_name":"0.46.0","body":")" + std::string(5000, 'a') +
+                     R"(","assets":[{"name":"firmware.bin","browser_download_url":"https://x/f.bin","size":5}]})";
+  ReleaseJsonParser p;
+  p.feed(json.c_str(), json.size());
+  EXPECT_STREQ(p.getBody(), "");
+  EXPECT_TRUE(p.foundTag());
+  EXPECT_TRUE(p.foundFirmware());
+}

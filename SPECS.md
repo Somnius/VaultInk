@@ -475,6 +475,9 @@ reports AES key recovery on the S3 with voltage fault injection.
 
 - OTA update check points at Somnius/VaultInk GitHub releases. No other network calls unless the
   user starts a sync.
+- Update notes (0.46.0): ReleaseJsonParser keeps the release `body` (top level, up to the 2 KB
+  JSON token buffer; longer bodies are dropped and the screen says there are no notes).
+  OtaUpdateActivity wraps it, scrolls with Up/Down or a swipe, and keeps Cancel/Update fixed at the bottom.
 - No telemetry, no analytics, no accounts.
 - Secrets (CouchDB credentials, passphrases, Setup URIs, APK keystore) are never in the repo, logs
   or crash dumps.

@@ -22,6 +22,9 @@ class ReleaseJsonParser {
   bool foundFirmware() const;
   const char* getTagName() const;
   const char* getFirmwareUrl() const;
+  // Release notes (the release "body"); empty if missing or longer than the
+  // JSON token buffer (StreamingJsonParser drops overlong strings).
+  const char* getBody() const;
   size_t getFirmwareSize() const;
 
  private:
@@ -34,6 +37,7 @@ class ReleaseJsonParser {
   enum class LastKey : uint8_t {
     NONE,
     TAG_NAME,
+    BODY,
     ASSETS,
     ASSET_NAME,
     ASSET_URL,
@@ -60,6 +64,7 @@ class ReleaseJsonParser {
   uint8_t assetDepth;
 
   char tagName[32];
+  char body[StreamingJsonParser::TOKEN_BUF_SIZE];
   char firmwareUrl[512];
   size_t firmwareSize;
   bool tagFound;

@@ -5,6 +5,7 @@
 class OtaUpdater {
   bool updateAvailable = false;
   std::string latestVersion;
+  std::string releaseNotes;
   std::string otaUrl;
   size_t otaSize = 0;
   size_t processedSize = 0;
@@ -33,6 +34,8 @@ class OtaUpdater {
   OtaUpdater() = default;
   bool isUpdateNewer() const;
   const std::string& getLatestVersion() const;
+  // The release's notes (GitHub release body); empty when missing or too long.
+  const std::string& getReleaseNotes() const { return releaseNotes; }
   OtaUpdaterError checkForUpdate();
   OtaUpdaterError installUpdate(ProgressCallback onProgress = nullptr, void* ctx = nullptr);
 };

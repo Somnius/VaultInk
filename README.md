@@ -275,8 +275,8 @@ device there and follow its steps. For the X4 Pro, in short:
 4. Connect it over USB-C to a computer with Chrome or Edge and press Install. Erasing the device
    wipes the reader's own memory (settings, Wi-Fi networks), not the SD card.
 
-After that, updates come over Wi-Fi: **Settings → System → Check for Updates** downloads and
-installs the newest release.
+After that, updates come over Wi-Fi: **Settings → System → Check for Updates** shows what's new
+in the newest release (scroll it), with Cancel and Update at the bottom, and Update installs it.
 
 You can also build it yourself (see below) and flash it over USB with
 [`esptool`](https://github.com/espressif/esptool):

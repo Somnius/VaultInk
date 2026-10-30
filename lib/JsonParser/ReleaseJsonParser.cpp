@@ -31,6 +31,7 @@ void ReleaseJsonParser::reset() {
   depth = 0;
   assetDepth = 0;
   tagName[0] = '\0';
+  body[0] = '\0';
   firmwareUrl[0] = '\0';
   firmwareSize = 0;
   tagFound = false;
@@ -46,6 +47,7 @@ bool ReleaseJsonParser::foundTag() const { return tagFound; }
 bool ReleaseJsonParser::foundFirmware() const { return firmwareFound; }
 const char* ReleaseJsonParser::getTagName() const { return tagName; }
 const char* ReleaseJsonParser::getFirmwareUrl() const { return firmwareUrl; }
+const char* ReleaseJsonParser::getBody() const { return body; }
 size_t ReleaseJsonParser::getFirmwareSize() const { return firmwareSize; }
 
 void ReleaseJsonParser::commitAsset() {
@@ -69,6 +71,8 @@ void ReleaseJsonParser::sOnKey(void* ctx, const char* key, size_t len) {
       if (self->depth == 1) {
         if (len == 8 && memcmp(key, "tag_name", 8) == 0)
           self->lastKey = LastKey::TAG_NAME;
+        else if (len == 4 && memcmp(key, "body", 4) == 0)
+          self->lastKey = LastKey::BODY;
         else if (len == 6 && memcmp(key, "assets", 6) == 0)
           self->lastKey = LastKey::ASSETS;
         else
@@ -101,6 +105,10 @@ void ReleaseJsonParser::sOnString(void* ctx, const char* value, size_t len) {
         safeCopy(self->tagName, sizeof(self->tagName), value, len);
         self->tagFound = true;
       }
+      break;
+    case LastKey::BODY:
+      if (self->position == Position::TOP_LEVEL && self->depth == 1)
+        safeCopy(self->body, sizeof(self->body), value, len);
       break;
     case LastKey::ASSET_NAME:
       if (self->position == Position::IN_ASSET_OBJECT && self->assetDepth == 1)

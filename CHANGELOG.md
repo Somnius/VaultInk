@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.46.0 (2026-10-30)
+
+Release notes before updating (kos25k #9).
+
+- **Settings → System → Check for Updates** now shows the new version's notes on one page before installing. Scroll them with Up/Down or a swipe; **Cancel** and **Update** stay at the bottom, so you can install without reading to the end.
+- Notes longer than about 2 KB don't fit and the screen says there are none; the update still works.
+
+Tested in the simulator (with a saved release, since it has no network): the notes scroll, Cancel goes back, Update starts the install. The real download from GitHub isn't confirmed on the device yet; you'll see it when the next update after this one comes.
+
+
 ## 0.45.0 (2026-10-30)
 
 A Gallery filter, and New folder in an empty folder (kos25k #8, #6).

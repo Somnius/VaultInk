@@ -4,6 +4,8 @@
 #include <I18n.h>
 #include <WiFi.h>
 
+#include <algorithm>
+
 #include "MappedInputManager.h"
 #include "SilentRestart.h"
 #include "activities/network/WifiSelectionActivity.h"
@@ -59,17 +61,34 @@ void OtaUpdateActivity::onWifiSelectionComplete(const bool success) {
     RenderLock lock(*this);
     state = WAITING_CONFIRMATION;
   }
-  const char* options[] = {tr(STR_CANCEL), tr(STR_UPDATE)};
-  // Default the selection to Update so the hardware Confirm button installs,
-  // matching the pre-popup layout (Back = cancel, Confirm = update).
-  confirmPopup.show(tr(STR_NEW_UPDATE), options, 2, 1, [this](const int idx) {
-    if (idx == 1) {
-      runUpdateInstall();
-    } else {
-      finish();
-    }
-  });
+  noteLines.clear();
+  noteScroll = 0;
   requestUpdate();
+}
+
+void OtaUpdateActivity::wrapNotes(const int width) {
+  noteLines.clear();
+  const std::string& notes = updater.getReleaseNotes();
+  size_t start = 0;
+  while (start <= notes.size()) {
+    size_t end = notes.find('\n', start);
+    if (end == std::string::npos) end = notes.size();
+    std::string para = notes.substr(start, end - start);
+    if (!para.empty() && para.back() == '\r') para.pop_back();
+    // Plain text: drop Markdown bold markers, and the UI font has no arrow.
+    for (size_t at; (at = para.find("**")) != std::string::npos;) para.erase(at, 2);
+    for (size_t at; (at = para.find("\xE2\x86\x92")) != std::string::npos;) para.replace(at, 3, ">");
+    if (para.empty()) {
+      // Keep one blank line between paragraphs, none at the top.
+      if (!noteLines.empty() && !noteLines.back().empty()) noteLines.emplace_back();
+    } else {
+      const auto lines = renderer.wrappedText(UI_10_FONT_ID, para.c_str(), width, 40);
+      noteLines.insert(noteLines.end(), lines.begin(), lines.end());
+    }
+    start = end + 1;
+  }
+  while (!noteLines.empty() && noteLines.back().empty()) noteLines.pop_back();
+  if (noteLines.empty()) noteLines.emplace_back(tr(STR_NO_RELEASE_NOTES));
 }
 
 void OtaUpdateActivity::onEnter() {
@@ -124,15 +143,56 @@ void OtaUpdateActivity::render(RenderLock&&) {
   if (state == CHECKING_FOR_UPDATE) {
     renderer.drawCenteredText(UI_10_FONT_ID, top, tr(STR_CHECKING_UPDATE));
   } else if (state == WAITING_CONFIRMATION) {
-    // Version info sits in the upper part of the screen so the centered
-    // Cancel/Update popup doesn't cover it (same layout as ConfirmationActivity).
-    const int infoTop = pageHeight / 6;
-    renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, infoTop,
-                      (std::string(tr(STR_CURRENT_VERSION)) + CROSSPOINT_VERSION).c_str());
-    renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, infoTop + height + metrics.verticalSpacing,
-                      (std::string(tr(STR_NEW_VERSION)) + updater.getLatestVersion()).c_str());
+    // Versions at the top, the release notes scrolling under them, and
+    // Cancel/Update fixed at the bottom so they're always in reach (#9).
+    const int side = metrics.contentSidePadding;
+    int y = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
+    renderer.drawText(UI_10_FONT_ID, side, y, (std::string(tr(STR_CURRENT_VERSION)) + CROSSPOINT_VERSION).c_str());
+    y += height;
+    renderer.drawText(UI_10_FONT_ID, side, y, (std::string(tr(STR_NEW_VERSION)) + updater.getLatestVersion()).c_str(),
+                      true, EpdFontFamily::BOLD);
+    y += height + metrics.verticalSpacing;
+    renderer.drawLine(side, y, pageWidth - side, y);
+    y += metrics.verticalSpacing;
 
-    if (confirmPopup.processRender(renderer, mappedInput)) return;
+    const int buttonH = 56;
+    const int buttonTop = pageHeight - buttonH - metrics.verticalSpacing * 2;
+    const int gap = metrics.verticalSpacing * 2;
+    const int buttonW = (pageWidth - side * 2 - gap) / 2;
+    cancelRect = Rect{side, buttonTop, buttonW, buttonH};
+    updateRect = Rect{side + buttonW + gap, buttonTop, buttonW, buttonH};
+
+    if (noteLines.empty()) wrapNotes(pageWidth - side * 2);
+    const int notesBottom = buttonTop - metrics.verticalSpacing * 2;
+    notesPerPage = std::max(1, (notesBottom - y) / height);
+    const int maxScroll = std::max(0, static_cast<int>(noteLines.size()) - notesPerPage);
+    noteScroll = std::min(std::max(noteScroll, 0), maxScroll);
+    for (int i = 0; i < notesPerPage && noteScroll + i < static_cast<int>(noteLines.size()); ++i) {
+      const std::string& line = noteLines[noteScroll + i];
+      const bool heading = line.rfind("#", 0) == 0;
+      const size_t skip = heading ? line.find_first_not_of("# ") : 0;
+      renderer.drawText(UI_10_FONT_ID, side, y + i * height, skip == std::string::npos ? "" : line.c_str() + skip, true,
+                        heading ? EpdFontFamily::BOLD : EpdFontFamily::REGULAR);
+    }
+    if (maxScroll > 0) {
+      // Where we are in the notes: "lines 1-12 of 30" as a thin bar on the right.
+      const int trackTop = y;
+      const int trackH = notesBottom - y;
+      const int thumbH = std::max(12, trackH * notesPerPage / static_cast<int>(noteLines.size()));
+      const int thumbTop = trackTop + (trackH - thumbH) * noteScroll / maxScroll;
+      renderer.fillRect(pageWidth - side / 2 - 2, thumbTop, 4, thumbH);
+    }
+
+    renderer.drawRect(cancelRect.x, cancelRect.y, cancelRect.width, cancelRect.height, 2, true);
+    renderer.fillRect(updateRect.x, updateRect.y, updateRect.width, updateRect.height);
+    const int textY = buttonTop + (buttonH - height) / 2;
+    const char* cancel = tr(STR_CANCEL);
+    const char* update = tr(STR_UPDATE);
+    renderer.drawText(UI_10_FONT_ID, cancelRect.x + (buttonW - renderer.getTextWidth(UI_10_FONT_ID, cancel)) / 2, textY,
+                      cancel);
+    renderer.drawText(UI_10_FONT_ID,
+                      updateRect.x + (buttonW - renderer.getTextWidth(UI_10_FONT_ID, update, EpdFontFamily::BOLD)) / 2,
+                      textY, update, false, EpdFontFamily::BOLD);
   } else if (state == UPDATE_IN_PROGRESS) {
     renderer.drawCenteredText(UI_10_FONT_ID, top, tr(STR_UPDATING));
 
@@ -214,9 +274,30 @@ void OtaUpdateActivity::runUpdateInstall() {
 
 void OtaUpdateActivity::loop() {
   if (state == WAITING_CONFIRMATION) {
-    if (confirmPopup.handleInput(mappedInput, [this] { requestUpdate(); })) return;
-    // Popup dismissed without a selection (Back button or tap outside): cancel.
-    finish();
+    int x = 0;
+    int y = 0;
+    const auto swipe = mappedInput.wasSwipe();
+    int scrollBy = 0;
+    if (mappedInput.wasPressed(MappedInputManager::Button::Down) || swipe == MappedInputManager::SwipeDir::Up)
+      scrollBy = std::max(1, notesPerPage - 1);
+    else if (mappedInput.wasPressed(MappedInputManager::Button::Up) || swipe == MappedInputManager::SwipeDir::Down)
+      scrollBy = -std::max(1, notesPerPage - 1);
+    if (scrollBy != 0) {
+      noteScroll += scrollBy;
+      requestUpdate();
+      return;
+    }
+    const bool tapped = mappedInput.wasScreenTapped(x, y);
+    const auto inside = [x, y](const Rect& r) {
+      return x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
+    };
+    if (mappedInput.wasPressed(MappedInputManager::Button::Confirm) || (tapped && inside(updateRect))) {
+      runUpdateInstall();
+      return;
+    }
+    if (mappedInput.wasPressed(MappedInputManager::Button::Back) || (tapped && inside(cancelRect))) {
+      finish();
+    }
     return;
   }
 
