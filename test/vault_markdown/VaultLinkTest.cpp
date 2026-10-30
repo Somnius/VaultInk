@@ -38,9 +38,9 @@ FakeFs demoVault() {
             "/Vaults/Demo/Books",
             "/Vaults/Demo/Books/Old",
             "/Vaults/Demo/.trash"};
-  f.files = {"/Vaults/Demo/Welcome.md",    "/Vaults/Demo/Books/Reading list.md", "/Vaults/Demo/Books/Old/Notes.md",
-             "/Vaults/Demo/Notes.md",      "/Vaults/Demo/.trash/Gone.md",        "/Vaults/Demo/Books/cover.png",
-             "/Vaults/Demo/Books/Ιθάκη.md"};
+  f.files = {"/Vaults/Demo/Welcome.md",     "/Vaults/Demo/Books/Reading list.md", "/Vaults/Demo/Books/Old/Notes.md",
+             "/Vaults/Demo/Notes.md",       "/Vaults/Demo/.trash/Gone.md",        "/Vaults/Demo/Books/cover.png",
+             "/Vaults/Demo/Books/Ιθάκη.md", "/Vaults/Demo/Books/Rules (v2).pdf"};
   return f;
 }
 
@@ -97,6 +97,9 @@ TEST(VaultLink, ResolvesLikeObsidian) {
   // Paths, attachments, Greek names.
   EXPECT_EQ(resolve("Books/Old/Notes", "/Vaults/Demo"), "/Vaults/Demo/Books/Old/Notes.md");
   EXPECT_EQ(resolve("cover.png", "/Vaults/Demo"), "/Vaults/Demo/Books/cover.png");
+  // An attachment that isn't a picture (a PDF) is found the same way, by its name anywhere in the vault.
+  EXPECT_EQ(resolve("Rules (v2).pdf", "/Vaults/Demo"), "/Vaults/Demo/Books/Rules (v2).pdf");
+  EXPECT_EQ(resolve("rules (v2).PDF", "/Vaults/Demo"), "/Vaults/Demo/Books/Rules (v2).pdf");
   EXPECT_EQ(resolve("Ιθάκη", "/Vaults/Demo"), "/Vaults/Demo/Books/Ιθάκη.md");
   // Dot folders are not searched; missing notes resolve to nothing.
   EXPECT_EQ(resolve("Gone", "/Vaults/Demo"), "");
