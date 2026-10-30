@@ -117,40 +117,46 @@ void NoteEditorActivity::activateIndex(const int index) {
 void NoteEditorActivity::lineActions(const size_t line) {
   static constexpr StrId OPTIONS[] = {StrId::STR_EDITOR_EDIT,         StrId::STR_EDITOR_INSERT_ABOVE,
                                       StrId::STR_EDITOR_INSERT_BELOW, StrId::STR_EDITOR_DELETE_LINE,
-                                      StrId::STR_EDITOR_MOVE_UP,      StrId::STR_EDITOR_MOVE_DOWN};
-  optionPopup.show(StrId::STR_EDITOR_LINE, OPTIONS, 6, 0, [this, line](const int choice) {
-    bool changedNow = false;
-    switch (choice) {
-      case 0:
-        editLine(line, false, line);
-        return;
-      case 1:
-        editLine(line, true, line);
-        return;
-      case 2:
-        editLine(line, true, line + 1);
-        return;
-      case 3:
-        changedNow = buffer.remove(line);
-        break;
-      case 4:
-        changedNow = buffer.moveUp(line);
-        break;
-      case 5:
-        changedNow = buffer.moveDown(line);
-        break;
-      default:
-        break;
-    }
-    if (changedNow) {
-      // After deleting the last line, the line before it (or "Add a line" in an empty note).
-      const size_t count = buffer.lineCount();
-      nav.selected = ACTION_ROWS + static_cast<int>(count == 0 ? 0 : std::min(buffer.lastLine(), count - 1));
-      rebuildRows();
-    } else {
-      requestUpdate();
-    }
-  });
+                                      StrId::STR_EDITOR_MOVE_UP,      StrId::STR_EDITOR_MOVE_DOWN,
+                                      StrId::STR_EDITOR_JOIN_NEXT};
+  // "Join with next line" is left out for the last line.
+  optionPopup.show(
+      StrId::STR_EDITOR_LINE, OPTIONS, line + 1 < buffer.lineCount() ? 7 : 6, 0, [this, line](const int choice) {
+        bool changedNow = false;
+        switch (choice) {
+          case 0:
+            editLine(line, false, line);
+            return;
+          case 1:
+            editLine(line, true, line);
+            return;
+          case 2:
+            editLine(line, true, line + 1);
+            return;
+          case 3:
+            changedNow = buffer.remove(line);
+            break;
+          case 4:
+            changedNow = buffer.moveUp(line);
+            break;
+          case 5:
+            changedNow = buffer.moveDown(line);
+            break;
+          case 6:
+            changedNow = buffer.join(line);
+            break;
+          default:
+            break;
+        }
+        if (changedNow) {
+          // After deleting the last line, the line before it (or "Add a line" in an empty note).
+          const size_t count = buffer.lineCount();
+          nav.selected = ACTION_ROWS + static_cast<int>(count == 0 ? 0 : std::min(buffer.lastLine(), count - 1));
+          rebuildRows();
+        } else {
+          requestUpdate();
+        }
+      });
   requestUpdate();
 }
 

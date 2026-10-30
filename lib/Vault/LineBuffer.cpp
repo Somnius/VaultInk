@@ -115,6 +115,20 @@ bool LineBuffer::moveDown(const size_t i) {
   return true;
 }
 
+bool LineBuffer::join(const size_t i) {
+  if (i + 1 >= lines.size()) return false;
+  const std::string& a = lines[i].text;
+  const std::string& b = lines[i + 1].text;
+  const bool space = !a.empty() && !b.empty();
+  if (a.size() + b.size() + (space ? 1 : 0) > MAX_LINE_BYTES) return false;
+  Edit edit{Op::Join, i, lines[i + 1], lines[i].ending, a};
+  lines[i].text = a + (space ? " " : "") + b;
+  lines[i].ending = lines[i + 1].ending;  // the last line's missing ending moves up with it
+  lines.erase(lines.begin() + static_cast<std::ptrdiff_t>(i + 1));
+  record(std::move(edit));
+  return true;
+}
+
 bool LineBuffer::undo() {
   if (history.empty()) return false;
   Edit e = std::move(history.back());
@@ -137,6 +151,11 @@ bool LineBuffer::undo() {
     }
     case Op::Swap:
       std::swap(lines[e.index].text, lines[e.index + 1].text);
+      break;
+    case Op::Join:
+      lines[e.index].text = std::move(e.prevText);
+      lines[e.index].ending = std::move(e.prevEnding);
+      lines.insert(lines.begin() + static_cast<std::ptrdiff_t>(e.index + 1), std::move(e.before));
       break;
   }
   last = e.index < lines.size() ? e.index : (lines.empty() ? 0 : lines.size() - 1);

@@ -439,7 +439,7 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
   official LiveSync CLI (new, edit, stale edit refused, delete, conflict).
 * ✅ (0.38.0) Links rewritten on rename, after asking (wiki-links that resolve to the note, not in
   code; util/LinkUpdate + lib/Vault/LinkRewrite, reviewed by Gemini and Grok).
-* Later: split/join lines, a multi-line keyboard, Markdown links on rename, push for vaults with
+* ✅ (next release) Join With Next Line in the line menu (`LineBuffer::join`, host-tested, one Undo; the menu item is compiled but not yet driven in the simulator). Later: split lines (needs a cursor, so a multi-line keyboard), a multi-line keyboard, Markdown links on rename, push for vaults with
   the newer id scheme or no path obfuscation, a test against a real Obsidian install.
 * Touch keyboard editor (English + Greek; the Greek layout is done, 0.5.0), atomic save, task toggles, new/rename/delete.
 * Push with the plugin's chunker, conflict copies.

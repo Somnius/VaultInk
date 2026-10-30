@@ -42,6 +42,31 @@ TEST(LineBuffer, UndoRestoresEverything) {
   EXPECT_FALSE(b.changed());
 }
 
+TEST(LineBuffer, JoinKeepsEndingsAndUndoes) {
+  const std::string text = "one\r\ntwo\r\n\r\nfour";
+  LineBuffer b;
+  b.load(text);
+  ASSERT_TRUE(b.join(0));  // "one two"
+  EXPECT_EQ(b.serialize(), "one two\r\n\r\nfour");
+  ASSERT_TRUE(b.join(0));  // an empty line joins without a space
+  EXPECT_EQ(b.serialize(), "one two\r\nfour");
+  ASSERT_TRUE(b.join(0));  // the last line has no ending, so the joined line has none
+  EXPECT_EQ(b.serialize(), "one two four");
+  EXPECT_FALSE(b.join(0));  // nothing after it
+  EXPECT_EQ(b.lineCount(), 1u);
+  while (b.undo()) {
+  }
+  EXPECT_EQ(b.serialize(), text);
+  EXPECT_FALSE(b.changed());
+}
+
+TEST(LineBuffer, JoinRefusesTooLong) {
+  LineBuffer b;
+  b.load(std::string(LineBuffer::MAX_LINE_BYTES - 1, 'a') + "\nb\n");
+  EXPECT_FALSE(b.join(0));  // 1999 + space + 1 is over the limit
+  EXPECT_EQ(b.lineCount(), 2u);
+}
+
 TEST(LineBuffer, Limits) {
   LineBuffer b;
   EXPECT_FALSE(b.load("x\n" + std::string(LineBuffer::MAX_LINE_BYTES + 1, 'y') + "\n"));

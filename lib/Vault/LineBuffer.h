@@ -28,6 +28,9 @@ class LineBuffer {
   bool remove(size_t i);
   bool moveUp(size_t i);    // swaps lines i-1 and i
   bool moveDown(size_t i);  // swaps lines i and i+1
+  // Line i and the next one become a single line, joined by a space (none when either is empty).
+  // False for the last line or a joined line over MAX_LINE_BYTES.
+  bool join(size_t i);
   bool undo();
   size_t undoDepth() const { return history.size(); }
   bool changed() const { return dirty; }
@@ -39,12 +42,13 @@ class LineBuffer {
     std::string text;
     std::string ending;  // "\n", "\r\n", or "" (last line without one)
   };
-  enum class Op : uint8_t { Replace, Insert, Remove, Swap };
+  enum class Op : uint8_t { Replace, Insert, Remove, Swap, Join };
   struct Edit {
     Op op;
     size_t index;
     Line before;             // Replace: the old line; Remove: the removed line
-    std::string prevEnding;  // Remove of the last line: the ending the line before it had
+    std::string prevEnding;  // Remove of the last line: the ending the line before it had; Join: line i's ending
+    std::string prevText;    // Join: line i's text before the join (before = the line that was merged in)
   };
 
   void record(Edit edit);

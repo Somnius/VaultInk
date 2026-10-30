@@ -47,6 +47,9 @@ their numbers (a long line shows wrapped, but it's still one line). Tap a line f
 - **Edit**: the keyboard opens with the line in it.
 - **Insert line above** / **Insert line below**: the keyboard opens empty.
 - **Delete line**, **Move up**, **Move down**.
+- (next release) **Join With Next Line**: the line and the one after it become one line, with a space
+  between (none next to an empty line). One Undo puts them back. Splitting a line waits for a
+  multi-line keyboard.
 
 **Undo** at the top takes back the last change, up to 20. **Save** writes the note and shows it
 again in the reader. Back (the header arrow or the left-edge swipe) asks before throwing away
