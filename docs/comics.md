@@ -74,7 +74,8 @@ book remembers its page. Only JPEG and PNG pages are shown, in natural order ("2
 
 - Pages bigger than 8 megapixels (2000×3000 and 2048×4096 are fine) show "Page load error".
 - WebP pages, CBR (RAR) files: run them through the converter.
-- Chapters, covers in the Library, right-to-left order. Each page is decoded when it's shown, so
+- Covers in the Library, right-to-left order. (Chapters: since 0.40.0, Confirm or the menu tap
+  opens the list of folders.) Each page is decoded when it's shown, so
   turning is slower than XTCH.
 
 ## Getting the file onto the X4 Pro

@@ -2,11 +2,12 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
-## 0.39.1 (2026-10-30)
+## 0.40.0 (2026-10-30)
 
+- CBZ chapters: in a CBZ with folders, Confirm (or the menu tap in the middle of the page) opens the list of chapters, one per folder; pick one to jump to its first page.
 - The Library shows notes and CBZ comics by name without ".md" or ".cbz" on the Title and Author tabs, like books.
 
-Tested in the simulator. Not confirmed on the device yet.
+Tested in the simulator: a CBZ with two chapter folders opened its list, and picking the second chapter went to its first page; the Library titles without extensions. Not confirmed on the device yet.
 
 
 ## 0.39.0 (2026-10-30)

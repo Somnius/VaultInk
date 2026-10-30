@@ -13,7 +13,10 @@
 #include <algorithm>
 #include <functional>
 
+#include "CbzChapterActivity.h"
+#include "MappedInputManager.h"
 #include "ProgressFile.h"
+#include "ReaderUtils.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/BookProgress.h"
@@ -54,6 +57,18 @@ bool CbzReaderActivity::loadBook() {
 }
 
 std::string CbzReaderActivity::getBookTitle() const { return FsHelpers::getFileNameWithoutExtension(bookPath); }
+
+bool CbzReaderActivity::handleFormatInput() {
+  const bool touchMenu = ReaderUtils::isTouchMenuGesture(renderer, mappedInput);
+  if (!mappedInput.wasReleased(MappedInputManager::Button::Confirm) && !touchMenu) return false;
+  if (book.chapters.size() < 2) return true;  // nothing to choose between
+  startActivityForResult(std::make_unique<CbzChapterActivity>(renderer, mappedInput, book.chapters, currentPage),
+                         [this](const ActivityResult& result) {
+                           if (!result.isCancelled) currentPage = std::get<PageResult>(result.data).page;
+                           requestUpdate();
+                         });
+  return true;
+}
 
 void CbzReaderActivity::applyInitialOrientation() { renderer.setOrientation(GfxRenderer::Orientation::Portrait); }
 
