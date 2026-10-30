@@ -618,6 +618,21 @@ void GfxRenderer::drawGlyphBitmap(const uint8_t* bitmap, const int width, const 
   glyphBitmap::draw(bitmap, width, height, twoBit, plane, state, target, clip);
 }
 
+bool GfxRenderer::blitXtchPlanes(const uint8_t* plane1, const uint8_t* plane2, const int pageWidth,
+                                 const int pageHeight, const xtchplanes::Pass pass) const {
+  // Portrait maps logical (x, y) to panel (y, panelHeight - 1 - x): panel row r is page column
+  // pageWidth - 1 - x = r, which is the order XTCH stores its columns in.
+  if (orientation != Portrait || _stripActive || !frameBuffer) return false;
+  if (pageWidth != panelHeight || pageHeight != panelWidth || panelWidth % 8 != 0) return false;
+  if (clipLeft_ > 0 || clipTop_ > 0 || clipRight_ < pageWidth || clipBottom_ < pageHeight) return false;
+  const size_t columnBytes = panelWidthBytes;
+  for (int row = 0; row < panelHeight; ++row) {
+    const size_t at = static_cast<size_t>(row) * columnBytes;
+    xtchplanes::combineRow(plane1 + at, plane2 + at, frameBuffer + at, columnBytes, pass);
+  }
+  return true;
+}
+
 // IMPORTANT: This function is in critical rendering path and is called for every pixel. Please keep it as simple and
 // efficient as possible.
 void GfxRenderer::drawPixel(const int x, const int y, const bool state) const {

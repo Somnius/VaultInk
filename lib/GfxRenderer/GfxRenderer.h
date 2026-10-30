@@ -23,6 +23,7 @@ class TtfEpdFont;
 
 #include "Bitmap.h"
 #include "FontVariantProvider.h"
+#include "XtchPlanes.h"
 
 namespace glyphBitmap {
 struct Frame;
@@ -262,6 +263,11 @@ class GfxRenderer {
   // void displayWindow(int x, int y, int width, int height) const;
   void invertScreen() const;
   void clearScreen(uint8_t color = 0xFF) const;
+  // Writes one pass of a 2-bit XTCH page straight into the frame buffer (see XtchPlanes.h). Only
+  // in Portrait, at the panel's size, without a clip or strip; false otherwise, and the caller
+  // draws the pass pixel by pixel.
+  bool blitXtchPlanes(const uint8_t* plane1, const uint8_t* plane2, int pageWidth, int pageHeight,
+                      xtchplanes::Pass pass) const;
   void getOrientedViewableTRBL(int* outTop, int* outRight, int* outBottom, int* outLeft) const;
 
   // Tiled grayscale strip target. While active, drawPixel() and clearScreen()

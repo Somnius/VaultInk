@@ -29,7 +29,7 @@ In this order, each also listed in its phase below:
    (folders that hold books, read from the index's folder table, no per-book path reads), then
    tab order (needs tab ids split from tab positions first; maybe only a default tab).
 2. kos25k #17: a home button in the status bar, between the time and the battery, on every screen.
-3. 1c.2: faster XTCH page turns (pages are drawn pixel by pixel today).
+3. 1c.2: ✅ 0.36.1 XTCH pages drawn byte-wise; the refresh choice needs the device.
 4. 1c.1: Share to VaultInk from other apps into /Comics (name clash, full card, dropped Wi-Fi).
 5. companion-0.3.0: the outbox (shares and notes kept until the reader is reachable), "Not now"
    in the update dialog, the update check without a reader.
@@ -295,7 +295,10 @@ EPUB comics show their pictures; the companion app's Files tab can upload any fi
   phones send content:// links without an extension) that uploads to /Comics with a progress bar.
   Defined cases: a name already on the card, the card full, Wi-Fi dropping mid-upload (the partial
   file is removed). Doesn't wait for the companion outbox.
-* ⏳ **1c.2 XTCH page turns (M).** XTCH is the format we'll recommend for manga, so it goes first: a
+* 🚧 **1c.2 XTCH page turns (M).** ✅ 0.36.1, the host part: a 480x800 XTCH page in Portrait goes
+  into the frame buffer byte by byte (a panel row is one XTCH column, lib/GfxRenderer/XtchPlanes.h,
+  host-tested against the per-pixel code; other sizes and orientations still draw per pixel). To do:
+  time it and pick the refresh on the device. Planned as: a
   row/byte copy into the frame buffer instead of drawing every pixel in several passes (the XTC
   column order needs a transposing copy; host-tested against known pages), then the refresh: a FAST
   refresh is likely 1-bit and drops the grays until the next HALF, so XTCH may need a grayscale

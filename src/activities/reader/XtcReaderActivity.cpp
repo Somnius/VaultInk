@@ -195,10 +195,14 @@ void XtcReaderActivity::renderPage() {
       return (bit1 << 1) | bit2;
     };
 
-    for (uint16_t y = 0; y < pageHeight; y++) {
-      for (uint16_t x = 0; x < pageWidth; x++) {
-        if (getPixelValue(x, y) >= 1) {
-          renderer.drawPixel(x, y, true);
+    // Byte-wise when the page is panel-sized in Portrait (1c.2); else pixel by pixel.
+    const bool byteWise = renderer.blitXtchPlanes(plane1, plane2, pageWidth, pageHeight, xtchplanes::Pass::Black);
+    if (!byteWise) {
+      for (uint16_t y = 0; y < pageHeight; y++) {
+        for (uint16_t x = 0; x < pageWidth; x++) {
+          if (getPixelValue(x, y) >= 1) {
+            renderer.drawPixel(x, y, true);
+          }
         }
       }
     }
@@ -222,21 +226,25 @@ void XtcReaderActivity::renderPage() {
     }
 
     renderer.clearScreen(0x00);
-    for (uint16_t y = 0; y < pageHeight; y++) {
-      for (uint16_t x = 0; x < pageWidth; x++) {
-        if (getPixelValue(x, y) == 1) {
-          renderer.drawPixel(x, y, false);
+    if (!renderer.blitXtchPlanes(plane1, plane2, pageWidth, pageHeight, xtchplanes::Pass::GrayLsb)) {
+      for (uint16_t y = 0; y < pageHeight; y++) {
+        for (uint16_t x = 0; x < pageWidth; x++) {
+          if (getPixelValue(x, y) == 1) {
+            renderer.drawPixel(x, y, false);
+          }
         }
       }
     }
     renderer.copyGrayscaleLsbBuffers();
 
     renderer.clearScreen(0x00);
-    for (uint16_t y = 0; y < pageHeight; y++) {
-      for (uint16_t x = 0; x < pageWidth; x++) {
-        const uint8_t pv = getPixelValue(x, y);
-        if (pv == 1 || pv == 2) {
-          renderer.drawPixel(x, y, false);
+    if (!renderer.blitXtchPlanes(plane1, plane2, pageWidth, pageHeight, xtchplanes::Pass::GrayMsb)) {
+      for (uint16_t y = 0; y < pageHeight; y++) {
+        for (uint16_t x = 0; x < pageWidth; x++) {
+          const uint8_t pv = getPixelValue(x, y);
+          if (pv == 1 || pv == 2) {
+            renderer.drawPixel(x, y, false);
+          }
         }
       }
     }
@@ -245,10 +253,13 @@ void XtcReaderActivity::renderPage() {
     renderer.displayGrayBuffer();
 
     renderer.clearScreen();
-    for (uint16_t y = 0; y < pageHeight; y++) {
-      for (uint16_t x = 0; x < pageWidth; x++) {
-        if (getPixelValue(x, y) >= 1) {
-          renderer.drawPixel(x, y, true);
+    // Byte-wise when the page is panel-sized in Portrait (1c.2); else pixel by pixel.
+    if (!renderer.blitXtchPlanes(plane1, plane2, pageWidth, pageHeight, xtchplanes::Pass::Black)) {
+      for (uint16_t y = 0; y < pageHeight; y++) {
+        for (uint16_t x = 0; x < pageWidth; x++) {
+          if (getPixelValue(x, y) >= 1) {
+            renderer.drawPixel(x, y, true);
+          }
         }
       }
     }
@@ -257,7 +268,8 @@ void XtcReaderActivity::renderPage() {
 
     free(pageBuffer);
 
-    LOG_DBG("XTR", "Rendered page %lu/%lu (2-bit grayscale)", currentPage + 1, xtc->getPageCount());
+    LOG_DBG("XTR", "Rendered page %lu/%lu (2-bit grayscale, %s)", currentPage + 1, xtc->getPageCount(),
+            byteWise ? "byte-wise" : "per pixel");
     markPageRendered();
     return;
   } else {

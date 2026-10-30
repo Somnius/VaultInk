@@ -2,6 +2,15 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.36.1 (2026-10-30)
+
+Faster comic pages.
+
+- XTCH comics made for the X4 / X4 Pro (480×800, like Banana Comic Converter's X4 preset) are drawn much faster: the page is copied into the screen buffer a byte at a time instead of one pixel at a time, four times over. Other page sizes are drawn as before.
+
+Tested in the simulator and with host tests: the pages come out exactly the same as before, pixel for pixel. How much faster it is on the device hasn't been measured yet.
+
+
 ## 0.36.0 (2026-10-30)
 
 The Library groups authors (kos25k #18).

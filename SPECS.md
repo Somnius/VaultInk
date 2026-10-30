@@ -130,6 +130,9 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
+- XTCH drawing (0.36.1): `GfxRenderer::blitXtchPlanes` in Portrait at 480x800, no clip or strip;
+  panel row r = XTCH column r, so each pass is `xtchplanes::combineRow` (Black ~(p1|p2), LSB ~p1&p2,
+  MSB p1^p2). Host test test/xtch_planes compares it with the per-pixel loops.
 - Moves (0.35.1): `moveBookWithState` (util/BookCacheUtils) for Browse Files, /rename, /move and WebDAV
   MOVE. Files: cache, bookmarks, clippings with rollback. Folders: one rename with clippings, then
   each book inside (up to 400, 16 levels) gets cache/bookmarks/recents/favourites carried, best effort.

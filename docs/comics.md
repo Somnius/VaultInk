@@ -84,8 +84,9 @@ All in [Phase 1c of the roadmap](../ROADMAP.md):
 
 1. **Share to VaultInk** from other apps for converted files, uploading them straight to /Comics
    (converting inside the companion app is done, see above).
-2. **Faster XTCH page turns**: pages are drawn pixel by pixel today, which is slow. The grayscale
-   refresh will also be checked on the device.
+2. **Faster XTCH page turns**: since 0.36.1 an XTCH page made for the X4 / X4 Pro (480×800) is
+   copied into the screen buffer a byte at a time instead of pixel by pixel. Still to do on the
+   device: timing it, and the grayscale refresh.
 3. A **CBZ reader** for comics copied without converting (JPEG and PNG pages; CBR and WebP won't
    open).
 4. **Right-to-left** page order for manga, per book, and covers in the Library.
