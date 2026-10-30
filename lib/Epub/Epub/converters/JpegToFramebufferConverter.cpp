@@ -168,11 +168,13 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
   int clampYMax = ctx->dstHeight;
   if (ctx->screenHeight - cfgY < clampYMax) clampYMax = ctx->screenHeight - cfgY;
   if (dstYStart < -cfgY) dstYStart = -cfgY;
+  if (dstYStart < 0) dstYStart = 0;  // rows above a crop are not part of the output
   if (dstYEnd > clampYMax) dstYEnd = clampYMax;
 
   int clampXMax = ctx->dstWidth;
   if (ctx->screenWidth - cfgX < clampXMax) clampXMax = ctx->screenWidth - cfgX;
   if (dstXStart < -cfgX) dstXStart = -cfgX;
+  if (dstXStart < 0) dstXStart = 0;  // columns left of a crop (or the right half's left half)
   if (dstXEnd > clampXMax) dstXEnd = clampXMax;
 
   if (dstYStart >= dstYEnd || dstXStart >= dstXEnd) return 1;
@@ -436,7 +438,12 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
   const int srcHeight = sourceDimensions.height;
   const float cropX = std::clamp(config.sourceCropX, 0.0f, 0.99f);
   const float cropY = std::clamp(config.sourceCropY, 0.0f, 0.99f);
-  const int visibleWidth = srcWidth - 2 * static_cast<int>(srcWidth * cropX / 2);
+  // One half of a landscape spread (comics) is shown as a page of its own.
+  const bool leftHalf = config.sourceHalf == 1;
+  const bool rightHalf = config.sourceHalf == 2;
+  int visibleWidth = srcWidth - 2 * static_cast<int>(srcWidth * cropX / 2);
+  if (leftHalf) visibleWidth = srcWidth / 2;
+  if (rightHalf) visibleWidth = srcWidth - srcWidth / 2;
   const int visibleHeight = srcHeight - 2 * static_cast<int>(srcHeight * cropY / 2);
 
   bool isProgressive = jpeg->getJPEGType() == JPEG_MODE_PROGRESSIVE;
@@ -489,6 +496,11 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
   ctx.cropTop = static_cast<int>(ctx.scaledSrcHeight * cropY / 2);
   ctx.scaledSrcWidth -= 2 * ctx.cropLeft;
   ctx.scaledSrcHeight -= 2 * ctx.cropTop;
+  if (leftHalf || rightHalf) {
+    const int scaledWidth = ctx.scaledSrcWidth;
+    ctx.cropLeft = rightHalf ? scaledWidth / 2 : 0;
+    ctx.scaledSrcWidth = rightHalf ? scaledWidth - scaledWidth / 2 : scaledWidth / 2;
+  }
   ctx.dstWidth = destWidth;
   ctx.dstHeight = destHeight;
   ctx.fineScaleFPX = (int32_t)((int64_t)destWidth * FP_ONE / ctx.scaledSrcWidth);

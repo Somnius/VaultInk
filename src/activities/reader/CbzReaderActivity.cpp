@@ -25,6 +25,13 @@
 
 namespace {
 
+// A page wider than tall is a spread: two portrait halves, each fitted to the screen on its own.
+int halvesOf(const ImageDimensions& dimensions) { return dimensions.width > dimensions.height ? 2 : 1; }
+
+ImageDimensions halfOf(const ImageDimensions& dimensions, const int halves) {
+  return halves == 2 ? ImageDimensions{static_cast<int16_t>(dimensions.width / 2), dimensions.height} : dimensions;
+}
+
 RenderConfig fitPage(const ImageDimensions& dimensions, const GfxRenderer& renderer) {
   const float scale = std::min({static_cast<float>(renderer.getScreenWidth()) / dimensions.width,
                                 static_cast<float>(renderer.getScreenHeight()) / dimensions.height, 1.0f});
@@ -84,6 +91,7 @@ bool CbzReaderActivity::handleFormatInput() {
             }
           } else {
             currentPage = page;
+            currentHalf = 0;
           }
         }
         requestUpdate();
@@ -124,24 +132,66 @@ void CbzReaderActivity::dropStalePageCaches() const {
     f.close();
   }
   if (stored == size) return;
-  for (size_t page = 0; page < book.pages.size(); ++page) {
-    const std::string pxc = pagePxcPath(page);
-    if (Storage.exists(pxc.c_str())) Storage.remove(pxc.c_str());
-  }
+  for (size_t page = 0; page < book.pages.size(); ++page) removePageCaches(page);
   if (Storage.openFileForWrite("CBZ", stamp, f)) {
     f.write(&size, 4);
     f.close();
   }
 }
 
-std::string CbzReaderActivity::pagePxcPath(const size_t page) const {
-  return cachePath + "/p" + std::to_string(page) + ".pxc";
+// p<N>.pxc for a portrait page; a spread's halves are p<N>a.pxc (left) and p<N>b.pxc (right), by
+// their side in the image, so turning right-to-left on or off keeps them.
+std::string CbzReaderActivity::pagePxcPath(const size_t page, const int halves, const uint8_t half) const {
+  const char* side = halves == 2 ? (sideOf(half) == 0 ? "a" : "b") : "";
+  return cachePath + "/p" + std::to_string(page) + side + ".pxc";
 }
 
-// The page fitted to the screen as a 2-bit pixel cache (<cache>/p<N>.pxc), decoded once; false on
-// a page that can't be read. Leaves the framebuffer with whatever the decoder drew.
-bool CbzReaderActivity::preparePage(const size_t page, int& width, int& height) {
-  const std::string pxc = pagePxcPath(page);
+void CbzReaderActivity::removePageCaches(const size_t page) const {
+  for (const char* suffix : {"", "a", "b"}) {
+    const std::string pxc = cachePath + "/p" + std::to_string(page) + suffix + ".pxc";
+    if (Storage.exists(pxc.c_str())) Storage.remove(pxc.c_str());
+  }
+}
+
+// How many halves a page has, from its caches on disk: 0 when none exists yet.
+int CbzReaderActivity::cachedHalves(const size_t page) const {
+  const std::string stem = cachePath + "/p" + std::to_string(page);
+  if (Storage.exists((stem + "a.pxc").c_str()) || Storage.exists((stem + "b.pxc").c_str())) return 2;
+  return Storage.exists((stem + ".pxc").c_str()) ? 1 : 0;
+}
+
+bool CbzReaderActivity::pageCached(const size_t page, const uint8_t half) const {
+  const int halves = cachedHalves(page);
+  return halves > 0 && Storage.exists(pagePxcPath(page, halves, half).c_str());
+}
+
+// The page (or the half of a spread) fitted to the screen as a 2-bit pixel cache, decoded once;
+// false on a page that can't be read. `half` is in reading order and is clamped to the page's
+// halves (so 1 on a portrait page becomes 0). Leaves the framebuffer with whatever the decoder
+// drew.
+bool CbzReaderActivity::preparePage(const size_t page, uint8_t& half, int& halves, int& width, int& height) {
+  std::string imagePath;
+  const bool jpeg = FsHelpers::hasJpgExtension(book.pages[page]);
+  JpegToFramebufferConverter jpegDecoder;
+  PngToFramebufferConverter pngDecoder;
+  ImageToFramebufferDecoder& decoder =
+      jpeg ? static_cast<ImageToFramebufferDecoder&>(jpegDecoder) : static_cast<ImageToFramebufferDecoder&>(pngDecoder);
+  ImageDimensions dimensions{0, 0};
+  const auto readHeader = [&] {
+    if (!extractPage(page, imagePath)) return false;
+    if (decoder.getDimensions(imagePath, dimensions) && dimensions.width > 0 && dimensions.height > 0) return true;
+    Storage.remove(imagePath.c_str());
+    imagePath.clear();
+    return false;
+  };
+  // Whether the page is a spread comes from its caches, else from the image header.
+  halves = cachedHalves(page);
+  if (halves == 0) {
+    if (!readHeader()) return false;
+    halves = halvesOf(dimensions);
+  }
+  if (half >= halves) half = static_cast<uint8_t>(halves - 1);
+  const std::string pxc = pagePxcPath(page, halves, half);
   HalFile f;
   if (Storage.openFileForRead("CBZ", pxc, f)) {
     uint16_t dims[2] = {0, 0};
@@ -149,29 +199,21 @@ bool CbzReaderActivity::preparePage(const size_t page, int& width, int& height) 
                     f.fileSize() >= 4 + static_cast<size_t>((dims[0] + 3) / 4) * dims[1];
     f.close();
     if (ok) {
+      if (!imagePath.empty()) Storage.remove(imagePath.c_str());
       width = dims[0];
       height = dims[1];
       return true;
     }
     Storage.remove(pxc.c_str());
   }
-  std::string imagePath;
-  if (!extractPage(page, imagePath)) return false;
-  const bool jpeg = FsHelpers::hasJpgExtension(imagePath);
-  JpegToFramebufferConverter jpegDecoder;
-  PngToFramebufferConverter pngDecoder;
-  ImageToFramebufferDecoder& decoder =
-      jpeg ? static_cast<ImageToFramebufferDecoder&>(jpegDecoder) : static_cast<ImageToFramebufferDecoder&>(pngDecoder);
-  ImageDimensions dimensions;
-  bool ok = decoder.getDimensions(imagePath, dimensions) && dimensions.width > 0 && dimensions.height > 0;
-  if (ok) {
-    auto config = fitPage(dimensions, renderer);
-    config.cachePath = pxc;
-    renderer.clearScreen();
-    ok = decoder.decodeToFramebuffer(imagePath, renderer, config);
-    width = config.maxWidth;
-    height = config.maxHeight;
-  }
+  if (imagePath.empty() && !readHeader()) return false;
+  auto config = fitPage(halfOf(dimensions, halves), renderer);
+  config.cachePath = pxc;
+  if (halves == 2) config.sourceHalf = sideOf(half) == 0 ? 1 : 2;
+  renderer.clearScreen();
+  bool ok = decoder.decodeToFramebuffer(imagePath, renderer, config);
+  width = config.maxWidth;
+  height = config.maxHeight;
   Storage.remove(imagePath.c_str());
   if (!ok) {
     Storage.remove(pxc.c_str());
@@ -195,18 +237,18 @@ bool CbzReaderActivity::preparePage(const size_t page, int& width, int& height) 
 
 // Like the full-screen picture viewer: black and white first, then the two gray planes, all from
 // the page's pixel cache.
-bool CbzReaderActivity::drawPage(const size_t page) {
+bool CbzReaderActivity::drawPage(const size_t page, uint8_t& half, int& halves) {
   struct PxcSlotGuard {
     ~PxcSlotGuard() { ImageBlock::releaseRenderCache(); }
   } pxcSlotGuard;
   int width = 0;
   int height = 0;
-  if (!preparePage(page, width, height)) {
+  if (!preparePage(page, half, halves, width, height)) {
     // No pixel cache (card full, a write failed): decode for every pass, as before 0.53.0.
     std::string imagePath;
-    return extractPage(page, imagePath) && drawDecoded(imagePath);
+    return extractPage(page, imagePath) && drawDecoded(imagePath, half, halves);
   }
-  const std::string pxc = pagePxcPath(page);
+  const std::string pxc = pagePxcPath(page, halves, half);
   const int x = (renderer.getScreenWidth() - width) / 2;
   const int y = (renderer.getScreenHeight() - height) / 2;
   return drawPasses([&] { return renderImagePixelCache(renderer, pxc, x, y, width, height); });
@@ -243,7 +285,7 @@ bool CbzReaderActivity::drawPasses(const std::function<bool()>& draw) {
 }
 
 // Without a pixel cache: the decoder runs for every pass.
-bool CbzReaderActivity::drawDecoded(const std::string& imagePath) {
+bool CbzReaderActivity::drawDecoded(const std::string& imagePath, uint8_t& half, int& halves) {
   const bool jpeg = FsHelpers::hasJpgExtension(imagePath);
   JpegToFramebufferConverter jpegDecoder;
   PngToFramebufferConverter pngDecoder;
@@ -251,24 +293,34 @@ bool CbzReaderActivity::drawDecoded(const std::string& imagePath) {
       jpeg ? static_cast<ImageToFramebufferDecoder&>(jpegDecoder) : static_cast<ImageToFramebufferDecoder&>(pngDecoder);
   ImageDimensions dimensions;
   if (!decoder.getDimensions(imagePath, dimensions) || dimensions.width <= 0 || dimensions.height <= 0) return false;
-  const auto config = fitPage(dimensions, renderer);
+  halves = halvesOf(dimensions);
+  if (half >= halves) half = static_cast<uint8_t>(halves - 1);
+  auto config = fitPage(halfOf(dimensions, halves), renderer);
+  if (halves == 2) config.sourceHalf = sideOf(half) == 0 ? 1 : 2;
   return drawPasses([&] { return decoder.decodeToFramebuffer(imagePath, renderer, config); });
 }
 
-// After a page is up: the next page in reading order is decoded into its pixel cache, so the turn
-// only reads the cache. The framebuffer is kept around it. Caches more than two pages away go.
+// After a page is up: the next half or page in reading order is decoded into its pixel cache, so
+// the turn only reads the cache. The framebuffer is kept around it. Caches more than two pages
+// away go.
 void CbzReaderActivity::prefetchNext() {
   for (const int far : {-3, 3}) {
     const int64_t p = static_cast<int64_t>(currentPage) + far;
-    if (p >= 0 && p < static_cast<int64_t>(book.pages.size())) Storage.remove(pagePxcPath(p).c_str());
+    if (p >= 0 && p < static_cast<int64_t>(book.pages.size())) removePageCaches(static_cast<size_t>(p));
   }
-  const int64_t next = static_cast<int64_t>(currentPage) + (rightToLeft ? -1 : 1);
+  int64_t next = currentPage;
+  uint8_t half = 1;
+  if (currentHalf != 0 || currentHalves != 2) {
+    next += rightToLeft ? -1 : 1;
+    half = 0;
+  }
   if (next < 0 || next >= static_cast<int64_t>(book.pages.size())) return;
-  if (Storage.exists(pagePxcPath(next).c_str())) return;
+  if (pageCached(static_cast<size_t>(next), half)) return;
   if (!renderer.storeBwBuffer()) return;
+  int halves = 0;
   int width = 0;
   int height = 0;
-  if (!preparePage(static_cast<size_t>(next), width, height)) {
+  if (!preparePage(static_cast<size_t>(next), half, halves, width, height)) {
     LOG_DBG("CBZ", "Couldn't prepare page %lld ahead", static_cast<long long>(next + 1));
   }
   renderer.restoreBwBuffer(/*resyncPanelBaseline=*/false);
@@ -276,14 +328,17 @@ void CbzReaderActivity::prefetchNext() {
 
 void CbzReaderActivity::renderBook() {
   if (book.pages.empty() || currentPage >= book.pages.size()) return;
-  const bool drawn = drawPage(currentPage);
+  currentHalves = 1;
+  const bool drawn = drawPage(currentPage, currentHalf, currentHalves);
   if (!drawn) {
+    currentHalf = 0;
     renderer.setRenderMode(GfxRenderer::BW);
     renderer.clearScreen();
     renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_PAGE_LOAD_ERROR), true, EpdFontFamily::BOLD);
     renderer.displayBuffer();
   }
-  LOG_DBG("CBZ", "Page %lu/%u", static_cast<unsigned long>(currentPage + 1), static_cast<unsigned>(book.pages.size()));
+  LOG_DBG("CBZ", "Page %lu/%u%s", static_cast<unsigned long>(currentPage + 1), static_cast<unsigned>(book.pages.size()),
+          currentHalves == 2 ? (currentHalf == 0 ? " (first half)" : " (second half)") : "");
   saveProgress();
   markPageRendered();
   publishLiveBookProgress(getScreenshotInfo().progressPercent);
@@ -308,15 +363,26 @@ void CbzReaderActivity::loadDirection(ZipFile& zip) {
   free(xml);
 }
 
+// A spread's halves are turned like pages: forward from its first half lands on its second, back
+// from the next page on its second half (clamped to the first on a portrait page when drawn).
 bool CbzReaderActivity::pageTurn(bool isForward) {
   if (rightToLeft) isForward = !isForward;  // the page order stays, next and previous swap
   if (isForward) {
-    if (currentPage < book.pages.size()) {
-      ++currentPage;
+    if (currentHalf == 0 && currentHalves == 2) {
+      currentHalf = 1;
       return true;
     }
+    if (currentPage < book.pages.size()) {
+      ++currentPage;
+      currentHalf = 0;
+      return true;
+    }
+  } else if (currentHalf != 0) {
+    currentHalf = 0;
+    return true;
   } else if (currentPage > 0) {
     --currentPage;
+    currentHalf = 1;
     return true;
   }
   return false;
@@ -327,6 +393,7 @@ bool CbzReaderActivity::skipPages(const int amount) {
   const int target = std::clamp(static_cast<int>(currentPage) + (rightToLeft ? -amount : amount), 0, last);
   if (target == static_cast<int>(currentPage)) return false;
   currentPage = static_cast<uint32_t>(target);
+  currentHalf = 0;
   return true;
 }
 
@@ -334,6 +401,7 @@ bool CbzReaderActivity::isAtEndOfBook() const { return !book.pages.empty() && cu
 
 void CbzReaderActivity::onReturnFromEndOfBook() {
   currentPage = book.pages.empty() ? 0 : static_cast<uint32_t>(book.pages.size() - 1);
+  currentHalf = 1;  // the last half, as on any turn back
 }
 
 void CbzReaderActivity::saveProgress() const {

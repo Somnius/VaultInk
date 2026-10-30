@@ -164,7 +164,11 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   fitted size, RenderConfig::cachePath) and every pass draws from it (renderImagePixelCache, RAM
   slot released after the page); after a page is shown the next one in reading order (RTL aware)
   is decoded into its .pxc between storeBwBuffer/restoreBwBuffer; caches 3 pages away are
-  removed; size.bin (the CBZ's byte size) drops all page caches when the file changes. Decoder
+  removed; size.bin (the CBZ's byte size) drops all page caches when the file changes.
+  Spreads (after 0.53.0): width > height = two halves; RenderConfig::sourceHalf (1 left, 2 right)
+  crops the source in both decoders; caches p<N>a.pxc / p<N>b.pxc by image side; currentHalf in
+  reading order (RTL flips the side) in memory only, progress stays the page; back from a page
+  lands on its last half, jumps and resume on the first; prefetch takes the second half first. Decoder
   cap: PNG 24 MP (MAX_SOURCE_PIXELS, was 8 MP), PNG_MAX_BUFFERED_PIXELS 24640 (two rows: RGBA
   3072 px, RGB 4096 px wide; was 16416), PNG heap guard 52 KB + 16 KB; JPEG 50 MP since 0.48.0
   (MAX_JPEG_SOURCE_PIXELS, decoded at up to 1/8 scale).

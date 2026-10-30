@@ -79,6 +79,9 @@ to 24 megapixels and 3072 pixels wide (4096 for PNGs without transparency); JPEG
 megapixels (since 0.48.0). Not timed on the device yet. Not yet:
 
 - WebP pages, CBR (RAR) files: run them through the converter.
+
+After 0.53.0 (next release): a landscape page (a two-page spread, wider than tall) is shown as
+two pages, its left half then its right, or right then left in a right-to-left book.
 - Since 0.43.0, manga read right to left: a CBZ whose ComicInfo.xml says so (Manga: YesAndRightToLeft)
   opens that way, and Confirm or the menu tap shows **Right to left (manga): On/Off** to change it
   for that book. The pages stay in their order; next and previous swap. (Since 0.40.0: Confirm or the menu tap opens the list of chapter folders,

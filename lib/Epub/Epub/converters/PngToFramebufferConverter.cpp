@@ -379,6 +379,11 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
   ctx.cropTop = static_cast<int>(ctx.srcHeight * std::clamp(config.sourceCropY, 0.0f, 0.99f) / 2.0f);
   ctx.visibleWidth = ctx.srcWidth - 2 * ctx.cropLeft;
   ctx.visibleHeight = ctx.srcHeight - 2 * ctx.cropTop;
+  if (config.sourceHalf == 1 || config.sourceHalf == 2) {
+    // One half of a landscape spread, shown as a page of its own.
+    ctx.cropLeft = config.sourceHalf == 2 ? ctx.srcWidth / 2 : 0;
+    ctx.visibleWidth = config.sourceHalf == 2 ? ctx.srcWidth - ctx.srcWidth / 2 : ctx.srcWidth / 2;
+  }
   if (ctx.visibleWidth <= 0 || ctx.visibleHeight <= 0) {
     LOG_ERR("PNG", "PNG crop leaves no visible pixels");
     return false;

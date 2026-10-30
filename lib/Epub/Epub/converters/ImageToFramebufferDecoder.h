@@ -21,6 +21,7 @@ struct RenderConfig {
   bool useExactDimensions = false;  // If true, use maxWidth/maxHeight as exact output size (no recalculation)
   float sourceCropX = 0.0f;         // Fraction cropped equally from the left and right edges
   float sourceCropY = 0.0f;         // Fraction cropped equally from the top and bottom edges
+  uint8_t sourceHalf = 0;           // 1: only the left half of the source, 2: only the right (comic spreads)
   bool preserveAlpha = false;       // Skip transparent pixels instead of compositing them against white
   std::string cachePath;            // If non-empty, decoder will write pixel cache to this path
 };

@@ -40,6 +40,7 @@ In this order, each also listed in its phase below:
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
+🚧 Next release (on main): CBZ landscape spreads shown as two halves.
 ✅ 0.53.0 (with companion-0.4.0): the companion's outbox; CBZ page cache and PNG pages over 8 MP; block ids in search.
 ✅ 0.52.0: reading time saved when a book is left (not only at sleep); lock options (after, corner, hold); arrows and task boxes in every built-in font.
 ✅ 0.51.0: kos25k #23 reading statistics sleep screen (reading log on the card, times, last 3 books, month calendar).
@@ -339,7 +340,9 @@ EPUB comics show their pictures; the companion app's Files tab can upload any fi
   it through the converter.
 * 🚧 **1c.4 Manga order and covers (M).** ✅ 0.43.0: right to left per CBZ (ComicInfo.xml
   YesAndRightToLeft, or the toggle at the top of the CBZ menu, kept in rtl.bin), next/previous
-  swapped; covers came in 0.40.0. To do: chapter markers on the progress bar, landscape spreads. The converter already asks for the reading direction
+  swapped; covers came in 0.40.0. ✅ (next release) landscape spreads: a page wider than tall is
+  shown as two halves in reading order (right half first for manga), each cached as its own
+  .pxc. To do: chapter markers on the progress bar. The converter already asks for the reading direction
   (right-to-left or left-to-right) and orders the pages for it, so this is mainly for raw CBZ:
   right-to-left as a per-book flag that swaps what next and previous mean (taps, swipes and
   buttons), never reversing the file; off by default; set from ComicInfo.xml
