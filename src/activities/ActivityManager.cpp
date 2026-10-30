@@ -38,6 +38,7 @@
 #include "util/FullScreenMessageActivity.h"
 #include "util/PdfConvert.h"
 #include "util/VaultEdit.h"
+#include "util/VaultNavigation.h"
 #include "util/WelcomeGuideActivity.h"
 #include "vault/CanvasActivity.h"
 #include "vault/LiveSyncActivity.h"
@@ -394,6 +395,7 @@ void ActivityManager::goToReader(std::string path, const bool allowFastInitialRe
       goToFileBrowser(slash == std::string::npos || slash == 0 ? "/" : path.substr(0, slash));
       return;
     }
+    vaultnav::openingAs(path, textPath);
     path = std::move(textPath);
   }
 

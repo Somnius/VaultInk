@@ -30,4 +30,7 @@ std::string takeAnchor();
 // Files, Home, a book) starts a fresh history.
 void opened(const std::string& path);
 
+// The file about to open is read from another one (a PDF from its converted text): keeps the back history.
+void openingAs(const std::string& from, const std::string& to);
+
 }  // namespace vaultnav

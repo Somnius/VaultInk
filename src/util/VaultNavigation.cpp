@@ -92,6 +92,10 @@ std::string takeAnchor() {
   return anchor;
 }
 
+void openingAs(const std::string& from, const std::string& to) {
+  if (openingPath == from) openingPath = to;
+}
+
 void opened(const std::string& path) {
   if (path != openingPath) {
     history.clear();
