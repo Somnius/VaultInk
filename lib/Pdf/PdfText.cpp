@@ -111,7 +111,7 @@ class Lexer {
   // Parses one object. Names, numbers, strings, arrays, dictionaries and "n g R" references. Returns false
   // at a keyword (operator) or on error, leaving `kw` with the keyword when it was one.
   bool object(Obj& out, std::string_view* kw = nullptr, int depth = 0) {
-    if (depth > 24) return false;
+    if (depth > 12) return false;  // real files nest 6 deep at most; the stack is 24 KB and an Obj 152 bytes
     skipSpace();
     if (pos >= buf.size()) {
       truncated = true;

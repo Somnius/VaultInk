@@ -513,9 +513,8 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   ReportLab sheets, Quartz and Skia output; contents never left the machine), and the word count matched poppler's
   `pdftotext` within 3% on 26, within 20% on the rest once form-field values were added; 1 to 20 ms a file on the host.
   ✅ (next release) wired in: a `.pdf` in Browse Files (or a link to one) opens as reflowing text through a cached `.txt`
-  (`src/util/PdfConvert`), tested in the simulator with Greek text; a scan says it has no text.
-  Still to do: timing and memory on the device (big PDFs: a 30 MB file is read in pieces, never whole), the Continue card
-  and Recent list for PDFs (the cache lives under `/.vaultink/`, which they skip), a link in a note to a PDF in another
+  (`src/util/PdfConvert`), tested in the simulator with Greek text; a scan says it has no text; a read PDF shows in Recent and on the Continue card.
+  Still to do: timing and memory on the device (big PDFs: a 30 MB file is read in pieces, never whole), a link in a note to a PDF in another
   folder (links to other file types are not tried yet), columns, tables, and CID fonts without a ToUnicode map.
 
 ## 💤 Phase 8 - Website

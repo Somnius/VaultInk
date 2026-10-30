@@ -348,7 +348,7 @@ page's text). It checked out on 30 real PDFs (character sheets, notes saved from
 the word count matched the desktop tool `pdftotext` within a few percent on 28 of them.
 
 What it doesn't: pictures, tables as tables, columns (two columns can come out interleaved), page numbers as pages, and
-scans without a text layer. A scan says "This PDF has no text to read". An encrypted PDF says so too. It isn't in the
-Library or Continue card (the text file lives outside the folders those scan); open it again from Browse Files or its
-link.
+scans without a text layer. A scan says "This PDF has no text to read". An encrypted PDF says so too. A PDF you have read
+shows in Recent and on the Continue card (opening it from there goes straight to the text), but it isn't a Library book;
+find it again in Browse Files or by its link.
 
