@@ -285,47 +285,15 @@ fun DeviceSearch(host: String, onConnect: (String) -> Unit, onSearch: () -> Unit
     OutlinedTextField(address, { address = it }, label = { Text(stringResource(R.string.address)) },
         placeholder = { Text(stringResource(R.string.address_hint)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
     OutlinedButton(onClick = { onConnect(address) }) { Text(stringResource(R.string.connect)) }
+    UpdateCheck()  // the app can update itself without a reader
 }
 
 @Composable
 fun DeviceScreen(host: String, status: DeviceStatus, onSearch: () -> Unit, onIntro: () -> Unit) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var update by remember { mutableStateOf<AppUpdate?>(null) }
-    var message by remember { mutableStateOf("") }
     Text(stringResource(R.string.found, host, status.version))
     if (status.hotspot) Text(stringResource(R.string.hotspot_warning), color = MaterialTheme.colorScheme.error)
     OutlinedButton(onClick = onSearch) { Text(stringResource(R.string.search_again)) }
-    OutlinedButton(onClick = {
-        scope.launch {
-            message = withContext(Dispatchers.IO) {
-                runCatching { Updater.newer(BuildConfig.VERSION_NAME) }.fold(
-                    onSuccess = { found ->
-                        update = found
-                        if (found == null) context.getString(R.string.update_none, BuildConfig.VERSION_NAME) else ""
-                    },
-                    onFailure = { context.getString(R.string.update_failed, it.message ?: "") },
-                )
-            }
-        }
-    }) { Text(stringResource(R.string.check_update)) }
-    if (message.isNotEmpty()) Text(message)
-    update?.let { found ->
-        AlertDialog(
-            onDismissRequest = { update = null },
-            text = { Text(stringResource(R.string.update_found, found.version)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    update = null
-                    scope.launch(Dispatchers.IO) {
-                        runCatching { Updater.install(context, found) }.onFailure {
-                            message = context.getString(R.string.update_failed, it.message ?: "")
-                        }
-                    }
-                }) { Text(stringResource(R.string.update_install)) }
-            },
-        )
-    }
+    UpdateCheck()
     TextButton(onClick = onIntro) { Text(stringResource(R.string.intro_show_again)) }
     Text(stringResource(R.string.credit), style = MaterialTheme.typography.bodySmall)
 }
@@ -523,4 +491,44 @@ fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<Stri
         },
         dismissButton = { TextButton(enabled = !busy, onClick = onDone) { Text(stringResource(R.string.close)) } },
     )
+}
+
+/** Check for a newer companion app; works with or without a reader connected. */
+@Composable
+fun UpdateCheck() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var update by remember { mutableStateOf<AppUpdate?>(null) }
+    var message by remember { mutableStateOf("") }
+    OutlinedButton(onClick = {
+        scope.launch {
+            message = withContext(Dispatchers.IO) {
+                runCatching { Updater.newer(BuildConfig.VERSION_NAME) }.fold(
+                    onSuccess = { found ->
+                        update = found
+                        if (found == null) context.getString(R.string.update_none, BuildConfig.VERSION_NAME) else ""
+                    },
+                    onFailure = { context.getString(R.string.update_failed, it.message ?: "") },
+                )
+            }
+        }
+    }) { Text(stringResource(R.string.check_update)) }
+    if (message.isNotEmpty()) Text(message)
+    update?.let { found ->
+        AlertDialog(
+            onDismissRequest = { update = null },
+            text = { Text(stringResource(R.string.update_found, found.version)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    update = null
+                    scope.launch(Dispatchers.IO) {
+                        runCatching { Updater.install(context, found) }.onFailure {
+                            message = context.getString(R.string.update_failed, it.message ?: "")
+                        }
+                    }
+                }) { Text(stringResource(R.string.update_install)) }
+            },
+            dismissButton = { TextButton(onClick = { update = null }) { Text(stringResource(R.string.update_later)) } },
+        )
+    }
 }
