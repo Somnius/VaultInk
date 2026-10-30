@@ -75,7 +75,8 @@ import java.io.File
 
 /**
  * Something another app shared: text, and pictures copied into the cache right away. Books and
- * comics go to the reader as files instead (`books`); other files are named in `refused`.
+ * comics go to the reader as files instead (`books`); other files are named in `refused`, and files
+ * the sharing app didn't let us read in `unreadable`.
  */
 data class Draft(
     val title: String = "",
@@ -83,6 +84,7 @@ data class Draft(
     val pictures: List<File> = emptyList(),
     val books: List<File> = emptyList(),
     val refused: List<String> = emptyList(),
+    val unreadable: List<String> = emptyList(),
 )
 
 private val PICTURE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
@@ -129,12 +131,19 @@ class MainActivity : ComponentActivity() {
         val text = intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty()
         val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT).orEmpty()
         val title = subject.ifBlank { text.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty().take(60) }
-        val files = uris.mapNotNull { copyToCache(it) }
+        val unreadable = mutableListOf<String>()
+        val files = uris.mapNotNull { uri -> copyToCache(uri) ?: null.also { unreadable.add(displayName(uri)) } }
         val (books, others) = files.partition { shareFolderFor(it.name) != null }
         val (pictures, refused) = others.partition { it.extension.lowercase() in PICTURE_EXTENSIONS || it.extension.isEmpty() }
         refused.forEach { it.delete() }
-        return Draft(DeviceClient.safeName(title), text, pictures, books, refused.map { it.name })
+        return Draft(DeviceClient.safeName(title), text, pictures, books, refused.map { it.name }, unreadable)
     }
+
+    private fun displayName(uri: Uri): String = runCatching {
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/') ?: uri.toString()
 
     // The sharing app's permission ends with this intent: copy the picture now.
     private fun copyToCache(uri: Uri): File? = runCatching {
@@ -240,10 +249,10 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
                 searching -> Searching()
                 connected == null -> DeviceSearch(host, onConnect = { connect(it) }, onSearch = { connect() })
                 else -> {
-                    if (draft.books.isNotEmpty() || draft.refused.isNotEmpty()) {
-                        ShareBooksDialog(DeviceClient(host), draft.books, draft.refused) {
+                    if (draft.books.isNotEmpty() || draft.refused.isNotEmpty() || draft.unreadable.isNotEmpty()) {
+                        ShareBooksDialog(DeviceClient(host), draft.books, draft.refused, draft.unreadable) {
                             draft.books.forEach { it.delete() }
-                            onDraft(draft.copy(books = emptyList(), refused = emptyList()))
+                            onDraft(draft.copy(books = emptyList(), refused = emptyList(), unreadable = emptyList()))
                         }
                     }
                     Hint(listOf(R.string.hint_note, R.string.hint_files, R.string.settings_hint, R.string.hint_device)[tab])
@@ -443,7 +452,7 @@ fun SettingRow(s: Setting, onChange: (Int) -> Unit) {
 
 /** Shared books and comics: send them to /Books or /Comics on the reader, one after the other. */
 @Composable
-fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<String>, onDone: () -> Unit) {
+fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<String>, unreadable: List<String>, onDone: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -459,6 +468,9 @@ fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<Stri
                 books.forEach { Text("${it.name}  (${sizeText(it.length())})") }
                 if (refused.isNotEmpty()) {
                     Text(stringResource(R.string.share_refused, refused.joinToString(", ")), Modifier.padding(top = 8.dp))
+                }
+                if (unreadable.isNotEmpty()) {
+                    Text(stringResource(R.string.share_unreadable, unreadable.joinToString(", ")), Modifier.padding(top = 8.dp))
                 }
                 progress?.let { LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) }
                 messages.forEach { Text(it, Modifier.padding(top = 4.dp)) }

@@ -31,9 +31,10 @@ In this order, each also listed in its phase below:
 2. kos25k #17: a home button in the status bar, between the time and the battery, on every screen.
 3. 1c.2: ✅ 0.36.1 XTCH pages drawn byte-wise; the refresh choice needs the device.
    1c.3: ✅ 0.39.0 CBZ reader v1 (JPEG/PNG up to 8 MP); next chapters, cover, page cache.
-4. 1c.1: Share to VaultInk from other apps into /Comics (name clash, full card, dropped Wi-Fi).
-5. companion-0.3.0: the outbox (shares and notes kept until the reader is reachable), "Not now"
-   in the update dialog, the update check without a reader.
+4. 1c.1: ✅ Share to VaultInk from other apps into /Comics (companion-0.3.0). Still to check: name
+   clash, full card, dropped Wi-Fi.
+5. ✅ companion-0.3.0 (share to the reader, Not now, update check without a reader). Next:
+   companion-0.4.0, the outbox (shares and notes kept until the reader is reachable).
 6. Phase 1 leftovers: ✅ 0.47.0 heading anchors in the index (search opens at the heading); checkbox glyphs for tasks (✅ 0.36.2: a note
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
@@ -477,12 +478,12 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   `/Comics` on the reader or saved on the phone. Message channel limited to the converter's
   origin, other links open in the browser, an offline screen when the site can't be reached.
   Tested on a phone end to end against the simulator (converted, sent, opened in the reader).
-* ⏳ `companion-0.3.0`: an outbox. Notes and shares are saved on the phone first and sent when the
+* ✅ `companion-0.3.0` (2026-10-30): books and comics shared from other apps go to `/Books` or
+  `/Comics` on the reader, with a progress bar; files it can't open or read are named, not dropped.
+  "Not now" in the update dialog, and the app update check on the not-found screen too. Tested on a
+  phone against the simulator (a share from the file manager); "Not now" waits for a newer release.
+* ⏳ `companion-0.4.0`: an outbox. Notes and shares are saved on the phone first and sent when the
   device is found, so nothing is lost if the device isn't reachable or the app is closed.
-* ⏳ `companion-0.3.0`: a "Not now" button in the update dialog (today only Install, or tap outside).
-  The in-app update itself works: tested 0.1.0 → 0.2.0 on a phone.
-* ⏳ `companion-0.3.0`: the app update check reachable without a device (today it's on the Device
-  tab, which only shows once connected).
 * 💤 Type into the device from the phone (live keyboard).
 * 💤 Bring notes in: convert to Markdown into a vault folder (e.g. `Imported/Keep/`). Order:
   Google Keep (Takeout) -> Samsung Notes (`.sdocx` export) -> contacts (one note per contact plus a
@@ -496,6 +497,9 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
 
 ## 💤 Phase 8 - Website
 
+* ✅ Web installer page (somnius.github.io/VaultInk), redesigned 2026-10-30, then the same day: a
+  back to top button, a "See it move" section with the GIFs, a sliding row of more screens, the
+  companion's phone screens, fade-ins (off for reduced motion), and a new share image (og-2.png).
 * 🚧 App page lefteros.com/en/apps/vaultink with donations (being written in the lefteros.com project). ✅ Credited in About, README, the web installer and release notes (0.8.1).
 
 ## 💤 Phase 9 - Watch-only wallet

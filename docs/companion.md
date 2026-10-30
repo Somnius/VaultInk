@@ -4,7 +4,7 @@ The companion is an Android app that talks to the device over Wi-Fi, through the
 device runs while **File Transfer** is open. Its code is in [`companion/`](../companion/) in this
 repo, and it has its own releases, tagged `companion-x.y.z`.
 
-Status: `companion-0.2.0` is out (needs VaultInk 0.29.0 or newer on the device). Download the APK
+Status: `companion-0.3.0` is out (needs VaultInk 0.29.0 or newer on the device). Download the APK
 from the [newest companion release](https://github.com/Somnius/VaultInk/releases?q=companion&expanded=true)
 on the phone and open it. After an update the reader shows a QR code that opens this page. It's tested on one phone (Android 16) against the simulator, not yet
 against a real X4 Pro. See "Tested so far" below.
@@ -40,6 +40,16 @@ that's already there gets `-2`, `-3`, ... added. The draft stays until it's save
 Sharing from another app works too: text and pictures shared to VaultInk open in this tab. The
 first line of shared text becomes the title. Pictures go to the vault's `attachments` folder and
 the note links them with `![[...]]`.
+
+Books and comics shared from another app (0.3.0) go straight to the reader instead: EPUB, TXT
+and the like to `/Books`, XTC, XTCH and CBZ to `/Comics`. A dialog lists them with their size;
+**Send to VaultInk** uploads them one after the other with a progress bar. Files the reader can't
+open (PDF needs converting first) are named as not sent, and a file the sharing app didn't let the
+companion read is named too, so nothing disappears without a word.
+
+<p>
+  <img src="images/companion/5-share.png" width="300" alt="A book shared from the file manager, sent to the reader">
+</p>
 
 Notes saved this way, or uploaded through the web page into `/Vaults`, are marked as changed, so
 the device's next LiveSync sync sends them to the server (from 0.29.0).
@@ -78,6 +88,15 @@ close it. Switches, choices and numbers change on the device straight away.
 
 The address and firmware version, **Search again**, and **Check for app update**: the app looks
 for a newer `companion-*` release on GitHub, downloads the APK and opens Android's install prompt.
+The update dialog has **Not now** (0.3.0). **Check for app update** is also on the "No VaultInk
+found" screen (0.3.0), so the app can update itself without a reader.
+
+<p>
+  <img src="images/companion/1-note.png" width="190" alt="The Note tab">
+  <img src="images/companion/2-files.png" width="190" alt="The Files tab">
+  <img src="images/companion/3-settings.png" width="190" alt="The Settings tab">
+  <img src="images/companion/0-noreader.png" width="190" alt="No reader found, with the app update check">
+</p>
 
 ## Look
 
@@ -124,6 +143,9 @@ On a OnePlus phone (Android 16) against the simulator's web server, over USB deb
 - Update check: "newest version" while no `companion-*` release exists. Downloading and installing
   an update can only be tried once a newer release is out.
 - Greek tab names fit on one line (they broke mid-word at a large phone font before).
+- 0.3.0 (2026-10-30): an EPUB shared from the OnePlus file manager's share sheet went to
+  `/Books` on the simulator's card; a share the app couldn't read now says so; Check for app update
+  on the not-found screen. Not tried: **Not now** (it needs a newer release to show up).
 
 Not tested yet:
 
