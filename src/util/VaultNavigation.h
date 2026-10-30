@@ -16,6 +16,10 @@ Follow follow(const std::string& currentPath, const std::string& href, std::stri
 // Opens `path` as if followed from a link in `currentPath` (Back returns to it).
 void openFrom(const std::string& currentPath, const std::string& path);
 
+// Opens `path` at the heading with this text (as written in the note), with a fresh history:
+// a search result found in that heading.
+void openAtHeading(const std::string& path, const std::string& heading);
+
 // Back in a note: true (and the previous note reopens) when there is a note to go back to.
 bool goBack();
 

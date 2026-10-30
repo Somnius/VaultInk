@@ -212,6 +212,24 @@ Note scanNote(const std::string& path, std::string_view text) {
     }
   }
 
+  // Headings, for searches that open a note at its heading. Code blocks are skipped.
+  bool inCode = false;
+  for (size_t start = 0; start < body.size() && note.headings.size() < MAX_HEADINGS_PER_NOTE;) {
+    const size_t nl = body.find('\n', start);
+    std::string_view line = body.substr(start, nl == std::string_view::npos ? std::string_view::npos : nl - start);
+    start = nl == std::string_view::npos ? body.size() : nl + 1;
+    if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+    if (startsWith(line, "```") || startsWith(line, "~~~")) inCode = !inCode;
+    if (inCode) continue;
+    size_t level = 0;
+    while (level < line.size() && line[level] == '#') ++level;
+    if (level == 0 || level > 6 || level >= line.size() || line[level] != ' ') continue;
+    std::string_view headingText = trim(line.substr(level + 1));
+    while (!headingText.empty() && headingText.back() == '#') headingText.remove_suffix(1);  // "## Title ##"
+    headingText = trim(headingText);
+    if (!headingText.empty()) note.headings.emplace_back(headingText);
+  }
+
   std::set<std::string> seen;
   auto addTerms = [&](std::string_view s) {
     for (auto& w : textfold::words(s)) {
@@ -244,6 +262,13 @@ std::string toLine(const Note& note) {
     line += item;
   }
   line += FIELD;
+  for (const auto& heading : note.headings) {
+    const std::string item = clean(heading);
+    if (line.size() + item.size() + 1 > MAX_LINE_BYTES * 3 / 4) break;
+    if (line.back() != FIELD) line += ITEM;
+    line += item;
+  }
+  line += FIELD;
   // Terms fill what is left of the line budget, so every line reads back whole.
   for (const auto& term : note.terms) {
     if (line.size() + term.size() + 1 > MAX_LINE_BYTES) break;
@@ -256,9 +281,9 @@ std::string toLine(const Note& note) {
 bool fromLine(std::string_view line, Note& note) {
   std::vector<std::string> fields;
   size_t start = 0;
-  for (int f = 0; f < 7; ++f) {
-    const size_t tab = f < 6 ? line.find(FIELD, start) : std::string_view::npos;
-    if (f < 6 && tab == std::string_view::npos) return false;
+  for (int f = 0; f < 8; ++f) {
+    const size_t tab = f < 7 ? line.find(FIELD, start) : std::string_view::npos;
+    if (f < 7 && tab == std::string_view::npos) return false;
     fields.emplace_back(line.substr(start, tab == std::string_view::npos ? std::string_view::npos : tab - start));
     start = tab + 1;
   }
@@ -269,7 +294,8 @@ bool fromLine(std::string_view line, Note& note) {
   splitInto(fields[3], ITEM, note.aliases);
   splitInto(fields[4], ITEM, note.tags);
   splitInto(fields[5], ITEM, note.links);
-  splitInto(fields[6], ' ', note.terms);
+  splitInto(fields[6], ITEM, note.headings);
+  splitInto(fields[7], ' ', note.terms);
   return !note.path.empty();
 }
 
@@ -459,7 +485,20 @@ std::vector<Hit> search(const std::string& indexPath, std::string_view query, co
     for (const auto& t : note.tags) {
       for (auto& w : textfold::words(t, 1)) tagWords.push_back(std::move(w));
     }
-    int score = 0;
+    // The first heading holding every word of the query (prefix match, like the rest), unless the
+    // title already does: then the note opens at its start.
+    std::string heading;
+    const bool titleHasAll =
+        std::all_of(words.begin(), words.end(), [&](const std::string& w) { return matchIn(titleWords, w) > 0; });
+    for (const auto& h : note.headings) {
+      if (titleHasAll) break;
+      const auto headingWords = textfold::words(h, 1);
+      if (std::all_of(words.begin(), words.end(), [&](const std::string& w) { return matchIn(headingWords, w) > 0; })) {
+        heading = h;
+        break;
+      }
+    }
+    int score = heading.empty() ? 0 : 3;
     for (const auto& word : words) {
       // Title > alias > tag > body; an exact word scores a bit more than a prefix.
       int best = 0;
@@ -474,7 +513,7 @@ std::vector<Hit> search(const std::string& indexPath, std::string_view query, co
       if (best == 0) return true;  // every word must match
       score += best;
     }
-    hits.push_back({note.path, note.title, score});
+    hits.push_back({note.path, note.title, score, heading});
     if (hits.size() > 4 * maxResults) {
       std::sort(hits.begin(), hits.end(), better);
       hits.resize(maxResults);

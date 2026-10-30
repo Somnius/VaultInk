@@ -46,6 +46,12 @@ void openFrom(const std::string& currentPath, const std::string& path) {
   open(path);
 }
 
+void openAtHeading(const std::string& path, const std::string& heading) {
+  history.clear();
+  pendingAnchor = heading.empty() ? std::string() : MarkdownToHtml::headingId(heading);
+  open(path);
+}
+
 Follow follow(const std::string& currentPath, const std::string& href, std::string* sameNoteAnchor) {
   vaultlink::Target target;
   if (!vaultlink::parse(href, target)) return Follow::NotVaultLink;

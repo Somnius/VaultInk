@@ -183,7 +183,8 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 - **Vaults and search.** The Vaults row lists every vault on the SD card (folders under `Vaults/`
   and any folder with `.obsidian` in it), and the home screen shows how many there are. Each vault
   remembers the note you read last and opens on it (Settings → Vaults → Open last note). Under the vaults, **Recent notes** lists the last five notes you read, from any vault (0.37.0). Search
-  looks through all of them by title, alias, tag and text. Accents don't matter, so `καλημερα` finds `Καλημέρα`. In a note, **More → Backlinks** lists
+  looks through all of them by title, alias, tag, heading and text; a match in a heading shows as
+  `Note > Heading` and opens the note there (0.47.0). Accents don't matter, so `καλημερα` finds `Καλημέρα`. In a note, **More → Backlinks** lists
   the notes that link to it. The search index lives outside the vault (`/.vaultink/` on the SD
   card) and also keeps a list of the vault's files, so links and images open without scanning the
   card; Settings → Vaults → Rebuild Search Index starts it over.

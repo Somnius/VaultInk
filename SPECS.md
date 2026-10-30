@@ -215,7 +215,11 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   bare name look it up there first (same order as the scan: fewest folders deep, then shortest
   path); the SD scan runs only when there is no list yet or the listed file is gone (renamed, or
   added since the list was written). Settings → Vaults → Rebuild Search Index deletes both files.
-- Planned: heading and block-id anchors.
+- Headings (0.47.0, index version 4): up to 64 heading texts per note (`#` to `######` followed by a
+  space, outside code fences, trailing `#`s dropped), a field before the words, within 3/4 of the
+  line. A search hit gets the first heading holding every query word (prefix match), unless the
+  title already does; it scores +3, reads `Note > Heading`, and opens at MarkdownToHtml's heading
+  id (vaultnav::openAtHeading). An older index is rebuilt once. Block ids aren't indexed yet.
 - Incremental: compare the stamp per file; re-read only changed or new files, copy the rest.
   Runs when Search opens, with a progress popup. Not yet: a background task that can be cancelled.
 - Search: case and accent folding for Latin and Greek, monotonic and polytonic (`ά`/`ἄ`/`ᾄ`→`α`,

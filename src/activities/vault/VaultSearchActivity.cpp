@@ -113,7 +113,10 @@ void VaultSearchActivity::runSearch(const std::string& text) {
       if (!folder.empty() && folder.front() == '/') folder.erase(0, 1);
       std::string where = vault.name;
       if (!folder.empty()) where += " · " + folder;
-      results.push_back({hit.score, std::move(hit.path), std::move(hit.title), std::move(where)});
+      // Like Obsidian, a heading hit reads "Note > Heading".
+      std::string label = hit.heading.empty() ? hit.title : hit.title + " > " + hit.heading;
+      results.push_back({hit.score, std::move(hit.path), std::move(hit.title), std::move(where), std::move(hit.heading),
+                         std::move(label)});
     }
   }
   // Rank all vaults together, then keep the best.
@@ -139,7 +142,8 @@ void VaultSearchActivity::findBacklinks() {
       if (!folder.empty() && folder.front() == '/') folder.erase(0, 1);
       std::string where = vault.name;
       if (!folder.empty()) where += " · " + folder;
-      results.push_back({0, std::move(hit.path), std::move(hit.title), std::move(where)});
+      std::string label = hit.title;
+      results.push_back({0, std::move(hit.path), std::move(hit.title), std::move(where), "", std::move(label)});
     }
   }
   LOG_DBG("VLT", "Backlinks of %s: %u", backlinksOf.c_str(), static_cast<unsigned>(results.size()));
@@ -153,7 +157,7 @@ void VaultSearchActivity::rebuildRows() {
     rows.assign(std::max<size_t>(results.size(), 1), fui::ListItem{});
     if (results.empty()) rows[0].label = indexed ? tr(STR_NO_BACKLINKS) : tr(STR_UPDATING_SEARCH);
     for (size_t i = 0; i < results.size(); ++i) {
-      rows[i].label = results[i].title.c_str();
+      rows[i].label = results[i].label.c_str();
       rows[i].subtitle = results[i].where.c_str();
       rows[i].icon = fui::bitmapFromIcon(icon_file_text_32);
       rows[i].actionValue = static_cast<int16_t>(i);
@@ -166,7 +170,7 @@ void VaultSearchActivity::rebuildRows() {
   rows[0].subtitle = query.empty() ? nullptr : (results.empty() ? tr(STR_NO_RESULTS) : tr(STR_SEARCH_AGAIN_HINT));
   rows[0].actionValue = 0;
   for (size_t i = 0; i < results.size(); ++i) {
-    rows[i + 1].label = results[i].title.c_str();
+    rows[i + 1].label = results[i].label.c_str();
     rows[i + 1].subtitle = results[i].where.c_str();
     rows[i + 1].icon = fui::bitmapFromIcon(icon_file_text_32);
     rows[i + 1].actionValue = static_cast<int16_t>(i + 1);
@@ -200,7 +204,7 @@ void VaultSearchActivity::activateIndex(const int index) {
   if (backlinkMode()) {
     vaultnav::openFrom(backlinksOf, results[i].path);
   } else {
-    activityManager.goToReader(results[i].path);
+    vaultnav::openAtHeading(results[i].path, results[i].heading);
   }
 }
 

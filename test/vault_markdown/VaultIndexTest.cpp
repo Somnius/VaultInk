@@ -224,3 +224,32 @@ TEST(VaultIndex, BacklinksByTheEndOfAPath) {
   EXPECT_EQ(hits[0].title, "Other");
   EXPECT_EQ(hits[1].title, "Welcome");
 }
+
+TEST(VaultIndex, HeadingsAreIndexedAndMatched) {
+  MemFs m;
+  m.dirs = {"/V"};
+  m.files["/V/Kitchen.md"] =
+      "# Kitchen\n\nintro\n\n## Bread recipes ##\n\nflour\n\n```\n## Not a heading\n```\n\n### Ψωμί με προζύμι\ntext\n";
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  auto hits = vaultindex::search(INDEX, "bread", m.fs());
+  ASSERT_EQ(hits.size(), 1u);
+  EXPECT_EQ(hits[0].heading, "Bread recipes");
+  hits = vaultindex::search(INDEX, "προζυμι", m.fs());
+  ASSERT_EQ(hits.size(), 1u);
+  EXPECT_EQ(hits[0].heading, "Ψωμί με προζύμι");
+  // Words found only in the body (or a code block) open the note at its start.
+  EXPECT_EQ(vaultindex::search(INDEX, "flour", m.fs())[0].heading, "");
+  EXPECT_EQ(vaultindex::search(INDEX, "not heading", m.fs()).size(), 1u);
+  EXPECT_EQ(vaultindex::search(INDEX, "not heading", m.fs())[0].heading, "");
+  // The title matching every word wins over its own "# Kitchen" heading.
+  EXPECT_EQ(vaultindex::search(INDEX, "kitchen", m.fs())[0].heading, "");
+}
+
+TEST(VaultIndex, HeadingsRoundTrip) {
+  vaultindex::Note n = vaultindex::scanNote("/V/A.md", "## One\n#tag not heading\n###### Six\n####### seven\n");
+  EXPECT_EQ(n.headings, (std::vector<std::string>{"One", "Six"}));
+  vaultindex::Note back;
+  ASSERT_TRUE(vaultindex::fromLine(vaultindex::toLine(n), back));
+  EXPECT_EQ(back.headings, n.headings);
+  EXPECT_EQ(back.terms, n.terms);
+}

@@ -34,10 +34,11 @@ In this order, each also listed in its phase below:
 4. 1c.1: Share to VaultInk from other apps into /Comics (name clash, full card, dropped Wi-Fi).
 5. companion-0.3.0: the outbox (shares and notes kept until the reader is reachable), "Not now"
    in the update dialog, the update check without a reader.
-6. Phase 1 leftovers: heading anchors in the index, checkbox glyphs for tasks (✅ 0.36.2: a note
+6. Phase 1 leftovers: ✅ 0.47.0 heading anchors in the index (search opens at the heading); checkbox glyphs for tasks (✅ 0.36.2: a note
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
+✅ 0.47.0: search finds headings, `Note > Heading`, and opens the note at that heading.
 ✅ 0.46.0: kos25k #9 the release notes before an OTA update, scrolling, with Update always on screen.
 ✅ 0.45.0: kos25k #8 Gallery filter (all, PNG, vault pictures), #6 New folder in an empty folder.
 ✅ 0.44.0: kos25k #14 Favourites home row + Home Screen Items (hide rows), #20 Battery page (CW2017: charge,
@@ -136,8 +137,8 @@ asks for it.
 * 🚧 Index on SD, incremental, for vaults of 60 MB and more. ✅ Search index per vault (title,
   aliases, tags, outgoing links, words), updated by size and modification time. ✅ (0.9.1) Links,
   images and note embeds are found from the index's file list, so they don't scan the SD card
-  (the scan is the fallback for files added since the last index update). To do: store heading
-  anchors.
+  (the scan is the fallback for files added since the last index update). ✅ (0.47.0) Headings stored: a
+  search match in a heading opens the note there. To do: block ids.
 * 🚧 Search: ✅ Search row on home, all vaults at once, Greek and accent folding, tags and aliases,
   exact words ranked first. ✅ Greek on-screen keyboard (with English, switched by the globe
   key; offered to the FreeInk SDK upstream). ✅ Backlinks: More → Backlinks in a note lists the

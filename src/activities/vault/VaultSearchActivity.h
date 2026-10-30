@@ -23,7 +23,9 @@ class VaultSearchActivity final : public UiListActivity {
     int score;
     std::string path;
     std::string title;
-    std::string where;  // "Vault · folder"
+    std::string where;    // "Vault · folder"
+    std::string heading;  // matched heading the note opens at, or ""
+    std::string label;    // "Title > Heading", or the title
   };
   static constexpr size_t MAX_RESULTS = 60;
 

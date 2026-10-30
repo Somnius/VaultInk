@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.47.0 (2026-10-30)
+
+Search finds headings.
+
+- When your search words are in one of a note's headings, the result reads **Note > Heading** (like Obsidian) and opens the note right at that heading, instead of at the top.
+- A match in the title still opens the note at its start.
+- The search index gets rebuilt once after the update (it now keeps each note's headings), so the first search takes a bit longer.
+
+Tested in the simulator: a search for a word in a heading on the last page shows "Heading test > Zebra stripes" and opens on that page. Host tests cover headings in code blocks, Greek headings and the title rule. Not confirmed on the device yet.
+
+
 ## 0.46.0 (2026-10-30)
 
 Release notes before updating (kos25k #9).
