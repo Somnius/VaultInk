@@ -555,20 +555,34 @@ bool selectRandomSleepFile(const char* firstDirPath, const char* secondDirPath, 
 // It is the charge when the device went to sleep. In a gray plane the patch is written as white
 // (absolute planes) or as "no change" (differential planes), so the picture's grays stay out of it.
 void stampSleepBattery(const GfxRenderer& renderer, const bool grayPlane = false, const bool absolute = false) {
-  if (!SETTINGS.sleepBattery) return;
-  char text[8];
-  snprintf(text, sizeof(text), "%u%%", static_cast<unsigned>(powerManager.getBatteryPercentage()));
-  const int w = renderer.getTextWidth(SMALL_FONT_ID, text) + 12;
-  const int h = renderer.getLineHeight(SMALL_FONT_ID) + 6;
-  const int x = renderer.getScreenWidth() - w - 8;
-  const int y = renderer.getScreenHeight() - h - 8;
-  if (grayPlane && !absolute) {
-    renderer.fillRect(x, y, w, h, true);
-    return;
+  // Black text on a white patch (see above); x is the left edge, or -1 to sit against the right edge.
+  const auto stamp = [&](const char* text, const int x) {
+    const int w = renderer.getTextWidth(SMALL_FONT_ID, text) + 12;
+    const int h = renderer.getLineHeight(SMALL_FONT_ID) + 6;
+    const int px = x < 0 ? renderer.getScreenWidth() - w - 8 : x;
+    const int py = renderer.getScreenHeight() - h - 8;
+    if (grayPlane && !absolute) {
+      renderer.fillRect(px, py, w, h, true);
+      return;
+    }
+    renderer.fillRect(px, py, w, h, false);
+    if (!grayPlane) renderer.drawRect(px, py, w, h);
+    renderer.drawText(SMALL_FONT_ID, px + 6, py + 3, text);
+  };
+  int batteryW = 0;
+  if (SETTINGS.sleepBattery) {
+    char text[8];
+    snprintf(text, sizeof(text), "%u%%", static_cast<unsigned>(powerManager.getBatteryPercentage()));
+    batteryW = renderer.getTextWidth(SMALL_FONT_ID, text) + 12 + 8;
+    stamp(text, -1);
   }
-  renderer.fillRect(x, y, w, h, false);
-  if (!grayPlane) renderer.drawRect(x, y, w, h);
-  renderer.drawText(SMALL_FONT_ID, x + 6, y + 3, text);
+  // Owner's name and phone, bottom left next to the battery (kos25k #21).
+  if (SETTINGS.sleepOwner && (SETTINGS.ownerName[0] || SETTINGS.ownerPhone[0])) {
+    std::string owner = SETTINGS.ownerName;
+    if (SETTINGS.ownerName[0] && SETTINGS.ownerPhone[0]) owner += "  ";
+    owner += SETTINGS.ownerPhone;
+    stamp(renderer.truncatedText(SMALL_FONT_ID, owner.c_str(), renderer.getScreenWidth() - batteryW - 40).c_str(), 8);
+  }
 }
 
 bool drawSleepPopupPreservingFrame(GfxRenderer& renderer) {
@@ -742,6 +756,21 @@ void SleepActivity::renderDefaultSleepScreen() const {
     char percent[8];
     snprintf(percent, sizeof(percent), "%u%%", static_cast<unsigned>(powerManager.getBatteryPercentage()));
     renderer.drawCenteredText(UI_10_FONT_ID, (pageHeight - 120) / 2 - 40, percent);
+  }
+  // Owner's name and phone at the bottom (kos25k #21), drawn before the inversion like the rest.
+  if (SETTINGS.sleepOwner) {
+    int y = pageHeight - 70;
+    if (SETTINGS.ownerName[0]) {
+      renderer.drawCenteredText(
+          UI_10_FONT_ID, y,
+          renderer.truncatedText(UI_10_FONT_ID, SETTINGS.ownerName, pageWidth - 40, EpdFontFamily::BOLD).c_str(), true,
+          EpdFontFamily::BOLD);
+      y += renderer.getLineHeight(UI_10_FONT_ID) + 2;
+    }
+    if (SETTINGS.ownerPhone[0]) {
+      renderer.drawCenteredText(SMALL_FONT_ID, y,
+                                renderer.truncatedText(SMALL_FONT_ID, SETTINGS.ownerPhone, pageWidth - 40).c_str());
+    }
   }
 
   // Make sleep screen dark unless light is selected in settings
@@ -1188,6 +1217,13 @@ void SleepActivity::renderStatsSleepScreen() const {
       renderer.drawText(SMALL_FONT_ID, x + cellW - 6 - renderer.getTextWidth(SMALL_FONT_ID, pct), cy + cellH - 24, pct,
                         true, EpdFontFamily::BOLD);
     }
+  }
+  if (SETTINGS.sleepOwner && (SETTINGS.ownerName[0] || SETTINGS.ownerPhone[0])) {
+    std::string owner = SETTINGS.ownerName;
+    if (SETTINGS.ownerName[0] && SETTINGS.ownerPhone[0]) owner += "  ";
+    owner += SETTINGS.ownerPhone;
+    renderer.drawCenteredText(SMALL_FONT_ID, H - 36,
+                              renderer.truncatedText(SMALL_FONT_ID, owner.c_str(), W - 2 * M).c_str());
   }
   renderer.displayBuffer(kSleepClean);
 }

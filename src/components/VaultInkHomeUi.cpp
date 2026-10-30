@@ -27,6 +27,14 @@ constexpr int16_t ROW_ICON_SIZE = 32;
 // Focus outline for button navigation: thick enough to find at a glance, white inside so a
 // move repaints only the two rows involved and leaves no large black area to ghost.
 constexpr uint8_t FOCUS_BORDER = 4;
+constexpr int16_t CARD_PAD = 14;
+constexpr int16_t FOOTER_BAR = 8;
+
+// The "Continue Reading" line and the progress row sit at the bottom of the text column, centred, so
+// a two-line title with an author never runs into them (kos25k #14).
+int16_t cardFooterHeight(const int16_t line) {
+  return static_cast<int16_t>(line + 4 + (line > FOOTER_BAR ? line : FOOTER_BAR));
+}
 }  // namespace
 
 VaultInkHomeUi::VaultInkHomeUi(GfxRenderer& renderer) : UiAppHost(renderer), coverCache(renderer), renderer(renderer) {}
@@ -165,9 +173,38 @@ void VaultInkHomeUi::draw(UiScreen& screen) {
                   static_cast<int16_t>(metrics.buttonHintsHeight), static_cast<int16_t>(safe.x)});
   screen.insetContent(fui::Insets{theme.spaceSm, theme.spaceLg, theme.spaceSm, theme.spaceLg});
   if (hasContinueReading) {
-    drawCard(screen, screen.takeTop(static_cast<int16_t>(CARD_COVER_HEIGHT + 28), theme.spaceLg));
+    drawCard(screen, screen.takeTop(static_cast<int16_t>(CARD_COVER_HEIGHT + 2 * CARD_PAD), theme.spaceLg));
   }
   drawRows(screen);
+}
+
+void VaultInkHomeUi::drawCardFooter(UiScreen& screen, const fui::Rect rect, const int16_t footerH) {
+  auto& target = screen.frame().target();
+  fui::TextStyle text = screen.theme().smallText;
+  text.maxLines = 1;
+  const int16_t line = target.lineHeight(text.font);
+  const int16_t x = static_cast<int16_t>(rect.x + CARD_PAD + card.coverSize.width + card.gap);
+  const int16_t width = static_cast<int16_t>(rect.right() - CARD_PAD - x);
+  int16_t y = static_cast<int16_t>(rect.bottom() - CARD_PAD - footerH);
+  text.align = fui::TextAlign::Center;
+  target.text(fui::Rect{x, y, width, line}, tr(STR_CONTINUE_READING), text);
+  if (progress < 0) return;
+  y = static_cast<int16_t>(y + line + 4);
+  const int16_t rowH = line > FOOTER_BAR ? line : FOOTER_BAR;
+  text.align = fui::TextAlign::Left;
+  const int16_t labelW = target.measureText(text.font, progressText, text).width;
+  target.text(fui::Rect{x, static_cast<int16_t>(y + (rowH - line) / 2), labelW, line}, progressText, text);
+  const int16_t gap = 8;
+  if (width - labelW - gap < 16) return;  // no room for a bar next to the percent
+  fui::ProgressBarProps bar;
+  bar.value = progress;
+  bar.max = 100;
+  bar.track = fui::Paint::dither(fui::Color::LightGray);
+  bar.fill = fui::Paint::solid(fui::Color::Black);
+  fui::progressBar(screen.frame(),
+                   fui::Rect{static_cast<int16_t>(x + labelW + gap), static_cast<int16_t>(y + (rowH - FOOTER_BAR) / 2),
+                             static_cast<int16_t>(width - labelW - gap), FOOTER_BAR},
+                   bar);
 }
 
 void VaultInkHomeUi::drawCard(UiScreen& screen, fui::Rect rect) {
@@ -175,10 +212,19 @@ void VaultInkHomeUi::drawCard(UiScreen& screen, fui::Rect rect) {
   const auto& book = books->front();
   card.title = book.title.c_str();
   card.author = book.author.empty() ? nullptr : book.author.c_str();
-  card.meta = tr(STR_CONTINUE_READING);
-  card.progressLabel = progress >= 0 ? progressText : nullptr;
-  card.progress = std::max(0, progress);
-  card.progressMax = progress >= 0 ? 100 : 0;
+  // A two-line title plus the author would run into the Continue Reading rows, so the author waits
+  // for books whose title fits one line (kos25k #14).
+  if (card.author) {
+    auto& target = screen.frame().target();
+    fui::TextStyle title = theme.titleText;
+    title.bold = true;
+    const int16_t column = static_cast<int16_t>(rect.width - 2 * CARD_PAD - CARD_COVER_HEIGHT * 2 / 3 - theme.spaceLg);
+    if (target.measureText(title.font, card.title, title).width > column) card.author = nullptr;
+  }
+  card.meta = nullptr;
+  card.progressLabel = nullptr;
+  card.progress = 0;
+  card.progressMax = 0;
   card.action = SELECT;
   card.value = 0;
   card.state = selected == 0 ? fui::StateSelected : fui::StateNormal;
@@ -197,7 +243,8 @@ void VaultInkHomeUi::drawCard(UiScreen& screen, fui::Rect rect) {
   card.metaText = theme.smallText;
   card.progressText = theme.smallText;
   card.progressHeight = 8;
-  card.padding = fui::Insets{14, 14, 14, 14};
+  const int16_t footerH = cardFooterHeight(screen.frame().target().lineHeight(theme.smallText.font));
+  card.padding = fui::Insets{CARD_PAD, CARD_PAD, CARD_PAD, CARD_PAD};
   card.gap = theme.spaceLg;
   card.coverSize.height = CARD_COVER_HEIGHT;
   card.coverSize.width = CARD_COVER_HEIGHT * 2 / 3;
@@ -213,6 +260,7 @@ void VaultInkHomeUi::drawCard(UiScreen& screen, fui::Rect rect) {
     return !self.coverPath.empty() && self.coverCache.paint(cover, 0, self.coverPath);
   };
   fui::bookCard(screen.frame(), rect, card);
+  drawCardFooter(screen, rect, footerH);
   // The card itself only takes taps; a long press over it asks for the book info.
   screen.frame().hit(rect, CARD_INFO, 0, fui::InputLongPress, fui::StateNormal);
 }

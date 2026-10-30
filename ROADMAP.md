@@ -40,7 +40,7 @@ In this order, each also listed in its phase below:
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
-🚧 Next release (on main): CBZ landscape spreads shown as two halves; a progress bar with chapter ticks in the CBZ menu. Caches from 0.53.0 are rebuilt once so landscape pages split.
+🚧 Next release (on main): CBZ landscape spreads shown as two halves; a progress bar with chapter ticks in the CBZ menu. Caches from 0.53.0 are rebuilt once so landscape pages split. kos25k #22/#21/#14 round 2: a Lock Screen page under System (type first), owner name and phone on the lock and sleep screens, and the home card with a long title and author no longer overlapping the Continue Reading rows. Open question for kos25k: what "two lines near the chosen corner" should look like (the lock screen already draws an L-shaped mark on the chosen corner only).
 ✅ 0.53.0 (with companion-0.4.0): the companion's outbox; CBZ page cache and PNG pages over 8 MP; block ids in search.
 ✅ 0.52.0: reading time saved when a book is left (not only at sleep); lock options (after, corner, hold); arrows and task boxes in every built-in font.
 ✅ 0.51.0: kos25k #23 reading statistics sleep screen (reading log on the card, times, last 3 books, month calendar).

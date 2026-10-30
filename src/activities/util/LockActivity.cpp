@@ -50,6 +50,22 @@ void LockActivity::render(RenderLock&&) {
   const int width = renderer.getScreenWidth();
   const int height = renderer.getScreenHeight();
 
+  // Whose reader this is, for whoever finds it (kos25k #22). Top centre, clear of the corner marks.
+  if (mode == Mode::Unlock) {
+    int y = 30;
+    if (SETTINGS.ownerName[0]) {
+      renderer.drawCenteredText(
+          UI_12_FONT_ID, y,
+          renderer.truncatedText(UI_12_FONT_ID, SETTINGS.ownerName, width - 2 * 70, EpdFontFamily::BOLD).c_str(), true,
+          EpdFontFamily::BOLD);
+      y += renderer.getLineHeight(UI_12_FONT_ID) + 4;
+    }
+    if (SETTINGS.ownerPhone[0]) {
+      renderer.drawCenteredText(UI_10_FONT_ID, y,
+                                renderer.truncatedText(UI_10_FONT_ID, SETTINGS.ownerPhone, width - 2 * 70).c_str());
+    }
+  }
+
   if (cornerMode) {
     // A mark on the corner (or corners) that open it.
     const int m = 18;

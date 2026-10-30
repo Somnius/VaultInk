@@ -46,6 +46,8 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                          "sleepScreenCoverFilter", StrId::STR_CAT_DISPLAY));
   emit(SettingInfo::Toggle(StrId::STR_SLEEP_BATTERY, &CrossPointSettings::sleepBattery, "sleepBattery",
                            StrId::STR_CAT_DISPLAY));
+  emit(SettingInfo::Toggle(StrId::STR_OWNER_ON_SLEEP, &CrossPointSettings::sleepOwner, "sleepOwner",
+                           StrId::STR_CAT_DISPLAY));
   emit(SettingInfo::Enum(StrId::STR_QUICK_RESUME_TIMEOUT, &CrossPointSettings::quickResumeSleepScreen,
                          {StrId::STR_STATE_OFF, StrId::STR_STATE_ON}, "quickResumeSleepScreen",
                          StrId::STR_CAT_DISPLAY));
@@ -231,18 +233,20 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Toggle(StrId::STR_WHATS_NEW_AFTER_UPDATE, &CrossPointSettings::whatsNewAfterUpdate,
                            "whatsNewAfterUpdate", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_DEBUG_LOGS, &CrossPointSettings::debugLogs, "debugLogs", StrId::STR_CAT_SYSTEM));
-  // Lock screen details (kos25k #22); the lock itself is the Lock Screen row below.
+  // Lock screen details (kos25k #22): edited on the Lock Screen page, so category-less (hidden here).
   emit(SettingInfo::Enum(
       StrId::STR_LOCK_AFTER, &CrossPointSettings::lockAfter,
       {StrId::STR_LOCK_AFTER_0, StrId::STR_LOCK_AFTER_5, StrId::STR_LOCK_AFTER_10, StrId::STR_LOCK_AFTER_15,
        StrId::STR_LOCK_AFTER_30, StrId::STR_LOCK_AFTER_60, StrId::STR_LOCK_AFTER_120, StrId::STR_LOCK_AFTER_180},
-      "lockAfter", StrId::STR_CAT_SYSTEM));
+      "lockAfter"));
   emit(SettingInfo::Enum(StrId::STR_LOCK_CORNER, &CrossPointSettings::lockCorner,
                          {StrId::STR_LOCK_CORNER_ANY, StrId::STR_LOCK_CORNER_TL, StrId::STR_LOCK_CORNER_TR,
                           StrId::STR_LOCK_CORNER_BL, StrId::STR_LOCK_CORNER_BR},
-                         "lockCorner", StrId::STR_CAT_SYSTEM));
+                         "lockCorner"));
   emit(SettingInfo::Value(StrId::STR_LOCK_HOLD_SECONDS, &CrossPointSettings::lockHoldSeconds, {0, 10, 1},
-                          "lockHoldSeconds", StrId::STR_CAT_SYSTEM));
+                          "lockHoldSeconds"));
+  emit(SettingInfo::String(StrId::STR_OWNER_NAME, &SETTINGS.ownerName[0], sizeof(SETTINGS.ownerName), "ownerName"));
+  emit(SettingInfo::String(StrId::STR_OWNER_PHONE, &SETTINGS.ownerPhone[0], sizeof(SETTINGS.ownerPhone), "ownerPhone"));
   emit(SettingInfo::Toggle(StrId::STR_SHOW_HIDDEN_FILES, &CrossPointSettings::showHiddenFiles, "showHiddenFiles",
                            StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_LIBRARY_USE_METADATA, &CrossPointSettings::libraryUseMetadata,

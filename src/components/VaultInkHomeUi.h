@@ -47,6 +47,7 @@ class VaultInkHomeUi final : public UiAppHost {
   static void onCardInfo(const freeink::ui::ActionEvent& event, void* user);
   void draw(UiScreen& screen);
   void drawCard(UiScreen& screen, freeink::ui::Rect rect);
+  void drawCardFooter(UiScreen& screen, freeink::ui::Rect rect, int16_t footerH);
   void drawRows(UiScreen& screen);
 
   HomeCoverCache coverCache;

@@ -218,7 +218,8 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 - **Reading stats sleep screen**: reading time today, this week, this month and in total, the last three
   books, and a month calendar of your progress (Settings → Display → Sleep Screen, 0.51.0).
 - **Lock screen**: a 4-digit PIN or a long press on a corner, asked after 30 minutes asleep
-  (Settings → System → Lock Screen, 0.49.0).
+  (Settings → System → Lock Screen, 0.49.0). The owner's name and phone can show on it and on the
+  sleep screen (next release).
 - **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.
 - **Book info** on a long press, and an **All | Books only** switch in the Library that hides the vault notes.
 - **Authors as folders**: the Library's Author tab can show one folder per author.

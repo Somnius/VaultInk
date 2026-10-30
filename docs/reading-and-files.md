@@ -225,7 +225,12 @@ there.
 - **Change the PIN** shows up once a PIN is set; **Off** turns the lock off and deletes the PIN.
 - (0.52.0) **Lock After Sleeping**: always, or after 5, 10, 15, 30 minutes (the default), 1, 2 or
   3 hours asleep. **Unlock Corner**: any corner, or only one (the only one marked). **Corner Hold**:
-  how long to hold it, from 0 (a single touch) to 10 seconds. All three are in Settings → System.
+  how long to hold it, from 0 (a single touch) to 10 seconds.
+- (next release) The lock options moved onto their own page, **Settings → System → Lock Screen**:
+  **Lockscreen Type** (off, PIN, corner, change the PIN) comes first, then the three above. The same
+  page holds **Owner's Name** and **Owner's Phone**: they show at the top of the lock screen, so
+  whoever finds the reader knows whom to call. **Settings → Display → Owner on Sleep Screen** puts the
+  same two lines on the sleep screen, bottom left next to the battery percent.
 
 Forgot the PIN? Take the SD card out and delete `/.vaultink/lock-pin.txt` on a computer: the PIN
 lock is then off. That's also why the PIN stops someone picking the reader up and reading, not

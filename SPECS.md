@@ -140,7 +140,11 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   start) or `lockPending` (the lock was up at sleep); unlocking runs the normal wake routing
   (routeWake). Not on silent reboots, recovery or the crash report. (0.52.0) `lockAfter` indexes
   LOCK_AFTER_MINUTES {0,5,10,15,30,60,120,180}; `lockCorner` 0 any/1 TL/2 TR/3 BL/4 BR; `lockHoldSeconds`
-  0-10 timed with isScreenTouchHeld. Every built-in font carries U+2190-2193 (Noto Sans Symbols) and
+  0-10 timed with isScreenTouchHeld. (next release) LockSettingsActivity is the Lock Screen page (type
+  popup, the three above cycled on tap, `ownerName[32]` / `ownerPhone[24]` by keyboard); LockActivity
+  draws the owner at the top in Unlock mode; `sleepOwner` stamps "name  phone" bottom left (stampSleepBattery,
+  the stats screen, the default screen). Those settings keys are category-less, so Settings → System no
+  longer lists them. Every built-in font carries U+2190-2193 (Noto Sans Symbols) and
   U+2610-2612 (Noto Sans Symbols 2).
 - Gallery filter (0.45.0): `galleryFilter` 0 all / 1 .png / 2 under a vault root (vaultfiles::findVaults);
   gear (settings2 icon) at the header's right opens it. (0.48.0) 3 = chosen folders, listed in
