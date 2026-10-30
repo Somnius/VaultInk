@@ -24,6 +24,7 @@
 #include "MappedInputManager.h"
 #include "OpdsServerStore.h"
 #include "RecentBooksStore.h"
+#include "activities/library/LibraryListActivity.h"
 #include "activities/reader/QrDisplayActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -704,6 +705,9 @@ void HomeActivity::activateVaultInkItem(const int index) {
       break;
     case VaultInkHomeUi::Row::Settings:
       onSettingsOpen();
+      break;
+    case VaultInkHomeUi::Row::Favourites:
+      activityManager.goToLibrary(LibraryListActivity::FAVOURITES_TAB_INDEX);
       break;
   }
 }

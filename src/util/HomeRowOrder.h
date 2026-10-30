@@ -3,27 +3,33 @@
 #include <array>
 #include <cstdint>
 
-// The order of the VaultInk home rows (0.32.0), stored as one uint32: slot i in bits 4i..4i+3
-// holds row id + 1, 0 ends the list. 0 as a whole means the default order. Row ids are
+// The order of the VaultInk home rows (0.32.0), stored as one uint64 (uint32 before 0.44.0, which
+// still reads the same): slot i in bits 4i..4i+3 holds row id + 1, 0 ends the list. 0 as a whole
+// means the default order. Row ids are
 // VaultInkHomeUi::Row values and are append-only, so a stored order keeps its meaning.
 namespace homerows {
 
-inline constexpr int COUNT = 8;  // VaultInkHomeUi::MAX_ROWS
+inline constexpr int COUNT = 9;  // VaultInkHomeUi::MAX_ROWS
 
 using Order = std::array<uint8_t, COUNT>;
 
-// Books, Vaults, Search, Files, Gallery, Transfer, Library, Settings.
-inline constexpr Order DEFAULT_ORDER = {0, 1, 2, 3, 4, 5, 6, 7};
+// Books, Vaults, Favourites (0.44.0), Search, Files, Gallery, Transfer, Library, Settings.
+inline constexpr Order DEFAULT_ORDER = {0, 1, 8, 2, 3, 4, 5, 6, 7};
+
+// Rows that can't be hidden (Settings > Display > Home Screen Items): Books, and Settings, the way
+// back to the switch itself.
+inline constexpr bool canHide(const uint8_t id) { return id != 0 && id != 7; }
+inline bool hidden(const uint16_t mask, const uint8_t id) { return canHide(id) && (mask & (1u << id)) != 0; }
 
 // The stored order, repaired: unknown ids and repeats are dropped, rows the stored order lacks (one
 // added in a later version) are appended in default order.
-inline Order decode(const uint32_t packed) {
+inline Order decode(const uint64_t packed) {
   if (packed == 0) return DEFAULT_ORDER;
   Order out{};
   bool seen[COUNT] = {};
   int n = 0;
   for (int slot = 0; slot < COUNT; ++slot) {
-    const int value = static_cast<int>((packed >> (4 * slot)) & 0xF);
+    const int value = static_cast<int>((packed >> (4 * slot)) & 0xFu);
     if (value == 0) break;
     const int id = value - 1;
     if (id >= COUNT || seen[id]) continue;
@@ -36,10 +42,10 @@ inline Order decode(const uint32_t packed) {
   return out;
 }
 
-inline uint32_t encode(const Order& order) {
+inline uint64_t encode(const Order& order) {
   if (order == DEFAULT_ORDER) return 0;
-  uint32_t packed = 0;
-  for (int slot = 0; slot < COUNT; ++slot) packed |= static_cast<uint32_t>(order[slot] + 1) << (4 * slot);
+  uint64_t packed = 0;
+  for (int slot = 0; slot < COUNT; ++slot) packed |= static_cast<uint64_t>(order[slot] + 1) << (4 * slot);
   return packed;
 }
 

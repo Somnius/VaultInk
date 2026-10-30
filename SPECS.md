@@ -130,6 +130,9 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
+- Home rows (0.44.0): Row::Favourites = id 8, homeRowOrder is uint64 (9 x 4 bits), `homeRowsHidden` bitmask
+  (Books 0 and Settings 7 never hidden). Battery page: HAL percent + USB; on device BatteryMonitor
+  millivolts/charging and CW2017 reg 0x06 (-40 + v/2 °C), shown only within -20..70 °C.
 - CBZ right to left (0.43.0): `cbz::mangaRightToLeft(ComicInfo.xml)`; per book in <cache>/rtl.bin (wins);
   `pageTurn`/`skipPages` invert direction; CbzChapterActivity row 0 toggles (TOGGLE_RIGHT_TO_LEFT).
 - Companion QR (0.42.0): `APP_STATE.companionQrPending` set with What's New; HomeActivity::onEnter shows

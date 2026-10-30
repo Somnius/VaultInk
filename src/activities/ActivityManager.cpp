@@ -341,8 +341,8 @@ void ActivityManager::goToVaults() { replaceActivity(std::make_unique<VaultPicke
 
 void ActivityManager::goToSearch() { replaceActivity(std::make_unique<VaultSearchActivity>(renderer, mappedInput)); }
 
-void ActivityManager::goToLibrary() {
-  auto activity = makeUniqueNoThrow<LibraryListActivity>(renderer, mappedInput);
+void ActivityManager::goToLibrary(const int startTab) {
+  auto activity = makeUniqueNoThrow<LibraryListActivity>(renderer, mappedInput, startTab);
   if (!activity) {
     LOG_ERR("ACT", "OOM: library activity");
     return;

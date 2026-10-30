@@ -49,7 +49,7 @@ constexpr int RECENT_TAB = 0;
 constexpr int TITLE_TAB = 1;
 constexpr int AUTHOR_TAB = 2;
 // Favourites (0.31.0) list FavouritesStore directly, newest first; not a sort of the index.
-constexpr int FAVOURITES_TAB = 3;
+constexpr int FAVOURITES_TAB = LibraryListActivity::FAVOURITES_TAB_INDEX;
 constexpr int TAB_SLOTS = FAVOURITES_TAB + 1;
 
 constexpr bool isDescending(const library::SortOrder order) {
@@ -81,8 +81,8 @@ const char* tabLabelFor(const int tab) {
 
 }  // namespace
 
-LibraryListActivity::LibraryListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-    : UiTabListActivity("Library", renderer, mappedInput, true) {
+LibraryListActivity::LibraryListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const int startTab)
+    : UiTabListActivity("Library", renderer, mappedInput, true), startTab(startTab) {
   // Four tabs, each as wide as its label: equal quarters cut "Favourites" and the longer Greek
   // labels short.
   tabsSpaceBetween = true;
@@ -124,6 +124,11 @@ void LibraryListActivity::onEnter() {
   resolvePinned();
   if (SETTINGS.libraryBooksOnly) applyFilter();  // the remembered "Books only"
   applyAuthorFolders();
+
+  if (startTab >= 0 && startTab < TAB_SLOTS) {
+    selectTab(startTab, false);
+    startTab = -1;
+  }
 
   // Entered while Confirm was still held (typical when launched from the home
   // menu): ignore its release, or we would open whatever sits at row 0.

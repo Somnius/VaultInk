@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.44.0 (2026-10-30)
+
+Favourites on the home, rows you can hide, and a Battery page (kos25k #14, #20).
+
+- The VaultInk home has a **Favourites** row: one tap to your favourite books (the Library's Favourites tab).
+- **Settings → Display → Home Screen Items**: a switch for each home row (Vaults, Favourites, Search, Browse Files, Gallery, File Transfer, Plugins). Untick what you don't use. Books and Settings always stay.
+- **Settings → System → Battery**: the charge, the voltage, whether it's charging and whether the charger is in, plus the battery temperature when the chip reports one. The X4 Pro's battery chip doesn't keep charge cycles or health, and charging can't be limited from the firmware.
+
+Tested in the simulator: the Favourites row opening the Favourites tab, hiding Gallery from the home, and the Battery page (the simulator only has the charge and the charger; voltage, charging and temperature need the device and aren't confirmed yet).
+
+
 ## 0.43.0 (2026-10-30)
 
 Manga read right to left, and a new website.

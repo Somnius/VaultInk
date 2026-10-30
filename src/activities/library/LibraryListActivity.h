@@ -31,7 +31,9 @@
 // indexed book so an allocation failure remains recoverable on the C3.
 class LibraryListActivity final : public UiTabListActivity {
  public:
-  LibraryListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput);
+  static constexpr int FAVOURITES_TAB_INDEX = 3;  // the home's Favourites row opens on it
+  // `startTab`: open on that tab (e.g. FAVOURITES_TAB_INDEX), -1 for the usual one.
+  LibraryListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, int startTab = -1);
 
   void onEnter() override;
   void onExit() override;
@@ -169,6 +171,7 @@ class LibraryListActivity final : public UiTabListActivity {
 
   library::LibraryIndexFile index;
   int activeTabIndex = 0;
+  int startTab = -1;
   library::SortOrder sortOrder = library::SortOrder::RecentDesc;
   // One bit per tab; Recent starts descending (newest first).
   uint8_t descendingTabs = 1u << 0;

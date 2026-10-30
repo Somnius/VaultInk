@@ -425,7 +425,9 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Backgrounds the quick-settings paper tile cycles through, bit = paper_texture::Style; 0 = all.
   uint16_t paperCycle = 0;
   // VaultInk home row order (util/HomeRowOrder.h); 0 = default.
-  uint32_t homeRowOrder = 0;
+  uint64_t homeRowOrder = 0;
+  // Home rows hidden from the VaultInk home, bit = VaultInkHomeUi::Row id (kos25k #14); 0 = all shown.
+  uint16_t homeRowsHidden = 0;
   // Library: hide vault notes (.md, .canvas) from Recent/Title/Author (kos25k #15). 0 = show all.
   uint8_t libraryBooksOnly = 0;
   // Library Author tab as folders (kos25k #18): 2+ books by one author fold into a folder.

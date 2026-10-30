@@ -184,6 +184,18 @@ all. The order is saved when you leave the screen. The Continue card always stay
 Plugins row keeps its place even while it's hidden. This is for the VaultInk home style only; the
 CrossPoint styles keep their own menus.
 
+Since 0.44.0 the home also has a **Favourites** row (after Vaults), which opens the Library on its
+Favourites tab. **Settings → Display → Home Screen Items** has a switch for each row: untick the
+ones you don't want on the home (kos25k #14). Books and Settings always stay.
+
+## Battery page (0.44.0)
+
+**Settings → System → Battery** shows what the battery chip reports: the charge, the voltage,
+whether it's charging, whether the charger is plugged in, and the battery temperature when the chip
+gives a believable value (kos25k #20). The X4 Pro's gauge (Cellwise CW2017) keeps no charge-cycle
+count or battery health, and the firmware can't stop charging at a set level, so those aren't
+there.
+
 ## Library in quick settings (0.27.0)
 
 When quick settings is opened anywhere except over a book, the second row has a **Library** tile

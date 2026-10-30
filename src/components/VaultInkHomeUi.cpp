@@ -41,6 +41,7 @@ void VaultInkHomeUi::begin(const std::vector<RecentBook>& recent, const bool con
   for (const uint8_t id : homerows::decode(SETTINGS.homeRowOrder)) {
     const auto row = static_cast<Row>(id);
     if (row == Row::Library && !librarySlot) continue;
+    if (homerows::hidden(SETTINGS.homeRowsHidden, id)) continue;  // Settings > Display > Home Screen Items
     rows[rowCount++] = row;
   }
   if (hasContinueReading) coverCache.begin();
@@ -106,6 +107,8 @@ const char* VaultInkHomeUi::rowLabel(const Row row, const bool plugins) {
       return plugins ? tr(STR_PLUGINS) : tr(STR_OPDS_BROWSER);
     case Row::Settings:
       return tr(STR_SETTINGS_TITLE);
+    case Row::Favourites:
+      return tr(STR_FAVOURITES);
   }
   return "";
 }
@@ -270,6 +273,11 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
         item.label = tr(STR_SETTINGS_TITLE);
         item.subtitle = tr(STR_HOME_SETTINGS_DESC);
         item.icon = fui::bitmapFromIcon(icon_settings_32);
+        break;
+      case Row::Favourites:
+        item.label = tr(STR_FAVOURITES);
+        item.subtitle = tr(STR_HOME_FAVOURITES_DESC);
+        item.icon = fui::bitmapFromIcon(icon_bookmark_32);
         break;
     }
   }

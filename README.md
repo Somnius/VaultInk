@@ -212,7 +212,8 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 - **Comics and manga**, converted with Banana Comic Converter to XTCH or XTC and read like books:
   see [above](#comics-and-manga-with-banana-comic-converter).
 - **Search settings** by name, with a jump to your notes for the same words.
-- **Home screen rows** in any order (Settings → Display → Home Screen Rows).
+- **Home screen rows** in any order, and any of them hidden (Settings → Display → Home Screen Rows / Home Screen Items), with a Favourites row.
+- **Battery page** with charge, voltage, charging and temperature (Settings → System → Battery).
 - **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.
 - **Book info** on a long press, and an **All | Books only** switch in the Library that hides the vault notes.
 - **Authors as folders**: the Library's Author tab can show one folder per author.

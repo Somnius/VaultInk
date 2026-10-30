@@ -15,6 +15,7 @@
 #include <cstring>
 
 #include "AboutActivity.h"
+#include "BatteryActivity.h"
 #include "BleSettingsActivity.h"
 #include "ButtonRemapActivity.h"
 #include "ClearCacheActivity.h"
@@ -22,6 +23,7 @@
 #include "CrossPointSettings.h"
 #include "FontDownloadActivity.h"
 #include "HomeButtonSettingsActivity.h"
+#include "HomeItemsActivity.h"
 #include "HomeRowsActivity.h"
 #include "KOReaderSettingsActivity.h"
 #include "KeyboardLayoutsActivity.h"
@@ -138,6 +140,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   addAction(SettingsSection::Reader, StrId::STR_MANAGE_FONTS, SettingAction::DownloadFonts);
   addAction(SettingsSection::Reader, StrId::STR_PAPER_CYCLE, SettingAction::PaperCycle);
   addAction(SettingsSection::Display, StrId::STR_HOME_ROWS, SettingAction::HomeRows);
+  addAction(SettingsSection::Display, StrId::STR_HOME_ITEMS, SettingAction::HomeItems);
   addAction(SettingsSection::Library, StrId::STR_CONVERT_COMICS, SettingAction::ComicConverter);
   if (BoardConfig::hasHomeKey()) {
     addAction(SettingsSection::Controls, StrId::STR_HOME_BUTTON, SettingAction::HomeButton);
@@ -181,6 +184,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
     addAction(SettingsSection::General, StrId::STR_SD_FIRMWARE_UPDATE, SettingAction::SdFirmwareUpdate);
   }
   addAction(SettingsSection::General, StrId::STR_WELCOME_GUIDE, SettingAction::WelcomeGuide);
+  addAction(SettingsSection::General, StrId::STR_BATTERY, SettingAction::Battery);
   addAction(SettingsSection::General, StrId::STR_ABOUT, SettingAction::About);
 }
 
@@ -480,6 +484,11 @@ void SettingsActivity::toggleSelectedSetting() {
           startActivityForResult(std::move(activity), nullptr);
         }
         break;
+      case SettingAction::HomeItems:
+        if (auto activity = makeUniqueNoThrow<HomeItemsActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), nullptr);
+        }
+        break;
       case SettingAction::ComicConverter:
         // Banana Comic Converter, an independent browser tool by u/curseofthebanana (docs/comics.md):
         // a QR code to open it on the phone.
@@ -501,6 +510,11 @@ void SettingsActivity::toggleSelectedSetting() {
           startActivityForResult(std::move(activity), nullptr);
         } else {
           LOG_ERR("SETTINGS", "OOM: WelcomeGuideActivity");
+        }
+        break;
+      case SettingAction::Battery:
+        if (auto activity = makeUniqueNoThrow<BatteryActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), nullptr);
         }
         break;
       case SettingAction::About:
