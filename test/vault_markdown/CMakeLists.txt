@@ -8,6 +8,7 @@ add_executable(VaultMarkdownTest
   LineBufferTest.cpp
   FlashcardsTest.cpp
   CardSchedulerTest.cpp
+  CardStoreTest.cpp
   ${REPO_ROOT}/lib/Vault/MarkdownToHtml.cpp
   ${REPO_ROOT}/lib/Vault/VaultLink.cpp
   ${REPO_ROOT}/lib/Vault/TextFold.cpp
@@ -17,6 +18,7 @@ add_executable(VaultMarkdownTest
   ${REPO_ROOT}/lib/Vault/LineBuffer.cpp
   ${REPO_ROOT}/lib/Vault/Flashcards.cpp
   ${REPO_ROOT}/lib/Vault/CardScheduler.cpp
+  ${REPO_ROOT}/lib/Vault/CardStore.cpp
 )
 
 target_include_directories(VaultMarkdownTest PRIVATE
