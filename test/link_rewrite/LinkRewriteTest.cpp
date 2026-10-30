@@ -35,7 +35,7 @@ TEST(LinkRewriteTest, KeepsFolderPrefixAndMdEnding) {
 
 TEST(LinkRewriteTest, LeavesOtherLinksAndTextAlone) {
   size_t n = 0;
-  const std::string text = "[[Older]] [[Other/Old]] [Old](Old.md) Old [[ Old ]]\n";
+  const std::string text = "[[Older]] [[Other/Old]] Old [[ Old ]]\n";
   EXPECT_EQ(run(text, &n), text);
   EXPECT_EQ(n, 0u);
 }
@@ -72,4 +72,32 @@ TEST(LinkRewriteTest, KeepsCrLfAndGreekNames) {
 
 TEST(LinkRewriteTest, UnclosedBracketsAndBackticksDoNotLoop) {
   EXPECT_EQ(run("[[Old and no end\n`open code [[Old]]\n"), "[[Old and no end\n`open code [[Old]]\n");
+}
+
+TEST(LinkRewriteTest, MarkdownLinks) {
+  size_t n = 0;
+  EXPECT_EQ(run("[the old](Old.md) and [x](Notes/Old.md#Part) and ![[Old]]\n", &n),
+            "[the old](New.md) and [x](Notes/New.md#Part) and ![[New]]\n");
+  EXPECT_EQ(n, 3u);
+}
+
+TEST(LinkRewriteTest, MarkdownLinkNamesWithSpacesAreEncoded) {
+  size_t n = 0;
+  std::string text = "[a](Notes/Old.md)\n";
+  n = linkrewrite::rewrite(text, pointsToOld, "New Name");
+  EXPECT_EQ(text, "[a](Notes/New%20Name.md)\n");
+  EXPECT_EQ(n, 1u);
+  text = "[a](Notes/New%20Name.md)\n";  // already-encoded spaces are decoded for `points`
+  n = linkrewrite::rewrite(text, [](std::string_view target) { return target == "Notes/New Name.md"; }, "Third");
+  EXPECT_EQ(text, "[a](Notes/Third.md)\n");
+  EXPECT_EQ(n, 1u);
+}
+
+TEST(LinkRewriteTest, MarkdownLinksToOtherThingsStay) {
+  const std::string text =
+      "[web](https://example.com/Old.md) [pic](Old.png) ![img](Old.md.png) [t](Old.md \"title\") [a](<Old.md>) "
+      "`[c](Old.md)`\n";
+  size_t n = 0;
+  EXPECT_EQ(run(text, &n), text);
+  EXPECT_EQ(n, 0u);
 }
