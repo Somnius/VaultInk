@@ -1017,7 +1017,11 @@ bool LibraryListActivity::rowTextFor(const int entry, std::string& title, std::s
     // name still looks like "Title - Author".
     if (!index.readAuthor(record, author)) author.clear();
     // The stored title when the book gave one, the filename otherwise.
-    if (!index.readTitle(record, title) || title.empty()) index.readName(record, title);
+    if (!index.readTitle(record, title) || title.empty()) {
+      // No title stored (notes, CBZ): the file name without ".md" or ".cbz", like the book shelves.
+      index.readName(record, title);
+      title = FsHelpers::getFileNameWithoutExtension(title);
+    }
     if (fileName) index.readName(record, *fileName);
   }
   if (title.empty()) title = tr(STR_LIBRARY_UNKNOWN_TITLE);

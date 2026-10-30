@@ -2,6 +2,13 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.39.1 (2026-10-30)
+
+- The Library shows notes and CBZ comics by name without ".md" or ".cbz" on the Title and Author tabs, like books.
+
+Tested in the simulator. Not confirmed on the device yet.
+
+
 ## 0.39.0 (2026-10-30)
 
 CBZ comics open.
