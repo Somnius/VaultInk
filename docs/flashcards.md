@@ -44,6 +44,8 @@ A card shows its front. Tap the screen (or press Confirm) to show the back, then
 Under each button is when the card comes back (`<1d`, `4d`, `2mo`). Back ends the session; every answer
 is saved at once, so nothing is lost. The scheduler is SM-2 in whole days.
 
+Inside a note, the reading menu has **Flashcards**: it reviews only that note's cards.
+
 **Settings → Vaults**: New Cards per Session (20), Reviews per Session (100), Longest Interval in months (12).
 The limits count per session, not per day.
 
@@ -56,4 +58,4 @@ editing a card makes it a new card, and retyping an accent or the spacing doesn'
 Spaced Repetition plugin, the two keep separate schedules.
 
 Not yet: pictures in cards, learning steps, opening the note at the card, a Flashcards row on the home
-screen (it is full), importing Anki decks.
+screen (it is full), importing Anki decks. The `flashcards` tag name is fixed for now.

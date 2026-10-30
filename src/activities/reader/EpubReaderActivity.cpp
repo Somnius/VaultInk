@@ -55,6 +55,7 @@
 #include "activities/settings/TextSettingsActivity.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
+#include "activities/vault/CardReviewActivity.h"
 #include "activities/vault/NoteEditorActivity.h"
 #include "activities/vault/VaultSearchActivity.h"
 #include "clippings/ClippingText.h"
@@ -64,6 +65,7 @@
 #include "util/BookProgress.h"
 #include "util/BookmarkUtil.h"
 #include "util/ButtonNavigator.h"
+#include "util/CardsDevice.h"
 #include "util/LineSpacing.h"
 #include "util/LinkUpdate.h"
 #include "util/PaperTexture.h"
@@ -1297,6 +1299,23 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
         });
       }
       return;
+    case EpubReaderMenuActivity::MenuAction::FLASHCARDS: {
+      // This note's own cards (quick self-test); the note's vault gets its card index updated first.
+      const auto vaults = vaultfiles::findVaults();
+      const auto* vault = vaultfiles::vaultOf(vaults, bookPath);
+      if (!vault) {
+        requestUpdate();
+        return;
+      }
+      cardsdev::refresh(renderer, *vault);
+      auto spec = cardsdev::sessionDefaults();
+      spec.onlyNote = bookPath;
+      if (auto review = makeUniqueNoThrow<CardReviewActivity>(renderer, mappedInput, *vault, spec,
+                                                              std::string(tr(STR_FLASHCARDS)))) {
+        startActivityForResult(std::move(review), [this](const ActivityResult&) { requestUpdate(); });
+      }
+      return;
+    }
     case EpubReaderMenuActivity::MenuAction::NEW_NOTE:
       askNoteTitle(false);
       return;

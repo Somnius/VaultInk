@@ -439,7 +439,7 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
   official LiveSync CLI (new, edit, stale edit refused, delete, conflict).
 * ✅ (0.38.0) Links rewritten on rename, after asking (wiki-links that resolve to the note, not in
   code; util/LinkUpdate + lib/Vault/LinkRewrite, reviewed by Gemini and Grok).
-* ✅ (next release) Join With Next Line in the line menu (`LineBuffer::join`, host-tested, one Undo; the menu item is compiled but not yet driven in the simulator). Later: split lines (needs a cursor, so a multi-line keyboard), a multi-line keyboard, Markdown links on rename, push for vaults with
+* ✅ (next release) Join With Next Line in the line menu (`LineBuffer::join`, host-tested, one Undo; checked in the simulator: two lines joined, Undo (1)). Later: split lines (needs a cursor, so a multi-line keyboard), a multi-line keyboard, Markdown links on rename, push for vaults with
   the newer id scheme or no path obfuscation, a test against a real Obsidian install.
 * Touch keyboard editor (English + Greek; the Greek layout is done, 0.5.0), atomic save, task toggles, new/rename/delete.
 * Push with the plugin's chunker, conflict copies.
@@ -542,8 +542,7 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   walked note by note. A **Flashcards** home row opens the decks; the review screen shows the front,
   a tap reveals the back, four buttons rate it (touch and physical buttons). Needs the clock set.
 * Steps (one commit each): ✅ 1 parser + tests (`lib/Vault/Flashcards`, 14 host tests); ✅ 2 scheduler + tests (`lib/Vault/CardScheduler`, 8 host tests); ✅ 3 card store + tests (`lib/Vault/CardStore`, 9 host tests);
-  ✅ 4 deck scan + tests (`lib/Vault/CardIndex`, 9 host tests); ✅ 5 review and deck screens, settings, strings (the entry is the first row of Vaults, the home screen has no room for a ninth row); ⏳ 6 a Flashcards item in a note's More menu
-  (that note's cards only), a screenshot in the README, a Flashcards home row if the home gets room. Images in cards, learning steps and an Anki import are later.
+  ✅ 4 deck scan + tests (`lib/Vault/CardIndex`, 9 host tests); ✅ 5 review and deck screens, settings, strings (the entry is the first row of Vaults, the home screen has no room for a ninth row); ✅ 6a Flashcards in a note's reading menu (that note's cards only); ⏳ 6b a screenshot in the README, a Flashcards home row if the home gets room. Images in cards, learning steps and an Anki import are later.
 
 ## 💤 SD-card plugins
 
