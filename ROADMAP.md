@@ -38,6 +38,7 @@ In this order, each also listed in its phase below:
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
+✅ 0.45.0: kos25k #8 Gallery filter (all, PNG, vault pictures), #6 New folder in an empty folder.
 ✅ 0.44.0: kos25k #14 Favourites home row + Home Screen Items (hide rows), #20 Battery page (CW2017: charge,
 voltage, charging, temperature; no cycles/health/limit on this chip).
 ✅ 0.41.0: kos25k #17 home button in the header strip (0.42.0: wider tap area, slips count), #21 PNG as the sleep picture (crop or fit).

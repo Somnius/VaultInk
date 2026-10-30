@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.45.0 (2026-10-30)
+
+A Gallery filter, and New folder in an empty folder (kos25k #8, #6).
+
+- The Gallery has a gear in its top right corner: show **All pictures**, **PNG only**, or **Pictures in vaults (notes)**, the pictures inside your Obsidian vaults. The choice is kept.
+- In Browse Files, an empty folder has nothing to long-press, so a tap anywhere in it (or Confirm) now offers **New folder**.
+
+Tested in the simulator: each Gallery filter, and New folder from an empty folder. Not confirmed on the device yet.
+
+
 ## 0.44.0 (2026-10-30)
 
 Favourites on the home, rows you can hide, and a Battery page (kos25k #14, #20).

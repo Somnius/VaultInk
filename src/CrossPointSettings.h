@@ -428,6 +428,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint64_t homeRowOrder = 0;
   // Home rows hidden from the VaultInk home, bit = VaultInkHomeUi::Row id (kos25k #14); 0 = all shown.
   uint16_t homeRowsHidden = 0;
+  // Gallery filter (kos25k #8): 0 all pictures, 1 PNG only, 2 pictures inside a vault (the notes' images).
+  uint8_t galleryFilter = 0;
   // Library: hide vault notes (.md, .canvas) from Recent/Title/Author (kos25k #15). 0 = show all.
   uint8_t libraryBooksOnly = 0;
   // Library Author tab as folders (kos25k #18): 2+ books by one author fold into a folder.

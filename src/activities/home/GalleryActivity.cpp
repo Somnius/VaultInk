@@ -13,22 +13,27 @@
 
 #include <algorithm>
 #include <functional>
+#include <iterator>
 #include <memory>
 
+#include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "activities/ActivityManager.h"
 #include "activities/home/FileBrowserActivity.h"
 #include "activities/util/BmpViewerActivity.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "components/UITheme.h"
+#include "components/icons/settings2.h"
 #include "fontIds.h"
 #include "util/FileOps.h"
 #include "util/TaskWatchdog.h"
+#include "util/VaultFiles.h"
 
 namespace {
 constexpr int HEADER = 56;
 constexpr int FOOTER = 40;
 constexpr int MARGIN = 10;
+constexpr int GEAR = 32;
 constexpr int GAP = 8;
 constexpr int LABEL = 22;
 constexpr const char* THUMBS = "/.crosspoint/thumbs";
@@ -49,6 +54,22 @@ void GalleryActivity::onEnter() {
 void GalleryActivity::scan() {
   pictures.clear();
   truncated = false;
+  // Settings from the gear (kos25k #8): all, PNG only, or only pictures inside a vault.
+  const uint8_t filter = SETTINGS.galleryFilter;
+  std::vector<std::string> vaultRoots;
+  if (filter == 2) {
+    const auto vaults = vaultfiles::findVaults();
+    std::transform(vaults.begin(), vaults.end(), std::back_inserter(vaultRoots),
+                   [](const vaultfiles::Vault& vault) { return vault.path + "/"; });
+  }
+  const auto wanted = [&](const std::string& path) {
+    if (filter == 1) return FsHelpers::hasPngExtension(path);
+    if (filter == 2) {
+      return std::any_of(vaultRoots.begin(), vaultRoots.end(),
+                         [&path](const std::string& root) { return path.rfind(root, 0) == 0; });
+    }
+    return true;
+  };
   std::vector<std::string> folders{root};
   auto name = makeUniqueNoThrow<char[]>(500);
   if (!name) return;
@@ -65,7 +86,7 @@ void GalleryActivity::scan() {
       const std::string path = (dir == "/" ? "/" : dir + "/") + name.get();
       if (isDir) {
         folders.push_back(path);
-      } else if (FsHelpers::hasImageExtension(path)) {
+      } else if (FsHelpers::hasImageExtension(path) && wanted(path)) {
         if (pictures.size() >= MAX_PICTURES) {
           truncated = true;
           break;
@@ -158,10 +179,13 @@ void GalleryActivity::render(RenderLock&&) {
   // Header: back arrow area, the folder and the page.
   const std::string folderName = root == "/" ? tr(STR_GALLERY) : root.substr(root.find_last_of('/') + 1);
   renderer.drawText(UI_12_FONT_ID, MARGIN, 14, ("« " + folderName).c_str(), true, EpdFontFamily::BOLD);
+  // The gear (kos25k #8) at the right, the page left of it.
+  renderer.drawIcon(Settings2Icon, width - MARGIN - GEAR, 8, GEAR);
   if (!pictures.empty()) {
     char pages[32];
     snprintf(pages, sizeof(pages), "%d/%d", page + 1, pageCount());
-    renderer.drawText(SMALL_FONT_ID, width - MARGIN - renderer.getTextWidth(SMALL_FONT_ID, pages), 20, pages);
+    renderer.drawText(SMALL_FONT_ID, width - MARGIN - GEAR - 12 - renderer.getTextWidth(SMALL_FONT_ID, pages), 20,
+                      pages);
   }
   renderer.drawLine(0, HEADER - 6, width, HEADER - 6);
   if (pictures.empty()) {
@@ -212,9 +236,31 @@ void GalleryActivity::loop() {
       activityManager.goHome();
       return;
     }
+    if (y < HEADER && x > renderer.getScreenWidth() - MARGIN - GEAR - 24) {
+      filterMenu();
+      return;
+    }
     int index = 0;
     if (cellAt(x, y, index)) pictureActions(index);
   }
+}
+
+void GalleryActivity::filterMenu() {
+  static constexpr StrId OPTIONS[] = {StrId::STR_GALLERY_SHOW_ALL, StrId::STR_GALLERY_SHOW_PNG,
+                                      StrId::STR_GALLERY_SHOW_NOTES};
+  optionPopup.show(StrId::STR_GALLERY, OPTIONS, 3, SETTINGS.galleryFilter, [this](const int choice) {
+    if (choice >= 0 && choice < 3 && choice != SETTINGS.galleryFilter) {
+      SETTINGS.galleryFilter = static_cast<uint8_t>(choice);
+      SETTINGS.saveToFile();
+      {
+        RenderLock lock(*this);
+        scan();
+        page = 0;
+      }
+    }
+    requestUpdate(true);
+  });
+  requestUpdate();
 }
 
 void GalleryActivity::pictureActions(const int index) {

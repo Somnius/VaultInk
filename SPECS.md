@@ -130,6 +130,8 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
+- Gallery filter (0.45.0): `galleryFilter` 0 all / 1 .png / 2 under a vault root (vaultfiles::findVaults);
+  gear (settings2 icon) at the header's right opens it.
 - Home rows (0.44.0): Row::Favourites = id 8, homeRowOrder is uint64 (9 x 4 bits), `homeRowsHidden` bitmask
   (Books 0 and Settings 7 never hidden). Battery page: HAL percent + USB; on device BatteryMonitor
   millivolts/charging and CW2017 reg 0x06 (-40 + v/2 °C), shown only within -20..70 °C.

@@ -28,6 +28,7 @@ class GalleryActivity final : public Activity {
   void cellRect(int slot, int& x, int& y, int& w, int& h) const;
   void drawThumb(const std::string& path, int x, int y, int w, int h);
   void pictureActions(int index);
+  void filterMenu();
   void transfer(const std::string& path, bool copy);
 
   std::string root;
