@@ -590,7 +590,7 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
 
 * Audio attachments, Excalidraw drawings.
 * Indic and Burmese text shaping and fonts.
-* XTC and TXT readers share their live progress like the EPUB reader.
+* ✅ XTC and CBZ share their live progress like the EPUB reader (TXT opens in the EPUB reader).
 * More devices: M5Stack PaperMono / PaperMono Lite first, then Seeed reTerminal Sticky, then other
   Xteink models (the X3 and X4 Classic have a motion sensor: face-down sleep, lift to wake, tilt
   page turns). Same 800x480 screen and 8 MB PSRAM; each needs UI checks and hardware tests.
