@@ -130,6 +130,9 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
+- CBZ (0.39.0): `cbz::pages` from `ZipFile::enumerateFilePaths`; CbzReaderActivity copies the page
+  entry to /.crosspoint/cbz_<hash>/page.jpg|png and decodes it BW + LSB + MSB + BW (as BmpViewer);
+  progress.bin holds the page. Decoder cap 8 MP (ImageToFramebufferDecoder::MAX_SOURCE_PIXELS).
 - Link rewrite (0.38.0): `linkupdate::plan` before `renameNote` (backlinks from the index, each
   target checked with `vaultlink::resolve` == old path, targets kept per note), then a confirm, then
   `apply` via `saveNote` (markChanged + writeAtomic). `linkrewrite::rewrite` skips fences and inline

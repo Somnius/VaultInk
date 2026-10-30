@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.39.0 (2026-10-30)
+
+CBZ comics open.
+
+- A CBZ file copied onto the card opens like a book, from Browse Files or the Library: each page fitted to the screen in grayscale, swipe or the buttons to turn, and it remembers the page. JPEG and PNG pages, in natural order (2 before 10); macOS leftovers and other files inside are skipped.
+- Not yet: pages over 8 megapixels (2000×3000 is fine) show "Page load error", no WebP or CBR, no chapters or cover yet. For the best result on the X4 Pro, converting with Banana Comic Converter to XTCH is still better.
+- The companion app can share CBZ files to the reader's Comics folder too (in its next version).
+
+Tested in the simulator and with host tests: a three-page CBZ in the right order with its page remembered, a CBZ with folders, and the 8 MP limit with a big JPEG and PNG. Not confirmed on the device yet.
+
+
 ## 0.38.0 (2026-10-30)
 
 Renaming a note keeps the links to it working.

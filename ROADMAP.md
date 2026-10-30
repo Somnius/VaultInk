@@ -30,6 +30,7 @@ In this order, each also listed in its phase below:
    tab order (needs tab ids split from tab positions first; maybe only a default tab).
 2. kos25k #17: a home button in the status bar, between the time and the battery, on every screen.
 3. 1c.2: ✅ 0.36.1 XTCH pages drawn byte-wise; the refresh choice needs the device.
+   1c.3: ✅ 0.39.0 CBZ reader v1 (JPEG/PNG up to 8 MP); next chapters, cover, page cache.
 4. 1c.1: Share to VaultInk from other apps into /Comics (name clash, full card, dropped Wi-Fi).
 5. companion-0.3.0: the outbox (shares and notes kept until the reader is reachable), "Not now"
    in the update dialog, the update check without a reader.
@@ -304,7 +305,11 @@ EPUB comics show their pictures; the companion app's Files tab can upload any fi
   refresh is likely 1-bit and drops the grays until the next HALF, so XTCH may need a grayscale
   partial or a HALF on every page. The speed-up is testable on the host; the waveform choice and
   ghosting need the device. An optional FAST-only mode for 1-bit XTC with a manual full refresh.
-* 💤 **1c.3 CBZ reader (L).** For people who copy raw CBZ files without converting. lib/Cbz
+* 🚧 **1c.3 CBZ reader (L).** ✅ 0.39.0 v1: lib/Cbz/CbzPages (host-tested page list: JPEG/PNG,
+  natural order, junk skipped, folders as chapters) and CbzReaderActivity (page copied to the cache
+  folder, drawn in grayscale like the picture viewer, progress kept; .cbz in the browser, Library,
+  next-book and cache handling). To do: the 8 MP decode cap, chapter list, cover, .pxc cache,
+  decoding straight from the zip. Planned as: For people who copy raw CBZ files without converting. lib/Cbz
   (host-tested): JPEG/PNG entries only (WebP said not supported), natural sort (2 before 10),
   `__MACOSX`, `._*`, `Thumbs.db` skipped, entry names sanitised before any path join, one rule for
   flat and foldered zips (folders = chapters), ZIP64 / Deflate64 refused with a message. Pages

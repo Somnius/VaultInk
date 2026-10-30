@@ -102,7 +102,7 @@
     <string name="comics_send">Send to VaultInk</string>
     <string name="comics_save">Save to phone</string>
     <string name="share_books_title">Send to VaultInk: %1$d file(s)</string>
-    <string name="share_refused">Not sent (the reader can\'t open these; CBZ and PDF need converting first, in Files &gt; Convert a comic): %1$s</string>
+    <string name="share_refused">Not sent (the reader can\'t open these; PDF needs converting first, in Files &gt; Convert a comic): %1$s</string>
     <string name="share_sent">Sent %1$s to %2$s.</string>
     <string name="update_later">Not now</string>
     <string name="comics_sent">Sent to Comics as %1$s. It opens from Library or Browse Files.</string>

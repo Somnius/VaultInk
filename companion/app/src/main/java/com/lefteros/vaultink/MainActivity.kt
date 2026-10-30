@@ -89,7 +89,7 @@ private val PICTURE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp
 
 /** Where a shared file goes on the card, by its extension; null when the reader can't open it. */
 fun shareFolderFor(name: String): String? = when (name.substringAfterLast('.', "").lowercase()) {
-    "xtc", "xtch" -> "/Comics"
+    "xtc", "xtch", "cbz" -> "/Comics"
     "epub", "txt" -> "/Books"
     else -> null
 }

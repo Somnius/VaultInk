@@ -152,9 +152,9 @@ conversion and file splitting, and it writes XTC, XTCH, EPUB and CBZ.
 
 We're working on this together: its author is happy for VaultInk to send comic readers their way,
 and VaultInk is built to open what it makes. Convert to **XTCH** (or **XTC** for the fastest page
-turns), upload the file with the companion app or the web page, and read it like a book. Coming
-next: a "Convert a comic" button and "Share to VaultInk" in the companion app, faster XTCH page
-turns, and a CBZ reader. The guide: [docs/comics.md](docs/comics.md).
+turns), upload the file with the companion app or the web page, and read it like a book. The
+companion app converts comics too, XTCH pages turn faster since 0.36.1, and since 0.39.0 plain CBZ
+files open as well (JPEG and PNG pages). The guide: [docs/comics.md](docs/comics.md).
 
 On the X4 Pro, **Settings → Library → Convert comics** shows a QR code that opens the converter on
 your phone.

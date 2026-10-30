@@ -101,7 +101,7 @@
     <string name="comics_send">Αποστολή στο VaultInk</string>
     <string name="comics_save">Αποθήκευση στο κινητό</string>
     <string name="share_books_title">Αποστολή στο VaultInk: %1$d αρχείο(α)</string>
-    <string name="share_refused">Δεν στάλθηκαν (η συσκευή δεν τα ανοίγει· CBZ και PDF θέλουν μετατροπή, στα Αρχεία &gt; Μετατροπή κόμικ): %1$s</string>
+    <string name="share_refused">Δεν στάλθηκαν (η συσκευή δεν τα ανοίγει· τα PDF θέλουν μετατροπή, στα Αρχεία &gt; Μετατροπή κόμικ): %1$s</string>
     <string name="share_sent">Στάλθηκε το %1$s στο %2$s.</string>
     <string name="update_later">Όχι τώρα</string>
     <string name="comics_sent">Στάλθηκε στο Comics ως %1$s. Ανοίγει από τη Βιβλιοθήκη ή την Περιήγηση αρχείων.</string>

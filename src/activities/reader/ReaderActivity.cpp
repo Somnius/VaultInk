@@ -11,6 +11,7 @@
 #include <cctype>
 #include <cstdio>
 
+#include "CbzReaderActivity.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "EpubReaderActivity.h"
@@ -33,7 +34,9 @@ std::unique_ptr<ReaderActivity> ReaderActivity::create(GfxRenderer& renderer, Ma
                                                        std::string path, const bool allowFastInitialRefresh) {
   // ActivityManager requires heap ownership; each branch allocates exactly one screen-lifetime object.
   std::unique_ptr<ReaderActivity> activity;
-  if (FsHelpers::hasXtcExtension(path)) {
+  if (FsHelpers::checkFileExtension(path, ".cbz")) {
+    activity = makeUniqueNoThrow<CbzReaderActivity>(renderer, mappedInput, std::move(path), allowFastInitialRefresh);
+  } else if (FsHelpers::hasXtcExtension(path)) {
     activity = makeUniqueNoThrow<XtcReaderActivity>(renderer, mappedInput, std::move(path), allowFastInitialRefresh);
   } else {
     activity = makeUniqueNoThrow<EpubReaderActivity>(renderer, mappedInput, std::move(path), allowFastInitialRefresh);

@@ -40,7 +40,8 @@ and the page opens there, with a reminder of what to pick (the X4 / X4 Pro prese
 - **XTCH**: grayscale. The best choice for most manga and comics.
 - **XTC**: black and white only. The fastest page turns, good for line art.
 - **EPUB**: also opens on VaultInk, with the pictures on its pages.
-- **CBZ**: VaultInk can't open CBZ yet (planned, see below). Pick XTCH instead.
+- **CBZ**: opens on VaultInk too since 0.39.0 (see "CBZ files" below), but XTCH looks better and
+  turns faster on the X4 Pro, because the converter fits the panels to the screen.
 
 For coloured comics, the converter's author suggests the **Light** setting for Darken Midtones.
 Big series are easier to handle split into several files (the converter can split by the number
@@ -63,6 +64,18 @@ to try again or open it in the browser.
   <img src="images/comics/companion/6-sent.png" alt="Sent to the reader's Comics folder" width="160">
   <img src="images/comics/companion/7-reading-on-vaultink.png" alt="The comic open on VaultInk" width="160">
 </p>
+
+## CBZ files (0.39.0)
+
+A CBZ copied straight onto the card (not converted) opens like a book, from Browse Files or the
+Library. Each page is fitted to the screen in grayscale; swipe or use the buttons to turn, and the
+book remembers its page. Only JPEG and PNG pages are shown, in natural order ("2" before "10");
+`__MACOSX` and other leftovers are skipped. Not yet:
+
+- Pages bigger than 8 megapixels (2000×3000 and 2048×4096 are fine) show "Page load error".
+- WebP pages, CBR (RAR) files: run them through the converter.
+- Chapters, covers in the Library, right-to-left order. Each page is decoded when it's shown, so
+  turning is slower than XTCH.
 
 ## Getting the file onto the X4 Pro
 
@@ -87,6 +100,6 @@ All in [Phase 1c of the roadmap](../ROADMAP.md):
 2. **Faster XTCH page turns**: since 0.36.1 an XTCH page made for the X4 / X4 Pro (480×800) is
    copied into the screen buffer a byte at a time instead of pixel by pixel. Still to do on the
    device: timing it, and the grayscale refresh.
-3. A **CBZ reader** for comics copied without converting (JPEG and PNG pages; CBR and WebP won't
-   open).
+3. More for CBZ: chapters to jump to, covers in the Library, a cache so pages turn faster, and
+   pages over 8 megapixels.
 4. **Right-to-left** page order for manga, per book, and covers in the Library.

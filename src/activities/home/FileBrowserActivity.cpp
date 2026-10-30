@@ -113,8 +113,8 @@ void FileBrowserActivity::loadFiles() {
           files.emplace_back(filename);
         }
       } else if (FsHelpers::hasReflowableBookExtension(filename) || FsHelpers::hasXtcExtension(filename) ||
-                 FsHelpers::hasImageExtension(filename) || FsHelpers::hasCanvasExtension(filename) ||
-                 FsHelpers::checkFileExtension(filename, ".zip")) {
+                 FsHelpers::hasCbzExtension(filename) || FsHelpers::hasImageExtension(filename) ||
+                 FsHelpers::hasCanvasExtension(filename) || FsHelpers::checkFileExtension(filename, ".zip")) {
         files.emplace_back(filename);
       }
     }
@@ -396,8 +396,8 @@ void FileBrowserActivity::showEntryActions() {
   const std::string& selected = files[nav.selected];
   const bool zip = FsHelpers::checkFileExtension(selected, ".zip");
   const bool folder = selected.back() == '/';
-  const bool book =
-      !folder && (FsHelpers::hasReflowableBookExtension(selected) || FsHelpers::hasXtcExtension(selected));
+  const bool book = !folder && (FsHelpers::hasReflowableBookExtension(selected) ||
+                                FsHelpers::hasXtcExtension(selected) || FsHelpers::hasCbzExtension(selected));
   optionPopup.show(StrId::STR_FILENAME, folder ? FOLDER_OPTIONS : (book ? BOOK_OPTIONS : ZIP_OPTIONS),
                    zip || folder || book ? 7 : 6, 0, [this, folder, book](const int index) {
                      switch (index) {

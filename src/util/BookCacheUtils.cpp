@@ -22,6 +22,8 @@ std::string getBookCachePath(const std::string& path) {
     prefix = "epub_";
   } else if (FsHelpers::hasXtcExtension(path)) {
     prefix = "xtc_";
+  } else if (FsHelpers::hasCbzExtension(path)) {
+    prefix = "cbz_";
   } else {
     return "";
   }
@@ -72,7 +74,8 @@ void collectBooks(const std::string& root, std::vector<std::string>& out) {
     const std::string rel = stack.back().rel + name;
     if (entry.isDirectory()) {
       if (stack.size() < MAX_CARRY_DEPTH) stack.push_back({std::move(entry), rel + "/"});
-    } else if (FsHelpers::hasReflowableBookExtension(rel) || FsHelpers::hasXtcExtension(rel)) {
+    } else if (FsHelpers::hasReflowableBookExtension(rel) || FsHelpers::hasXtcExtension(rel) ||
+               FsHelpers::hasCbzExtension(rel)) {
       out.push_back(rel);
     }
   }
@@ -89,10 +92,12 @@ bool isBookCacheDirectoryName(const char* name) {
   constexpr char EPUB_PREFIX[] = "epub_";
   constexpr char TXT_PREFIX[] = "txt_";
   constexpr char XTC_PREFIX[] = "xtc_";
+  constexpr char CBZ_PREFIX[] = "cbz_";
 
   return strncmp(name, EPUB_PREFIX, std::size(EPUB_PREFIX) - 1) == 0 ||
          strncmp(name, TXT_PREFIX, std::size(TXT_PREFIX) - 1) == 0 ||
-         strncmp(name, XTC_PREFIX, std::size(XTC_PREFIX) - 1) == 0;
+         strncmp(name, XTC_PREFIX, std::size(XTC_PREFIX) - 1) == 0 ||
+         strncmp(name, CBZ_PREFIX, std::size(CBZ_PREFIX) - 1) == 0;
 }
 
 void clearBookCache(const std::string& path) {
@@ -100,6 +105,8 @@ void clearBookCache(const std::string& path) {
     Epub(path, "/.crosspoint").clearCache();
   } else if (FsHelpers::hasXtcExtension(path)) {
     Xtc(path, "/.crosspoint").clearCache();
+  } else if (FsHelpers::hasCbzExtension(path)) {
+    Storage.removeDir(("/.crosspoint/cbz_" + std::to_string(std::hash<std::string>{}(path))).c_str());
   } else {
     return;
   }
