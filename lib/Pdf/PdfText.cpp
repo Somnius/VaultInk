@@ -1505,10 +1505,11 @@ class Interpreter {
 // ---------------------------------------------------------------------------------------------
 // Pages
 
-void collectPages(Doc& doc, const Obj& node, const Obj& inheritedResources, std::vector<std::pair<Obj, Obj>>& pages,
-                  size_t& visits, int depth, size_t maxPages) {
+void walkPages(Doc& doc, const Obj& node, const Obj& inheritedResources,
+               const std::function<void(const Obj& page, const Obj& resources)>& visit, size_t& visits, size_t& pages,
+               int depth, size_t maxPages) {
   // A page tree that loops back on itself would be walked for ever: count every node.
-  if (depth > 32 || pages.size() >= maxPages || ++visits > 50000) return;
+  if (depth > 32 || pages >= maxPages || ++visits > 50000) return;
   Obj resources = inheritedResources;
   const Obj own = doc.resolveKey(node, "Resources");
   if (own.isDict()) resources = own;
@@ -1517,12 +1518,15 @@ void collectPages(Doc& doc, const Obj& node, const Obj& inheritedResources, std:
   if (kids.type == Obj::Arr && type.s != "Page") {
     for (const Obj& kid : kids.a) {
       const Obj child = doc.resolve(kid);
-      if (child.isDict()) collectPages(doc, child, resources, pages, visits, depth + 1, maxPages);
-      if (pages.size() >= maxPages) return;
+      if (child.isDict()) walkPages(doc, child, resources, visit, visits, pages, depth + 1, maxPages);
+      if (pages >= maxPages) return;
     }
     return;
   }
-  if (node.isDict()) pages.emplace_back(node, resources);
+  if (node.isDict()) {
+    ++pages;
+    visit(node, resources);
+  }
 }
 
 }  // namespace
@@ -1545,14 +1549,16 @@ bool extractText(const Source& source, const Inflate& inflate,
     return false;
   }
   pagesRoot = doc.resolveKey(rootObj, "Pages");
-  std::vector<std::pair<Obj, Obj>> pages;
+  // Pages are read as the tree is walked, one at a time, so a book of hundreds of pages never has all of
+  // its page dictionaries in memory at once. The count in the root only feeds the progress bar.
+  const Obj declared = doc.resolveKey(pagesRoot, "Count");
+  const size_t declaredPages =
+      declared.type == Obj::Int && declared.i > 0 ? static_cast<size_t>(std::min<int64_t>(declared.i, 100000)) : 0;
   size_t visits = 0;
-  collectPages(doc, pagesRoot, Obj(), pages, visits, 0, limits.maxPages);
-  result.pages = pages.size();
-
+  size_t index = 0;
   std::unordered_map<uint32_t, std::unique_ptr<Font>> fonts;
-  for (size_t p = 0; p < pages.size(); ++p) {
-    const Obj& node = pages[p].first;
+  const auto handlePage = [&](const Obj& node, const Obj& pageResources) {
+    const size_t p = index++;
     PageText pageText;
     pageText.maxBytes = limits.maxPageText;
     const Obj contents = doc.resolveKey(node, "Contents");
@@ -1575,7 +1581,7 @@ bool extractText(const Source& source, const Inflate& inflate,
     }
     if (!content.empty()) {
       Interpreter interp(doc, fonts, pageText);
-      interp.run(content, pages[p].second, 0);
+      interp.run(content, pageResources, 0);
     }
     TextOut out;
     out.text = layoutPage(pageText);
@@ -1616,8 +1622,11 @@ bool extractText(const Source& source, const Inflate& inflate,
     }
     while (!out.text.empty() && (out.text.back() == ' ' || out.text.back() == '\n')) out.text.pop_back();
     if (!out.text.empty()) ++result.textPages;
-    page(p, pages.size(), out.text);
-  }
+    page(p, std::max(declaredPages, index), out.text);
+  };
+  size_t pagesFound = 0;
+  walkPages(doc, pagesRoot, Obj(), handlePage, visits, pagesFound, 0, limits.maxPages);
+  result.pages = index;
   if (resultOut) *resultOut = result;
   return true;
 }
