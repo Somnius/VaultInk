@@ -62,7 +62,7 @@ bool readStamp(const std::string& path, uint64_t& stamp) {
 
 std::string textPathFor(const std::string& pdfPath) { return directoryFor(pdfPath) + "/" + baseName(pdfPath) + ".txt"; }
 
-Status ensureText(GfxRenderer& renderer, const std::string& pdfPath, std::string& textPath) {
+Status ensureText(const GfxRenderer& renderer, const std::string& pdfPath, std::string& textPath) {
   textPath = textPathFor(pdfPath);
   const std::string dir = directoryFor(pdfPath);
   const std::string stampPath = dir + "/stamp.txt";
@@ -135,7 +135,7 @@ Status ensureText(GfxRenderer& renderer, const std::string& pdfPath, std::string
   return Status::Ok;
 }
 
-void showFailure(GfxRenderer& renderer, const Status status) {
+void showFailure(const GfxRenderer& renderer, const Status status) {
   const char* message = tr(STR_PDF_UNREADABLE);
   if (status == Status::NoText) message = tr(STR_PDF_NO_TEXT);
   if (status == Status::Encrypted) message = tr(STR_PDF_ENCRYPTED);

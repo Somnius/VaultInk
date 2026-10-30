@@ -3,8 +3,8 @@
 #include <cstdio>
 #include <fstream>
 #include <sstream>
-#include <vector>
 #include <string>
+#include <vector>
 
 #include "InflateStream.h"
 #include "PdfText.h"

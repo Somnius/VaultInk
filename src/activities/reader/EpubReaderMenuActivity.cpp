@@ -49,8 +49,10 @@ void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, const 
   // miss, and Home would leave the vault.
   if (isVaultNote) items.push_back({MenuAction::BACK, StrId::STR_BACK});
   items.push_back({MenuAction::SELECT_CHAPTER, StrId::STR_SELECT_CHAPTER});
-  if (isVaultNote) items.push_back({MenuAction::BACKLINKS, StrId::STR_BACKLINKS});
-  if (isVaultNote) items.push_back({MenuAction::FLASHCARDS, StrId::STR_FLASHCARDS});
+  if (isVaultNote) {
+    items.push_back({MenuAction::BACKLINKS, StrId::STR_BACKLINKS});
+    items.push_back({MenuAction::FLASHCARDS, StrId::STR_FLASHCARDS});
+  }
   if (hasFootnotes) {
     items.push_back({MenuAction::FOOTNOTES, StrId::STR_FOOTNOTES});
   }

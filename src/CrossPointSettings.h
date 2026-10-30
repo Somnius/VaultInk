@@ -250,10 +250,10 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t cardsNewPerSession = 20;
   uint8_t cardsMaxReviews = 100;
   uint8_t cardsMaxIntervalMonths = 12;
-  uint8_t highlightStyle = 0;       // TextBlock::HighlightStyle: gray, inverted, dark gray
-  uint8_t sleepBattery = 1;         // battery percent on the sleep screen
-  uint8_t sleepOwner = 0;           // owner's name and phone on the sleep screen (kos25k #21)
-  char ownerName[32] = "";          // also shown on the lock screen (kos25k #22)
+  uint8_t highlightStyle = 0;  // TextBlock::HighlightStyle: gray, inverted, dark gray
+  uint8_t sleepBattery = 1;    // battery percent on the sleep screen
+  uint8_t sleepOwner = 0;      // owner's name and phone on the sleep screen (kos25k #21)
+  char ownerName[32] = "";     // also shown on the lock screen (kos25k #22)
   char ownerPhone[24] = "";
   uint8_t debugLogs = 0;            // log lines to /debug on the SD card (util/DebugLog.h)
   uint8_t whatsNewAfterUpdate = 1;  // the changelog note on the first boot after an update

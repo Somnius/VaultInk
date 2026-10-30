@@ -16,9 +16,9 @@ std::string textPathFor(const std::string& pdfPath);
 
 // Makes sure the text file is there and matches the PDF (its size and date), converting with a
 // progress popup when it isn't. On Ok, `textPath` is the file to open.
-Status ensureText(GfxRenderer& renderer, const std::string& pdfPath, std::string& textPath);
+Status ensureText(const GfxRenderer& renderer, const std::string& pdfPath, std::string& textPath);
 
 // A popup naming why a PDF didn't open.
-void showFailure(GfxRenderer& renderer, Status status);
+void showFailure(const GfxRenderer& renderer, Status status);
 
 }  // namespace pdfconvert
