@@ -1146,7 +1146,7 @@ bool Epub::readItemContentsToStream(const std::string& itemHref, Print& out, con
       }
       return n >= 0;
     }
-    return Txt::streamTxtToHtml(filepath, out);
+    return Txt::streamTxtToHtml(filepath, out, cachePath);
   }
 
   const std::string path = FsHelpers::normalisePath(itemHref);

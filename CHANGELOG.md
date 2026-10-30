@@ -2,6 +2,15 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.36.2 (2026-10-30)
+
+A fix for notes that embed other notes.
+
+- A note that shows another note inside it (`![[Note]]`, or a heading or block of it) now updates when that other note changes. Before, it kept showing the old text until the note itself changed.
+
+Tested in the simulator: the demo vault's Features note embeds Nikos; after Nikos changed, Features was rebuilt with the new text, and opening it again without changes didn't rebuild it. Not confirmed on the device yet.
+
+
 ## 0.36.1 (2026-10-30)
 
 Faster comic pages.

@@ -97,7 +97,7 @@ bool Txt::convertCoverImageToBmp(const std::string& imagePath, const std::string
   return success;
 }
 
-bool Txt::streamTxtToHtml(const std::string& filepath, Print& out) {
+bool Txt::streamTxtToHtml(const std::string& filepath, Print& out, const std::string& cachePath) {
   const uint32_t t0 = millis();
   HalFile src;
   if (!Storage.openFileForRead("TXT", filepath, src)) {
@@ -124,13 +124,15 @@ bool Txt::streamTxtToHtml(const std::string& filepath, Print& out) {
     return path;
   };
   // ![[Note]] on its own line: the embedded note's text, read through the same lookup.
-  const MarkdownToHtml::NoteLoader notes = [&images](std::string_view name, std::string& text) {
+  std::vector<std::pair<std::string, size_t>> embedded;  // path, size: for validateCache()
+  const MarkdownToHtml::NoteLoader notes = [&images, &embedded](std::string_view name, std::string& text) {
     std::string target(name);
     if (!FsHelpers::hasMarkdownExtension(target)) target += ".md";  // "Dr. Smith" is "Dr. Smith.md"
     const std::string path = images(target);
     if (path.empty()) return false;
     HalFile file;
     if (!Storage.openFileForRead("TXT", path, file)) return false;
+    embedded.emplace_back(path, file.size());
     const size_t size = std::min<size_t>(file.size(), MarkdownToHtml::MAX_EMBED);
     text.resize(size);
     size_t got = 0;
@@ -156,6 +158,17 @@ bool Txt::streamTxtToHtml(const std::string& filepath, Print& out) {
       FsHelpers::hasMarkdownExtension(filepath) ? &notes : nullptr);
 
   LOG_DBG("TXT", "Converted TXT/MD to HTML in %lu ms (%zu bytes in)", millis() - t0, srcSize);
+  if (ok && !cachePath.empty() && FsHelpers::hasMarkdownExtension(filepath)) {
+    const std::string listPath = cachePath + "/embeds.txt";
+    if (embedded.empty()) {
+      if (Storage.exists(listPath.c_str())) Storage.remove(listPath.c_str());
+    } else {
+      std::string list;
+      for (const auto& [path, size] : embedded) list += std::to_string(size) + "\t" + path + "\n";
+      if (!Storage.writeFile(listPath.c_str(), String(list.c_str())))
+        LOG_ERR("TXT", "Failed to write %s", listPath.c_str());
+    }
+  }
   return ok;
 }
 
@@ -200,6 +213,29 @@ bool Txt::validateCache(const std::string& filepath, const std::string& cachePat
     } else {
       valid = false;
     }
+  }
+
+  // 3. A note's embedded notes, as they were when it was built (embeds.txt, see streamTxtToHtml).
+  const std::string listPath = cachePath + "/embeds.txt";
+  if (valid && Storage.exists(listPath.c_str())) {
+    const String list = Storage.readFile(listPath.c_str());
+    const std::string text(list.c_str());
+    size_t at = 0;
+    while (valid && at < text.size()) {
+      const size_t end = text.find('\n', at);
+      const std::string line = text.substr(at, end == std::string::npos ? std::string::npos : end - at);
+      at = end == std::string::npos ? text.size() : end + 1;
+      const size_t tab = line.find('\t');
+      if (tab == std::string::npos) continue;
+      const size_t size = static_cast<size_t>(strtoul(line.c_str(), nullptr, 10));
+      const std::string path = line.substr(tab + 1);
+      HalFile embed;
+      if (!Storage.openFileForRead("TXT", path, embed) || embed.size() != size) {
+        LOG_DBG("TXT", "Embedded note changed: %s", path.c_str());
+        valid = false;
+      }
+    }
+    if (!valid) Storage.remove(listPath.c_str());
   }
 
   if (!valid) {

@@ -33,8 +33,8 @@ In this order, each also listed in its phase below:
 4. 1c.1: Share to VaultInk from other apps into /Comics (name clash, full card, dropped Wi-Fi).
 5. companion-0.3.0: the outbox (shares and notes kept until the reader is reachable), "Not now"
    in the update dialog, the update check without a reader.
-6. Phase 1 leftovers: recent notes on the home, heading anchors in the index, a note rebuilt when
-   an embedded note changes, checkbox glyphs for tasks.
+6. Phase 1 leftovers: recent notes on the home, heading anchors in the index, checkbox glyphs for
+   tasks (✅ 0.36.2: a note rebuilt when an embedded note changes).
 7. Phase 4 leftover: links rewritten when a note is renamed.
 
 Waiting on kos25k: #16 (File Transfer address not found, 0.35.3) and #19 (justified text like
@@ -114,8 +114,8 @@ asks for it.
   that links to the note's footnote), note embeds `![[Note]]` on their own line (the note's text
   under its title, one level, up to 32 KB). ✅ (0.10.0) Heading and block embeds:
   `![[Note#Heading]]` shows that heading's section, `![[Note#^id]]` the list item or paragraph
-  with that block id (the whole note when the anchor isn't found). To do: a note's cache isn't rebuilt when only an
-  embedded note changes; tasks show as `[ ]` / `[x]` text (the built-in Noto Sans has no
+  with that block id (the whole note when the anchor isn't found). ✅ (0.36.2) A note is rebuilt when a note it embeds
+  changes (its size, like the note itself). To do: tasks show as `[ ]` / `[x]` text (the built-in Noto Sans has no
   ☐/☑ glyphs; real boxes need a symbol font added to every built-in size). ✅ (0.18.0) Image
   sizes `![[pic.png|300]]` are honoured on the device (the width also goes in as CSS, which
   the layout reads). ✅ (0.13.0) `==highlight==` is a light gray band behind the text
