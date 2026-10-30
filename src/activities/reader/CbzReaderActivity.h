@@ -24,6 +24,7 @@ class CbzReaderActivity final : public ReaderActivity {
  private:
   bool loadBook() override;
   std::string getBookTitle() const override;
+  std::string getBookThumbBmpPath() const override;
   void renderBook() override;
   void applyInitialOrientation() override;
   bool handleFormatInput() override;  // Confirm or the menu gesture: the chapter list

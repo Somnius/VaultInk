@@ -308,7 +308,7 @@ EPUB comics show their pictures; the companion app's Files tab can upload any fi
 * 🚧 **1c.3 CBZ reader (L).** ✅ 0.39.0 v1: lib/Cbz/CbzPages (host-tested page list: JPEG/PNG,
   natural order, junk skipped, folders as chapters) and CbzReaderActivity (page copied to the cache
   folder, drawn in grayscale like the picture viewer, progress kept; .cbz in the browser, Library,
-  next-book and cache handling). ✅ 0.40.0 chapter list (folders). To do: the 8 MP decode cap, cover, .pxc cache,
+  next-book and cache handling). ✅ 0.40.0 chapter list (folders), cover and progress on the home. To do: the 8 MP decode cap, .pxc cache,
   decoding straight from the zip. Planned as: For people who copy raw CBZ files without converting. lib/Cbz
   (host-tested): JPEG/PNG entries only (WebP said not supported), natural sort (2 before 10),
   `__MACOSX`, `._*`, `Thumbs.db` skipped, entry names sanitised before any path join, one rule for

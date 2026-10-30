@@ -26,6 +26,7 @@
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/CbzCover.h"
 #include "util/VaultFiles.h"
 
 int HomeActivity::getMenuItemCount() const {
@@ -118,6 +119,8 @@ void HomeActivity::resolveGridCoverPaths() {
         continue;
       }
       book.coverBmpPath = xtc->getThumbBmpPath();
+    } else if (FsHelpers::hasCbzExtension(book.path)) {
+      book.coverBmpPath = cbzcover::thumbTemplate(book.path);
     }
   }
 }
@@ -158,6 +161,14 @@ void HomeActivity::loadGridCover(RecentBook& book, int height, bool& showingLoad
     if (xtc->load() && xtc->generateThumbBmp(height)) {
       return;
     }
+  } else if (FsHelpers::hasCbzExtension(book.path)) {
+    book.coverBmpPath = cbzcover::thumbTemplate(book.path);
+    if (!showingLoading) {
+      showingLoading = true;
+      popupRect = GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
+      GUI.fillPopupProgress(renderer, popupRect, 0);
+    }
+    if (cbzcover::generate(book.path, height)) return;
   }
   book.coverBmpPath.clear();
 }
@@ -197,6 +208,18 @@ void HomeActivity::loadRecentCovers(int coverHeight) {
           GUI.fillPopupProgress(renderer, popupRect, 10 + progress * (90 / recentBooks.size()));
           bool success = epub.generateThumbBmp(thumbHeight);
           if (!success) {
+            RECENT_BOOKS.updateBook(book.path, book.title, book.author, "");
+            book.coverBmpPath = "";
+          }
+          coverRendered = false;
+          requestUpdate();
+        } else if (FsHelpers::hasCbzExtension(book.path)) {
+          if (!showingLoading) {
+            showingLoading = true;
+            popupRect = GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
+          }
+          GUI.fillPopupProgress(renderer, popupRect, 10 + progress * (90 / recentBooks.size()));
+          if (!cbzcover::generate(book.path, thumbHeight)) {
             RECENT_BOOKS.updateBook(book.path, book.title, book.author, "");
             book.coverBmpPath = "";
           }

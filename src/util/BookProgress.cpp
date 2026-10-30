@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <atomic>
 
+#include "util/CbzCover.h"
+
 namespace {
 uint32_t readLe32(const uint8_t* p) {
   return uint32_t(p[0]) | (uint32_t(p[1]) << 8) | (uint32_t(p[2]) << 16) | (uint32_t(p[3]) << 24);
@@ -53,6 +55,19 @@ int loadBookProgress(const std::string& path) {
     if (xtc->getPageCount() == 0) return -1;
     if (page >= xtc->getPageCount()) return 100;
     return xtc->calculateProgress(page);
+  }
+  if (FsHelpers::hasCbzExtension(path)) {
+    // The CBZ reader writes the page and the page count.
+    uint8_t cbz[8];
+    HalFile file;
+    if (!Storage.openFileForRead("HOME", cbzcover::cachePathFor(path) + "/progress.bin", file) ||
+        file.read(cbz, sizeof(cbz)) != sizeof(cbz))
+      return -1;
+    const uint32_t page = readLe32(cbz);
+    const uint32_t pages = readLe32(cbz + 4);
+    if (pages == 0) return -1;
+    if (page >= pages) return 100;
+    return static_cast<int>((page + 1) * 100 / pages);
   }
   return -1;
 }

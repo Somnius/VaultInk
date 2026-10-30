@@ -20,6 +20,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/BookProgress.h"
+#include "util/CbzCover.h"
 
 namespace {
 
@@ -48,13 +49,15 @@ bool CbzReaderActivity::loadBook() {
     LOG_ERR("CBZ", "No JPEG or PNG pages in %s (%u others)", bookPath.c_str(), static_cast<unsigned>(book.skipped));
     return false;
   }
-  cachePath = "/.crosspoint/cbz_" + std::to_string(std::hash<std::string>{}(bookPath));
+  cachePath = cbzcover::cachePathFor(bookPath);
   Storage.ensureDirectoryExists(cachePath.c_str());
   loadProgress();
   LOG_DBG("CBZ", "%s: %u pages, %u chapters", bookPath.c_str(), static_cast<unsigned>(book.pages.size()),
           static_cast<unsigned>(book.chapters.size()));
   return true;
 }
+
+std::string CbzReaderActivity::getBookThumbBmpPath() const { return cbzcover::thumbTemplate(bookPath); }
 
 std::string CbzReaderActivity::getBookTitle() const { return FsHelpers::getFileNameWithoutExtension(bookPath); }
 
@@ -168,9 +171,16 @@ void CbzReaderActivity::onReturnFromEndOfBook() {
 }
 
 void CbzReaderActivity::saveProgress() const {
-  const uint8_t data[4] = {static_cast<uint8_t>(currentPage & 0xFF), static_cast<uint8_t>((currentPage >> 8) & 0xFF),
+  // The page, then the page count, so the home and Library can show progress without the zip.
+  const auto pages = static_cast<uint32_t>(book.pages.size());
+  const uint8_t data[8] = {static_cast<uint8_t>(currentPage & 0xFF),
+                           static_cast<uint8_t>((currentPage >> 8) & 0xFF),
                            static_cast<uint8_t>((currentPage >> 16) & 0xFF),
-                           static_cast<uint8_t>((currentPage >> 24) & 0xFF)};
+                           static_cast<uint8_t>((currentPage >> 24) & 0xFF),
+                           static_cast<uint8_t>(pages & 0xFF),
+                           static_cast<uint8_t>((pages >> 8) & 0xFF),
+                           static_cast<uint8_t>((pages >> 16) & 0xFF),
+                           static_cast<uint8_t>((pages >> 24) & 0xFF)};
   if (!ProgressFile::writeAtomic(cachePath, data, sizeof(data))) LOG_ERR("CBZ", "Failed to save progress");
 }
 
