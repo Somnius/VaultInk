@@ -44,6 +44,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
             </intent-filter>
+            <!-- Shared books and comics (EPUB, TXT, XTC, XTCH) go to the reader; the app checks the
+                 file name, since XTC files have no registered type. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/*" />
+            </intent-filter>
         </activity>
 
         <!-- Banana Comic Converter's page, with its downloads sent to the reader. -->

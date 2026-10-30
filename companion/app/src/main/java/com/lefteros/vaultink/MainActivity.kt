@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -72,8 +73,26 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Something another app shared: text, and pictures copied into the cache right away. */
-data class Draft(val title: String = "", val text: String = "", val pictures: List<File> = emptyList())
+/**
+ * Something another app shared: text, and pictures copied into the cache right away. Books and
+ * comics go to the reader as files instead (`books`); other files are named in `refused`.
+ */
+data class Draft(
+    val title: String = "",
+    val text: String = "",
+    val pictures: List<File> = emptyList(),
+    val books: List<File> = emptyList(),
+    val refused: List<String> = emptyList(),
+)
+
+private val PICTURE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
+
+/** Where a shared file goes on the card, by its extension; null when the reader can't open it. */
+fun shareFolderFor(name: String): String? = when (name.substringAfterLast('.', "").lowercase()) {
+    "xtc", "xtch" -> "/Comics"
+    "epub", "txt" -> "/Books"
+    else -> null
+}
 
 class MainActivity : ComponentActivity() {
     private var draft by mutableStateOf(Draft())
@@ -110,7 +129,11 @@ class MainActivity : ComponentActivity() {
         val text = intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty()
         val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT).orEmpty()
         val title = subject.ifBlank { text.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty().take(60) }
-        return Draft(DeviceClient.safeName(title), text, uris.mapNotNull { copyToCache(it) })
+        val files = uris.mapNotNull { copyToCache(it) }
+        val (books, others) = files.partition { shareFolderFor(it.name) != null }
+        val (pictures, refused) = others.partition { it.extension.lowercase() in PICTURE_EXTENSIONS || it.extension.isEmpty() }
+        refused.forEach { it.delete() }
+        return Draft(DeviceClient.safeName(title), text, pictures, books, refused.map { it.name })
     }
 
     // The sharing app's permission ends with this intent: copy the picture now.
@@ -217,6 +240,12 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
                 searching -> Searching()
                 connected == null -> DeviceSearch(host, onConnect = { connect(it) }, onSearch = { connect() })
                 else -> {
+                    if (draft.books.isNotEmpty() || draft.refused.isNotEmpty()) {
+                        ShareBooksDialog(DeviceClient(host), draft.books, draft.refused) {
+                            draft.books.forEach { it.delete() }
+                            onDraft(draft.copy(books = emptyList(), refused = emptyList()))
+                        }
+                    }
                     Hint(listOf(R.string.hint_note, R.string.hint_files, R.string.settings_hint, R.string.hint_device)[tab])
                     when (tab) {
                         0 -> NoteScreen(DeviceClient(host), draft, onDraft)
@@ -442,4 +471,56 @@ fun SettingRow(s: Setting, onChange: (Int) -> Unit) {
             }
         }
     }
+}
+
+/** Shared books and comics: send them to /Books or /Comics on the reader, one after the other. */
+@Composable
+fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<String>, onDone: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    var progress by remember { mutableStateOf<Float?>(null) }
+    var messages by remember { mutableStateOf(emptyList<String>()) }
+    var busy by remember { mutableStateOf(false) }
+    var sent by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDone() },
+        title = { Text(stringResource(R.string.share_books_title, books.size)) },
+        text = {
+            Column {
+                books.forEach { Text("${it.name}  (${sizeText(it.length())})") }
+                if (refused.isNotEmpty()) {
+                    Text(stringResource(R.string.share_refused, refused.joinToString(", ")), Modifier.padding(top = 8.dp))
+                }
+                progress?.let { LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) }
+                messages.forEach { Text(it, Modifier.padding(top = 4.dp)) }
+            }
+        },
+        confirmButton = {
+            if (books.isNotEmpty() && !sent) {
+                TextButton(enabled = !busy, onClick = {
+                    busy = true
+                    scope.launch {
+                        val results = mutableListOf<String>()
+                        books.forEachIndexed { i, book ->
+                            val folder = shareFolderFor(book.name) ?: return@forEachIndexed
+                            results += withContext(Dispatchers.IO) {
+                                runCatching {
+                                    client.ensureFolder(folder)
+                                    client.upload(folder, book.name, book.length(), { book.inputStream() }) { done, total ->
+                                        if (total > 0) main.post { progress = (i + done.toFloat() / total) / books.size }
+                                    }
+                                }.fold({ context.getString(R.string.share_sent, it, folder.trim('/')) },
+                                    { context.getString(R.string.comics_send_failed, it.message ?: "") })
+                            }
+                            messages = results.toList()
+                        }
+                        busy = false
+                        sent = true
+                    }
+                }) { Text(stringResource(R.string.comics_send)) }
+            }
+        },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDone) { Text(stringResource(R.string.close)) } },
+    )
 }
