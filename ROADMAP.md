@@ -25,8 +25,9 @@ and host tests.
 
 In this order, each also listed in its phase below:
 
-1. kos25k #18: the Library's Author tab folded into one folder per author (names compared without
-   case), and the tab order chosen in Settings → Library.
+1. kos25k #18: ✅ 0.36.0 Authors as folders and the book menu on every tab. Next: a Folders tab
+   (folders that hold books, read from the index's folder table, no per-book path reads), then
+   tab order (needs tab ids split from tab positions first; maybe only a default tab).
 2. kos25k #17: a home button in the status bar, between the time and the battery, on every screen.
 3. 1c.2: faster XTCH page turns (pages are drawn pixel by pixel today).
 4. 1c.1: Share to VaultInk from other apps into /Comics (name clash, full card, dropped Wi-Fi).

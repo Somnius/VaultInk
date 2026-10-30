@@ -127,6 +127,9 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Books only (0.35.0): `libraryBooksOnly` in settings.json. Drops `.md`/`.canvas` rows from the
   Library index lists and from the Recent pins (`pinnedStore` maps shown pins to store rows).
   Book info (`util/BookInfo`): title/author from the index, else recents, favourites, file name.
+- Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
+  author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
+  `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
 - Moves (0.35.1): `moveBookWithState` (util/BookCacheUtils) for Browse Files, /rename, /move and WebDAV
   MOVE. Files: cache, bookmarks, clippings with rollback. Folders: one rename with clippings, then
   each book inside (up to 400, 16 levels) gets cache/bookmarks/recents/favourites carried, best effort.

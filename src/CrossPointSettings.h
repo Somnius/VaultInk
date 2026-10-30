@@ -426,6 +426,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint32_t homeRowOrder = 0;
   // Library: hide vault notes (.md, .canvas) from Recent/Title/Author (kos25k #15). 0 = show all.
   uint8_t libraryBooksOnly = 0;
+  // Library Author tab as folders (kos25k #18): 2+ books by one author fold into a folder.
+  uint8_t libraryAuthorFolders = 0;
   // Bluetooth page turner, saved under the keys lib/BlePageTurner reads and writes (BlePageTurnerJson.h).
   bleturner::Config ble;
   // Quick Resume: keep current content visible with moon icon instead of showing a static sleep screen.

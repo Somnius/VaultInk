@@ -96,11 +96,26 @@ class LibraryListActivity final : public UiTabListActivity {
   void promptRemoveRecentBook(const std::string& path, const std::string& title);
   // Long-press delete owns the gesture where grouping does not apply: the
   // Recent sort, degraded lists, and any active search result.
-  bool deleteEligible() const;
+
   // Resolves the row's path and title, then confirms via promptDeleteBookByPath.
+#if FREEINK_CAP_TOUCH
   void promptDeleteBook(int entry);
+#endif
   void promptDeleteBookByPath(const std::string& path, const std::string& title);
   bool collapseGroups(int bookEntry);
+  // Authors as folders (kos25k #18): the Author tab opens on its author rows; an author with
+  // two or more books is a folder (folderGroup), one book stays a book row.
+  bool authorFolders() const;
+  void applyAuthorFolders();
+  int groupSize(int group) const;
+  int flatRowCount() const;
+  void openFolder(int group);
+  void openBookAtEntry(int entry);
+  void closeFolder();
+  int folderGroup = -1;
+  freeink::ui::ListNav folderNav;
+  std::string folderTitle;
+  std::vector<std::string> winCounts;  // "3 books" under each visible folder row
   void expandGroup(int groupEntry);
   void restoreExpandedList();
   void selectTab(int index, bool toggleIfActive);

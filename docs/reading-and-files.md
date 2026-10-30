@@ -133,6 +133,20 @@ notes (and canvases) out of Recent, Title and Author, so the list is just your b
 works with it on, and finds only books. The choice is remembered. Favourites only ever hold books,
 so the switch isn't shown there.
 
+## Long-press in the Library, Authors as folders (0.36.0)
+
+A long press on any book in the Library (every tab, and in search results) opens the same menu:
+Open, Delete, Refresh library, Add to/Remove from Favourites, Info. On the Title tab the last
+entry is **Group by letter**, on the Author tab **Group by author**: the list folds into one row
+per letter or author; tap one to jump to its books, Back unfolds it.
+
+**Settings → Library → Authors as folders** (off by default, kos25k #18) makes the Author tab
+open folded every time: an author with two or more books is a folder showing how many, and an
+author with one book shows as that book. Tap a folder to see only that author's books (the
+author's name is in the header); Back returns to the authors. The same person written two ways
+("Jane Austen", "jane austen", "Austen, Jane") is one author, because the library merges the
+spellings when it's built. A search shows the plain list; Books only works with folders too.
+
 ## Search settings (0.33.0)
 
 **Settings → Search settings** (the first row) finds a setting by name. Type part of it and press

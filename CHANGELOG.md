@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.36.0 (2026-10-30)
+
+The Library groups authors (kos25k #18).
+
+- **Settings → Library → Authors as folders**: the Author tab opens with one folder per author who has two or more books, showing how many; authors with one book show as the book. Tap a folder for that author's books, Back to go back. "Jane Austen" and "jane austen" are the same author.
+- A long press on any book in the Library now opens the book menu on every tab (Open, Delete, Refresh, Favourites, Info). On Title and Author it also has **Group by letter** / **Group by author**, which used to be a hidden long press.
+
+Tested in the simulator: the folders with Books only on and off, a folder and Back, a one-book author opening its book, and the new menu on the Author tab. A search on the Author tab with folders on wasn't tried, and nothing is confirmed on the device yet.
+
+
 ## 0.35.3 (2026-10-29)
 
 - If you use one of the CrossPoint home screens, What's New now says so: VaultInk works best with its own home screen. New features arrive there first, and some are only there. Switch in Settings → Display → UI Theme → VaultInk.

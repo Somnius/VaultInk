@@ -45,12 +45,12 @@ It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or C
 ### Vaults, notes and search
 
 <p>
-  <img src="docs/images/vaultink/vaults.png" width="190" alt="Vault picker">
+  <img src="docs/images/vaultink/vaults.png" width="190" alt="A vault's folders and notes">
   <img src="docs/images/vaultink/note.png" width="190" alt="A note with links, a callout, tasks and a table">
   <img src="docs/images/vaultink/search.png" width="190" alt="Search results">
 </p>
 
-The vault picker finds every vault on the SD card. A note reads like a book page, with links,
+Every vault on the SD card opens like a folder of notes. A note reads like a book page, with links,
 callouts, tasks and tables. Search looks through every vault at once. These show a small demo
 vault.
 
@@ -95,17 +95,16 @@ are actually nice for a long read. The idea came from kos25k.
 From left to right: the home screen, the same in Greek, quick settings pulled down over a book, the
 reading toolbar, settings, and About.
 
-### Library and book info (0.35)
+### Library and reading
 
 <p>
-  <img src="docs/images/vaultink/library-all.png" width="190" alt="Library, Recent tab, everything">
-  <img src="docs/images/vaultink/library-books-only.png" width="190" alt="Library with Books only on">
-  <img src="docs/images/vaultink/library-menu-info.png" width="190" alt="Long-press menu with Info">
-  <img src="docs/images/vaultink/book-info.png" width="190" alt="Book info">
+  <img src="docs/images/vaultink/library-title.png" width="190" alt="Library, Title tab, books only">
+  <img src="docs/images/vaultink/library-author-folders.png" width="190" alt="Library, Author tab as folders">
+  <img src="docs/images/vaultink/reading.png" width="190" alt="A book page">
 </p>
 
-The Library with everything, then with Books only (no vault notes), a book's long-press menu, and
-its Book info.
+The Library by title with Books only on (no vault notes), the Author tab with Authors as folders
+(0.36.0: an author with two or more books is a folder), and a page of a book.
 
 ## Getting started
 
@@ -207,6 +206,7 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 - **Home screen rows** in any order (Settings → Display → Home Screen Rows).
 - **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.
 - **Book info** on a long press, and an **All | Books only** switch in the Library that hides the vault notes.
+- **Authors as folders**: the Library's Author tab can show one folder per author.
   See [docs/reading-and-files.md](docs/reading-and-files.md#favourites-0310).
 - **Page backgrounds**, from plain to papyrus to bath towel, [mostly for fun](#page-backgrounds).
 - **A new home screen.** The book you're reading sits at the top, followed by Books and Vaults, then

@@ -231,6 +231,8 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                            StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_LIBRARY_USE_METADATA, &CrossPointSettings::libraryUseMetadata,
                            "libraryUseMetadata", StrId::STR_CAT_SYSTEM));
+  emit(SettingInfo::Toggle(StrId::STR_LIBRARY_AUTHOR_FOLDERS, &CrossPointSettings::libraryAuthorFolders,
+                           "libraryAuthorFolders", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_REMOVE_READ_FROM_RECENTS, &CrossPointSettings::removeReadBooksFromRecents,
                            "removeReadBooksFromRecents", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_MOVE_FINISHED_TO_READ, &CrossPointSettings::moveFinishedToReadFolder,

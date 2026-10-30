@@ -121,6 +121,7 @@ void LibraryListActivity::onEnter() {
   }
   resolvePinned();
   if (SETTINGS.libraryBooksOnly) applyFilter();  // the remembered "Books only"
+  applyAuthorFolders();
 
   // Entered while Confirm was still held (typical when launched from the home
   // menu): ignore its release, or we would open whatever sits at row 0.
@@ -219,29 +220,31 @@ void LibraryListActivity::refreshOverlap() {
   std::sort(overlapRows, overlapRows + overlapCount);
 }
 
-void LibraryListActivity::openSelectedBook() {
+void LibraryListActivity::openSelectedBook() { openBookAtEntry(selectedEntry()); }
+
+void LibraryListActivity::openBookAtEntry(const int entry) {
   std::string path;
   if (favouritesTab()) {
     const auto& favs = FAVOURITES.getAll();
-    if (selectedEntry() >= static_cast<int>(favs.size())) return;  // selectedEntry() is never negative
-    const auto& fav = favs[static_cast<size_t>(selectedEntry())];
+    if (entry >= static_cast<int>(favs.size())) return;  // entry is never negative
+    const auto& fav = favs[static_cast<size_t>(entry)];
     if (!Storage.exists(fav.path.c_str())) {
       promptRemoveMissingFavourite(fav.path, fav.title);
       return;
     }
     path = fav.path;
-  } else if (selectedEntry() < pinnedCount()) {
+  } else if (entry < pinnedCount()) {
     const auto& books = RECENT_BOOKS.getBooks();
-    if (selectedEntry() >= static_cast<int>(books.size())) return;
-    path = books[pinnedStore[selectedEntry()]].path;
+    if (entry >= static_cast<int>(books.size())) return;
+    path = books[pinnedStore[entry]].path;
   } else {
     if (!index.isOpen()) return;
-    const uint16_t ordinal = index.ordinalForRow(sortOrder, static_cast<uint16_t>(rowFor(selectedEntry())));
+    const uint16_t ordinal = index.ordinalForRow(sortOrder, static_cast<uint16_t>(rowFor(entry)));
     if (ordinal == 0xFFFF) return;
 
     library::ClixRecord record{};
     if (!index.readRecord(ordinal, record) || !index.readPath(record, path)) {
-      LOG_ERR("LIB", "cannot resolve path for row %d", selectedEntry());
+      LOG_ERR("LIB", "cannot resolve path for row %d", entry);
       return;
     }
   }
@@ -259,7 +262,12 @@ void LibraryListActivity::openBookByPath(const std::string& path) {
 }
 
 void LibraryListActivity::activateIndex(const int index) {
-  if (groupsCollapsed) {
+  if (groupsCollapsed && authorFolders()) {
+    if (groupSize(index) == 1)
+      openBookAtEntry(groupStarts[index]);  // a one-book author is just the book
+    else
+      openFolder(index);
+  } else if (groupsCollapsed) {
     expandGroup(index);
   } else {
     openSelectedBook();
@@ -270,10 +278,6 @@ void LibraryListActivity::activateIndex(const int index) {
 // an active search is already a flat list the reader narrowed down on purpose
 // ("find it, hold it, delete it"). Unfiltered Title/Author lists keep
 // collapse-to-groups. The Recent shelf always opens the row options menu.
-bool LibraryListActivity::deleteEligible() const {
-  return !favouritesTab() && !groupsCollapsed && (!query.empty() || !groupable());
-}
-
 bool LibraryListActivity::favouritesTab() const { return activeTabIndex == FAVOURITES_TAB; }
 
 bool LibraryListActivity::filtering() const { return !query.empty() || SETTINGS.libraryBooksOnly != 0; }
@@ -281,12 +285,10 @@ bool LibraryListActivity::filtering() const { return !query.empty() || SETTINGS.
 void LibraryListActivity::onRowLongPress(const int index) {
   if (favouritesTab()) {
     showFavouriteOptions(index);
-  } else if (isRecentSort(sortOrder)) {
-    showRecentBookOptions(index);
-  } else if (deleteEligible()) {
-    promptDeleteBook(index);
-  } else if (!groupsCollapsed && groupable()) {
-    collapseGroups(index);
+  } else if (!groupsCollapsed) {
+    showRecentBookOptions(index);  // every book row: Recent, Title, Author, and search results
+  } else if (authorFolders() && groupSize(index) == 1) {
+    showRecentBookOptions(groupStarts[index]);
   } else {
     activateIndex(index);
   }
@@ -296,7 +298,7 @@ void LibraryListActivity::onRowLongPress(const int index) {
 // rows may come from RecentBooksStore; the rest are index rows sorted by
 // modification time. Only store rows can be removed from recents.
 void LibraryListActivity::showRecentBookOptions(const int entry) {
-  if (entry < 0 || entry >= listCount()) return;
+  if (entry < 0 || entry >= bookRowCount()) return;
 
   std::string path;
   std::string title;
@@ -322,7 +324,11 @@ void LibraryListActivity::showRecentBookOptions(const int entry) {
   const char* favouriteLabel = FAVOURITES.contains(path) ? tr(STR_REMOVE_FROM_FAVOURITES) : tr(STR_ADD_TO_FAVOURITES);
   const char* STORE_OPTIONS[] = {
       tr(STR_OPEN), tr(STR_REMOVE_FROM_RECENTS), tr(STR_DELETE), tr(STR_LIBRARY_REBUILD), favouriteLabel, tr(STR_INFO)};
-  const char* INDEX_OPTIONS[] = {tr(STR_OPEN), tr(STR_DELETE), tr(STR_LIBRARY_REBUILD), favouriteLabel, tr(STR_INFO)};
+  // Title and Author rows get the same menu (kos25k #18), with their grouping as the last entry.
+  const bool canGroup = !isStoreRow && !groupsCollapsed && folderGroup < 0 && !authorFolders() && groupable();
+  const char* groupLabel = isAuthorSort(sortOrder) ? tr(STR_LIBRARY_GROUP_AUTHOR) : tr(STR_LIBRARY_GROUP_LETTER);
+  const char* INDEX_OPTIONS[] = {tr(STR_OPEN),   tr(STR_DELETE), tr(STR_LIBRARY_REBUILD),
+                                 favouriteLabel, tr(STR_INFO),   groupLabel};
   std::string author;
   if (isStoreRow)
     author = RECENT_BOOKS.getBooks()[pinnedStore[entry]].author;
@@ -331,9 +337,15 @@ void LibraryListActivity::showRecentBookOptions(const int entry) {
     rowTextFor(entry, ignoredTitle, author);
   }
   app.clearTapFlash();
-  optionPopup.show(tr(STR_LIBRARY), title.c_str(), isStoreRow ? STORE_OPTIONS : INDEX_OPTIONS, isStoreRow ? 6 : 5, 0,
-                   [this, path, title, author, isStoreRow](const int choice) {
+  optionPopup.show(tr(STR_LIBRARY), title.c_str(), isStoreRow ? STORE_OPTIONS : INDEX_OPTIONS,
+                   isStoreRow ? 6 : (canGroup ? 6 : 5), 0,
+                   [this, path, title, author, isStoreRow, canGroup, entry](const int choice) {
                      swallowHeldReleases();
+                     if (canGroup && choice == 5) {
+                       collapseGroups(entry);
+                       requestUpdate();
+                       return;
+                     }
                      if (choice == (isStoreRow ? 5 : 4)) {
                        showBookInfo(path);
                        return;
@@ -467,6 +479,7 @@ void LibraryListActivity::resetAfterRebuild() {
   // Sort positions, group starts, and pinned rows all point into the old order.
   resolvePinned();
   applyFilter();
+  applyAuthorFolders();
   auto& nav = activeNav();
   const int count = listCount();
   if (count == 0) {
@@ -506,6 +519,8 @@ void LibraryListActivity::promptRemoveRecentBook(const std::string& path, const 
   });
 }
 
+#if FREEINK_CAP_TOUCH
+// Swipe-left delete on an index row; long presses go through the row menu.
 void LibraryListActivity::promptDeleteBook(const int entry) {
   if (!index.isOpen() || entry < 0 || entry >= bookRowCount()) return;
   const uint16_t ordinal = index.ordinalForRow(sortOrder, static_cast<uint16_t>(rowFor(entry)));
@@ -522,6 +537,7 @@ void LibraryListActivity::promptDeleteBook(const int entry) {
   rowTextFor(entry, title, author);
   promptDeleteBookByPath(path, title);
 }
+#endif
 
 void LibraryListActivity::promptDeleteBookByPath(const std::string& path, const std::string& title) {
   // The dialog and the delete both want the card; reopen when we resume.
@@ -582,6 +598,7 @@ void LibraryListActivity::openSearch() {
     if (result.isCancelled) return;
     query = std::get<KeyboardResult>(result.data).text;
     applyFilter();
+    applyAuthorFolders();
     auto& nav = activeNav();
     if (!query.empty() && filteredCount == 0 && !degraded) {
       // Up from the tab bar reopens Search even with no results.
@@ -623,6 +640,7 @@ void LibraryListActivity::selectTab(const int index, const bool toggleIfActive) 
   applyFilter();
   activeTabIndex = index;
   refreshOverlap();
+  applyAuthorFolders();
   // Tab changes happen only while the bar owns focus. A tab's remembered row
   // must not pull focus back into the list after the switch.
   auto& nav = activeNav();
@@ -644,7 +662,15 @@ fui::TabIndicator LibraryListActivity::tabIndicator(const int index) const {
   return isDescending(sortOrder) ? fui::TabIndicator::Down : fui::TabIndicator::Up;
 }
 
-int LibraryListActivity::bookRowCount() const {
+int LibraryListActivity::bookRowCount() const { return folderGroup >= 0 ? groupSize(folderGroup) : flatRowCount(); }
+
+int LibraryListActivity::groupSize(const int group) const {
+  if (group < 0 || group >= groupCount) return 0;
+  const int end = group + 1 < groupCount ? groupStarts[group + 1] : flatRowCount();
+  return end - groupStarts[group];
+}
+
+int LibraryListActivity::flatRowCount() const {
   if (favouritesTab()) return static_cast<int>(FAVOURITES.getAll().size());
   if (filtering()) return pinnedCount() + static_cast<int>(filteredCount);
   // Pinned books already in the index are skipped below the pins, not doubled;
@@ -659,7 +685,9 @@ int LibraryListActivity::listCount() const { return groupsCollapsed ? static_cas
 // unfiltered and unpinned, so the shelf costs nothing when nothing is typed.
 // With pins active, entries below pinnedCount() belong to the store and must
 // not reach this; the rest walk past the pinned books' own sort rows.
-int LibraryListActivity::rowFor(const int entry) const {
+int LibraryListActivity::rowFor(const int shownEntry) const {
+  // Inside an author folder the rows are that author's run of the full list.
+  const int entry = folderGroup >= 0 && folderGroup < groupCount ? shownEntry + groupStarts[folderGroup] : shownEntry;
   if (filtering()) {
     const int at = entry - pinnedCount();
     if (at < 0 || at >= static_cast<int>(filteredCount) || !filtered) return 0;
@@ -740,6 +768,40 @@ bool LibraryListActivity::collapseGroups(const int bookEntry) {
   return true;
 }
 
+bool LibraryListActivity::authorFolders() const {
+  return SETTINGS.libraryAuthorFolders != 0 && activeTabIndex == AUTHOR_TAB && query.empty() && !degraded;
+}
+
+// Called after every applyFilter(), which drops the grouping: the Author tab goes back to its
+// author rows whenever the list is rebuilt.
+void LibraryListActivity::applyAuthorFolders() {
+  folderGroup = -1;
+  folderTitle.clear();
+  if (authorFolders() && !groupsCollapsed) collapseGroups(0);
+}
+
+void LibraryListActivity::openFolder(const int group) {
+  if (group < 0 || group >= groupCount) return;
+  std::string title;
+  std::string author;
+  rowTextFor(groupStarts[group], title, author);
+  formatAuthorHeading(author, folderTitle);
+  folderNav = activeNav();
+  folderGroup = group;
+  groupsCollapsed = false;
+  activeNav().reset(1);
+  requestUpdate();
+}
+
+void LibraryListActivity::closeFolder() {
+  if (folderGroup < 0) return;
+  folderGroup = -1;
+  folderTitle.clear();
+  groupsCollapsed = true;
+  activeNav() = folderNav;
+  requestUpdate();
+}
+
 void LibraryListActivity::expandGroup(const int groupEntry) {
   if (!groupsCollapsed || groupEntry < 0 || groupEntry >= groupCount) return;
   const int bookEntry = groupStarts[groupEntry];
@@ -764,6 +826,7 @@ void LibraryListActivity::restoreExpandedList() {
 // array is allocated once with the exact upper bound and fails back to an
 // explicit message rather than letting vector growth abort the firmware.
 void LibraryListActivity::applyFilter() {
+  folderGroup = -1;
   groupsCollapsed = false;
   groupCount = 0;
   filtered.reset();
@@ -835,10 +898,13 @@ void LibraryListActivity::handleBackAction() {
   if (!query.empty()) {
     query.clear();
     applyFilter();
+    applyAuthorFolders();
     nav.selected = 0;
     nav.top = 0;
     requestUpdate();
-  } else if (groupsCollapsed) {
+  } else if (folderGroup >= 0) {
+    closeFolder();
+  } else if (groupsCollapsed && !authorFolders()) {
     restoreExpandedList();
   } else if (!tabsFocused() && !degraded) {
     // Keep the current list and viewport while returning focus to the tabs.
@@ -866,6 +932,7 @@ void LibraryListActivity::filterActionTrampoline(const fui::ActionEvent& event, 
     RenderLock lock(self);
     self.resolvePinned();
     self.applyFilter();
+    self.applyAuthorFolders();
     auto& nav = self.activeNav();
     nav.selected = 0;
     nav.top = 0;
@@ -994,12 +1061,10 @@ bool LibraryListActivity::handleButtons() {
   if (mappedInput.wasLongPressed(MappedInputManager::Button::Confirm, LONG_PRESS_MS)) {
     if (tabsFocused()) {
       if (!degraded) toggleSortDirection();
-    } else if (isRecentSort(sortOrder)) {
-      showRecentBookOptions(selectedEntry());
-    } else if (deleteEligible()) {
-      if (count > 0) promptDeleteBook(selectedEntry());
-    } else if (!groupsCollapsed && groupable()) {
-      collapseGroups(selectedEntry());
+    } else if (favouritesTab()) {
+      if (count > 0) showFavouriteOptions(selectedEntry());
+    } else if (!groupsCollapsed) {
+      if (count > 0) showRecentBookOptions(selectedEntry());
     } else {
       activateIndex(selectedEntry());
     }
@@ -1085,6 +1150,8 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
   if (winTitles.size() < cap) winTitles.resize(cap);
   if (winAuthors.size() < cap) winAuthors.resize(cap);
   if (!groupsCollapsed && winHeaders.size() < cap) winHeaders.resize(cap);
+  if (winCounts.size() < cap) winCounts.resize(cap);
+  const bool folders = groupsCollapsed && authorFolders();
   winItems.clear();
   if (winItems.capacity() < cap) winItems.reserve(cap);
 
@@ -1099,7 +1166,20 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
     std::string& title = winTitles[static_cast<size_t>(rows)];
     std::string& author = winAuthors[static_cast<size_t>(rows)];
     fui::ListItem item;
-    if (groupsCollapsed) {
+    rowFile.clear();
+    if (folders && groupSize(entry) == 1) {
+      if (!rowTextFor(groupStarts[entry], title, author, &rowFile)) continue;
+      if (!author.empty()) item.subtitle = author.c_str();
+    } else if (folders) {
+      rowTextFor(groupStarts[entry], title, author);
+      formatAuthorHeading(author, title);
+      std::string& books = winCounts[static_cast<size_t>(rows)];
+      char buffer[48];
+      snprintf(buffer, sizeof(buffer), tr(STR_LIBRARY_FOLDER_COUNT), groupSize(entry));
+      books = buffer;
+      item.subtitle = books.c_str();
+      item.icon = listIconFor(UITheme::getFileIcon("/"), 32);
+    } else if (groupsCollapsed) {
       const int bookEntry = groupStarts[entry];
       if (authorGrouped) {
         rowTextFor(bookEntry, title, author);
@@ -1131,7 +1211,7 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
 
     item.label = title.c_str();
     // Group headings stay bare; every book row gets its file-type icon.
-    if (!groupsCollapsed && !rowFile.empty()) item.icon = listIconFor(UITheme::getFileIcon(rowFile), 32);
+    if (!rowFile.empty()) item.icon = listIconFor(UITheme::getFileIcon(rowFile), 32);
     item.actionValue = static_cast<int16_t>(entry);
     winItems.push_back(item);
     rows++;
@@ -1272,6 +1352,7 @@ void LibraryListActivity::drawPositionReadout() const {
 
 const char* LibraryListActivity::headerTitle() const {
   if (!headerSearchTitle.empty()) return headerSearchTitle.c_str();
+  if (folderGroup >= 0 && !folderTitle.empty()) return folderTitle.c_str();
   return degraded ? tr(STR_LIBRARY_TITLE_UNSORTED) : tr(STR_LIBRARY);
 }
 
@@ -1280,12 +1361,8 @@ void LibraryListActivity::drawHoldHelp() const {
   const char* help = nullptr;
   if (tabsFocused() && !degraded)
     help = tr(STR_LIBRARY_HOLD_SORT);
-  else if (!tabsFocused() && isRecentSort(sortOrder) && listCount() > 0)
-    help = tr(STR_LIBRARY_HOLD_OPTIONS);  // recent rows: hold opens the row menu
-  else if (!tabsFocused() && deleteEligible() && listCount() > 0)
-    help = tr(STR_HOLD_OPEN_TO_DELETE);
-  else if (!tabsFocused() && groupable())
-    help = tr(STR_LIBRARY_HOLD_GROUPS);
+  else if (!tabsFocused() && listCount() > 0)
+    help = tr(STR_LIBRARY_HOLD_OPTIONS);  // every book row: hold opens the row menu
   if (!help) return;
 
   const auto& metrics = UITheme::getInstance().getMetrics();
