@@ -25,7 +25,7 @@ if [[ -n "$(git status --porcelain -- src lib platformio.ini partitions_vaultink
   exit 1
 fi
 
-taskset -c 0-23 nice -n 10 "$PIO" run -e x4pro-gh_release
+taskset -c "0-$(( $(nproc) * 3 / 4 - 1 ))" nice -n 10 "$PIO" run -e x4pro-gh_release
 
 VERSION=$(grep -m1 '^version' platformio.ini | sed 's/.*= *//')
 OUT=$(mktemp -d)
