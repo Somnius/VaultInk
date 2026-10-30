@@ -130,6 +130,10 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
+- Reading log (0.51.0): lib/ReadingLog (host-tested) + src/util/ReadingStats. ReaderActivity::flushReaderSession
+  appends `start\tseconds\tprogressBp\tpath` to /.vaultink/reading-log.tsv for books (not .md/.txt) when the
+  session is dated (trustedtime) and >= 10 s. Sleep mode READING_STATS = 9 streams it twice (totals and
+  recent books; then the calendar book's last progress per local day, carried forward).
 - Lock screen (0.49.0): `lockMode` 0 off / 1 PIN / 2 corner; PIN as an FNV-1a digest in
   /.vaultink/lock-pin.txt (no file = PIN lock off). enterDeepSleep stores esp_rtc_get_time_us() in
   `lockSleptAtUs`; setup() shows LockActivity first when asleep >= 30 min, the clock went back (cold

@@ -215,6 +215,8 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 - **Search settings** by name, with a jump to your notes for the same words.
 - **Home screen rows** in any order, and any of them hidden (Settings → Display → Home Screen Rows / Home Screen Items), with a Favourites row.
 - **Battery page** with charge, voltage, charging and temperature (Settings → System → Battery).
+- **Reading stats sleep screen**: reading time today, this week, this month and in total, the last three
+  books, and a month calendar of your progress (Settings → Display → Sleep Screen, 0.51.0).
 - **Lock screen**: a 4-digit PIN or a long press on a corner, asked after 30 minutes asleep
   (Settings → System → Lock Screen, 0.49.0).
 - **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.

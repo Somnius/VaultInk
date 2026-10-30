@@ -20,6 +20,7 @@
 #include "SdCardFontSystem.h"
 #include "XtcReaderActivity.h"
 #include "util/PluginEvents.h"
+#include "util/ReadingStats.h"
 
 ReaderActivity::ReaderActivity(const char* name, GfxRenderer& renderer, MappedInputManager& mappedInput,
                                std::string bookPath, const bool allowFastInitialRefresh)
@@ -129,6 +130,11 @@ void ReaderActivity::onExit() {
 void ReaderActivity::prepareForSleep() { flushReaderSession(); }
 
 void ReaderActivity::flushReaderSession() {
+  // The reading log for the statistics sleep screen (kos25k #23): books only, dated sessions.
+  if (readerSession.isEmitWorthy()) {
+    readingstats::addSession(bookPath, readerSession.startTime(), readerSession.durationSeconds(),
+                             readerSession.endProgressBp());
+  }
   if (!readerSession.isEmitWorthy() || !pluginevents::anySubscriber(pluginevents::Event::ReaderSession)) {
     readerSession.reset();
     return;

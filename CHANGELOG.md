@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.51.0 (2026-10-30)
+
+Reading statistics on the sleep screen (kos25k #23).
+
+- **Settings → Display → Sleep Screen → Reading stats**: while the reader sleeps it shows the time and date with the battery on top, how long you read today, this week, this month and in total, your last three books with a progress bar each, and this month's calendar with the percent your current book was at by the end of each day. A day you didn't read keeps the day before's percent.
+- Reading time is counted from this version on, for books only (not notes), while pages turn. It's kept in `/.vaultink/reading-log.tsv` on the card; delete the file to start over.
+- The clock has to be set for this (Wi-Fi time or Settings → System → Clock).
+
+Tested in the simulator: real reading of a book was logged when it went to sleep, and the screen with a month of sample data (times, three books, the calendar carrying the percent). Not looked at on the device's screen yet.
+
+
 ## 0.50.0 (2026-10-30)
 
 Real checkboxes for tasks.

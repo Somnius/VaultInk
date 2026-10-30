@@ -13,22 +13,26 @@
 #include <I18n.h>
 #include <Memory.h>
 #include <PNGdec.h>
+#include <TrustedTime.h>
 #include <Xtc.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <ctime>
 #include <limits>
 #include <string>
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
+#include "RecentBooksStore.h"
 #include "activities/reader/ReaderUtils.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "images/Logo120.h"
 #include "images/MoonIcon.h"
+#include "util/ReadingStats.h"
 
 namespace {
 // Metalio: B/W sleep images use the full 0xF7 waveform instead of HALF (two
@@ -661,6 +665,8 @@ void SleepActivity::onEnter() {
   switch (SETTINGS.sleepScreen) {
     case (CrossPointSettings::SLEEP_SCREEN_MODE::BLANK):
       return renderBlankSleepScreen();
+    case (CrossPointSettings::SLEEP_SCREEN_MODE::READING_STATS):
+      return renderStatsSleepScreen();
     case (CrossPointSettings::SLEEP_SCREEN_MODE::CUSTOM):
       return renderCustomSleepScreen();
     case (CrossPointSettings::SLEEP_SCREEN_MODE::COVER):
@@ -1031,5 +1037,156 @@ void SleepActivity::renderLastScreenSleepScreen() const {
 void SleepActivity::renderBlankSleepScreen() const {
   renderer.clearScreen();
   stampSleepBattery(renderer);
+  renderer.displayBuffer(kSleepClean);
+}
+
+namespace {
+
+// "3h 05m", "42m".
+std::string formatDuration(const uint32_t seconds) {
+  const uint32_t minutes = seconds / 60;
+  char out[24];
+  if (minutes >= 60) {
+    snprintf(out, sizeof(out), "%luh %02lum", static_cast<unsigned long>(minutes / 60),
+             static_cast<unsigned long>(minutes % 60));
+  } else {
+    snprintf(out, sizeof(out), "%lum", static_cast<unsigned long>(minutes));
+  }
+  return out;
+}
+
+std::string bookTitle(const std::string& path) {
+  const auto& books = RECENT_BOOKS.getBooks();
+  const auto known = std::find_if(books.begin(), books.end(),
+                                  [&path](const RecentBook& book) { return book.path == path && !book.title.empty(); });
+  if (known != books.end()) return known->title;
+  const size_t slash = path.find_last_of('/');
+  std::string name = slash == std::string::npos ? path : path.substr(slash + 1);
+  const size_t dot = name.find_last_of('.');
+  if (dot != std::string::npos && dot > 0) name.resize(dot);
+  return name;
+}
+
+constexpr StrId MONTHS[] = {StrId::STR_MONTH_1, StrId::STR_MONTH_2,  StrId::STR_MONTH_3,  StrId::STR_MONTH_4,
+                            StrId::STR_MONTH_5, StrId::STR_MONTH_6,  StrId::STR_MONTH_7,  StrId::STR_MONTH_8,
+                            StrId::STR_MONTH_9, StrId::STR_MONTH_10, StrId::STR_MONTH_11, StrId::STR_MONTH_12};
+constexpr StrId WEEKDAYS[] = {StrId::STR_WEEKDAY_1, StrId::STR_WEEKDAY_2, StrId::STR_WEEKDAY_3, StrId::STR_WEEKDAY_4,
+                              StrId::STR_WEEKDAY_5, StrId::STR_WEEKDAY_6, StrId::STR_WEEKDAY_7};
+constexpr StrId WEEKDAYS_SHORT[] = {StrId::STR_WEEKDAY_SHORT_1, StrId::STR_WEEKDAY_SHORT_2, StrId::STR_WEEKDAY_SHORT_3,
+                                    StrId::STR_WEEKDAY_SHORT_4, StrId::STR_WEEKDAY_SHORT_5, StrId::STR_WEEKDAY_SHORT_6,
+                                    StrId::STR_WEEKDAY_SHORT_7};
+
+}  // namespace
+
+// Reading statistics (kos25k #23): the clock, date and battery on top, reading time (total, month,
+// week, today), the last three books with their progress, and this month's calendar with the
+// current book's progress at the end of each day.
+void SleepActivity::renderStatsSleepScreen() const {
+  const int W = renderer.getScreenWidth();
+  const int H = renderer.getScreenHeight();
+  constexpr int M = 20;
+  renderer.clearScreen();
+
+  const int64_t now = trustedtime::trustedNow();
+  if (now <= 0) {
+    renderer.drawCenteredText(UI_12_FONT_ID, H / 2 - 20, tr(STR_READING_STATS), true, EpdFontFamily::BOLD);
+    renderer.drawCenteredText(UI_10_FONT_ID, H / 2 + 16, tr(STR_STATS_NO_CLOCK));
+    renderer.displayBuffer(kSleepClean);
+    return;
+  }
+  const time_t t = static_cast<time_t>(now);
+  struct tm localNow{};
+  localtime_r(&t, &localNow);
+
+  // Top line: date, battery, charging.
+  const int weekday = (localNow.tm_wday + 6) % 7;
+  std::string top = std::string(I18N.get(WEEKDAYS[weekday])) + " " + std::to_string(localNow.tm_mday) + " " +
+                    I18N.get(MONTHS[localNow.tm_mon]);
+  char battery[32];
+  snprintf(battery, sizeof(battery), " \xC2\xB7 %u%%", static_cast<unsigned>(powerManager.getBatteryPercentage()));
+  top += battery;
+  if (gpio.isUsbConnected()) top += std::string(" \xC2\xB7 ") + tr(STR_CHARGING);
+  renderer.drawCenteredText(SMALL_FONT_ID, 14, top.c_str());
+
+  // The time, large.
+  char clock[16];
+  if (SETTINGS.clockFormat == 1) {
+    const int h12 = localNow.tm_hour % 12 == 0 ? 12 : localNow.tm_hour % 12;
+    snprintf(clock, sizeof(clock), "%d:%02d %s", h12, localNow.tm_min, localNow.tm_hour < 12 ? "AM" : "PM");
+  } else {
+    snprintf(clock, sizeof(clock), "%02d:%02d", localNow.tm_hour, localNow.tm_min);
+  }
+  renderer.drawCenteredText(NOTOSANS_18_FONT_ID, 44, clock, true, EpdFontFamily::BOLD);
+
+  const std::string current = APP_STATE.openEpubPath;
+  const readinglog::Stats st = readingstats::load(now, current);
+
+  // Reading time, two columns of two.
+  int y = 104;
+  renderer.drawLine(M, y, W - M, y);
+  y += 12;
+  const StrId labels[] = {StrId::STR_STATS_TODAY, StrId::STR_STATS_WEEK, StrId::STR_STATS_MONTH,
+                          StrId::STR_STATS_TOTAL};
+  const uint32_t values[] = {st.todaySeconds, st.weekSeconds, st.monthSeconds, st.totalSeconds};
+  const int colW = (W - 2 * M) / 2;
+  for (int i = 0; i < 4; ++i) {
+    const int x = M + (i % 2) * colW;
+    const int rowY = y + (i / 2) * 52;
+    renderer.drawText(SMALL_FONT_ID, x, rowY, I18N.get(labels[i]));
+    renderer.drawText(UI_12_FONT_ID, x, rowY + 18, formatDuration(values[i]).c_str(), true, EpdFontFamily::BOLD);
+  }
+  y += 110;
+  renderer.drawLine(M, y, W - M, y);
+  y += 12;
+
+  // The last three books: title, then a bar with the percent.
+  if (st.recent.empty()) {
+    renderer.drawText(UI_10_FONT_ID, M, y, tr(STR_STATS_NO_BOOKS));
+    y += 30;
+  }
+  for (const auto& book : st.recent) {
+    const std::string title = renderer.truncatedText(UI_10_FONT_ID, bookTitle(book.path).c_str(), W - 2 * M);
+    renderer.drawText(UI_10_FONT_ID, M, y, title.c_str());
+    const int barY = y + 26;
+    const int barW = W - 2 * M - 64;
+    renderer.drawRect(M, barY, barW, 10);
+    renderer.fillRect(M, barY, std::max(0, barW * book.progressBp / 10000), 10);
+    char pct[8];
+    snprintf(pct, sizeof(pct), "%d%%", book.progressBp / 100);
+    renderer.drawText(SMALL_FONT_ID, W - M - 56, barY - 4, pct);
+    y += 50;
+  }
+  renderer.drawLine(M, y, W - M, y);
+  y += 10;
+
+  // This month: name and year, weekday heads, then one box per day with the current book's percent.
+  const std::string monthTitle = std::string(I18N.get(MONTHS[st.month - 1])) + " " + std::to_string(st.monthYear);
+  renderer.drawCenteredText(UI_10_FONT_ID, y, monthTitle.c_str(), true, EpdFontFamily::BOLD);
+  y += 28;
+  const int cellW = (W - 2 * M) / 7;
+  for (int d = 0; d < 7; ++d) {
+    const char* head = I18N.get(WEEKDAYS_SHORT[d]);
+    renderer.drawText(SMALL_FONT_ID, M + d * cellW + (cellW - renderer.getTextWidth(SMALL_FONT_ID, head)) / 2, y, head);
+  }
+  y += 20;
+  const int weeks = (st.firstWeekday + st.daysInMonth + 6) / 7;
+  const int cellH = std::min(58, (H - 12 - y) / std::max(1, weeks));
+  for (int day = 1; day <= st.daysInMonth; ++day) {
+    const int slot = st.firstWeekday + day - 1;
+    const int x = M + (slot % 7) * cellW;
+    const int cy = y + (slot / 7) * cellH;
+    const bool isToday = day == st.today;
+    renderer.drawRect(x + 2, cy + 2, cellW - 4, cellH - 4, isToday ? 3 : 1, true);
+    char num[4];
+    snprintf(num, sizeof(num), "%d", day);
+    renderer.drawText(SMALL_FONT_ID, x + 6, cy + 4, num);
+    const int bp = st.dayProgressBp[day - 1];
+    if (bp >= 0) {
+      char pct[8];
+      snprintf(pct, sizeof(pct), "%d%%", bp / 100);
+      renderer.drawText(SMALL_FONT_ID, x + cellW - 6 - renderer.getTextWidth(SMALL_FONT_ID, pct), cy + cellH - 24, pct,
+                        true, EpdFontFamily::BOLD);
+    }
+  }
   renderer.displayBuffer(kSleepClean);
 }

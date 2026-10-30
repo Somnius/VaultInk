@@ -39,6 +39,7 @@ In this order, each also listed in its phase below:
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
+✅ 0.51.0: kos25k #23 reading statistics sleep screen (reading log on the card, times, last 3 books, month calendar).
 ✅ 0.50.0: tasks as real ☐ / ☑ boxes in notes (built-in fonts).
 ✅ 0.49.0: kos25k #22 lock screen: 4-digit PIN or a long press on a corner, after 30 minutes asleep.
 ✅ 0.48.0: kos25k #6 New folder from a long press on blank space; #8 phone photos (JPEG up to 50 MP), Gallery refresh, chosen folders.
@@ -52,8 +53,7 @@ kos25k #20 battery: no charger chip the firmware can drive (CW2017 gauge only), 
 health/cycles depend on the CW2017 datasheet (to check); sleep-screen percent while charging would
 need timed wakes. Waiting on kos25k: #16 (File Transfer address not found, 0.35.3) and #19
 (justified text like KOReader; his photo compares a much wider screen, asked for a close-up). Device-only: the dimmer, LiveSync certificates
-and PBKDF2 timing, the hardware checklist. Reading statistics (L) stays behind the list: no issue
-asks for it.
+and PBKDF2 timing, the hardware checklist. Reading statistics: ✅ 0.51.0 the first part (#23, a reading log and the stats sleep screen).
 
 ## 🚧 Phase 0 - Setup
 

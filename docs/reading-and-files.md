@@ -35,6 +35,23 @@ go to the home screen. It isn't drawn on book and note pages, where the top is t
 the panel, which has it), nor on the home screen itself, nor when the clock is set to the centre.
 Its tap area is wide and reaches the top edge, and a short slip of the finger counts as a tap (0.42.0); a longer pull-down still opens quick settings. Turn it off in **Settings → Display → Home Button at the Top**.
 
+## Reading statistics on the sleep screen (0.51.0)
+
+**Settings → Display → Sleep Screen → Reading stats** (kos25k #23) shows, while the reader sleeps:
+
+- the date, battery and charging on top, and the time, large;
+- how long you read **today**, **this week** (from Monday), **this month** and in **total**;
+- the last three books you read, each with a bar and its percent (books only, no notes);
+- this month's calendar, with the percent the current book was at by the end of each day. A day
+  you didn't read keeps the day before's percent; the days still to come are empty.
+
+<p><img src="images/vaultink/sleep-stats.png" width="240" alt="The reading statistics sleep screen"></p>
+
+Reading time is counted from 0.51.0 on, while a book is open and pages turn (a page left open for
+more than 30 minutes counts as 30). It's kept in `/.vaultink/reading-log.tsv` on the SD card, one
+line per reading session; delete the file to start over. The clock has to be set (Wi-Fi time or
+Settings → System → Clock), or the screen asks for it, since undated reading can't be put on a day.
+
 ## Battery percent on the sleep screen
 
 While the device sleeps, the battery percent shows at the bottom right, black on a small white
