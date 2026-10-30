@@ -316,8 +316,8 @@ bool BmpViewerActivity::saveDecodedSleepCover() {
   const bool jpeg = FsHelpers::hasJpgExtension(filePath);
   JpegToFramebufferConverter jpegDecoder;
   PngToFramebufferConverter pngDecoder;
-  ImageToFramebufferDecoder& decoder =
-      jpeg ? static_cast<ImageToFramebufferDecoder&>(jpegDecoder) : static_cast<ImageToFramebufferDecoder&>(pngDecoder);
+  const ImageToFramebufferDecoder& decoder = jpeg ? static_cast<const ImageToFramebufferDecoder&>(jpegDecoder)
+                                                  : static_cast<const ImageToFramebufferDecoder&>(pngDecoder);
   ImageDimensions dimensions;
   if (!decoder.getDimensions(filePath, dimensions)) return false;
   auto config = fitImage(dimensions, renderer);

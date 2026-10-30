@@ -2,6 +2,13 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.41.1 (2026-10-30)
+
+- No change you can see: a code check fix for 0.41.0's PNG sleep picture.
+
+Tested with the code checks and in the simulator.
+
+
 ## 0.41.0 (2026-10-30)
 
 A home button at the top, and PNG sleep pictures (kos25k #17, #21).
