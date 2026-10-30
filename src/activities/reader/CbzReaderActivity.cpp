@@ -52,6 +52,7 @@ bool CbzReaderActivity::loadBook() {
   cachePath = cbzcover::cachePathFor(bookPath);
   Storage.ensureDirectoryExists(cachePath.c_str());
   loadProgress();
+  loadDirection(zip);
   LOG_DBG("CBZ", "%s: %u pages, %u chapters", bookPath.c_str(), static_cast<unsigned>(book.pages.size()),
           static_cast<unsigned>(book.chapters.size()));
   return true;
@@ -64,12 +65,27 @@ std::string CbzReaderActivity::getBookTitle() const { return FsHelpers::getFileN
 bool CbzReaderActivity::handleFormatInput() {
   const bool touchMenu = ReaderUtils::isTouchMenuGesture(renderer, mappedInput);
   if (!mappedInput.wasReleased(MappedInputManager::Button::Confirm) && !touchMenu) return false;
-  if (book.chapters.size() < 2) return true;  // nothing to choose between
-  startActivityForResult(std::make_unique<CbzChapterActivity>(renderer, mappedInput, book.chapters, currentPage),
-                         [this](const ActivityResult& result) {
-                           if (!result.isCancelled) currentPage = std::get<PageResult>(result.data).page;
-                           requestUpdate();
-                         });
+  std::vector<cbz::Chapter> chapters;
+  if (book.chapters.size() >= 2) chapters = book.chapters;
+  startActivityForResult(
+      std::make_unique<CbzChapterActivity>(renderer, mappedInput, std::move(chapters), currentPage, rightToLeft),
+      [this](const ActivityResult& result) {
+        if (!result.isCancelled) {
+          const uint32_t page = std::get<PageResult>(result.data).page;
+          if (page == CbzChapterActivity::TOGGLE_RIGHT_TO_LEFT) {
+            rightToLeft = !rightToLeft;
+            const uint8_t flag = rightToLeft ? 1 : 0;
+            HalFile f;
+            if (Storage.openFileForWrite("CBZ", cachePath + "/rtl.bin", f)) {
+              f.write(&flag, 1);
+              f.close();
+            }
+          } else {
+            currentPage = page;
+          }
+        }
+        requestUpdate();
+      });
   return true;
 }
 
@@ -143,7 +159,26 @@ void CbzReaderActivity::renderBook() {
   publishLiveBookProgress(getScreenshotInfo().progressPercent);
 }
 
-bool CbzReaderActivity::pageTurn(const bool isForward) {
+// Right to left (manga, Phase 1c.4): the book's own choice in rtl.bin, else its ComicInfo.xml.
+void CbzReaderActivity::loadDirection(ZipFile& zip) {
+  HalFile f;
+  if (Storage.openFileForRead("CBZ", cachePath + "/rtl.bin", f)) {
+    uint8_t flag = 0;
+    if (f.read(&flag, 1) == 1) {
+      rightToLeft = flag != 0;
+      return;
+    }
+  }
+  if (book.comicInfo.empty()) return;
+  size_t size = 0;
+  uint8_t* xml = zip.readFileToMemory(book.comicInfo.c_str(), &size, true);
+  if (!xml) return;
+  rightToLeft = cbz::mangaRightToLeft(std::string_view(reinterpret_cast<const char*>(xml), size));
+  free(xml);
+}
+
+bool CbzReaderActivity::pageTurn(bool isForward) {
+  if (rightToLeft) isForward = !isForward;  // the page order stays, next and previous swap
   if (isForward) {
     if (currentPage < book.pages.size()) {
       ++currentPage;
@@ -158,7 +193,7 @@ bool CbzReaderActivity::pageTurn(const bool isForward) {
 
 bool CbzReaderActivity::skipPages(const int amount) {
   const int last = static_cast<int>(book.pages.size());
-  const int target = std::clamp(static_cast<int>(currentPage) + amount, 0, last);
+  const int target = std::clamp(static_cast<int>(currentPage) + (rightToLeft ? -amount : amount), 0, last);
   if (target == static_cast<int>(currentPage)) return false;
   currentPage = static_cast<uint32_t>(target);
   return true;

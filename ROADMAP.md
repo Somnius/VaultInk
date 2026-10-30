@@ -323,7 +323,9 @@ EPUB comics show their pictures; the companion app's Files tab can upload any fi
   it costs a refresh per half and fights the tap zones). Thumbnail from page 0 written once. .cbz
   in the file type checks, Library, file browser and reader. CBR (RAR) won't open: rezip it or run
   it through the converter.
-* 💤 **1c.4 Manga order and covers (M).** The converter already asks for the reading direction
+* 🚧 **1c.4 Manga order and covers (M).** ✅ 0.43.0: right to left per CBZ (ComicInfo.xml
+  YesAndRightToLeft, or the toggle at the top of the CBZ menu, kept in rtl.bin), next/previous
+  swapped; covers came in 0.40.0. To do: chapter markers on the progress bar, landscape spreads. The converter already asks for the reading direction
   (right-to-left or left-to-right) and orders the pages for it, so this is mainly for raw CBZ:
   right-to-left as a per-book flag that swaps what next and previous mean (taps, swipes and
   buttons), never reversing the file; off by default; set from ComicInfo.xml

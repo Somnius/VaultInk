@@ -10,24 +10,31 @@ namespace fui = freeink::ui;
 void CbzChapterActivity::onEnter() {
   UiListActivity::onEnter();
   rows.clear();
+  directionLabel = std::string(tr(STR_CBZ_RIGHT_TO_LEFT)) + ": " + (rightToLeft ? tr(STR_STATE_ON) : tr(STR_STATE_OFF));
+  fui::ListItem direction;
+  direction.label = directionLabel.c_str();
+  direction.actionValue = 0;
+  rows.push_back(direction);
   int current = 0;
   for (size_t i = 0; i < chapters.size(); ++i) {
     fui::ListItem item;
     item.label = chapters[i].title.empty() ? tr(STR_UNNAMED) : chapters[i].title.c_str();
-    item.actionValue = static_cast<int16_t>(i);
+    item.actionValue = static_cast<int16_t>(i + 1);
+    if (i == 0) item.sectionHeading = tr(STR_SELECT_CHAPTER);
     rows.push_back(item);
-    if (chapters[i].firstPage <= currentPage) current = static_cast<int>(i);
+    if (chapters[i].firstPage <= currentPage) current = static_cast<int>(i + 1);
   }
   nav.selected = current;
   requestUpdate();
 }
 
-const char* CbzChapterActivity::headerTitle() const { return tr(STR_SELECT_CHAPTER); }
+const char* CbzChapterActivity::headerTitle() const { return tr(STR_CBZ_COMIC); }
 
 void CbzChapterActivity::activateIndex(const int index) {
-  if (index < 0 || index >= static_cast<int>(chapters.size())) return;
+  if (index < 0 || index >= listCount()) return;
   app.clearTapFlash();
-  setResult(PageResult{static_cast<uint32_t>(chapters[static_cast<size_t>(index)].firstPage)});
+  setResult(PageResult{index == 0 ? TOGGLE_RIGHT_TO_LEFT
+                                  : static_cast<uint32_t>(chapters[static_cast<size_t>(index - 1)].firstPage)});
   finish();
 }
 

@@ -47,3 +47,15 @@ TEST(CbzPagesTest, EmptyOrOnlyJunk) {
   EXPECT_TRUE(cbz::pages({}).pages.empty());
   EXPECT_TRUE(cbz::pages({"__MACOSX/a.jpg", "notes.txt"}).pages.empty());
 }
+
+TEST(CbzPagesTest, FindsComicInfoAndReadsTheMangaFlag) {
+  EXPECT_EQ(cbz::pages({"ComicInfo.xml", "1.jpg"}).comicInfo, "ComicInfo.xml");
+  EXPECT_EQ(cbz::pages({"COMICINFO.XML", "1.jpg"}).comicInfo, "COMICINFO.XML");
+  EXPECT_TRUE(cbz::pages({"1.jpg"}).comicInfo.empty());
+  EXPECT_TRUE(cbz::mangaRightToLeft("<ComicInfo><Manga>YesAndRightToLeft</Manga></ComicInfo>"));
+  EXPECT_TRUE(cbz::mangaRightToLeft("<comicinfo><manga> yesandrighttoleft </manga></comicinfo>"));
+  EXPECT_FALSE(cbz::mangaRightToLeft("<ComicInfo><Manga>Yes</Manga></ComicInfo>"));
+  EXPECT_FALSE(cbz::mangaRightToLeft("<ComicInfo><Manga>No</Manga></ComicInfo>"));
+  EXPECT_FALSE(cbz::mangaRightToLeft("<ComicInfo><Title>x</Title></ComicInfo>"));
+  EXPECT_FALSE(cbz::mangaRightToLeft("<Manga>YesAndRightToLeft"));
+}

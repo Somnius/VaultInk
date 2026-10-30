@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.43.0 (2026-10-30)
+
+Manga read right to left, and a new website.
+
+- CBZ manga: a CBZ that says it's right-to-left in its ComicInfo.xml opens that way, so the usual "next" swipe and button go to the previous page and the other way round. Confirm or the menu tap in the middle of the page shows **Right to left (manga): On/Off**, to change it for that book; the choice is kept.
+- The install page at somnius.github.io/VaultInk has a new design: clearer install steps, screenshots of what VaultInk does, and the comics and companion app parts.
+
+Tested in the simulator: a manga CBZ opened right to left from its ComicInfo.xml, the swipes went the other way, and turning it off made them normal again; host tests for reading the ComicInfo flag. Not confirmed on the device yet.
+
+
 ## 0.42.0 (2026-10-30)
 
 The home button works on the first tap, and the companion app is one scan away.

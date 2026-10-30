@@ -48,6 +48,22 @@ std::string_view folderOf(std::string_view entry) {
 
 }  // namespace
 
+bool mangaRightToLeft(const std::string_view comicInfoXml) {
+  std::string xml(comicInfoXml);
+  std::transform(xml.begin(), xml.end(), xml.begin(),
+                 [](const char ch) { return static_cast<char>(std::tolower(static_cast<unsigned char>(ch))); });
+  const size_t open = xml.find("<manga>");
+  if (open == std::string::npos) return false;
+  const size_t start = open + 7;
+  const size_t close = xml.find("</manga>", start);
+  if (close == std::string::npos) return false;
+  std::string value = xml.substr(start, close - start);
+  value.erase(std::remove_if(value.begin(), value.end(),
+                             [](const char ch) { return std::isspace(static_cast<unsigned char>(ch)) != 0; }),
+              value.end());
+  return value == "yesandrighttoleft";
+}
+
 bool naturalLess(std::string_view a, std::string_view b) {
   size_t i = 0;
   size_t j = 0;
@@ -84,6 +100,10 @@ bool naturalLess(std::string_view a, std::string_view b) {
 Book pages(const std::vector<std::string>& entries) {
   Book book;
   for (const auto& entry : entries) {
+    std::string lower = entry;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](const char ch) { return static_cast<char>(std::tolower(static_cast<unsigned char>(ch))); });
+    if (lower == "comicinfo.xml") book.comicInfo = entry;
     if (skipped(entry)) continue;
     const std::string ext = lowerExt(entry);
     if (isPage(ext)) {

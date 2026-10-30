@@ -74,7 +74,9 @@ book remembers its page. Only JPEG and PNG pages are shown, in natural order ("2
 
 - Pages bigger than 8 megapixels (2000×3000 and 2048×4096 are fine) show "Page load error".
 - WebP pages, CBR (RAR) files: run them through the converter.
-- Right-to-left order. (Since 0.40.0: Confirm or the menu tap opens the list of chapter folders,
+- Since 0.43.0, manga read right to left: a CBZ whose ComicInfo.xml says so (Manga: YesAndRightToLeft)
+  opens that way, and Confirm or the menu tap shows **Right to left (manga): On/Off** to change it
+  for that book. The pages stay in their order; next and previous swap. (Since 0.40.0: Confirm or the menu tap opens the list of chapter folders,
   and the first page is the cover on the home with the progress bar.) Each page is decoded when it's shown, so
   turning is slower than XTCH.
 

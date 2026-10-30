@@ -130,6 +130,8 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Authors as folders (0.36.0): `libraryAuthorFolders`. The Author tab's group view (groupStarts by
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
+- CBZ right to left (0.43.0): `cbz::mangaRightToLeft(ComicInfo.xml)`; per book in <cache>/rtl.bin (wins);
+  `pageTurn`/`skipPages` invert direction; CbzChapterActivity row 0 toggles (TOGGLE_RIGHT_TO_LEFT).
 - Companion QR (0.42.0): `APP_STATE.companionQrPending` set with What's New; HomeActivity::onEnter shows
   QrDisplayActivity with docs/companion.md once. Home tap (0.42.0): `wasHeaderHomeTap` = tap in the rect
   (y 0 to under the strip, 48 px each side) or a swipe starting there shorter than 100 px.

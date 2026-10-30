@@ -1,6 +1,7 @@
 #pragma once
 
 #include <CbzPages.h>
+#include <ZipFile.h>
 
 #include <string>
 
@@ -33,8 +34,10 @@ class CbzReaderActivity final : public ReaderActivity {
   bool drawPage(const std::string& imagePath);
   void saveProgress() const;
   void loadProgress();
+  void loadDirection(ZipFile& zip);
 
   cbz::Book book;
   std::string cachePath;
   uint32_t currentPage = 0;
+  bool rightToLeft = false;
 };
