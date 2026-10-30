@@ -55,6 +55,9 @@ class ImageToFramebufferDecoder {
   // task's watchdog.
   static constexpr int64_t MAX_SOURCE_DIMENSION = INT16_MAX;
   static constexpr int64_t MAX_SOURCE_PIXELS = 8388608;  // 8 MP (e.g. 2048 * 4096)
+  // JPEG decodes at 1/8 scale for small boxes, so phone photos (12 to 48 MP) are let in too:
+  // the Gallery thumbnails them once and keeps a pixel cache (kos25k #8).
+  static constexpr int64_t MAX_JPEG_SOURCE_PIXELS = 50000000;
 
   void warnUnsupportedFeature(const std::string& feature, const std::string& imagePath);
 };

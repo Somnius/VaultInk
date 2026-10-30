@@ -894,3 +894,7 @@ STR_LIVESYNC_DONE: "Συγχρονίστηκε: %d ενημερώσεις, %d δ
 STR_REBUILD_SEARCH_INDEX: "Ξαναφτιάξε το ευρετήριο αναζήτησης"
 STR_SEARCH_INDEX_CLEARED: "Το ευρετήριο σβήστηκε· η επόμενη αναζήτηση το ξαναφτιάχνει"
 STR_NO_RELEASE_NOTES: "Δεν υπάρχουν σημειώσεις για αυτή την έκδοση."
+STR_GALLERY_SHOW_CHOSEN: "Επιλεγμένοι φάκελοι"
+STR_GALLERY_ADD_FOLDER: "Προσθήκη φακέλου"
+STR_GALLERY_CLEAR_FOLDERS: "Καθαρισμός επιλεγμένων φακέλων"
+STR_GALLERY_NO_FOLDERS: "Κανένας φάκελος: γρανάζι > Προσθήκη φακέλου"

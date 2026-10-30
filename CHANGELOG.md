@@ -2,6 +2,18 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.48.0 (2026-10-30)
+
+Gallery and Browse Files fixes from kos25k (#8, #6).
+
+- **Phone photos in the Gallery**: JPEGs over 8 megapixels (most phone photos are 12 MP or more) only showed their name. They now show as pictures, up to 50 MP. The first time a page of big photos is drawn takes longer; after that the thumbnails come from the cache.
+- **Refresh**: the arrows next to the gear look through the folders again, for pictures you added or removed.
+- **Chosen folders**: in the gear menu, **Add a folder** picks a folder for the Gallery, and **Chosen folders** shows only those. **Clear chosen folders** empties the list.
+- **New folder in Browse Files**: a long press on blank space, in any folder (empty or not), now offers **New folder**. A long press on a file or folder still opens its menu, which also has New folder.
+
+Tested in the simulator: 12 MP JPEGs (normal and progressive) as thumbnails, refresh picking up a picture copied in while the Gallery was open, adding a chosen folder, and New folder from a long press on blank space, in a full and an empty folder. How long big photos take on the device isn't measured yet.
+
+
 ## 0.47.0 (2026-10-30)
 
 Search finds headings.

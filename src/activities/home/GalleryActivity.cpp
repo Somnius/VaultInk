@@ -23,6 +23,7 @@
 #include "activities/util/BmpViewerActivity.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "components/UITheme.h"
+#include "components/icons/listIcons.h"
 #include "components/icons/settings2.h"
 #include "fontIds.h"
 #include "util/FileOps.h"
@@ -37,6 +38,32 @@ constexpr int GEAR = 32;
 constexpr int GAP = 8;
 constexpr int LABEL = 22;
 constexpr const char* THUMBS = "/.crosspoint/thumbs";
+// The folders "Chosen folders" shows (kos25k #8), one path per line.
+constexpr const char* CHOSEN = "/.vaultink/gallery-folders.txt";
+constexpr int FILTER_CHOSEN = 3;
+
+std::vector<std::string> readChosen() {
+  std::vector<std::string> folders;
+  std::string text;
+  if (!Storage.readFileToString("GAL", CHOSEN, 16 * 1024, text)) return folders;
+  size_t start = 0;
+  while (start < text.size()) {
+    size_t end = text.find('\n', start);
+    if (end == std::string::npos) end = text.size();
+    std::string line = text.substr(start, end - start);
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (!line.empty()) folders.push_back(line);
+    start = end + 1;
+  }
+  return folders;
+}
+
+void writeChosen(const std::vector<std::string>& folders) {
+  std::string text;
+  for (const auto& f : folders) text += f + "\n";
+  Storage.ensureDirectoryExists("/.vaultink");
+  Storage.writeFile(CHOSEN, String(text.c_str()));
+}
 }  // namespace
 
 GalleryActivity::GalleryActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string folder)
@@ -70,7 +97,9 @@ void GalleryActivity::scan() {
     }
     return true;
   };
+  // Chosen folders replace the whole card; a gallery opened on one folder keeps that folder.
   std::vector<std::string> folders{root};
+  if (filter == FILTER_CHOSEN && root == "/") folders = readChosen();
   auto name = makeUniqueNoThrow<char[]>(500);
   if (!name) return;
   while (!folders.empty() && !truncated) {
@@ -181,15 +210,18 @@ void GalleryActivity::render(RenderLock&&) {
   renderer.drawText(UI_12_FONT_ID, MARGIN, 14, ("« " + folderName).c_str(), true, EpdFontFamily::BOLD);
   // The gear (kos25k #8) at the right, the page left of it.
   renderer.drawIcon(Settings2Icon, width - MARGIN - GEAR, 8, GEAR);
+  // Refresh (kos25k #8) left of the gear: looks for new and removed pictures again.
+  renderer.drawIcon(icon_refresh_cw_32_bits, refreshX(), 8, GEAR);
   if (!pictures.empty()) {
     char pages[32];
     snprintf(pages, sizeof(pages), "%d/%d", page + 1, pageCount());
-    renderer.drawText(SMALL_FONT_ID, width - MARGIN - GEAR - 12 - renderer.getTextWidth(SMALL_FONT_ID, pages), 20,
-                      pages);
+    renderer.drawText(SMALL_FONT_ID, refreshX() - 12 - renderer.getTextWidth(SMALL_FONT_ID, pages), 20, pages);
   }
   renderer.drawLine(0, HEADER - 6, width, HEADER - 6);
   if (pictures.empty()) {
-    renderer.drawCenteredText(UI_10_FONT_ID, renderer.getScreenHeight() / 2, tr(STR_GALLERY_EMPTY));
+    const bool noneChosen = SETTINGS.galleryFilter == FILTER_CHOSEN && root == "/" && readChosen().empty();
+    renderer.drawCenteredText(UI_10_FONT_ID, renderer.getScreenHeight() / 2,
+                              noneChosen ? tr(STR_GALLERY_NO_FOLDERS) : tr(STR_GALLERY_EMPTY));
   }
   for (int slot = 0; slot < PER_PAGE; ++slot) {
     const int i = page * PER_PAGE + slot;
@@ -236,8 +268,17 @@ void GalleryActivity::loop() {
       activityManager.goHome();
       return;
     }
-    if (y < HEADER && x > renderer.getScreenWidth() - MARGIN - GEAR - 24) {
+    if (y < HEADER && x > renderer.getScreenWidth() - MARGIN - GEAR - 12) {
       filterMenu();
+      return;
+    }
+    if (y < HEADER && x > refreshX() - 12 && x < refreshX() + GEAR + 6) {
+      {
+        RenderLock lock(*this);
+        scan();
+        page = std::min(page, std::max(0, pageCount() - 1));
+      }
+      requestUpdate(true);
       return;
     }
     int index = 0;
@@ -245,22 +286,60 @@ void GalleryActivity::loop() {
   }
 }
 
+int GalleryActivity::refreshX() const { return renderer.getScreenWidth() - MARGIN - GEAR - 16 - GEAR; }
+
+void GalleryActivity::rescanFromTop() {
+  {
+    RenderLock lock(*this);
+    scan();
+    page = 0;
+  }
+  requestUpdate(true);
+}
+
 void GalleryActivity::filterMenu() {
-  static constexpr StrId OPTIONS[] = {StrId::STR_GALLERY_SHOW_ALL, StrId::STR_GALLERY_SHOW_PNG,
-                                      StrId::STR_GALLERY_SHOW_NOTES};
-  optionPopup.show(StrId::STR_GALLERY, OPTIONS, 3, SETTINGS.galleryFilter, [this](const int choice) {
-    if (choice >= 0 && choice < 3 && choice != SETTINGS.galleryFilter) {
-      SETTINGS.galleryFilter = static_cast<uint8_t>(choice);
-      SETTINGS.saveToFile();
-      {
-        RenderLock lock(*this);
-        scan();
-        page = 0;
+  // The four filters, then the chosen-folder list (kos25k #8).
+  static constexpr StrId OPTIONS[] = {StrId::STR_GALLERY_SHOW_ALL,   StrId::STR_GALLERY_SHOW_PNG,
+                                      StrId::STR_GALLERY_SHOW_NOTES, StrId::STR_GALLERY_SHOW_CHOSEN,
+                                      StrId::STR_GALLERY_ADD_FOLDER, StrId::STR_GALLERY_CLEAR_FOLDERS};
+  optionPopup.show(StrId::STR_GALLERY, OPTIONS, 6, SETTINGS.galleryFilter, [this](const int choice) {
+    if (choice >= 0 && choice <= FILTER_CHOSEN) {
+      if (choice != SETTINGS.galleryFilter) {
+        SETTINGS.galleryFilter = static_cast<uint8_t>(choice);
+        SETTINGS.saveToFile();
+        rescanFromTop();
+        return;
       }
+    } else if (choice == 4) {
+      addChosenFolder();
+      return;
+    } else if (choice == 5) {
+      writeChosen({});
+      rescanFromTop();
+      return;
     }
     requestUpdate(true);
   });
   requestUpdate();
+}
+
+// Picks a folder in the file browser, adds it to the chosen list and shows Chosen folders.
+void GalleryActivity::addChosenFolder() {
+  auto picker =
+      makeUniqueNoThrow<FileBrowserActivity>(renderer, mappedInput, "/", FileBrowserActivity::Mode::PickFolder);
+  if (!picker) return;
+  startActivityForResult(std::move(picker), [this](const ActivityResult& result) {
+    if (!result.isCancelled) {
+      std::string folder = std::get<FilePathResult>(result.data).path;
+      if (folder.size() > 1 && folder.back() == '/') folder.pop_back();
+      auto folders = readChosen();
+      if (std::find(folders.begin(), folders.end(), folder) == folders.end()) folders.push_back(folder);
+      writeChosen(folders);
+      SETTINGS.galleryFilter = FILTER_CHOSEN;
+      SETTINGS.saveToFile();
+    }
+    rescanFromTop();
+  });
 }
 
 void GalleryActivity::pictureActions(const int index) {

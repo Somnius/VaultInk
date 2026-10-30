@@ -269,6 +269,20 @@ turn pages. Tap a picture for:
 The first time a page is shown its thumbnails are decoded, which takes a moment per picture; they
 are kept in `/.crosspoint/thumbs`, so the page comes back fast. Up to 2000 pictures are listed.
 
+At the top right (kos25k #8):
+
+- The **refresh** arrows (0.48.0) look through the folders again, for pictures added or removed
+  while the Gallery is open.
+- The **gear** (0.45.0) picks what to show: **All pictures**, **PNG only**, **Pictures in vaults
+  (notes)**, or (0.48.0) **Chosen folders**. **Add a folder** picks a folder to add to that list
+  and switches to it; **Clear chosen folders** empties the list. The list is kept in
+  `/.vaultink/gallery-folders.txt`, one folder per line. A gallery opened on one folder (Open as
+  gallery) always shows that folder.
+
+Phone photos: since 0.48.0 JPEGs up to 50 megapixels are shown (before, anything over 8 MP, so most
+phone photos, showed only its name). The first draw of a big photo takes longer; after that its
+thumbnail comes from the cache. PNG still stops at 8 MP.
+
 ## What's New after an update (0.24.0)
 
 After an update, the first start opens a note with what changed since the version you had before

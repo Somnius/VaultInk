@@ -72,7 +72,8 @@ Library. Each page is fitted to the screen in grayscale; swipe or use the button
 book remembers its page. Only JPEG and PNG pages are shown, in natural order ("2" before "10");
 `__MACOSX` and other leftovers are skipped. Not yet:
 
-- Pages bigger than 8 megapixels (2000×3000 and 2048×4096 are fine) show "Page load error".
+- PNG pages bigger than 8 megapixels (2000×3000 and 2048×4096 are fine) show "Page load error".
+  JPEG pages are let in up to 50 megapixels since 0.48.0 (not timed on the device yet).
 - WebP pages, CBR (RAR) files: run them through the converter.
 - Since 0.43.0, manga read right to left: a CBZ whose ComicInfo.xml says so (Manga: YesAndRightToLeft)
   opens that way, and Confirm or the menu tap shows **Right to left (manga): On/Off** to change it

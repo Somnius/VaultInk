@@ -3,6 +3,8 @@
 #include <Arduino.h>
 #include <Logging.h>
 
+#include <cstring>
+
 bool ImageToFramebufferDecoder::validateAndStoreDimensions(const int64_t width, const int64_t height,
                                                            ImageDimensions& out, const char* format) {
   if (width <= 0 || height <= 0) {
@@ -18,10 +20,11 @@ bool ImageToFramebufferDecoder::validateAndStoreDimensions(const int64_t width, 
   }
 
   const int64_t pixels = width * height;
-  if (pixels > MAX_SOURCE_PIXELS) {
+  const int64_t maxPixels = strcmp(format, "JPEG") == 0 ? MAX_JPEG_SOURCE_PIXELS : MAX_SOURCE_PIXELS;
+  if (pixels > maxPixels) {
     LOG_ERR("IMG", "%s too large (%lldx%lld = %lld pixels), max supported: %lld pixels", format,
             static_cast<long long>(width), static_cast<long long>(height), static_cast<long long>(pixels),
-            static_cast<long long>(MAX_SOURCE_PIXELS));
+            static_cast<long long>(maxPixels));
     return false;
   }
 

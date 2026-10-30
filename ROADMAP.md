@@ -38,6 +38,7 @@ In this order, each also listed in its phase below:
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
+✅ 0.48.0: kos25k #6 New folder from a long press on blank space; #8 phone photos (JPEG up to 50 MP), Gallery refresh, chosen folders.
 ✅ 0.47.0: search finds headings, `Note > Heading`, and opens the note at that heading.
 ✅ 0.46.0: kos25k #9 the release notes before an OTA update, scrolling, with Update always on screen.
 ✅ 0.45.0: kos25k #8 Gallery filter (all, PNG, vault pictures), #6 New folder in an empty folder.

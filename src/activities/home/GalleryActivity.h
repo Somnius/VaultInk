@@ -29,6 +29,9 @@ class GalleryActivity final : public Activity {
   void drawThumb(const std::string& path, int x, int y, int w, int h);
   void pictureActions(int index);
   void filterMenu();
+  void addChosenFolder();
+  void rescanFromTop();
+  int refreshX() const;
   void transfer(const std::string& path, bool copy);
 
   std::string root;

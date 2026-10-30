@@ -234,7 +234,8 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 - **File browser actions.** Long-press a file or folder for Open, Delete, Rename, Move, Copy and
   New folder; Extract here for a .zip; Open as gallery for a folder.
 - **Tap zones.** Turn pages by tapping anywhere, or only in the corners (Settings → Controls).
-- **Gallery.** Home → Gallery: the pictures on the card as a grid, with View, Delete, Move, Copy.
+- **Gallery.** Home → Gallery: the pictures on the card as a grid, with View, Delete, Move, Copy. Phone photos
+  (JPEG up to 50 MP), a refresh button, and a gear to show all, PNG only, vault pictures or chosen folders.
 - **What's New.** After an update the device shows what changed (Settings → System → What's New). Move and Copy open a folder picker; nothing overwrites a file with the same name, and
   a copy that runs out of space leaves nothing half-written.
 - **Reading layout.** Line spacing in eleven steps (0 to 10), a Hide Status Bar switch, and

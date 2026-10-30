@@ -655,15 +655,25 @@ bool FileBrowserActivity::handleCustomInput() {
     return true;
   }
 
-  // An empty folder has no row to long-press (kos25k #6): a tap on it, or Confirm, offers New folder.
-  if (mode == Mode::Books && files.empty() && !optionPopup.isActive()) {
+  // New folder from blank space (kos25k #6): a long press anywhere below the header that isn't on a
+  // row, in any folder; in an empty folder also a tap, or Confirm.
+  if (mode == Mode::Books && !optionPopup.isActive()) {
     int tx = 0;
     int ty = 0;
     const auto& metrics = UITheme::getInstance().getMetrics();
-    const bool tapped = mappedInput.wasScreenTapped(tx, ty) && ty > metrics.topPadding + metrics.headerHeight;
-    if (tapped || mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-      static constexpr StrId EMPTY_OPTIONS[] = {StrId::STR_NEW_FOLDER};
-      optionPopup.show(StrId::STR_BROWSE_FILES, EMPTY_OPTIONS, 1, 0, [this](const int index) {
+    const int contentTop = metrics.topPadding + metrics.headerHeight;
+    bool blankPress = false;
+    if (mappedInput.peekScreenLongPress(tx, ty) && ty > contentTop) {
+      fui::Interaction hit;
+      RenderLock lock(*this);
+      blankPress = files.empty() || !routingReady() || !app.hitPublished(tx, ty, ACTION_ROW, hit);
+    }
+    if (blankPress) mappedInput.takeScreenLongPress();
+    const bool emptyTap = files.empty() && ((mappedInput.wasScreenTapped(tx, ty) && ty > contentTop) ||
+                                            mappedInput.wasReleased(MappedInputManager::Button::Confirm));
+    if (blankPress || emptyTap) {
+      static constexpr StrId BLANK_OPTIONS[] = {StrId::STR_NEW_FOLDER};
+      optionPopup.show(StrId::STR_BROWSE_FILES, BLANK_OPTIONS, 1, 0, [this](const int index) {
         if (index == 0) startNewFolder();
         requestUpdate();
       });

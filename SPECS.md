@@ -131,7 +131,9 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   author) is re-applied after every `applyFilter()`; a one-book group is drawn and opened as the book;
   `folderGroup` limits `rowFor()` to that group's run. Spellings are merged at index build (author key).
 - Gallery filter (0.45.0): `galleryFilter` 0 all / 1 .png / 2 under a vault root (vaultfiles::findVaults);
-  gear (settings2 icon) at the header's right opens it.
+  gear (settings2 icon) at the header's right opens it. (0.48.0) 3 = chosen folders, listed in
+  /.vaultink/gallery-folders.txt (only when the gallery root is "/"); Add a folder (PickFolder) and
+  Clear in the same menu; icon_refresh_cw_32 left of the gear rescans.
 - Home rows (0.44.0): Row::Favourites = id 8, homeRowOrder is uint64 (9 x 4 bits), `homeRowsHidden` bitmask
   (Books 0 and Settings 7 never hidden). Battery page: HAL percent + USB; on device BatteryMonitor
   millivolts/charging and CW2017 reg 0x06 (-40 + v/2 °C), shown only within -20..70 °C.
@@ -146,7 +148,8 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   `headerHomeButton` (default on, touch only). PNG sleep cover: `saveDecodedSleepCover` for JPEG/PNG.
 - CBZ (0.39.0): `cbz::pages` from `ZipFile::enumerateFilePaths`; CbzReaderActivity copies the page
   entry to /.crosspoint/cbz_<hash>/page.jpg|png and decodes it BW + LSB + MSB + BW (as BmpViewer);
-  progress.bin holds the page. Decoder cap 8 MP (ImageToFramebufferDecoder::MAX_SOURCE_PIXELS).
+  progress.bin holds the page. Decoder cap 8 MP (ImageToFramebufferDecoder::MAX_SOURCE_PIXELS); JPEG 50 MP since 0.48.0
+  (MAX_JPEG_SOURCE_PIXELS, decoded at up to 1/8 scale).
 - Link rewrite (0.38.0): `linkupdate::plan` before `renameNote` (backlinks from the index, each
   target checked with `vaultlink::resolve` == old path, targets kept per note), then a confirm, then
   `apply` via `saveNote` (markChanged + writeAtomic). `linkrewrite::rewrite` skips fences and inline
