@@ -126,6 +126,17 @@ Cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}`) with spaced
 the decks with how many are due and new, and a card with the four answers and when each brings it back. The guide:
 [docs/flashcards.md](docs/flashcards.md).
 
+### Search in a book, PDFs as text, and the lock screen
+
+<p>
+  <img src="docs/images/vaultink/search-in-book.png" width="190" alt="Search in Book results with the page of each hit">
+  <img src="docs/images/vaultink/pdf-as-text.png" width="190" alt="A PDF read as reflowing text, Greek included">
+  <img src="docs/images/vaultink/lock-owner.png" width="190" alt="The PIN lock screen with the owner's name and phone under the dots">
+</p>
+
+Search in Book (0.55.0, from the reading menu): a few words around each hit and its page on the right. A PDF opened from
+Browse Files as reflowing text (0.54.0; Greek works). The lock screen with an owner's name and phone under the PIN dots.
+
 ## Getting started
 
 The first time VaultInk starts, it shows a short welcome guide. The five pages are below.
