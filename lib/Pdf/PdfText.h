@@ -27,9 +27,10 @@ struct Limits {
 };
 
 struct Result {
-  size_t pages = 0;        // pages found
-  size_t textPages = 0;    // pages that gave some text
-  bool encrypted = false;  // the file is encrypted: nothing was read
+  size_t pages = 0;          // pages found
+  size_t textPages = 0;      // pages that gave some text
+  size_t droppedGlyphs = 0;  // CID glyphs that could not be turned into text (no ToUnicode map)
+  bool encrypted = false;    // the file is encrypted: nothing was read
   bool xrefFailed = false;
 };
 

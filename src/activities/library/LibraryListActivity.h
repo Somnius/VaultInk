@@ -86,6 +86,12 @@ class LibraryListActivity final : public UiTabListActivity {
   // Recent-row long-press menu: open / remove from recents / delete / rebuild.
   void showRecentBookOptions(int entry);
   bool favouritesTab() const;
+  // Folders tab: the books grouped by the card folder they sit in. It lists the Title order
+  // regrouped through folderRows; every folder is a group (even a one-book one) and opens like an
+  // author folder. Read-only on the index.
+  bool folderTab() const;
+  bool buildFolderGroups();
+  void folderNameFor(int group, std::string& out);
   void showFavouriteOptions(int entry);
   void showBookInfo(const std::string& path);
   // Search or "Books only": rows come from the filtered list.
@@ -198,6 +204,11 @@ class LibraryListActivity final : public UiTabListActivity {
   uint16_t groupCount = 0;
   bool groupsCollapsed = false;
   freeink::ui::ListNav expandedNav;
+  // Folders tab: folderRows[k] = Title row of the k-th book once grouped by folder; groupFolder[g]
+  // = folder id of group g. Fallible allocations, built when the tab collapses to its folders and dropped by
+  // applyFilter().
+  std::unique_ptr<uint16_t[]> folderRows;
+  std::unique_ptr<uint16_t[]> groupFolder;
 
   // Visible-window row storage, reused across renders (buildRows). Bounded by
   // the densest page, never by the library. Headings get their own storage:

@@ -322,6 +322,7 @@ void LiveSyncActivity::syncNow() {
     if (sent.pushed > 0) {
       snprintf(summary, sizeof(summary), tr(STR_LIVESYNC_SENT), sent.pushed);
       profile.lastResult += summary;
+      if (profile.idsV1()) profile.lastResult += tr(STR_LIVESYNC_IDS_V1);
     }
     if (!profile.canPush() && !vaultedit::changedList(options.vaultDir).empty()) {
       profile.lastResult += tr(STR_LIVESYNC_CANT_SEND);

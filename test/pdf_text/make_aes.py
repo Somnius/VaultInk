@@ -70,3 +70,62 @@ for n in range(1, max(objs) + 1):
 out += (b"trailer\n<< /Size %d /Root 1 0 R /Encrypt 7 0 R /ID [" % (max(objs) + 1) + hexstr(file_id).encode() + b" " +
         hexstr(file_id).encode() + b"] >>\nstartxref\n%d\n%%%%EOF\n" % xref)
 open(sys.argv[1] if len(sys.argv) > 1 else "data/aes128.pdf", "wb").write(out)
+
+# ---- AES-256 (V 5, AESV3): data/aes256-r6.pdf and data/aes256-r5.pdf, empty user password.
+def aes256(key, iv, data, pad=True):
+    cmd = ["openssl", "enc", "-aes-256-cbc", "-K", key.hex(), "-iv", iv.hex()] + ([] if pad else ["-nopad"])
+    return subprocess.run(cmd, input=data, capture_output=True, check=True).stdout
+
+def hash_r6(password, salt, udata=b""):
+    k = hashlib.sha256(password + salt + udata).digest()
+    i = 0
+    e = b""
+    while i < 64 or e[-1] > i - 32:
+        k1 = (password + k + udata) * 64
+        e = subprocess.run(["openssl", "enc", "-aes-128-cbc", "-nopad", "-K", k[:16].hex(), "-iv", k[16:32].hex()],
+                           input=k1, capture_output=True, check=True).stdout
+        m = sum(e[:16]) % 3
+        k = (hashlib.sha256, hashlib.sha384, hashlib.sha512)[m](e).digest()
+        i += 1
+    return k[:32]
+
+def hash_r5(password, salt, udata=b""):
+    return hashlib.sha256(password + salt + udata).digest()
+
+def write_aes256(path, revision, text):
+    h = hash_r6 if revision == 6 else hash_r5
+    fkey = hashlib.sha256(b"file key %d" % revision).digest()
+    vsalt, ksalt = b"VALIDSLT", b"KEYSALT!"
+    u = h(b"", vsalt) + vsalt + ksalt
+    ue = aes256(h(b"", ksalt), bytes(16), fkey, pad=False)
+    def enc(data):
+        iv = hashlib.md5(b"iv" + data).digest()
+        return iv + aes256(fkey, iv, data)
+    content = b"BT /F1 12 Tf 72 700 Td (" + text + b") Tj ET"
+    o = {}
+    o[1] = b"<< /Type /Catalog /Pages 2 0 R >>"
+    o[2] = b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>"
+    o[3] = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>"
+    c = enc(content)
+    o[4] = b"<< /Length %d >>\nstream\n" % len(c) + c + b"\nendstream"
+    o[5] = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"
+    o[6] = (b"<< /Filter /Standard /V 5 /R %d /Length 256 /P -4 /O " % revision + hexstr(bytes(48)).encode() + b" /OE " +
+            hexstr(bytes(32)).encode() + b" /U " + hexstr(u).encode() + b" /UE " + hexstr(ue).encode() + b" /Perms " +
+            hexstr(bytes(16)).encode() + b" /CF << /StdCF << /CFM /AESV3 /AuthEvent /DocOpen /Length 32 >> >>"
+            b" /StmF /StdCF /StrF /StdCF >>")
+    out = bytearray(b"%PDF-1.7\n")
+    off = {}
+    for n in sorted(o):
+        off[n] = len(out)
+        out += b"%d 0 obj\n" % n + o[n] + b"\nendobj\n"
+    xr = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (max(o) + 1)
+    for n in range(1, max(o) + 1):
+        out += b"%010d 00000 n \n" % off[n]
+    out += (b"trailer\n<< /Size %d /Root 1 0 R /Encrypt 6 0 R /ID [" % (max(o) + 1) + hexstr(file_id).encode() + b" " +
+            hexstr(file_id).encode() + b"] >>\nstartxref\n%d\n%%%%EOF\n" % xr)
+    open(path, "wb").write(out)
+
+base = os.path.dirname(sys.argv[1]) if len(sys.argv) > 1 else "data"
+write_aes256(os.path.join(base, "aes256-r6.pdf"), 6, b"Encrypted with AES-256 revision 6 and read anyway")
+write_aes256(os.path.join(base, "aes256-r5.pdf"), 5, b"Encrypted with AES-256 revision 5 and read anyway")

@@ -1186,6 +1186,12 @@ void SleepActivity::renderStatsSleepScreen() const {
     renderer.drawText(SMALL_FONT_ID, W - M - 56, barY - 4, pct);
     y += 50;
   }
+  // Streak and finished books.
+  char streak[96];
+  snprintf(streak, sizeof(streak), tr(STR_STATS_STREAK_FINISHED), st.currentStreakDays, st.longestStreakDays,
+           st.finishedCount);
+  renderer.drawCenteredText(SMALL_FONT_ID, y - 2, renderer.truncatedText(SMALL_FONT_ID, streak, W - 2 * M).c_str());
+  y += 22;
   renderer.drawLine(M, y, W - M, y);
   y += 10;
 
@@ -1210,6 +1216,7 @@ void SleepActivity::renderStatsSleepScreen() const {
     char num[4];
     snprintf(num, sizeof(num), "%d", day);
     renderer.drawText(SMALL_FONT_ID, x + 6, cy + 4, num);
+    if (st.dayMinutes[day - 1] > 0) renderer.fillRect(x + 3, cy + cellH - 7, cellW - 6, 4);  // read that day
     const int bp = st.dayProgressBp[day - 1];
     if (bp >= 0) {
       char pct[8];

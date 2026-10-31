@@ -129,7 +129,8 @@ Status ensureText(const GfxRenderer& renderer, const std::string& pdfPath, std::
   }
   if (result.textPages == 0) {
     Storage.remove(tmp.c_str());
-    return Status::NoText;
+    // Pages with glyphs that have no way to text (a CID font without a ToUnicode map) are not a scan.
+    return result.droppedGlyphs > 0 ? Status::UnreadableFont : Status::NoText;
   }
   if (!Storage.replaceFile(tmp.c_str(), textPath.c_str())) return Status::SdError;
 
@@ -149,6 +150,7 @@ void showFailure(const GfxRenderer& renderer, const Status status) {
   const char* message = tr(STR_PDF_UNREADABLE);
   if (status == Status::NoText) message = tr(STR_PDF_NO_TEXT);
   if (status == Status::Encrypted) message = tr(STR_PDF_ENCRYPTED);
+  if (status == Status::UnreadableFont) message = tr(STR_PDF_UNREADABLE_FONT);
   RenderLock lock;
   GUI.drawPopup(renderer, message);
   delay(2500);

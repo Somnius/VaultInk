@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 #include "LiveSyncCrypto.h"
 #include "LiveSyncEngine.h"
@@ -17,7 +18,16 @@ namespace livesync {
 struct PushIdentity {
   std::string hashedPass;  // hashedPassphrase()
   std::string passDigest;  // passphraseDigest()
+  // Id scheme 1 instead: the vault's 64-hex id key (hashedPass and passDigest stay empty), and
+  // whether paths are NFC-composed before the id (pathNormalizationVersion 1).
+  std::string idKeyHex;
+  bool nfcPaths = false;
+  bool isV1() const { return !idKeyHex.empty(); }
 };
+
+// The ids of the identity's scheme ("" when none can be made).
+std::string noteIdFor(const PushIdentity& identity, std::string_view path);
+std::string chunkIdFor(const PushIdentity& identity, std::string_view piece);
 
 struct PushItem {
   std::string path;      // vault-relative

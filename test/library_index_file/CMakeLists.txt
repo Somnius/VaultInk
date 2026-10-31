@@ -2,6 +2,7 @@ add_executable(LibraryIndexFileTest
   LibraryIndexFileTest.cpp
   ${REPO_ROOT}/lib/LibraryIndex/LibraryIndexFile.cpp
   ${REPO_ROOT}/lib/LibraryIndex/LibraryFormat.cpp
+  ${REPO_ROOT}/lib/LibraryIndex/LibraryFolders.cpp
 )
 
 target_include_directories(LibraryIndexFileTest PRIVATE

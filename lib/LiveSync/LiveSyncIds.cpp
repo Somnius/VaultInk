@@ -1,8 +1,11 @@
 #include "LiveSyncIds.h"
 
+#include <Utf8.h>
 #include <mbedtls/md.h>
 
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 
@@ -254,8 +257,61 @@ std::string chunkId(std::string_view piece, std::string_view hashedPass) {
 std::string noteId(std::string_view passphraseDigestHex, std::string_view path) {
   std::string lower;
   if (!lowerLikeJs(path, lower)) return "";
-  if (!lower.empty() && lower[0] == '_') lower = "/" + lower;
+  // The plugin hashes the name as it is: the "/" it puts in front of a leading "_" only shows in unobfuscated ids.
   return "f:" + sha256Hex(std::string(passphraseDigestHex) + ":" + lower);
+}
+
+namespace {
+
+bool hexKeyBytes(std::string_view keyHex, uint8_t out[32]) {
+  if (!isIdKeyHex(keyHex)) return false;
+  for (size_t i = 0; i < 32; ++i) {
+    const auto nib = [](char c) { return c <= '9' ? c - '0' : c - 'a' + 10; };
+    out[i] = static_cast<uint8_t>(nib(keyHex[2 * i]) << 4 | nib(keyHex[2 * i + 1]));
+  }
+  return true;
+}
+
+void hmac(const uint8_t* key, size_t keyLen, std::string_view data, uint8_t out[32]) {
+  mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), key, keyLen,
+                  reinterpret_cast<const unsigned char*>(data.data()), data.size(), out);
+}
+
+std::string toHex(const uint8_t* d, size_t n) {
+  static constexpr char kHexDigits[] = "0123456789abcdef";
+  std::string out;
+  for (size_t i = 0; i < n; ++i) {
+    out += kHexDigits[d[i] >> 4];
+    out += kHexDigits[d[i] & 15];
+  }
+  return out;
+}
+
+}  // namespace
+
+bool isIdKeyHex(std::string_view keyHex) {
+  if (keyHex.size() != 64) return false;
+  return std::all_of(keyHex.begin(), keyHex.end(),
+                     [](const char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
+}
+
+std::string chunkIdV1(std::string_view piece, std::string_view keyHex) {
+  uint8_t key[32], chunkKey[32], id[32];
+  if (!hexKeyBytes(keyHex, key)) return "";
+  hmac(key, 32, "self-hosted-livesync:id-v1:chunk-key:xxhash64", chunkKey);
+  char digest[17];
+  snprintf(digest, sizeof(digest), "%016llx", static_cast<unsigned long long>(xxh64(piece.data(), piece.size(), 0)));
+  hmac(chunkKey, 32, std::string("self-hosted-livesync:id-v1:chunk:xxhash64") + '\0' + digest, id);
+  return "h:+" + toHex(id, 32);
+}
+
+std::string noteIdV1(std::string_view keyHex, std::string_view path, const bool nfc) {
+  uint8_t key[32], id[32];
+  if (!hexKeyBytes(keyHex, key)) return "";
+  std::string lower;
+  if (!lowerLikeJs(nfc ? utf8ComposeNfc(std::string(path)) : std::string(path), lower)) return "";
+  hmac(key, 32, std::string("self-hosted-livesync:id-v1:document") + '\0' + lower, id);
+  return "f:" + toHex(id, 32);
 }
 
 }  // namespace livesync

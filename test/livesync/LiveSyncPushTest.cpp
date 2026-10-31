@@ -199,3 +199,25 @@ TEST(LiveSyncPush, EncryptDecryptRoundTrip) {
   ASSERT_EQ(livesync::decrypt(f.master, box, plain), livesync::Result::Ok);
   EXPECT_EQ(plain, "hello κόσμε");
 }
+
+TEST(LiveSyncPush, IdScheme1WritesPluginIdsAndReadsBack) {
+  Fixture f;
+  const std::string key = "f3205cc41d24116d8c2484993c9d9a2e667373af338ba02f2ee71199adb82f2e";
+  f.identity = livesync::PushIdentity{"", "", key, true};
+  livesync::PushItem item;
+  item.path = "Caf\x65\xCC\x81/Notes.md";  // NFD on the device
+  for (int i = 0; i < 100; ++i) item.content += "line " + std::to_string(i) + " \xCE\xB1\xCE\xB2\n";
+  std::string id, rev, error;
+  ASSERT_EQ(livesync::pushNote(f.net, f.master, f.identity, f.random, item, 1793100000000, id, rev, error),
+            livesync::PushResult::Pushed)
+      << error;
+  EXPECT_EQ(id, livesync::noteIdV1(key, "Caf\xC3\xA9/Notes.md", false));  // the NFC path's id
+  EXPECT_EQ(id.size(), 2u + 64u);
+  livesync::FileEntry entry;
+  EXPECT_EQ(f.read(id, entry), item.content);
+  ASSERT_FALSE(entry.children.empty());
+  for (const auto& c : entry.children) {
+    EXPECT_EQ(c.compare(0, 3, "h:+"), 0) << c;
+    EXPECT_EQ(c.size(), 3u + 64u);
+  }
+}

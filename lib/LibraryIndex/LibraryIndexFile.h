@@ -91,6 +91,11 @@ class LibraryIndexFile {
 
   // Absolute path of the book, rebuilt from its folder record.
   bool readPath(const ClixRecord& record, std::string& out);
+  // Absolute path of one folder record (Library > Folders). One walk to folder `folderId`.
+  bool readFolderPath(uint16_t folderId, std::string& out);
+  // Visits every folder in id order with a single walk of the folder table. The visitor returns
+  // false to stop; false is returned only for a damaged table (not for an early stop).
+  bool forEachFolder(bool (*visit)(uint16_t id, const std::string& path, void* user), void* user);
 
  private:
   bool openImpl(const char* path, bool acceptStaleFold);

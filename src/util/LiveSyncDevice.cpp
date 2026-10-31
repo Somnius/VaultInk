@@ -107,6 +107,10 @@ bool load(Profile& out) {
   out.hashedPass = obfuscation::deobfuscateFromBase64(doc["pushIdA"] | "", &okPush);
   out.passDigest = obfuscation::deobfuscateFromBase64(doc["pushIdB"] | "", &okPush);
   if (!okPush) out.hashedPass.clear(), out.passDigest.clear();
+  bool okIdKey = true;
+  out.idKey = obfuscation::deobfuscateFromBase64(doc["pushIdK"] | "", &okIdKey);
+  if (!okIdKey || !livesync::isIdKeyHex(out.idKey)) out.idKey.clear();
+  out.nfcPaths = doc["pushNfc"] | false;
   bool ok = true, okKey = true;
   out.password = obfuscation::deobfuscateFromBase64(doc["password"] | "", &ok);
   std::string key = obfuscation::deobfuscateFromBase64(doc["key"] | "", &okKey);
@@ -132,9 +136,13 @@ bool save(const Profile& p) {
   doc["checkCert"] = p.checkCert;
   doc["autoHours"] = p.autoHours;
   doc["lastAttempt"] = p.lastAttempt;
-  if (p.canPush()) {
+  if (!p.idsV1() && p.canPush()) {
     doc["pushIdA"] = obfuscation::obfuscateToBase64(p.hashedPass);
     doc["pushIdB"] = obfuscation::obfuscateToBase64(p.passDigest);
+  }
+  if (p.idsV1()) {
+    doc["pushIdK"] = obfuscation::obfuscateToBase64(p.idKey);
+    doc["pushNfc"] = p.nfcPaths;
   }
   std::string text;
   serializeJson(doc, text);
@@ -195,12 +203,20 @@ bool profileFromSetup(const std::string& uri, const std::string& passphrase, Pro
   out.password = s["couchDB_PASSWORD"] | "";
   out.database = s["couchDB_DBNAME"] | "";
   e2ee = s["passphrase"] | "";
-  // The device writes only the id scheme it was tested with: obfuscated paths, the legacy id
-  // derivation, case-insensitive names.
+  // The device writes only the id schemes it was tested with: obfuscated paths, case-insensitive
+  // names, xxhash64, and either the legacy id derivation (no key, path version 0) or scheme 1
+  // (a 64-hex key; path version 0 or 1 = NFC). Anything else is refused.
   const std::string idKey = s["idDerivationKey"] | "";
-  out.pushAllowed = (s["usePathObfuscation"] | false) && idKey.empty() && (s["idDerivationVersion"] | 0) == 0 &&
-                    (s["pathNormalizationVersion"] | 0) == 0 && !(s["handleFilenameCaseSensitive"] | false) &&
-                    std::string(s["hashAlg"] | "xxhash64") == "xxhash64";
+  const int idVersion = s["idDerivationVersion"] | 0;
+  const int pathVersion = s["pathNormalizationVersion"] | 0;
+  const bool legacyIds = idKey.empty() && idVersion == 0 && pathVersion == 0;
+  const bool v1Ids = idVersion == 1 && livesync::isIdKeyHex(idKey) && (pathVersion == 0 || pathVersion == 1);
+  out.pushAllowed = (s["usePathObfuscation"] | false) && (legacyIds || v1Ids) &&
+                    !(s["handleFilenameCaseSensitive"] | false) && std::string(s["hashAlg"] | "xxhash64") == "xxhash64";
+  if (out.pushAllowed && v1Ids) {
+    out.idKey = idKey;
+    out.nfcPaths = pathVersion == 1;
+  }
   for (JsonPair kv : s.as<JsonObject>()) {  // the parsed copy holds the secrets too
     if (kv.value().is<const char*>()) {
       char* v = const_cast<char*>(kv.value().as<const char*>());
@@ -226,7 +242,7 @@ bool finishSetup(Profile& p, const std::string& e2ee, std::string& why) {
     return false;
   }
   p.saltB64 = doc["pbkdf2salt"] | "";
-  if (p.pushAllowed) {
+  if (p.pushAllowed && !p.idsV1()) {
     p.hashedPass = livesync::hashedPassphrase(e2ee);
     p.passDigest = livesync::passphraseDigest(e2ee);
   }
@@ -372,7 +388,7 @@ bool pushChanges(Profile& p, PushStats& stats, std::string& error) {
   const auto ids = livesync::loadMap(fs, o.stateDir + "/files.tsv");
   auto revs = livesync::loadMap(fs, o.stateDir + "/revs.tsv");
   const auto net = transport(p);
-  const livesync::PushIdentity identity{p.hashedPass, p.passDigest};
+  const livesync::PushIdentity identity{p.hashedPass, p.passDigest, p.idKey, p.nfcPaths};
   const livesync::RandomFill random = [](uint8_t* out, size_t len) { esp_fill_random(out, len); };
   const time_t now = static_cast<time_t>(trustedtime::trustedNow());
   const int64_t nowMs = now > 0 ? static_cast<int64_t>(now) * 1000 : 0;
@@ -385,7 +401,7 @@ bool pushChanges(Profile& p, PushStats& stats, std::string& error) {
     }
     // A note made here and sent before any pull brought it back has no map entry yet: its id
     // is the one the plugin would give it, and its revision is in revs.tsv already.
-    if (item.knownId.empty()) item.knownId = livesync::noteId(p.passDigest, rel);
+    if (item.knownId.empty()) item.knownId = livesync::noteIdFor(identity, rel);
     if (!item.knownId.empty()) {
       const auto it = revs.find(item.knownId);
       if (it != revs.end()) item.knownRev = it->second;

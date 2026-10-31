@@ -57,8 +57,9 @@ add_executable(LiveSyncIdsTest
   ${REPO_ROOT}/lib/LiveSync/LiveSyncCrypto.cpp
   ${REPO_ROOT}/lib/LiveSync/LiveSyncPull.cpp
   ${REPO_ROOT}/lib/LiveSync/LiveSyncIds.cpp
+  ${REPO_ROOT}/lib/Utf8/Utf8.cpp
 )
-target_include_directories(LiveSyncIdsTest PRIVATE ${REPO_ROOT}/lib/LiveSync)
+target_include_directories(LiveSyncIdsTest PRIVATE ${REPO_ROOT}/lib/LiveSync ${REPO_ROOT}/lib/Utf8)
 target_compile_definitions(LiveSyncIdsTest PRIVATE LIVESYNC_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixture")
 target_link_libraries(LiveSyncIdsTest PRIVATE livesync_mbedtls ArduinoJson GTest::gtest_main)
 gtest_discover_tests(LiveSyncIdsTest)
@@ -68,8 +69,9 @@ add_executable(LiveSyncPushTest
   ${REPO_ROOT}/lib/LiveSync/LiveSyncCrypto.cpp
   ${REPO_ROOT}/lib/LiveSync/LiveSyncPull.cpp
   ${REPO_ROOT}/lib/LiveSync/LiveSyncIds.cpp
+  ${REPO_ROOT}/lib/Utf8/Utf8.cpp
   ${REPO_ROOT}/lib/LiveSync/LiveSyncPush.cpp
 )
-target_include_directories(LiveSyncPushTest PRIVATE ${REPO_ROOT}/lib/LiveSync)
+target_include_directories(LiveSyncPushTest PRIVATE ${REPO_ROOT}/lib/LiveSync ${REPO_ROOT}/lib/Utf8)
 target_link_libraries(LiveSyncPushTest PRIVATE livesync_mbedtls ArduinoJson GTest::gtest_main)
 gtest_discover_tests(LiveSyncPushTest)

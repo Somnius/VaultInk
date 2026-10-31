@@ -2,6 +2,18 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.56.0 (2026-10-31)
+
+Folders tab (kos25k #18), PDFs a little wider, reading streaks, and sync ids for newer LiveSync setups.
+
+- **Folders tab** (kos25k #18): the Library has a fifth tab, Folders, with one row per card folder and its book count. Tap one to see its books. Search from there goes to the Title tab. The tab names are shorter in Greek so all five fit.
+- **PDF as text**: files locked with AES-256 (an empty user password) open now. Pages in three or four columns come out in reading order. Fonts that carry no text map are no longer read as garbage: a file where most of the text can't be read says so. Tables are still read as plain lines.
+- **Reading stats**: the sleep screen adds your current and best streak and the books you finished (a book counts at 98% or more), and the month calendar marks every day you read.
+- **LiveSync**: notes changed on the device are now sent also when the vault uses the newer id scheme (Setup URI with idDerivationVersion 1). Notes whose names start with an underscore are sent under the right id now.
+
+Tested on the computer, not on a device or a real Obsidian: the PDF cases against generated files, the sync ids against the plugin's own test values, the Folders tab in the simulator.
+
+
 ## 0.55.0 (2026-10-31)
 
 Search inside a book, and the lock screen follow-up (kos25k #24 and #22).

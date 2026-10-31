@@ -4,6 +4,7 @@
 #include <utility>
 #include <vector>
 
+#include "LibraryFolders.h"
 #include "LibraryIndexFile.h"
 
 namespace library {
@@ -221,4 +222,97 @@ TEST(LibraryIndexFile, RejectsFolderRecordBeyondFolderBlob) {
   ASSERT_TRUE(index.open("/library.clx"));
   std::string path;
   EXPECT_FALSE(index.readPath(record, path));
+}
+
+namespace {
+
+// Three folders: /a, /bb, /c (ids 0..2), no books needed to walk the table.
+std::vector<uint8_t> threeFolderIndex(library::ClixHeader& header) {
+  std::memcpy(header.magic, library::CLIX_MAGIC, sizeof(header.magic));
+  header.formatVersion = library::CLIX_FORMAT_VERSION;
+  header.foldVersion = library::CLIX_FOLD_VERSION;
+  header.bookCount = 0;
+  header.folderCount = 3;
+  const uint8_t folders[] = {2, '/', 'a', 3, '/', 'b', 'b', 2, '/', 'c'};
+  library::layoutSections(header, sizeof(folders), 0);
+  std::vector<uint8_t> bytes(header.selfSize, 0);
+  std::memcpy(bytes.data(), &header, sizeof(header));
+  std::memcpy(bytes.data() + header.folderStart, folders, sizeof(folders));
+  return bytes;
+}
+
+}  // namespace
+
+TEST(LibraryIndexFile, ReadsFolderPathsAndWalksTheTableOnce) {
+  library::ClixHeader header{};
+  Storage.setFile("/library.clx", threeFolderIndex(header));
+  library::LibraryIndexFile index;
+  ASSERT_TRUE(index.open("/library.clx"));
+
+  std::string path;
+  ASSERT_TRUE(index.readFolderPath(1, path));
+  EXPECT_EQ(path, "/bb");
+  ASSERT_TRUE(index.readFolderPath(2, path));
+  EXPECT_EQ(path, "/c");
+  EXPECT_FALSE(index.readFolderPath(3, path));
+  EXPECT_TRUE(path.empty());
+
+  std::vector<std::string> seen;
+  auto collect = [](uint16_t id, const std::string& dir, void* user) {
+    auto& out = *static_cast<std::vector<std::string>*>(user);
+    EXPECT_EQ(id, out.size());
+    out.push_back(dir);
+    return true;
+  };
+  ASSERT_TRUE(index.forEachFolder(collect, &seen));
+  EXPECT_EQ(seen, (std::vector<std::string>{"/a", "/bb", "/c"}));
+
+  size_t visits = 0;
+  auto stopAtSecond = [](uint16_t, const std::string&, void* user) { return ++*static_cast<size_t*>(user) < 2; };
+  EXPECT_TRUE(index.forEachFolder(stopAtSecond, &visits));
+  EXPECT_EQ(visits, 2u);
+}
+
+TEST(LibraryIndexFile, ForEachFolderRejectsATruncatedTable) {
+  library::ClixHeader header{};
+  auto bytes = threeFolderIndex(header);
+  bytes[header.folderStart + 3] = 200;  // the second record claims more bytes than the table holds
+  Storage.setFile("/library.clx", std::move(bytes));
+  library::LibraryIndexFile index;
+  ASSERT_TRUE(index.open("/library.clx"));
+  size_t visits = 0;
+  auto count = [](uint16_t, const std::string&, void* user) {
+    ++*static_cast<size_t*>(user);
+    return true;
+  };
+  EXPECT_FALSE(index.forEachFolder(count, &visits));
+  EXPECT_EQ(visits, 1u);
+  std::string path;
+  EXPECT_FALSE(index.readFolderPath(2, path));
+}
+
+TEST(LibraryFolders, BucketsBooksByFolderKeepingOrder) {
+  // Title order of six books living in folders 2,0,2,1,0,2.
+  const uint16_t ids[] = {2, 0, 2, 1, 0, 2};
+  uint16_t counts[4], rows[6], starts[4], folder[4];
+  const uint16_t groups = library::bucketByFolder(ids, 6, 4, counts, rows, starts, folder);
+  ASSERT_EQ(groups, 3);  // folder 3 is empty and gets no group
+  EXPECT_EQ(folder[0], 0);
+  EXPECT_EQ(folder[1], 1);
+  EXPECT_EQ(folder[2], 2);
+  EXPECT_EQ(starts[0], 0);
+  EXPECT_EQ(starts[1], 2);
+  EXPECT_EQ(starts[2], 3);
+  const uint16_t expected[] = {1, 4, 3, 0, 2, 5};
+  for (int i = 0; i < 6; i++) EXPECT_EQ(rows[i], expected[i]) << i;
+}
+
+TEST(LibraryFolders, RejectsEmptyInputAndOutOfRangeFolders) {
+  uint16_t counts[2], rows[2], starts[2], folder[2];
+  const uint16_t good[] = {0, 1};
+  const uint16_t bad[] = {0, 2};
+  EXPECT_EQ(library::bucketByFolder(good, 0, 2, counts, rows, starts, folder), 0);
+  EXPECT_EQ(library::bucketByFolder(good, 2, 0, counts, rows, starts, folder), 0);
+  EXPECT_EQ(library::bucketByFolder(bad, 2, 2, counts, rows, starts, folder), 0);
+  EXPECT_EQ(library::bucketByFolder(good, 2, 2, counts, rows, starts, folder), 2);
 }

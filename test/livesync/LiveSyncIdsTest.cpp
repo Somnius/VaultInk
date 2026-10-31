@@ -60,3 +60,41 @@ TEST(LiveSyncIds, MatchEveryIdInTheRecordedDatabase) {
   EXPECT_GT(chunks, 10);
   EXPECT_EQ(notes, 13);
 }
+
+// Vectors from the plugin's idDerivation.unit.spec.ts (key and expected ids).
+namespace {
+constexpr const char* V1_KEY = "f3205cc41d24116d8c2484993c9d9a2e667373af338ba02f2ee71199adb82f2e";
+}
+
+TEST(LiveSyncIdsV1, ChunkIdsMatchThePluginVectors) {
+  EXPECT_EQ(livesync::chunkIdV1("sample chunk", V1_KEY),
+            "h:+5868bc5fff9c1537ad5e6dfdf016b46daad9cf3827cb607150aa9e3feaaf36ce");
+  EXPECT_EQ(livesync::chunkIdV1("試験用の文字列📄", V1_KEY),
+            "h:+e779967dd509ab655bea444877337860a1d4eeba718995df2546050d75f06d2f");
+  // Contents are not normalised: NFD and NFC text give different ids.
+  EXPECT_NE(livesync::chunkIdV1("cafe\xCC\x81", V1_KEY), livesync::chunkIdV1("caf\xC3\xA9", V1_KEY));
+  // Another key gives another id.
+  EXPECT_NE(livesync::chunkIdV1("sample chunk", std::string(64, 'a')), livesync::chunkIdV1("sample chunk", V1_KEY));
+}
+
+TEST(LiveSyncIdsV1, NoteIdMatchesThePluginVectorAndLowercases) {
+  // "document" purpose over the value "sample chunk" (already lowercase).
+  EXPECT_EQ(livesync::noteIdV1(V1_KEY, "sample chunk", false),
+            "f:a2a525f9d994e83f29588ad43513be468e137135a88689cd0790e48834d9d3f3");
+  EXPECT_EQ(livesync::noteIdV1(V1_KEY, "Sample Chunk", false), livesync::noteIdV1(V1_KEY, "sample chunk", false));
+}
+
+TEST(LiveSyncIdsV1, PathNormalizationNfcComposesBeforeTheId) {
+  const std::string nfd = "Caf\x65\xCC\x81.md", nfc = "Caf\xC3\xA9.md";
+  EXPECT_EQ(livesync::noteIdV1(V1_KEY, nfd, true), livesync::noteIdV1(V1_KEY, nfc, true));
+  EXPECT_NE(livesync::noteIdV1(V1_KEY, nfd, false), livesync::noteIdV1(V1_KEY, nfc, false));
+}
+
+TEST(LiveSyncIdsV1, BadKeysAreRefused) {
+  EXPECT_TRUE(livesync::isIdKeyHex(V1_KEY));
+  EXPECT_FALSE(livesync::isIdKeyHex(""));
+  EXPECT_FALSE(livesync::isIdKeyHex("F3205cc41d24116d8c2484993c9d9a2e667373af338ba02f2ee71199adb82f2e"));
+  EXPECT_FALSE(livesync::isIdKeyHex(std::string(63, 'a')));
+  EXPECT_EQ(livesync::noteIdV1("wrong", "a.md", false), "");
+  EXPECT_EQ(livesync::chunkIdV1("x", "wrong"), "");
+}

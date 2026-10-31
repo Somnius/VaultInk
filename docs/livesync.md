@@ -72,10 +72,13 @@ device, then pulls. The result line says how many were sent ("Sent 2 notes from 
 - Notes over 256 KB, and names with letters VaultInk can't lowercase the way Obsidian does
   (most Latin, Greek and Cyrillic names are fine), stay on the list and are not sent.
 
-What the device needs for this: the vault's id settings must be the defaults (path obfuscation
-on, the original id scheme, case-insensitive names, xxhash64). The ids depend on the vault's
-passphrase, which the device never keeps; at setup it keeps two values derived from it instead
-(obfuscated like the password). **A LiveSync setup made before 0.28.0 doesn't have them**: the
+What the device needs for this: path obfuscation on, case-insensitive names, xxhash64, and one
+of two id schemes. The original scheme (the default): the ids depend on the vault's passphrase,
+which the device never keeps; at setup it keeps two values derived from it instead (obfuscated
+like the password). Id scheme 1 (`idDerivationVersion` 1, with its 64-hex `idDerivationKey` in
+the Setup URI): the device keeps that key (obfuscated the same way) and makes the ids as the
+plugin does; path normalisation 0 or 1 (NFC) are both understood. The result line says "(ids v1)"
+after "Sent N notes". Any other combination isn't sent. **A LiveSync setup made before 0.28.0 doesn't have them**: the
 result line then says changes aren't sent. Paste the Setup URI on the device's web page again
 and finish setup once more.
 

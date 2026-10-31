@@ -233,30 +233,55 @@ bool LibraryIndexFile::readSourceAuthor(const ClixRecord& record, std::string& o
 
 bool LibraryIndexFile::readPath(const ClixRecord& record, std::string& out) {
   out.clear();
-  if (!opened || record.folderId >= head.folderCount) return false;
+  std::string dir;
+  if (!readFolderPath(record.folderId, dir)) return false;
+  std::string name;
+  if (!readName(record, name)) return false;
+  out = joinLibraryPath(dir, name);
+  return true;
+}
+
+bool LibraryIndexFile::readFolderPath(const uint16_t folderId, std::string& out) {
+  out.clear();
+  if (!opened || folderId >= head.folderCount) return false;
 
   // Folder records are variable length, so reaching folder n means walking the
   // n preceding length bytes. At one seek per folder this is only done when a
   // book is opened or its details are shown, never while paging.
   uint32_t offset = head.folderStart;
   const uint32_t folderEnd = head.folderStart + head.folderLen;
-  for (uint16_t i = 0; i <= record.folderId; i++) {
+  for (uint16_t i = 0; i <= folderId; i++) {
     if (offset >= folderEnd) return false;
     uint8_t pathLen = 0;
     if (!readAt(offset, &pathLen, sizeof(pathLen)) || pathLen == 0) return false;
     if (pathLen > folderEnd - offset - 1u) return false;
-    if (i == record.folderId) {
+    if (i == folderId) {
       std::string dir(pathLen, '\0');
       if (!readAt(offset + 1, dir.data(), pathLen)) return false;
-      std::string name;
-      if (!readName(record, name)) return false;
-      out = joinLibraryPath(dir, name);
+      out = std::move(dir);
       return true;
     }
     offset += 1u + pathLen;
     if (offset >= folderEnd) return false;
   }
   return false;
+}
+
+bool LibraryIndexFile::forEachFolder(bool (*visit)(uint16_t id, const std::string& path, void* user), void* user) {
+  if (!opened || !visit) return false;
+  uint32_t offset = head.folderStart;
+  const uint32_t folderEnd = head.folderStart + head.folderLen;
+  std::string dir;
+  for (uint16_t id = 0; id < head.folderCount; id++) {
+    uint8_t pathLen = 0;
+    if (offset >= folderEnd || !readAt(offset, &pathLen, sizeof(pathLen)) || pathLen == 0) return false;
+    if (pathLen > folderEnd - offset - 1u) return false;
+    dir.assign(pathLen, '\0');
+    if (!readAt(offset + 1, dir.data(), pathLen)) return false;
+    if (!visit(id, dir, user)) return true;  // the visitor stopped early: not an error
+    offset += 1u + pathLen;
+  }
+  return true;
 }
 
 }  // namespace library

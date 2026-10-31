@@ -50,6 +50,17 @@ struct Stats {
   uint32_t weekSeconds = 0;  // Monday to now
   uint32_t todaySeconds = 0;
   std::vector<BookProgress> recent;  // newest first, distinct books, up to `recentCount`
+  // Streaks in local days. A session today or yesterday keeps the current streak alive.
+  int currentStreakDays = 0;
+  int longestStreakDays = 0;
+  // Finished = the latest session of a book ended at >= FINISHED_BP. Counted by the day of that session.
+  int finishedCount = 0;
+  int finishedThisYear = 0;
+  // cppcheck-suppress unusedStructMember
+  std::vector<BookProgress> finished;  // newest first, up to FINISHED_LIST_MAX
+  // Minutes read on each day of this month across all books (index 0 = day 1), rounded up.
+  // cppcheck-suppress unusedStructMember
+  std::vector<int> dayMinutes;
   // For this month's calendar: the progress of `calendarBook` at the end of each day (index 0 =
   // day 1), carried over to days without reading; -1 before the book was first read this month.
   std::string calendarBook;
@@ -65,6 +76,9 @@ struct Stats {
 // open now (empty: the newest in the log).
 Stats compute(const std::function<void(const std::function<bool(std::string_view)>&)>& lines, int64_t now,
               const LocalDay& localDay, std::string calendarBook = {}, size_t recentCount = 3);
+
+constexpr uint16_t FINISHED_BP = 9800;
+constexpr size_t FINISHED_LIST_MAX = 5;
 
 int daysIn(int year, int month);
 

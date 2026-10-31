@@ -97,6 +97,8 @@ Stats compute(const std::function<void(const std::function<bool(std::string_view
 
   // Pass 1: totals and the recent books (newest session per book).
   std::vector<BookProgress> books;
+  std::vector<int64_t> readDays;
+  std::vector<uint32_t> daySeconds(st.daysInMonth, 0);
   int64_t newestStart = 0;
   std::string newestBook;
   lines([&](const std::string_view line) {
@@ -108,6 +110,9 @@ Stats compute(const std::function<void(const std::function<bool(std::string_view
     if (d.year == today.year && d.month == today.month) st.monthSeconds += s.seconds;
     if (num >= weekStart && num <= todayNum) st.weekSeconds += s.seconds;
     if (num == todayNum) st.todaySeconds += s.seconds;
+    if (readDays.empty() || readDays.back() != num) readDays.push_back(num);
+    if (d.year == today.year && d.month == today.month && d.day >= 1 && d.day <= st.daysInMonth)
+      daySeconds[d.day - 1] += s.seconds;
     auto it = std::find_if(books.begin(), books.end(), [&](const BookProgress& b) { return b.path == s.path; });
     if (it == books.end()) {
       books.push_back({s.path, s.progressBp, s.start});
@@ -123,6 +128,22 @@ Stats compute(const std::function<void(const std::function<bool(std::string_view
   });
   std::sort(books.begin(), books.end(),
             [](const BookProgress& a, const BookProgress& b) { return a.lastRead > b.lastRead; });
+  for (const auto& b : books) {
+    if (b.progressBp < FINISHED_BP) continue;
+    ++st.finishedCount;
+    if (localDay(b.lastRead).year == today.year) ++st.finishedThisYear;
+    if (st.finished.size() < FINISHED_LIST_MAX) st.finished.push_back(b);
+  }
+  std::sort(readDays.begin(), readDays.end());
+  readDays.erase(std::unique(readDays.begin(), readDays.end()), readDays.end());
+  int run = 0;
+  for (size_t i = 0; i < readDays.size(); ++i) {
+    run = (i > 0 && readDays[i] == readDays[i - 1] + 1) ? run + 1 : 1;
+    st.longestStreakDays = std::max(st.longestStreakDays, run);
+    if (i + 1 == readDays.size() && readDays[i] >= todayNum - 1 && readDays[i] <= todayNum) st.currentStreakDays = run;
+  }
+  st.dayMinutes.assign(st.daysInMonth, 0);
+  for (int i = 0; i < st.daysInMonth; ++i) st.dayMinutes[i] = static_cast<int>((daySeconds[i] + 59) / 60);
   if (books.size() > recentCount) books.resize(recentCount);
   st.recent = std::move(books);
 
@@ -144,7 +165,8 @@ Stats compute(const std::function<void(const std::function<bool(std::string_view
         before = s.progressBp;
         beforeAt = s.start;
       }
-    } else if (d.year == today.year && d.month == today.month && s.start >= lastAt[d.day - 1]) {
+    } else if (d.year == today.year && d.month == today.month && d.day >= 1 && d.day <= st.daysInMonth &&
+               s.start >= lastAt[d.day - 1]) {
       st.dayProgressBp[d.day - 1] = s.progressBp;
       lastAt[d.day - 1] = s.start;
     }

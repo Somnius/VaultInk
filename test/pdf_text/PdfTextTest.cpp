@@ -196,6 +196,11 @@ TEST(PdfText, PageTreeThatLoopsBackDoesNotHang) {
   EXPECT_EQ(run.pages, 0u);
 }
 
+bool extractEncrypted(const std::string& bytes) {
+  const Extracted run = extract(bytes);
+  return !run.ok && run.result.encrypted;
+}
+
 TEST(PdfText, EncryptedFileIsReportedNotRead) {
   const std::string pdf =
       buildPdf({"<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [] /Count 0 >>"}, "/Encrypt 3 0 R ");
@@ -253,6 +258,64 @@ TEST(PdfText, TwoColumnsReadLeftThenRight) {
   EXPECT_LT(right1, right12);
 }
 
+// Text of page `index` (the pages of one file are separated by form feeds).
+std::string pageOf(const Extracted& run, size_t index) {
+  size_t from = 0;
+  for (size_t i = 0; i < index; ++i) from = run.text.find('\f', from) + 1;
+  return run.text.substr(from, run.text.find('\f', from) - from);
+}
+
+void expectColumnsInOrder(const std::string& page, const std::string& tag, int columns) {
+  size_t last = 0;
+  for (int k = 1; k <= columns; ++k) {
+    for (int row = 1; row <= 14; ++row) {
+      char needle[32];
+      std::snprintf(needle, sizeof(needle), "%s%d line %02d", tag.c_str(), k, row);
+      const size_t at = page.find(needle, last);
+      ASSERT_NE(at, std::string::npos) << needle << "\n" << page;
+      last = at;
+    }
+  }
+}
+
+TEST(PdfText, ThreeAndFourColumnsReadColumnByColumn) {
+  const Extracted run = extract(slurp("columns.pdf"));
+  ASSERT_TRUE(run.ok);
+  ASSERT_EQ(run.pages, 4u);
+  expectColumnsInOrder(pageOf(run, 0), "C", 3);
+  expectColumnsInOrder(pageOf(run, 1), "D", 4);
+}
+
+TEST(PdfText, TwoLineLongColumnsUnderATitleStillWork) {
+  const Extracted run = extract(slurp("columns.pdf"));
+  ASSERT_TRUE(run.ok);
+  const std::string page = squeeze(pageOf(run, 3));
+  EXPECT_LT(page.find("A title across both columns"), page.find("Left 01"));
+  EXPECT_LT(page.find("Left 14"), page.find("Right 01"));
+}
+
+TEST(PdfText, CidFontsWithUnicodeCMapsAreReadAndOthersAreCounted) {
+  const Extracted run = extract(slurp("cid.pdf"));
+  ASSERT_TRUE(run.ok);
+  ASSERT_EQ(run.pages, 4u);
+  EXPECT_EQ(squeeze(pageOf(run, 0)), "Hello 世界 Ωμέγα");
+  EXPECT_NE(pageOf(run, 1).find("Pair \xF0\x9F\x98\x80 done"), std::string::npos) << pageOf(run, 1);
+  EXPECT_EQ(pageOf(run, 2), "");  // Identity-H with no ToUnicode: nothing, no raw bytes, no question marks
+  const std::string mixed = pageOf(run, 3);
+  EXPECT_NE(mixed.find("Plain text 5 stays readable"), std::string::npos) << mixed;
+  EXPECT_EQ(mixed.find('?'), std::string::npos);
+  EXPECT_EQ(run.result.textPages, 3u);
+  EXPECT_EQ(run.result.droppedGlyphs, 6u * 5u + 3u);
+}
+
+TEST(PdfText, AFileOfOnlyUnreadableGlyphsReportsThemDropped) {
+  const Extracted run = extract(slurp("cid-only.pdf"));
+  ASSERT_TRUE(run.ok);
+  EXPECT_EQ(run.result.textPages, 0u);
+  EXPECT_EQ(run.result.droppedGlyphs, 30u);
+  EXPECT_EQ(squeeze(run.text), "");
+}
+
 TEST(PdfText, EncryptedWithAnEmptyUserPasswordIsRead) {
   for (const char* file : {"rc4-40.pdf", "rc4-128.pdf"}) {
     SCOPED_TRACE(file);
@@ -271,6 +334,46 @@ TEST(PdfText, Aes128StreamsAndStringsAreDecrypted) {
   const std::string text = squeeze(run.text);
   EXPECT_NE(text.find("Encrypted with AES-128 and read anyway"), std::string::npos) << text;
   EXPECT_NE(text.find("Clan: Ventrue"), std::string::npos) << text;
+}
+
+TEST(PdfText, Aes256Revisions5And6AreDecrypted) {
+  for (const char* file : {"aes256-r5.pdf", "aes256-r6.pdf"}) {
+    SCOPED_TRACE(file);
+    const Extracted run = extract(slurp(file));
+    ASSERT_TRUE(run.ok);
+    EXPECT_FALSE(run.result.encrypted);
+    EXPECT_NE(squeeze(run.text).find("read anyway"), std::string::npos) << run.text;
+  }
+}
+
+TEST(PdfText, Aes256WithAWrongOrBrokenKeyDataIsReportedEncrypted) {
+  for (const char* file : {"aes256-r5.pdf", "aes256-r6.pdf"}) {
+    SCOPED_TRACE(file);
+    const std::string good = slurp(file);
+    // A different validation salt means the empty password no longer matches /U.
+    std::string wrong = good;
+    const size_t u = wrong.find("/U <");
+    ASSERT_NE(u, std::string::npos);
+    wrong[u + 4 + 64 + 2] = wrong[u + 4 + 64 + 2] == '0' ? '1' : '0';
+    EXPECT_TRUE(extractEncrypted(wrong));
+    // Truncated /U, /UE and /O (and a missing /UE) must not crash and must not open the file.
+    for (const char* key : {"/U <", "/UE <", "/O <"}) {
+      std::string cut = good;
+      const size_t at = cut.find(key);
+      ASSERT_NE(at, std::string::npos);
+      const size_t close = cut.find('>', at);
+      const size_t from = at + std::string(key).size() + 8;
+      cut.replace(from, close - from, close - from, ' ');  // spaces keep the xref offsets valid
+      const Extracted run = extract(cut);
+      if (std::string(key) != "/O <") {
+        EXPECT_FALSE(run.ok);
+        EXPECT_TRUE(run.result.encrypted);
+      }
+    }
+    std::string noUe = good;
+    noUe.replace(noUe.find("/UE"), 3, "/XX");
+    EXPECT_TRUE(extractEncrypted(noUe));
+  }
 }
 
 TEST(PdfText, AFileThatNeedsAPasswordIsNotRead) {

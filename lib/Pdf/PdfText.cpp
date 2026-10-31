@@ -550,7 +550,7 @@ class Doc {
   }
 
   // The standard security handler, revisions 2 to 4 (RC4 and AES-128), opened with the empty user password.
-  // Files that need a password, or use AES-256, are not read.
+  // AES-256 (revisions 5 and 6) is read too. Files that need a password are not read.
   bool setupEncryption(const Obj& trailer) {
     const Obj* ref = trailer.get("Encrypt");
     if (!ref) return true;
@@ -562,6 +562,7 @@ class Doc {
     if (!v.isNum() || !r.isNum()) return false;
     const int version = static_cast<int>(v.num());
     const int revision = static_cast<int>(r.num());
+    if (version == 5) return setupAes256(enc, revision);
     if (version < 1 || version > 4 || revision < 2 || revision > 4) return false;
     int keyBytes = 5;
     bool useAes = false;
@@ -639,9 +640,82 @@ class Doc {
     return true;
   }
 
+  // ISO 32000-2 algorithm 2.B: the revision 6 hash. `udata` is empty for the user password.
+  static std::string hashR6(const std::string& password, const std::string& salt, const std::string& udata) {
+    auto sha = [](int bits, const std::string& in) {
+      uint8_t out[64];
+      const auto* p = reinterpret_cast<const uint8_t*>(in.data());
+      if (bits == 256) crypt::sha256(p, in.size(), out);
+      if (bits == 384) crypt::sha384(p, in.size(), out);
+      if (bits == 512) crypt::sha512(p, in.size(), out);
+      return std::string(reinterpret_cast<const char*>(out), static_cast<size_t>(bits / 8));
+    };
+    std::string k = sha(256, password + salt + udata);
+    std::string k1, e;
+    for (int i = 0; i < 64 || static_cast<uint8_t>(e.back()) > i - 32; ++i) {
+      const std::string unit = password + k + udata;
+      k1.clear();
+      for (int rep = 0; rep < 64; ++rep) k1 += unit;
+      e.assign(k1.size(), '\0');
+      crypt::aes128CbcEncryptRaw(
+          reinterpret_cast<const uint8_t*>(k.data()), reinterpret_cast<const uint8_t*>(k.data()) + 16,
+          reinterpret_cast<const uint8_t*>(k1.data()), k1.size(), reinterpret_cast<uint8_t*>(e.data()));
+      int mod = 0;
+      for (int b = 0; b < 16; ++b) mod += static_cast<uint8_t>(e[static_cast<size_t>(b)]);
+      k = sha(mod % 3 == 0 ? 256 : (mod % 3 == 1 ? 384 : 512), e);
+    }
+    k.resize(32);
+    return k;
+  }
+
+  // Revisions 5 and 6 (V 5, AESV3): the empty user password is checked against /U and the file key is
+  // unwrapped from /UE. Anything short or malformed is refused, never read past.
+  bool setupAes256(const Obj& enc, int revision) {
+    if (revision != 5 && revision != 6) return false;
+    const Obj cf = resolveKey(enc, "CF");
+    const Obj stmF = resolveKey(enc, "StmF");
+    if (stmF.type != Obj::Name || !cf.isDict()) return false;
+    const Obj filter = resolveKey(cf, stmF.s);
+    if (!filter.isDict() || resolveKey(filter, "CFM").s != "AESV3") return false;
+    const Obj u = resolveKey(enc, "U");
+    const Obj ue = resolveKey(enc, "UE");
+    if (u.type != Obj::Str || ue.type != Obj::Str || u.s.size() < 48 || ue.s.size() < 32) return false;
+    const std::string validationSalt = u.s.substr(32, 8);
+    const std::string keySalt = u.s.substr(40, 8);
+    auto hash = [revision](const std::string& salt) {
+      if (revision == 6) return hashR6(std::string(), salt, std::string());
+      uint8_t out[32];
+      crypt::sha256(reinterpret_cast<const uint8_t*>(salt.data()), salt.size(), out);
+      return std::string(reinterpret_cast<const char*>(out), 32);
+    };
+    if (hash(validationSalt) != u.s.substr(0, 32)) return false;
+    const std::string intermediate = hash(keySalt);
+    const uint8_t zeroIv[16] = {};
+    std::string key;
+    if (!crypt::aes256CbcDecryptRaw(reinterpret_cast<const uint8_t*>(intermediate.data()), zeroIv,
+                                    reinterpret_cast<const uint8_t*>(ue.s.data()), 32, key)) {
+      return false;
+    }
+    fileKey = key;
+    aes = true;
+    aes256 = true;
+    encrypted = true;
+    cache.clear();
+    return true;
+  }
+
   // Decrypts the strings and stream data of object `num` in place. False when AES data is malformed.
   bool decryptBytes(uint32_t num, uint32_t gen, std::string& data) const {
     if (!encrypted) return true;
+    if (aes256) {
+      std::string plain;
+      if (!crypt::aes256CbcDecrypt(reinterpret_cast<const uint8_t*>(fileKey.data()),
+                                   reinterpret_cast<const uint8_t*>(data.data()), data.size(), plain)) {
+        return false;
+      }
+      data = std::move(plain);
+      return true;
+    }
     std::string key = fileKey;
     for (int k = 0; k < 3; ++k) key += static_cast<char>((num >> (8 * k)) & 0xFF);
     for (int k = 0; k < 2; ++k) key += static_cast<char>((gen >> (8 * k)) & 0xFF);
@@ -1010,6 +1084,7 @@ class Doc {
   Obj firstTrailer;
   bool encrypted = false;
   bool aes = false;
+  bool aes256 = false;  // AESV3: the file key is used as it is, no per-object key
   std::string fileKey;
   uint32_t encryptNum = 0;
   uint32_t cachedStm = 0;
@@ -1024,6 +1099,7 @@ struct Font {
   bool twoByte = false;
   std::unordered_map<uint32_t, std::string> toUnicode;  // code -> UTF-8
   bool hasToUnicode = false;
+  bool utf16Codes = false;  // Type0 without ToUnicode and a Uni*-UCS2/UTF16 CMap: the codes are UTF-16
   std::string simple[256];  // simple fonts without a ToUnicode map
   bool simpleReady = false;
   // Glyph widths in 1/1000 em, to know where a string ends and so where a word space is.
@@ -1250,9 +1326,13 @@ Font loadFont(Doc& doc, const Obj& fontDict) {
     std::string cmap;
     if (doc.streamData(toUni, cmap)) parseToUnicode(cmap, font);
   }
+  const Obj enc = doc.resolveKey(fontDict, "Encoding");
+  if (font.twoByte && !font.hasToUnicode && enc.type == Obj::Name && enc.s.compare(0, 3, "Uni") == 0 &&
+      (enc.s.find("-UCS2-") != std::string::npos || enc.s.find("-UTF16-") != std::string::npos)) {
+    font.utf16Codes = true;  // the predefined Unicode CMaps map UTF-16 code units to CIDs
+  }
   if (font.twoByte || font.hasToUnicode) return font;
   // A simple font by its encoding.
-  const Obj enc = doc.resolveKey(fontDict, "Encoding");
   for (int c = 0; c < 256; ++c) {
     if (c < 32 && c != '\t') continue;  // control codes show nothing unless a Differences entry says so
     std::string s;
@@ -1344,13 +1424,110 @@ struct PageText {
   std::vector<Fragment> frags;
   size_t bytes = 0;
   size_t maxBytes = 0;
+  size_t keptGlyphs = 0;     // glyphs shown (the share that droppedGlyphs is weighed against)
+  size_t droppedGlyphs = 0;  // two-byte codes with no way to text (a CID font without a ToUnicode map)
   bool full() const { return bytes >= maxBytes; }
 };
 
-// Text order for a page set in two columns: the fragments read top to bottom in the left column and then the
-// right one, with anything that crosses the gutter (a title, a table) as a break between bands. Other pages
-// keep the order the content stream drew them in. Empty when the page isn't two columns.
-std::vector<size_t> twoColumnOrder(const std::vector<Fragment>& frags) {
+// Reads `frags` band by band: lines first (fragments by row, a new line when the row moves more than a part
+// of a line height, each line left to right), and a line that crosses any gutter splits the page into bands.
+// A band is its first column's lines, then its second column's, and so on. `gutters` is sorted.
+std::vector<size_t> orderByColumns(const std::vector<Fragment>& frags, const std::vector<double>& gutters) {
+  const size_t n = frags.size();
+  std::vector<size_t> byRow(n);
+  for (size_t i = 0; i < n; ++i) byRow[i] = i;
+  std::stable_sort(byRow.begin(), byRow.end(), [&](size_t a, size_t b) { return frags[a].row < frags[b].row; });
+  std::vector<size_t> order;
+  std::vector<std::vector<size_t>> bands(gutters.size() + 1);
+  const auto flushBand = [&] {
+    for (std::vector<size_t>& band : bands) {
+      order.insert(order.end(), band.begin(), band.end());
+      band.clear();
+    }
+  };
+  const auto crossesGutter = [&](const Fragment& f) {
+    return std::any_of(gutters.begin(), gutters.end(), [&f](double g) { return f.x0 < g && f.x1 > g; });
+  };
+  for (size_t start = 0; start < n;) {
+    size_t end = start + 1;
+    const double lineRow = frags[byRow[start]].row;
+    const double tolerance = 0.4 * std::max(frags[byRow[start]].size, 1.0);
+    while (end < n && std::fabs(frags[byRow[end]].row - lineRow) <= tolerance) ++end;
+    std::vector<size_t> line(byRow.begin() + static_cast<std::ptrdiff_t>(start),
+                             byRow.begin() + static_cast<std::ptrdiff_t>(end));
+    std::stable_sort(line.begin(), line.end(), [&](size_t a, size_t b) { return frags[a].x0 < frags[b].x0; });
+    const bool crosses = std::any_of(line.begin(), line.end(), [&](size_t i) { return crossesGutter(frags[i]); });
+    if (crosses) {
+      flushBand();
+      order.insert(order.end(), line.begin(), line.end());
+    } else {
+      for (const size_t i : line) {
+        size_t column = 0;
+        while (column < gutters.size() && frags[i].x0 >= gutters[column]) ++column;
+        bands[column].push_back(i);
+      }
+    }
+    start = end;
+  }
+  flushBand();
+  return order;
+}
+
+// Gutters for a page of three or four columns: the empty vertical stripes (crossed by next to no fragment,
+// at least a few ems wide) between 15 and 85 % of the text width. Empty unless there are exactly two or
+// three of them, every column holds a fair share of the fragments, and the fragments are line-long (a
+// table's short cells have the same stripes but read in rows).
+std::vector<double> multiColumnGutters(const std::vector<Fragment>& frags, double minX, double width) {
+  const size_t n = frags.size();
+  const size_t allowed = n / 24;  // a title or two crossing the stripe
+  const double minGap = std::max(6.0, width * 0.02);
+  std::vector<double> gutters;
+  double runStart = 0, runEnd = 0;
+  bool inRun = false;
+  const auto closeRun = [&] {
+    if (inRun && runEnd - runStart >= minGap) gutters.push_back((runStart + runEnd) / 2);
+    inRun = false;
+  };
+  for (int step = 150; step <= 850; ++step) {
+    const double x = minX + width * step / 1000.0;
+    const size_t crossing = static_cast<size_t>(
+        std::count_if(frags.begin(), frags.end(), [x](const Fragment& f) { return f.x0 < x && f.x1 > x; }));
+    if (crossing <= allowed) {
+      if (!inRun) runStart = x;
+      runEnd = x;
+      inRun = true;
+    } else {
+      closeRun();
+    }
+    if (gutters.size() > 3) return {};
+  }
+  closeRun();
+  if (gutters.size() < 2 || gutters.size() > 3) return {};
+  std::vector<size_t> inColumn(gutters.size() + 1, 0);
+  size_t spanning = 0;
+  double sumWidth = 0, sumUnit = 0;
+  for (const Fragment& f : frags) {
+    size_t column = 0;
+    while (column < gutters.size() && f.x0 >= gutters[column]) ++column;
+    if (column < gutters.size() && f.x1 > gutters[column]) {
+      ++spanning;
+    } else {
+      ++inColumn[column];
+      sumWidth += f.x1 - f.x0;
+      sumUnit += f.unit;
+    }
+  }
+  if (spanning * 12 > n) return {};
+  if (std::any_of(inColumn.begin(), inColumn.end(), [n](const size_t count) { return count * 8 < n; })) return {};
+  if (sumWidth < 6.0 * sumUnit) return {};
+  return gutters;
+}
+
+// Text order for a page set in columns: the fragments read top to bottom in the left column, then the next
+// one, and so on (two to four columns), with anything that crosses a gutter (a title, a table) as a break
+// between bands. Other pages keep the order the content stream drew them in. Empty when the page isn't set
+// in columns.
+std::vector<size_t> columnOrder(const std::vector<Fragment>& frags) {
   if (frags.size() < 12) return {};
   double minX = frags[0].x0, maxX = frags[0].x1;
   for (const Fragment& f : frags) {
@@ -1359,6 +1536,8 @@ std::vector<size_t> twoColumnOrder(const std::vector<Fragment>& frags) {
   }
   const double width = maxX - minX;
   if (width < 150) return {};
+  const std::vector<double> many = multiColumnGutters(frags, minX, width);
+  if (!many.empty()) return orderByColumns(frags, many);
   // The best gutter: the x in the middle part of the page that the fewest fragments cross.
   double gutter = 0;
   size_t fewest = frags.size() + 1;
@@ -1397,40 +1576,7 @@ std::vector<size_t> twoColumnOrder(const std::vector<Fragment>& frags) {
   }
   const size_t n = frags.size();
   if (left * 5 < n || right * 5 < n || spanning * 12 > n) return {};
-  // Lines first: fragments by row, a new line when the row moves more than a part of a line height, each
-  // line left to right. Then band by band: a line that crosses the gutter splits the page into bands, and
-  // a band is its left column's lines and then its right column's.
-  std::vector<size_t> byRow(n);
-  for (size_t i = 0; i < n; ++i) byRow[i] = i;
-  std::stable_sort(byRow.begin(), byRow.end(), [&](size_t a, size_t b) { return frags[a].row < frags[b].row; });
-  std::vector<size_t> order;
-  std::vector<size_t> leftBand, rightBand;
-  const auto flushBand = [&] {
-    order.insert(order.end(), leftBand.begin(), leftBand.end());
-    order.insert(order.end(), rightBand.begin(), rightBand.end());
-    leftBand.clear();
-    rightBand.clear();
-  };
-  for (size_t start = 0; start < n;) {
-    size_t end = start + 1;
-    const double lineRow = frags[byRow[start]].row;
-    const double tolerance = 0.4 * std::max(frags[byRow[start]].size, 1.0);
-    while (end < n && std::fabs(frags[byRow[end]].row - lineRow) <= tolerance) ++end;
-    std::vector<size_t> line(byRow.begin() + static_cast<std::ptrdiff_t>(start),
-                             byRow.begin() + static_cast<std::ptrdiff_t>(end));
-    std::stable_sort(line.begin(), line.end(), [&](size_t a, size_t b) { return frags[a].x0 < frags[b].x0; });
-    bool crosses = false;
-    for (const size_t i : line) crosses = crosses || (frags[i].x0 < gutter && frags[i].x1 > gutter);
-    if (crosses) {
-      flushBand();
-      order.insert(order.end(), line.begin(), line.end());
-    } else {
-      for (const size_t i : line) (frags[i].x1 <= gutter ? leftBand : rightBand).push_back(i);
-    }
-    start = end;
-  }
-  flushBand();
-  return order;
+  return orderByColumns(frags, {gutter});
 }
 
 // The page's text: fragments in reading order, with the spaces, line joins and paragraph breaks their
@@ -1438,7 +1584,7 @@ std::vector<size_t> twoColumnOrder(const std::vector<Fragment>& frags) {
 std::string layoutPage(const PageText& page) {
   TextOut out;
   out.maxBytes = page.maxBytes;
-  std::vector<size_t> order = twoColumnOrder(page.frags);
+  std::vector<size_t> order = columnOrder(page.frags);
   if (order.empty()) {
     order.resize(page.frags.size());
     for (size_t i = 0; i < order.size(); ++i) order[i] = i;
@@ -1509,7 +1655,21 @@ class Interpreter {
         for (size_t k = 0; k + 1 < s.size(); k += 2) {
           const uint32_t code = (static_cast<uint8_t>(s[k]) << 8) | static_cast<uint8_t>(s[k + 1]);
           const auto it = font->toUnicode.find(code);
-          if (it != font->toUnicode.end()) cur.text += it->second;
+          if (it != font->toUnicode.end()) {
+            cur.text += it->second;
+            ++out.keptGlyphs;
+          } else if (font->utf16Codes && code >= 0x20 && (code < 0xD800 || code > 0xDFFF)) {
+            appendUtf8(cur.text, code);
+            ++out.keptGlyphs;
+          } else if (font->utf16Codes && code >= 0xD800 && code <= 0xDBFF && k + 3 < s.size() &&
+                     (static_cast<uint8_t>(s[k + 2]) & 0xFC) == 0xDC) {
+            const uint32_t low = (static_cast<uint8_t>(s[k + 2]) << 8) | static_cast<uint8_t>(s[k + 3]);
+            appendUtf8(cur.text, 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00));
+            ++out.keptGlyphs;
+            k += 2;  // the pair is one glyph
+          } else {
+            ++out.droppedGlyphs;  // never the raw code: it is not text
+          }
           advance += (font->width(code) / 1000.0 * size + charSpace) * hScale;
         }
       } else {
@@ -1525,6 +1685,7 @@ class Interpreter {
           } else {
             cur.text += font->simple[b];
           }
+          ++out.keptGlyphs;
           advance += (font->width(b) / 1000.0 * size + charSpace + (b == 32 ? wordSpace : 0)) * hScale;
         }
       }
@@ -1727,6 +1888,9 @@ bool extractText(const Source& source, const Inflate& inflate,
       interp.run(content, pageResources, 0);
     }
     TextOut out;
+    // A page where most glyphs had no way to text (a CID font without a ToUnicode map) is not text.
+    result.droppedGlyphs += pageText.droppedGlyphs;
+    if (pageText.droppedGlyphs > pageText.keptGlyphs) pageText.frags.clear();
     out.text = layoutPage(pageText);
     // Filled-in form fields (a character sheet): "Name: value" after the page text.
     const Obj annots = doc.resolveKey(node, "Annots");

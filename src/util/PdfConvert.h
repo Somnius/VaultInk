@@ -9,7 +9,7 @@ class GfxRenderer;
 // No layout, pictures or scans (see lib/Pdf).
 namespace pdfconvert {
 
-enum class Status { Ok, NoText, Encrypted, Unreadable, SdError };
+enum class Status { Ok, NoText, Encrypted, Unreadable, UnreadableFont, SdError };
 
 // Where the text of a PDF lives: /.vaultink/pdf/<hash of the path>/<name>.txt.
 std::string textPathFor(const std::string& pdfPath);

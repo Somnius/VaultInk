@@ -553,3 +553,8 @@ reports AES key recovery on the S3 with voltage fault injection.
   fonts (OFL), NimBLE (Apache-2.0). All listed in NOTICE.
 - The LiveSync wire format is implemented from the public source; no LiveSync code is copied unless
   its licence allows it and it is credited.
+
+- Folders tab (0.56.0, kos25k #18): LibraryListActivity slot 4 (FAVOURITES_TAB_INDEX stays 3); lib/LibraryIndex/LibraryFolders bucketByFolder groups the Title order by each record's folder id; LibraryIndexFile::readFolderPath/forEachFolder read the folder table; folders open like author folders; always Title order.
+- PDF (0.56.0): lib/Pdf/PdfCrypt has SHA-256/384/512, AES-256-CBC decrypt, AES-128-CBC encrypt (no padding); PdfText setupAes256 does the R5/R6 hash and unwraps /UE for an empty user password; columnOrder finds 2 to 4 columns; Type0 fonts with Uni*-UCS2/UTF16 CMaps are read as UTF-16, other CID glyphs without a ToUnicode map are counted (Result::droppedGlyphs) and never emitted; Status::UnreadableFont.
+- Reading stats (0.56.0): lib/ReadingLog Stats has currentStreakDays, longestStreakDays, finishedCount, finishedThisYear, finished (up to 5), dayMinutes (this month, all books).
+- LiveSync ids v1 (0.56.0): LiveSyncIds chunkIdV1/noteIdV1 (HMAC-SHA256 keyed by idDerivationKey), isIdKeyHex; the key is stored obfuscated (pushIdK, pushNfc); the push gate accepts only the legacy scheme or v1 with a 64-hex key and path normalization 0 or 1.

@@ -7,6 +7,7 @@
 #include <HalStorage.h>
 #include <I18n.h>
 #include <LibraryBuilder.h>
+#include <LibraryFolders.h>
 #include <LibraryText.h>
 #include <Logging.h>
 #include <Memory.h>
@@ -50,7 +51,9 @@ constexpr int TITLE_TAB = 1;
 constexpr int AUTHOR_TAB = 2;
 // Favourites (0.31.0) list FavouritesStore directly, newest first; not a sort of the index.
 constexpr int FAVOURITES_TAB = LibraryListActivity::FAVOURITES_TAB_INDEX;
-constexpr int TAB_SLOTS = FAVOURITES_TAB + 1;
+// Folders (0.56.0, kos25k #18) sits after Favourites so FAVOURITES_TAB_INDEX stays 3.
+constexpr int FOLDERS_TAB = FAVOURITES_TAB + 1;
+constexpr int TAB_SLOTS = FOLDERS_TAB + 1;
 
 constexpr bool isDescending(const library::SortOrder order) {
   return order == library::SortOrder::RecentDesc || order == library::SortOrder::TitleDesc ||
@@ -73,7 +76,8 @@ constexpr library::SortOrder orderForTab(const int tab, const uint8_t descending
 }
 
 const char* tabLabelFor(const int tab) {
-  if (tab == FAVOURITES_TAB) return tr(STR_FAVOURITES);
+  if (tab == FAVOURITES_TAB) return tr(STR_LIBRARY_TAB_FAVOURITES);
+  if (tab == FOLDERS_TAB) return tr(STR_LIBRARY_TAB_FOLDERS);
   if (tab == TITLE_TAB) return tr(STR_LIBRARY_TAB_TITLE);
   if (tab == AUTHOR_TAB) return tr(STR_LIBRARY_TAB_AUTHOR);
   return tr(STR_LIBRARY_TAB_RECENT);
@@ -83,7 +87,7 @@ const char* tabLabelFor(const int tab) {
 
 LibraryListActivity::LibraryListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const int startTab)
     : UiTabListActivity("Library", renderer, mappedInput, true), startTab(startTab) {
-  // Four tabs, each as wide as its label: equal quarters cut "Favourites" and the longer Greek
+  // Five tabs, each as wide as its label: equal fifths cut "Favourites" and the longer Greek
   // labels short.
   tabsSpaceBetween = true;
 }
@@ -270,7 +274,7 @@ void LibraryListActivity::openBookByPath(const std::string& path) {
 
 void LibraryListActivity::activateIndex(const int index) {
   if (groupsCollapsed && authorFolders()) {
-    if (groupSize(index) == 1)
+    if (groupSize(index) == 1 && !folderTab())
       openBookAtEntry(groupStarts[index]);  // a one-book author is just the book
     else
       openFolder(index);
@@ -287,14 +291,19 @@ void LibraryListActivity::activateIndex(const int index) {
 // collapse-to-groups. The Recent shelf always opens the row options menu.
 bool LibraryListActivity::favouritesTab() const { return activeTabIndex == FAVOURITES_TAB; }
 
-bool LibraryListActivity::filtering() const { return !query.empty() || SETTINGS.libraryBooksOnly != 0; }
+bool LibraryListActivity::folderTab() const { return activeTabIndex == FOLDERS_TAB; }
+
+// The Folders tab lists every book; search and Books only belong to the other tabs.
+bool LibraryListActivity::filtering() const {
+  return !folderTab() && (!query.empty() || SETTINGS.libraryBooksOnly != 0);
+}
 
 void LibraryListActivity::onRowLongPress(const int index) {
   if (favouritesTab()) {
     showFavouriteOptions(index);
   } else if (!groupsCollapsed) {
     showRecentBookOptions(index);  // every book row: Recent, Title, Author, and search results
-  } else if (authorFolders() && groupSize(index) == 1) {
+  } else if (authorFolders() && !folderTab() && groupSize(index) == 1) {
     showRecentBookOptions(groupStarts[index]);
   } else {
     activateIndex(index);
@@ -590,7 +599,7 @@ void LibraryListActivity::promptDeleteBookByPath(const std::string& path, const 
 void LibraryListActivity::openSearch() {
   app.clearTapFlash();
   // Search covers the whole library: from Favourites it lands on the Title tab.
-  if (favouritesTab()) selectTab(TITLE_TAB, false);
+  if (favouritesTab() || folderTab()) selectTab(TITLE_TAB, false);
   // No key filtering here on purpose. Greying out the letters that lead nowhere
   // was built, tested on device and removed: a letter you can see but cannot
   // reach reads as a broken keyboard, and the eye keeps returning to it.
@@ -638,10 +647,17 @@ void LibraryListActivity::selectTab(const int index, const bool toggleIfActive) 
   // Favourites have one order (newest first): no direction to toggle, and no grouping.
   if (index == FAVOURITES_TAB) {
     if (groupsCollapsed) restoreExpandedList();
+  } else if (index == FOLDERS_TAB) {
+    // Folders have one order too: the folders as the index lists them, books by title.
   } else if (toggleIfActive && index == activeTab()) {
     descendingTabs ^= static_cast<uint8_t>(1u << index);
   }
-  sortOrder = index == FAVOURITES_TAB ? library::SortOrder::RecentDesc : orderForTab(index, descendingTabs);
+  if (index == FAVOURITES_TAB)
+    sortOrder = library::SortOrder::RecentDesc;
+  else if (index == FOLDERS_TAB)
+    sortOrder = library::SortOrder::TitleAsc;
+  else
+    sortOrder = orderForTab(index, descendingTabs);
   // The filter and the overlap rows hold positions in the old order, so they
   // must be rebuilt.
   applyFilter();
@@ -665,7 +681,7 @@ int LibraryListActivity::activeTab() const { return activeTabIndex; }
 const char* LibraryListActivity::tabLabel(const int index) const { return tabLabelFor(index); }
 
 fui::TabIndicator LibraryListActivity::tabIndicator(const int index) const {
-  if (index != activeTab() || index == FAVOURITES_TAB) return fui::TabIndicator::None;
+  if (index != activeTab() || index == FAVOURITES_TAB || index == FOLDERS_TAB) return fui::TabIndicator::None;
   return isDescending(sortOrder) ? fui::TabIndicator::Down : fui::TabIndicator::Up;
 }
 
@@ -695,6 +711,10 @@ int LibraryListActivity::listCount() const { return groupsCollapsed ? static_cas
 int LibraryListActivity::rowFor(const int shownEntry) const {
   // Inside an author folder the rows are that author's run of the full list.
   const int entry = folderGroup >= 0 && folderGroup < groupCount ? shownEntry + groupStarts[folderGroup] : shownEntry;
+  if (folderTab()) {
+    // Grouped by folder: position k of the regrouped list is a Title row.
+    return folderRows && entry >= 0 && entry < index.bookCount() ? folderRows[entry] : entry;
+  }
   if (filtering()) {
     const int at = entry - pinnedCount();
     if (at < 0 || at >= static_cast<int>(filteredCount) || !filtered) return 0;
@@ -733,6 +753,8 @@ bool LibraryListActivity::buildGroupStarts() {
     groupCapacity = static_cast<uint16_t>(count);
   }
 
+  if (folderTab()) return buildFolderGroups();
+
   groupCount = 0;
   uint32_t previousInitial = 0;
   std::string previousAuthor;
@@ -759,6 +781,49 @@ bool LibraryListActivity::buildGroupStarts() {
   return groupCount > 0;
 }
 
+// Reads each book's folder in Title order, then regroups them with library::bucketByFolder. The
+// scratch arrays are freed on return; folderRows and groupFolder stay until applyFilter().
+bool LibraryListActivity::buildFolderGroups() {
+  const uint16_t total = index.bookCount();
+  const uint16_t folders = index.header().folderCount;
+  if (total == 0 || folders == 0) return false;
+  auto ids = makeUniqueNoThrow<uint16_t[]>(total);
+  auto counts = makeUniqueNoThrow<uint16_t[]>(folders);
+  auto rows = makeUniqueNoThrow<uint16_t[]>(total);
+  auto owners = makeUniqueNoThrow<uint16_t[]>(std::min<size_t>(total, folders));
+  if (!ids || !counts || !rows || !owners) {
+    LOG_ERR("LIB", "cannot allocate the folder map");
+    return false;
+  }
+  for (uint16_t row = 0; row < total; row++) {
+    const uint16_t ordinal = index.ordinalForRow(library::SortOrder::TitleAsc, row);
+    library::ClixRecord record{};
+    if (ordinal == 0xFFFF || !index.readRecord(ordinal, record)) {
+      LOG_ERR("LIB", "folder map: cannot read row %u", static_cast<unsigned>(row));
+      return false;
+    }
+    ids[row] = record.folderId;
+  }
+  const uint16_t groups =
+      library::bucketByFolder(ids.get(), total, folders, counts.get(), rows.get(), groupStarts.get(), owners.get());
+  if (groups == 0) return false;
+  folderRows = std::move(rows);
+  groupFolder = std::move(owners);
+  groupCount = groups;
+  return true;
+}
+
+// The folder's own name (last path component); the card root shows as "/".
+void LibraryListActivity::folderNameFor(const int group, std::string& out) {
+  out.clear();
+  if (group < 0 || group >= groupCount || !groupFolder) return;
+  std::string path;
+  if (!index.readFolderPath(groupFolder[group], path)) return;
+  while (path.size() > 1 && path.back() == '/') path.pop_back();
+  const size_t slash = path.find_last_of('/');
+  out = slash == std::string::npos || path.size() == 1 ? path : path.substr(slash + 1);
+}
+
 int LibraryListActivity::groupForBook(const int bookEntry) const {
   int group = 0;
   while (group + 1 < groupCount && groupStarts[group + 1] <= bookEntry) group++;
@@ -776,6 +841,7 @@ bool LibraryListActivity::collapseGroups(const int bookEntry) {
 }
 
 bool LibraryListActivity::authorFolders() const {
+  if (folderTab()) return !degraded;  // the Folders tab is always folders
   return SETTINGS.libraryAuthorFolders != 0 && activeTabIndex == AUTHOR_TAB && query.empty() && !degraded;
 }
 
@@ -789,10 +855,14 @@ void LibraryListActivity::applyAuthorFolders() {
 
 void LibraryListActivity::openFolder(const int group) {
   if (group < 0 || group >= groupCount) return;
-  std::string title;
-  std::string author;
-  rowTextFor(groupStarts[group], title, author);
-  formatAuthorHeading(author, folderTitle);
+  if (folderTab()) {
+    folderNameFor(group, folderTitle);
+  } else {
+    std::string title;
+    std::string author;
+    rowTextFor(groupStarts[group], title, author);
+    formatAuthorHeading(author, folderTitle);
+  }
   folderNav = activeNav();
   folderGroup = group;
   groupsCollapsed = false;
@@ -836,6 +906,8 @@ void LibraryListActivity::applyFilter() {
   folderGroup = -1;
   groupsCollapsed = false;
   groupCount = 0;
+  folderRows.reset();
+  groupFolder.reset();
   filtered.reset();
   filteredCount = 0;
   filterFailed = false;
@@ -1142,7 +1214,7 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
   auto& nav = activeNav();
   const int count = listCount();
   const bool authorGrouped = isAuthorSort(sortOrder);
-  const bool grouped = !isRecentSort(sortOrder);
+  const bool grouped = !isRecentSort(sortOrder) && !folderTab();  // a folder's books need no letter headings
 
   fui::ListProps props;
   props.count = static_cast<uint16_t>(count);
@@ -1178,7 +1250,18 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
     std::string& author = winAuthors[static_cast<size_t>(rows)];
     fui::ListItem item;
     rowFile.clear();
-    if (folders && groupSize(entry) == 1) {
+    if (folders && folderTab()) {
+      folderNameFor(entry, title);
+      std::string& books = winCounts[static_cast<size_t>(rows)];
+      char buffer[48];
+      if (groupSize(entry) == 1)
+        snprintf(buffer, sizeof(buffer), "%s", tr(STR_LIBRARY_FOLDER_COUNT_ONE));
+      else
+        snprintf(buffer, sizeof(buffer), tr(STR_LIBRARY_FOLDER_COUNT), groupSize(entry));
+      books = buffer;
+      item.subtitle = books.c_str();
+      item.icon = listIconFor(UITheme::getFileIcon("/"), 32);
+    } else if (folders && groupSize(entry) == 1) {
       if (!rowTextFor(groupStarts[entry], title, author, &rowFile)) continue;
       if (!author.empty()) item.subtitle = author.c_str();
     } else if (folders) {
@@ -1326,7 +1409,7 @@ void LibraryListActivity::buildScreen(UiScreen& screen) {
                   static_cast<int16_t>(bottomInset + metrics.buttonHintsHeight + readoutReserved), 0});
 
   if (!degraded) buildTabBar(screen);
-  if (!degraded && !favouritesTab()) buildFilterBar(screen);
+  if (!degraded && !favouritesTab() && !folderTab()) buildFilterBar(screen);
   if (bookRowCount() == 0) {
     const char* message = tr(STR_LIBRARY_NO_RESULTS);
     if (favouritesTab()) {

@@ -66,10 +66,18 @@ bool putChunks(const Transport& net, JsonDocument& bulk, std::string& error) {
 
 }  // namespace
 
+std::string noteIdFor(const PushIdentity& identity, std::string_view path) {
+  return identity.isV1() ? noteIdV1(identity.idKeyHex, path, identity.nfcPaths) : noteId(identity.passDigest, path);
+}
+
+std::string chunkIdFor(const PushIdentity& identity, std::string_view piece) {
+  return identity.isV1() ? chunkIdV1(piece, identity.idKeyHex) : chunkId(piece, identity.hashedPass);
+}
+
 PushResult pushNote(const Transport& net, const Key master, const PushIdentity& identity, const RandomFill& random,
                     const PushItem& item, const int64_t nowMs, std::string& newId, std::string& newRev,
                     std::string& error) {
-  const std::string id = item.knownId.empty() ? noteId(identity.passDigest, item.path) : item.knownId;
+  const std::string id = item.knownId.empty() ? noteIdFor(identity, item.path) : item.knownId;
   if (id.empty()) {
     error = "This note's name has letters VaultInk can't send yet.";
     return PushResult::Skipped;
@@ -117,7 +125,7 @@ PushResult pushNote(const Transport& net, const Key master, const PushIdentity& 
     JsonArray docs = bulk["docs"].to<JsonArray>();
     int inBulk = 0;
     for (const std::string& piece : split(item.content)) {
-      const std::string chunk = chunkId(piece, identity.hashedPass);
+      const std::string chunk = chunkIdFor(identity, piece);
       children.push_back(chunk);
       std::string data;
       if (!encrypt(master, piece, random, data)) {

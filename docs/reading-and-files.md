@@ -43,7 +43,11 @@ Its tap area is wide and reaches the top edge, and a short slip of the finger co
 - how long you read **today**, **this week** (from Monday), **this month** and in **total**;
 - the last three books you read, each with a bar and its percent (books only, no notes);
 - this month's calendar, with the percent the current book was at by the end of each day. A day
-  you didn't read keeps the day before's percent; the days still to come are empty.
+  you didn't read keeps the day before's percent; the days still to come are empty. From
+  0.56.0 a small bar under the day number marks every day you read, in any book;
+- from 0.56.0 a line with your **streak** (days in a row up to today or yesterday, and the best
+  one) and the number of books you **finished**. A book counts as finished when your last session
+  in it ended at 98% or more.
 
 <p><img src="images/vaultink/sleep-stats.png" width="240" alt="The reading statistics sleep screen"></p>
 
@@ -165,6 +169,13 @@ Under the Library's tabs there's a switch, **All** | **Books only**. Books only 
 notes (and canvases) out of Recent, Title and Author, so the list is just your books. Search still
 works with it on, and finds only books. The choice is remembered. Favourites only ever hold books,
 so the switch isn't shown there.
+
+## Folders tab (0.56.0)
+
+The Library has a fifth tab, **Folders** (after Favourites): one row per folder on the card that
+holds books, with its book count. Tap a folder to see its books, Back to return. The tab always
+shows the Title order; Search from it jumps to the Title tab. In Greek the tab names are
+shortened (Πρόσφ., Συγγρ., Αγαπ.) so all five fit.
 
 ## Long-press in the Library, Authors as folders (0.36.0)
 
@@ -349,8 +360,8 @@ its text properly (most do), and the filled-in values of form fields (a characte
 page's text). It checked out on 30 real PDFs (character sheets, notes saved from a phone, print exports): all opened, and
 the word count matched the desktop tool `pdftotext` within a few percent on 28 of them.
 
-What it doesn't: pictures, tables as tables, more than two columns, page numbers as pages, and
-scans without a text layer. Two columns are read left then right when the page has a clear gutter (a title across both is kept in place). A scan says "This PDF has no text to read". A PDF locked with a password you need to open it says so (PDFs that are only locked against copying or printing, with no password to open, are read: RC4 and AES-128, which most shop-bought ones use; AES-256 ones are not). A PDF you have read
+What it doesn't: pictures, tables as tables, more than four columns, page numbers as pages, and
+scans without a text layer. Two, three or four columns (0.56.0) are read column by column when the page has clear gutters (a title across all of them is kept in place). A file whose fonts carry no text map (so the letters can't be told) says the text can't be read, instead of showing garbage (0.56.0). A scan says "This PDF has no text to read". A PDF locked with a password you need to open it says so (PDFs that are only locked against copying or printing, with no password to open, are read: RC4, AES-128 and, from 0.56.0, AES-256). A PDF you have read
 shows in Recent and on the Continue card (opening it from there goes straight to the text), but it isn't a Library book;
 find it again in Browse Files or by its link.
 

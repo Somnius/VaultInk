@@ -112,3 +112,64 @@ TEST(ReadingLog, CalendarEmptyBeforeFirstRead) {
   EXPECT_EQ(st.dayProgressBp[24], 700);
   EXPECT_EQ(st.dayProgressBp[29], 700);
 }
+
+TEST(ReadingLog, StreakCountsConsecutiveDaysEndingTodayOrYesterday) {
+  Log log;
+  log.add(NOW, 60, 100, "/a.epub");              // today
+  log.add(NOW - DAY, 60, 100, "/a.epub");        // yesterday
+  log.add(NOW - DAY - 600, 60, 100, "/b.epub");  // same day again
+  log.add(NOW - 2 * DAY, 60, 100, "/a.epub");
+  log.add(NOW - 4 * DAY, 60, 100, "/a.epub");  // gap on day 3
+  log.add(NOW - 5 * DAY, 60, 100, "/a.epub");
+  log.add(NOW - 6 * DAY, 60, 100, "/a.epub");
+  log.add(NOW - 7 * DAY, 60, 100, "/a.epub");
+  log.add(NOW - 8 * DAY, 60, 100, "/a.epub");
+  auto st = log.stats();
+  EXPECT_EQ(st.currentStreakDays, 3);
+  EXPECT_EQ(st.longestStreakDays, 5);
+
+  Log y;  // nothing today, but yesterday keeps it alive
+  y.add(NOW - DAY, 60, 100, "/a.epub");
+  y.add(NOW - 2 * DAY, 60, 100, "/a.epub");
+  EXPECT_EQ(y.stats().currentStreakDays, 2);
+
+  Log old;  // last read two days ago: the streak is over, the best remains
+  old.add(NOW - 2 * DAY, 60, 100, "/a.epub");
+  old.add(NOW - 3 * DAY, 60, 100, "/a.epub");
+  st = old.stats();
+  EXPECT_EQ(st.currentStreakDays, 0);
+  EXPECT_EQ(st.longestStreakDays, 2);
+
+  EXPECT_EQ(Log{}.stats().longestStreakDays, 0);
+}
+
+TEST(ReadingLog, FinishedBooksUseTheLatestSession) {
+  Log log;
+  log.add(NOW - 100 * DAY, 60, 9900, "/done-then-reread.epub");
+  log.add(NOW - 50 * DAY, 60, 500, "/done-then-reread.epub");  // started over: not finished
+  log.add(NOW - 20 * DAY, 60, 9800, "/f1.epub");
+  log.add(NOW - 10 * DAY, 60, 9799, "/almost.epub");
+  log.add(NOW - 5 * DAY, 60, 10000, "/f2.epub");
+  log.add(NOW - 400 * DAY, 60, 10000, "/lastyear.epub");  // 2025
+  for (int i = 0; i < 5; ++i) log.add(NOW - (500 + i) * DAY, 60, 9900, "/old" + std::to_string(i) + ".epub");
+  const auto st = log.stats();
+  EXPECT_EQ(st.finishedCount, 8);
+  EXPECT_EQ(st.finishedThisYear, 2);
+  ASSERT_EQ(st.finished.size(), 5u);
+  EXPECT_EQ(st.finished[0].path, "/f2.epub");
+  EXPECT_EQ(st.finished[1].path, "/f1.epub");
+  EXPECT_EQ(st.finished[2].path, "/lastyear.epub");
+}
+
+TEST(ReadingLog, DayMinutesAcrossBooks) {
+  Log log;
+  log.add(NOW - 3600, 600, 100, "/a.epub");      // 30th: 10 min
+  log.add(NOW - 7200, 90, 100, "/b.epub");       // 30th: +1.5 min -> 12 (rounded up)
+  log.add(NOW - 2 * DAY, 1, 100, "/b.epub");     // 28th: 1 min
+  log.add(NOW - 40 * DAY, 600, 100, "/c.epub");  // September: not counted
+  const auto st = log.stats();
+  ASSERT_EQ(st.dayMinutes.size(), 31u);
+  EXPECT_EQ(st.dayMinutes[29], 12);
+  EXPECT_EQ(st.dayMinutes[27], 1);
+  EXPECT_EQ(st.dayMinutes[0], 0);
+}

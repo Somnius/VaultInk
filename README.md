@@ -110,10 +110,11 @@ reading toolbar, settings, and About.
   <img src="docs/images/vaultink/library-title.png" width="190" alt="Library, Title tab, books only">
   <img src="docs/images/vaultink/library-author-folders.png" width="190" alt="Library, Author tab as folders">
   <img src="docs/images/vaultink/reading.png" width="190" alt="A book page">
+  <img src="docs/images/vaultink/library-folders.png" width="190" alt="Library, Folders tab">
 </p>
 
 The Library by title with Books only on (no vault notes), the Author tab with Authors as folders
-(0.36.0: an author with two or more books is a folder), and a page of a book.
+(0.36.0: an author with two or more books is a folder), a page of a book, and the Folders tab (0.56.0: one row per card folder with its book count).
 
 ### Flashcards
 
@@ -246,7 +247,9 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
   sleep screen.
 - **Highlights to a vault note**: a book's clippings written to `Highlights/<title>.md` in your vault, ready for LiveSync.
 - **PDF as text**: a `.pdf` opens as reflowing text (Greek included, two columns in order, filled-in form fields, files locked
-  only against copying); scans and pictures are not read. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text).
+  only against copying (RC4, AES-128 and AES-256, with an empty password), three and four columns in order); scans and pictures are not read. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text).
+- **Folders tab** (0.56.0): the Library's fifth tab lists the card's folders with their book counts.
+- **Reading streaks** (0.56.0): the sleep screen shows your current and best streak and the books you finished.
 - **Search in a book**: the reading menu's Search in Book finds a word or phrase (case and accents don't matter) and lists each hit with its page. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-a-book).
 - **Flashcards**: cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}` in notes tagged
   `#flashcards`), reviewed with spaced repetition from Vaults → Flashcards. [docs/flashcards.md](docs/flashcards.md).

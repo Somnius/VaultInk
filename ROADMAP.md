@@ -25,8 +25,8 @@ and host tests.
 
 In this order, each also listed in its phase below:
 
-1. kos25k #18: ✅ 0.36.0 Authors as folders and the book menu on every tab. Next: a Folders tab
-   (folders that hold books, read from the index's folder table, no per-book path reads), then
+1. kos25k #18: ✅ 0.36.0 Authors as folders and the book menu on every tab. ✅ 0.56.0 a Folders tab
+   (one row per card folder, books bucketed by the index's folder id), then
    tab order (needs tab ids split from tab positions first; maybe only a default tab).
 2. kos25k #17: a home button in the status bar, between the time and the battery, on every screen.
 3. 1c.2: ✅ 0.36.1 XTCH pages drawn byte-wise; the refresh choice needs the device.
@@ -40,7 +40,9 @@ In this order, each also listed in its phase below:
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
-🚧 Next release (on main, 0.55.0): kos25k #24 Search in Book (reading menu, case-insensitive, hits with their page, one search per word or phrase; chapters are laid out on the first search); #22 follow-up: owner lines under the PIN dots and the corner text, the top-edge light panel is off while locked.
+🚧 Next release (on main, 0.57.0): not started.
+✅ 0.56.0: Folders tab in the Library (kos25k #18); PDF as text: AES-256 files with an empty password, three and four columns, fonts with no text map are never read as garbage; reading stats part 2 (streaks, finished books, read days on the calendar); LiveSync push for the newer id scheme (idDerivationVersion 1) and the right id for names starting with an underscore. Cut from this release: tables in PDFs, covers built when idle, the SD-card language loader (the compiled-in language tables are 482 KB of flash, about 5.8% of the app slot; a loader only pays if languages leave the firmware, which changes how releases are packed).
+✅ 0.55.0: kos25k #24 Search in Book (reading menu, case-insensitive, hits with their page, one search per word or phrase; chapters are laid out on the first search); #22 follow-up: owner lines under the PIN dots and the corner text, the top-edge light panel is off while locked.
 ✅ 0.54.0: Flashcards from vault notes (Phase 10); PDFs read as text (Phase 7); the Lock Screen page with owner name and phone, owner on the sleep screen, the home card with long titles (kos25k #22, #21, #14); Join With Next Line in the editor; Markdown links rewritten on rename; CBZ landscape spreads as two halves and a progress bar with chapter ticks (caches from 0.53.0 rebuilt once). Release notes must stay under ~1.9 KB (the device drops longer ones). Nothing of it has run on a device yet.
 ✅ 0.53.0 (with companion-0.4.0): the companion's outbox; CBZ page cache and PNG pages over 8 MP; block ids in search.
 ✅ 0.52.0: reading time saved when a book is left (not only at sleep); lock options (after, corner, hold); arrows and task boxes in every built-in font.
@@ -281,8 +283,8 @@ menus with a new name. Designed as screens first (simulator mock-ups), then buil
   icons.
 * ✅ Swipe down from the top for quick settings. ✅ Swipe up for the reading menu: CrossPoint's
   Settings → Controls → Show Reader Menu → Swipe Up (boards with a Home key, like the X4 Pro).
-* Reading statistics on the device: time, sessions, streaks, calendar, finished books; notes count too.
-* Library speed: build covers when idle so key presses stay fast.
+* Reading statistics on the device: ✅ time, sessions, ✅ 0.56.0 streaks, calendar and finished books on the sleep screen; notes count too (not done).
+* Library speed: build covers when idle so key presses stay fast (planned for the device batch: the safe version is one cover per idle tick, timing needs a device).
 * Greek name for the cover-grid style: Εξώφυλλα (done).
 * Ideas taken from CrossNext (MIT) are credited in NOTICE.
 
@@ -442,7 +444,7 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
   code; util/LinkUpdate + lib/Vault/LinkRewrite, reviewed by Gemini and Grok).
 * ✅ Markdown links `[text](Old.md)` are rewritten on rename too (`lib/Vault/LinkRewrite`, host-tested; not driven through the rename dialog in the simulator yet).
 * ✅ Join With Next Line in the line menu (`LineBuffer::join`, host-tested, one Undo; checked in the simulator: two lines joined, Undo (1)). Later: split lines (needs a cursor, so a multi-line keyboard), a multi-line keyboard, push for vaults with
-  the newer id scheme or no path obfuscation, a test against a real Obsidian install.
+  no path obfuscation, a test against a real Obsidian install. ✅ 0.56.0: push for the newer id scheme (idDerivationVersion 1, host-tested against the plugin's own vectors; real Obsidian and the Docker end-to-end run still to do).
 * Touch keyboard editor (English + Greek; the Greek layout is done, 0.5.0), atomic save, task toggles, new/rename/delete.
 * Push with the plugin's chunker, conflict copies.
 * Rough effort from research: 2-4 weeks for push.
@@ -521,7 +523,7 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   ✅ wired in: a `.pdf` in Browse Files (or a link to one) opens as reflowing text through a cached `.txt`
   (`src/util/PdfConvert`), tested in the simulator with Greek text; a scan says it has no text; a read PDF shows in Recent and on the Continue card.
   Still to do: timing and memory on the device (big PDFs: a 30 MB file is read in pieces, never whole), a link in a note to a PDF in another
-  folder (a `[[Rules.pdf]]` link resolves, host-tested, but opening one is not driven in the simulator), tables, three or more columns, AES-256 files, and CID fonts without a ToUnicode map. ✅ PDFs locked only against copying or printing (an empty user password: RC4 40/128 and AES-128) are read; checked on files from Ghostscript and LibreOffice and a generated AES-128 file; one that needs a password says so. ✅ Two columns come out in reading order (a gutter found from where the text lines sit; host-tested).
+  folder (a `[[Rules.pdf]]` link resolves, host-tested, but opening one is not driven in the simulator), tables. ✅ 0.56.0: AES-256 files (empty password), three and four columns, and CID fonts without a ToUnicode map (Unicode CMaps are read, the rest is never emitted as garbage). ✅ PDFs locked only against copying or printing (an empty user password: RC4 40/128 and AES-128) are read; checked on files from Ghostscript and LibreOffice and a generated AES-128 file; one that needs a password says so. ✅ Two columns come out in reading order (a gutter found from where the text lines sit; host-tested).
 
 ## ✅ Phase 8 - Website
 

@@ -30,8 +30,13 @@ struct Profile {
   // or a vault whose settings the device can't write for (no path obfuscation, new id scheme).
   std::string hashedPass;
   std::string passDigest;
+  // Id scheme 1 (idDerivationVersion 1): the 64-hex id key from the Setup URI, obfuscated when
+  // saved, instead of the two values above; nfcPaths = pathNormalizationVersion 1.
+  std::string idKey;
+  bool nfcPaths = false;
   bool pushAllowed = false;  // set by profileFromSetup from the vault's settings (not saved)
-  bool canPush() const { return !hashedPass.empty() && !passDigest.empty(); }
+  bool idsV1() const { return !idKey.empty(); }
+  bool canPush() const { return idsV1() || (!hashedPass.empty() && !passDigest.empty()); }
 };
 
 struct PushStats {
