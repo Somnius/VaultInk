@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VaultInk: books and Obsidian vaults on the Xteink X4 Pro</title>
+  <meta name="description" content="Free firmware for the Xteink X4 Pro e-reader: books, comics and Obsidian vaults. Install it from your browser.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#F3F1EC" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#161B24" media="(prefers-color-scheme: dark)">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="VaultInk">
+  <meta property="og:title" content="VaultInk: books and Obsidian vaults on the Xteink X4 Pro">
+  <meta property="og:description" content="Free firmware for the Xteink X4 Pro. Install it from your browser.">
+  <meta property="og:url" content="https://somnius.github.io/VaultInk/">
+  <meta property="og:image" content="https://somnius.github.io/VaultInk/og-2.png">
+  <meta property="og:image:secure_url" content="https://somnius.github.io/VaultInk/og-2.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The VaultInk logo next to a note and the home screen of the firmware">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://somnius.github.io/VaultInk/og-2.png">
+  <link rel="icon" type="image/svg+xml" href="logo-light.svg">
+  <script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+  <style>
+    :root {
+      --paper: #F3F1EC;
+      --paper-2: #EAE6DE;
+      --paper-3: #DFDAD0;
+      --ink: #1F3A5F;
+      --ink-2: #2E4D78;
+      --text: #1E1F22;
+      --muted: #5C5F66;
+      --line: #CFC9BC;
+      --control-line: #7D7A72;
+      --warn-bg: #F6E9C9;
+      --warn-line: #B8862A;
+      --warn-ink: #5A3F08;
+      --error-bg: #F7E1E0;
+      --error-line: #A33A3A;
+      --error-ink: #5E1B1B;
+      --button: var(--ink);
+      --button-text: #F3F1EC;
+      --shadow: 0 1px 2px rgba(31, 58, 95, .08), 0 6px 20px rgba(31, 58, 95, .06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #161B24;
+        --paper-2: #1D2330;
+        --paper-3: #262E3D;
+        --ink: #A9C1E3;
+        --ink-2: #C3D5EE;
+        --text: #E7E3DA;
+        --muted: #A3A6AE;
+        --line: #3E4759;
+        --control-line: #737E95;
+        --warn-bg: #2C2410;
+        --warn-line: #A8832D;
+        --warn-ink: #F0DDAA;
+        --error-bg: #33191B;
+        --error-line: #C76A6A;
+        --error-ink: #F3D2D2;
+        --button: #A9C1E3;
+        --button-text: #161B24;
+        --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--paper); color: var(--text);
+      font: 17px/1.6 Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino,
+        "Noto Serif", "DejaVu Serif", serif;
+    }
+    .sans {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Noto Sans", sans-serif;
+    }
+    h1, h2, h3 { font-weight: 600; letter-spacing: -.01em; line-height: 1.2; color: var(--ink); margin: 0; }
+    h2 { font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2rem); margin-bottom: .5rem; }
+    h3 { font-size: 1.1rem; color: var(--ink); margin-bottom: .25rem; }
+    p { margin: .6em 0; }
+    a { color: var(--ink); text-decoration-color: var(--line); text-underline-offset: 3px; }
+    a:hover { text-decoration-color: var(--ink); }
+    img { max-width: 100%; height: auto; display: block; }
+    figure { margin: 0; }
+    code {
+      font: .9em ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+      background: var(--paper-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px;
+      overflow-wrap: anywhere;
+    }
+    kbd {
+      font: .9em system-ui, sans-serif; font-weight: 600; color: var(--ink); overflow-wrap: anywhere;
+    }
+    .wrap { width: min(1040px, 100% - 32px); margin: 0 auto; }
+    .narrow { width: min(720px, 100% - 32px); margin: 0 auto; }
+    section { padding: 56px 0; }
+    section + section { border-top: 1px solid var(--line); }
+    .eyebrow {
+      font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+      margin: 0 0 .6rem; font-weight: 600;
+    }
+    .lead { font-size: 1.1rem; color: var(--muted); max-width: 68ch; }
+
+    /* Top bar */
+    .top {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 18px 0;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-weight: 600; font-size: 1.15rem; }
+    .brand img { width: 40px; height: 30px; }
+    .top nav { display: flex; gap: 20px; flex-wrap: wrap; justify-content: flex-end; font-size: .95rem; }
+    .top nav a { text-decoration: none; color: var(--muted); padding: 10px 2px; display: inline-block; }
+    .top nav a:hover { color: var(--ink); }
+
+    /* Hero */
+    .hero { padding: 40px 0 56px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px; align-items: center; }
+    .hero h1 { font-size: clamp(2.2rem, 1.6rem + 3vw, 3.6rem); margin-bottom: 1rem; }
+    .hero h1 em { font-style: italic; font-weight: 400; }
+    .hero .lead { font-size: 1.2rem; margin-bottom: 1.6rem; }
+    .hero .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .hero .meta { color: var(--muted); font-size: .92rem; margin-top: 1.2rem; }
+    .device {
+      justify-self: center; width: min(100%, 300px); padding: 14px 14px 26px;
+      background: var(--paper-3); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow);
+    }
+    .device img { border-radius: 6px; border: 1px solid var(--line); background: #fff; }
+    .device figcaption { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 12px; }
+
+    /* Buttons */
+    .btn, esp-web-install-button button[slot=activate] {
+      appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border: 1px solid var(--button); border-radius: 10px; padding: 12px 22px; cursor: pointer;
+      background: var(--button); color: var(--button-text); text-decoration: none;
+      font: 600 1rem system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      min-height: 48px;
+    }
+    .btn:hover, esp-web-install-button button[slot=activate]:hover { filter: brightness(1.08); }
+    .btn.ghost { background: transparent; color: var(--ink); border-color: var(--control-line); }
+    .btn.ghost:hover { border-color: var(--ink); filter: none; }
+    .btn:focus-visible, esp-web-install-button button[slot=activate]:focus-visible,
+    a:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+    /* Notices */
+    .notice {
+      background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-ink);
+      border-left-width: 5px; border-radius: 10px; padding: 14px 18px; margin: 20px 0; max-width: 72ch;
+    }
+    .notice strong { color: inherit; }
+    .notice a { color: inherit; text-decoration: underline; text-decoration-color: currentColor; font-weight: 600; }
+    .notice.error { background: var(--error-bg); border-color: var(--error-line); color: var(--error-ink); }
+
+    /* Install */
+    .install-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+    .card {
+      background: var(--paper-2); border: 1px solid var(--line); border-radius: 16px; padding: 24px 26px;
+      box-shadow: var(--shadow);
+    }
+    label.pick { display: block; margin: 0 0 6px; font-weight: 600; font-size: .95rem; }
+    select {
+      width: 100%; font: 1rem system-ui, sans-serif; padding: 11px 12px; border-radius: 10px;
+      border: 1px solid var(--control-line); background: var(--paper); color: var(--text); margin-bottom: 18px;
+    }
+    .steps { list-style: none; counter-reset: step; padding: 0; margin: 0; }
+    .steps li {
+      counter-increment: step; position: relative; padding: 0 0 18px 48px; margin: 0;
+    }
+    .steps li::before {
+      content: counter(step); position: absolute; left: 0; top: 2px; width: 32px; height: 32px;
+      border-radius: 50%; background: var(--ink); color: var(--paper);
+      font: 600 .95rem system-ui, sans-serif; display: grid; place-items: center;
+    }
+    .steps li:not(:last-child)::after {
+      content: ""; position: absolute; left: 15px; top: 38px; bottom: 4px; border-left: 1px solid var(--control-line);
+    }
+    .steps h3 { font-size: 1.05rem; margin: 0 0 2px; }
+    .steps p { margin: 0; color: var(--muted); font-size: .97rem; }
+    .steps p strong { color: var(--text); }
+    .agree { display: flex; gap: 12px; align-items: flex-start; margin: 10px 0 18px; cursor: pointer; font-size: .97rem; }
+    .agree input { margin-top: 5px; width: 20px; height: 20px; flex: none; accent-color: var(--ink); }
+    .install { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-height: 48px; }
+    .install.disabled { opacity: .55; pointer-events: none; }
+    .install.disabled button[slot=activate] { cursor: not-allowed; }
+    .version { color: var(--muted); font-size: .9rem; margin: 10px 0 0; }
+    .aside h3 { margin-top: 1.4rem; }
+    .aside ul { padding-left: 20px; margin: .4em 0; }
+    .aside li { margin: .4em 0; }
+
+    /* Features */
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 28px; }
+    .feature img {
+      width: 100%; aspect-ratio: 3 / 5; object-fit: cover; object-position: top;
+      border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    }
+    .feature a.shot { display: block; border-radius: 10px; }
+    .feature h3 { margin-top: 14px; }
+    .feature p { margin: .3em 0 0; color: var(--muted); font-size: .97rem; }
+    .list { columns: 2; column-gap: 40px; padding-left: 20px; margin: 2rem 0 0; padding-top: 1.4rem; border-top: 1px solid var(--line); }
+    .list li { margin: .35em 0; break-inside: avoid; }
+
+    /* Two-column text sections */
+    /* Animations, more screens, phone shots, back to top */
+    .motion { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 28px; }
+    .motion figure { margin: 0; }
+    img[src$=".gif"] { image-rendering: pixelated; }
+    .motion img { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); background: #fff; display: block; }
+    .motion figcaption { margin-top: 10px; color: var(--muted); font-size: .95rem; }
+    .strip { display: flex; align-items: flex-start; gap: 16px; overflow-x: auto; padding: 8px 2px 16px; margin-top: 24px; scroll-snap-type: x mandatory; }
+    .strip figure { flex: 0 0 168px; margin: 0; scroll-snap-align: start; }
+    .strip img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #fff; display: block; }
+    .strip figcaption { font-size: .85rem; color: var(--muted); margin-top: 6px; }
+    .phones { display: flex; align-items: flex-start; gap: 16px; margin-top: 28px; overflow-x: auto; padding-bottom: 12px; }
+    .phones img { flex: 0 0 auto; width: 200px; height: auto; border-radius: 14px; border: 1px solid var(--line); }
+    .carousel { position: relative; }
+    .carousel .strip, .carousel .phones { scroll-behavior: smooth; scrollbar-width: none; cursor: grab;
+      overscroll-behavior-x: contain; scroll-padding: 0 2px; }
+    .carousel .strip::-webkit-scrollbar, .carousel .phones::-webkit-scrollbar { display: none; }
+    .carousel .dragging { cursor: grabbing; scroll-snap-type: none; scroll-behavior: auto; user-select: none; }
+    .carousel .dragging img { pointer-events: none; }
+    .phones { scroll-snap-type: x mandatory; }
+    .phones img { scroll-snap-align: start; }
+    .car-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; border-radius: 50%;
+      border: 1px solid var(--control-line); background: var(--paper-2); color: var(--ink); font-size: 1.4rem; line-height: 1;
+      cursor: pointer; box-shadow: var(--shadow); z-index: 2; }
+    .car-btn.prev { left: -14px; } .car-btn.next { right: -14px; }
+    .car-btn[disabled] { opacity: 0; pointer-events: none; }
+    .car-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+    @media (max-width: 720px) { .car-btn { display: none; } }
+    .to-top { position: fixed; right: 18px; bottom: 18px; width: 46px; height: 46px; border-radius: 50%;
+      border: 1px solid var(--control-line); background: var(--paper-2); color: var(--ink); font-size: 1.3rem;
+      cursor: pointer; box-shadow: var(--shadow); opacity: 0; transform: translateY(12px); pointer-events: none;
+      transition: opacity .25s, transform .25s; }
+    .to-top.show { opacity: 1; transform: none; pointer-events: auto; }
+    .to-top:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+    .js .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+    .js .reveal.in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .js .reveal { opacity: 1; transform: none; transition: none; }
+      .to-top { transition: none; }
+    }
+    @media (max-width: 720px) { .motion { grid-template-columns: 1fr; } .phones img { width: 160px; } }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
+
+    /* Credits */
+    .credits { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 20px; }
+    .credit { background: var(--paper-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+    .credit h3 { font-size: 1rem; }
+    .credit p { margin: .3em 0 0; color: var(--muted); font-size: .95rem; }
+
+    footer {
+      border-top: 1px solid var(--line); padding: 32px 0 48px; color: var(--muted); font-size: .92rem;
+    }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+    footer a { color: var(--ink); }
+
+    @media (max-width: 860px) {
+      .hero { grid-template-columns: 1fr; gap: 32px; padding-top: 24px; }
+      .device { width: min(100%, 260px); }
+      .install-grid, .split, .credits { grid-template-columns: 1fr; gap: 28px; }
+      .features { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+      .list { columns: 1; }
+      section { padding: 44px 0; }
+    }
+    @media (max-width: 480px) {
+      body { font-size: 16px; }
+      .top { flex-direction: column; align-items: flex-start; gap: 10px; padding-bottom: 10px; }
+      .top nav { gap: 14px; font-size: .9rem; justify-content: flex-start; }
+      .features { grid-template-columns: 1fr; gap: 18px; }
+      .feature { display: grid; grid-template-columns: 136px 1fr; gap: 16px; align-items: start; margin: 0; }
+      .feature img { aspect-ratio: 3 / 5; }
+      .feature h3 { margin-top: 0; }
+      .card { padding: 20px 18px; }
+      .steps li { padding-left: 42px; }
+      .steps li::before { width: 28px; height: 28px; font-size: .85rem; }
+      .steps li:not(:last-child)::after { left: 13px; top: 34px; }
+      .btn, esp-web-install-button button[slot=activate] { width: 100%; }
+      .install { align-items: stretch; }
+      footer .wrap { flex-direction: column; gap: 12px; line-height: 1.9; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+
+<header class="wrap top">
+  <a class="brand" href="./">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="logo-dark.svg">
+      <img src="logo-light.svg" alt="" width="40" height="30">
+    </picture>
+    VaultInk
+  </a>
+  <nav class="sans" aria-label="Page sections">
+    <a href="#install">Install</a>
+    <a href="#features">Features</a>
+    <a href="#comics">Comics</a>
+    <a href="#companion">Companion app</a>
+    <a href="https://github.com/Somnius/VaultInk">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <p class="eyebrow sans">Free firmware for the Xteink X4 Pro</p>
+      <h1>Your books and your <em>Obsidian vaults</em>, on paper-like ink.</h1>
+      <p class="lead">VaultInk turns the Xteink X4 Pro e-reader into a reader for books, comics and
+        your Obsidian notes. Read notes like book pages, follow their links, search every vault, edit
+        a line, and keep them in sync over Wi-Fi.</p>
+      <div class="actions">
+        <a class="btn" href="#install">Install from your browser</a>
+        <a class="btn ghost" href="https://github.com/Somnius/VaultInk#readme">Read the docs</a>
+      </div>
+      <p class="meta sans">Open source, MIT licence. Built on CrossPoint Reader. Not affiliated with
+        Obsidian, Xteink or CrossPoint. <span id="heroVersion"></span></p>
+    </div>
+    <figure class="device">
+      <img src="shot-note.png" width="480" height="800"
+        alt="An Obsidian note on the X4 Pro, with links, a callout and a table">
+      <figcaption class="sans">Rendered on the X4 Pro's 480 × 800 e-ink screen.</figcaption>
+    </figure>
+  </div>
+
+  <section id="install">
+    <div class="wrap">
+      <p class="eyebrow sans">Install</p>
+      <h2>Install it from this page</h2>
+      <p class="lead">No tools to download. Chrome or Edge on a computer talks to the reader over
+        USB and writes the firmware. It takes about a minute.</p>
+
+      <div class="notice" role="note">
+        <strong>Early build.</strong> Tested by one tester on one X4 Pro so far, so things can still go
+        wrong. Back up your SD card first, and only install it if you're comfortable flashing your
+        reader back to the official firmware if something goes wrong.
+      </div>
+
+      <div class="notice error" id="browserBlock" hidden role="alert">
+        <strong>This browser can't install VaultInk.</strong> Installing needs Web Serial, which only
+        desktop <strong>Chrome</strong>, <strong>Edge</strong> and other Chromium-based browsers (Brave,
+        Opera, Vivaldi) have. Firefox, Safari and phone browsers don't. Please open this page in one of
+        those on a computer.
+      </div>
+
+      <div class="install-grid">
+        <div class="card" id="installCard">
+          <label class="pick sans" for="device">Your device</label>
+          <select id="device" aria-controls="devicePanels">
+            <option value="x4pro" selected>Xteink X4 Pro</option>
+            <option value="x4">Xteink X4</option>
+            <option value="x3">Xteink X3</option>
+            <option value="other">Something else / not sure</option>
+          </select>
+          <div id="devicePanels" aria-live="polite">
+
+          <div data-device="x4pro">
+            <ol class="steps">
+              <li>
+                <h3>Back up your SD card</h3>
+                <p>Installing doesn't touch the card, but if anything goes wrong you'll want a copy of
+                  your books and notes.</p>
+              </li>
+              <li>
+                <h3>Put the update file on the SD card (for later)</h3>
+                <p>From the <a href="https://github.com/Somnius/VaultInk/releases/latest">latest
+                  release</a>, download <code id="appBin">vaultink-&lt;version&gt;-x4pro.bin</code> (the
+                  file <em>without</em> "factory" in its name) and copy it to the root of the SD card.
+                  With it there, you can reinstall VaultInk from the reader itself under
+                  <kbd>Settings → System → SD Card Firmware Update</kbd>. Don't use the factory file for
+                  that; it is only for this page.</p>
+              </li>
+              <li>
+                <h3>Put the X4 Pro into boot mode</h3>
+                <p>With the reader switched off, press and hold <strong>Power</strong>, then also press
+                  and hold <strong>both page-turn buttons</strong>, and keep holding them.</p>
+              </li>
+              <li>
+                <h3>Connect it to your computer</h3>
+                <p>Use a USB-C <em>data</em> cable (some cables only charge). Use Chrome, Edge or
+                  another browser with Web Serial, on a computer, not a phone.</p>
+              </li>
+              <li>
+                <h3>Press Install VaultInk</h3>
+                <p>Choose the device in the list. The installer offers to <strong>erase the
+                  device</strong> first. Erasing wipes everything stored on the reader itself (settings,
+                  Wi-Fi networks, the current firmware) but not the SD card. It takes about a minute;
+                  wait until it says it's done, then restart the reader with Power.</p>
+              </li>
+            </ol>
+            <label class="agree sans">
+              <input type="checkbox" id="agree" aria-controls="installBox">
+              <span>I understand this is an early build, tested on one device so far, and I've backed up my SD card.</span>
+            </label>
+            <div class="install disabled" id="installBox">
+              <esp-web-install-button manifest="manifest.json">
+                <button slot="activate" id="installBtn" disabled>Install VaultInk</button>
+                <span slot="unsupported">Your browser can't flash devices. Please use Chrome or Edge on a computer.</span>
+                <span slot="not-allowed">Flashing needs a secure (https) page.</span>
+              </esp-web-install-button>
+            </div>
+            <p class="version sans" id="version"></p>
+          </div>
+
+          <div data-device="x4 x3" hidden>
+            <p><strong>VaultInk doesn't run on the X4 or X3 yet.</strong> They use a smaller chip
+              (ESP32-C3) with less memory, and VaultInk is built for the X4 Pro only for now. The
+              installer would refuse the device anyway.</p>
+            <p>For these readers, use <a href="https://crosspointreader.com/#flash-tools">CrossPoint
+              Reader</a>, the firmware VaultInk is based on.</p>
+          </div>
+
+          <div data-device="other" hidden>
+            <p>VaultInk only supports the <strong>Xteink X4 Pro</strong> for now. The model name is on
+              the box and on the back of the reader. If you have an X4 or X3, pick it above.</p>
+          </div>
+          </div>
+        </div>
+
+        <div class="aside">
+          <h3>Not working?</h3>
+          <ul>
+            <li><strong>The device isn't in the list.</strong> Try another cable (some only charge) or
+              another USB port, and check the reader is still in boot mode (step 3).</li>
+            <li><strong>It connects but won't flash.</strong> Try another USB port or browser first.
+              Some units sold by third-party shops have USB flashing locked at the factory. CrossPoint's
+              site has an <a href="https://crosspointreader.com/#flash-tools">Xteink unlocker</a>; read
+              its warnings first, since it only supports CrossPoint and CrossInk officially.</li>
+            <li><strong>Going back.</strong> Install the official Xteink firmware the same way you
+              installed this one.</li>
+          </ul>
+
+          <h3>Updating later</h3>
+          <p>Once VaultInk is on the device you don't need this page again. Connect the reader to
+            Wi-Fi and open <kbd>Settings → System → Check for Updates</kbd>: it finds the newest
+            release, downloads it and installs it. Without Wi-Fi, copy the new
+            <code>vaultink-&lt;version&gt;-x4pro.bin</code> to the SD card and use
+            <kbd>Settings → System → SD Card Firmware Update</kbd>.</p>
+
+          <h3>Prefer a file?</h3>
+          <p>Every version is on the <a href="https://github.com/Somnius/VaultInk/releases">releases
+            page</a>, with notes on what changed and what was tested. The
+            <a href="https://github.com/Somnius/VaultInk#readme">README</a> and
+            <a href="https://github.com/Somnius/VaultInk/tree/main/docs">docs</a> cover the rest.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="motion">
+    <div class="wrap">
+      <p class="eyebrow sans">See it move</p>
+      <h2>A few seconds on the reader</h2>
+      <div class="motion">
+        <figure class="reveal">
+          <img src="anim-notes.gif" width="240" height="400" loading="lazy" alt="Opening a vault and reading a note">
+          <figcaption class="sans">A vault, a note, a link followed and back.</figcaption>
+        </figure>
+        <figure class="reveal">
+          <img src="anim-library.gif" width="240" height="400" loading="lazy" alt="The Library tabs and author folders">
+          <figcaption class="sans">The Library: by title, by author as folders, favourites.</figcaption>
+        </figure>
+        <figure class="reveal">
+          <img src="anim-paper.gif" width="320" height="533" loading="lazy" alt="Reading with different paper backgrounds">
+          <figcaption class="sans">Paper backgrounds and reading settings.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <p class="eyebrow sans">What it does</p>
+      <h2>A reader for books, and for your notes</h2>
+      <p class="lead">Everything CrossPoint Reader does for books stays. VaultInk adds your Obsidian
+        vaults, read straight from the SD card.</p>
+
+      <div class="features">
+        <figure class="feature">
+          <a href="shot-vaults.png" class="shot"><img src="shot-vaults.png" width="480" height="800" loading="lazy" alt="A vault's folders and notes"></a>
+          <figcaption>
+            <h3>Vaults as folders</h3>
+            <p>Every vault on the card opens like a folder of notes. Each one remembers where you left off.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-note.png" class="shot"><img src="shot-note.png" width="480" height="800" loading="lazy" alt="A note with links, a callout, tasks and a table"></a>
+          <figcaption>
+            <h3>Notes that read like pages</h3>
+            <p>Headings, lists, tasks, callouts, tables, code, footnotes, embeds and images. Tap a
+              <code>[[link]]</code> to follow it, Back to return.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-search.png" class="shot"><img src="shot-search.png" width="480" height="800" loading="lazy" alt="Search results across vaults"></a>
+          <figcaption>
+            <h3>Search across vaults</h3>
+            <p>By title, alias, tag and text, in every vault at once. Accents don't matter: <code>καλημερα</code>
+              finds <code>Καλημέρα</code>.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-library.png" class="shot"><img src="shot-library.png" width="480" height="800" loading="lazy" alt="The Library, books by title"></a>
+          <figcaption>
+            <h3>Books</h3>
+            <p>EPUB, TXT, XTC, XTCH and CBZ. Fonts from the SD card, hyphenation, bookmarks,
+              highlights, dictionaries, KOReader sync, OPDS and Calibre transfer.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-keyboard-el.png" class="shot"><img src="shot-keyboard-el.png" width="480" height="800" loading="lazy" alt="The on-screen Greek keyboard"></a>
+          <figcaption>
+            <h3>Edit and sync</h3>
+            <p>Tick tasks, edit a note line by line, make, rename and delete notes. Obsidian
+              Self-hosted LiveSync keeps a vault in step both ways, encryption included.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-home.png" class="shot"><img src="shot-home.png" width="480" height="800" loading="lazy" alt="The VaultInk home screen"></a>
+          <figcaption>
+            <h3>A calm home screen</h3>
+            <p>The book you're reading on top, then Books, Vaults, Favourites, Search, Files, Gallery,
+              Transfer, Plugins and Settings. Interface in English and Greek, with more languages on the way.</p>
+          </figcaption>
+        </figure>
+      </div>
+
+      <ul class="list">
+        <li>Flashcards from your notes: tag a note, write <code>Front::Back</code>, review with spaced repetition.</li>
+        <li>Search in a book: a word or phrase, with the page of every hit.</li>
+        <li>PDFs open as reflowing text, Greek included. No pictures, tables or scans.</li>
+        <li>A PIN or corner lock, with your name and phone on the lock and sleep screens.</li>
+        <li>A book's highlights written to a note in your vault.</li>
+        <li>Canvas files: pan, zoom, tap a card to open its note.</li>
+        <li>Backlinks and recent notes for every vault.</li>
+        <li>Quick settings on a swipe down: light, warmth, night mode, refresh, sleep.</li>
+        <li>Greek and English on-screen keyboard, switched with the globe key.</li>
+        <li>Import a vault from a ZIP over the device's web page.</li>
+        <li>Updates over Wi-Fi from the device itself, with the release notes first.</li>
+      </ul>
+
+      <h3 style="margin-top:2.4rem">More screens</h3>
+      <div class="carousel">
+      <button class="car-btn prev" type="button" aria-label="Previous screens">‹</button>
+      <button class="car-btn next" type="button" aria-label="More screens">›</button>
+      <div class="strip" tabindex="0" aria-label="More screenshots, scroll sideways">
+        <figure><a href="shot-reading.png"><img src="shot-reading.png" width="480" height="800" loading="lazy" alt="Reading a book"></a><figcaption class="sans">Reading</figcaption></figure>
+        <figure><a href="shot-toolbar.png"><img src="shot-toolbar.png" width="480" height="800" loading="lazy" alt="The reading toolbar"></a><figcaption class="sans">Reading toolbar</figcaption></figure>
+        <figure><a href="shot-quick.png"><img src="shot-quick.png" width="480" height="800" loading="lazy" alt="Quick settings"></a><figcaption class="sans">Quick settings</figcaption></figure>
+        <figure><a href="shot-authors.png"><img src="shot-authors.png" width="480" height="800" loading="lazy" alt="Books by author, as folders"></a><figcaption class="sans">Authors as folders</figcaption></figure>
+        <figure><a href="shot-comic.png"><img src="shot-comic.png" width="480" height="800" loading="lazy" alt="A converted comic on the reader"></a><figcaption class="sans">A comic</figcaption></figure>
+        <figure><a href="shot-flashcards.png"><img src="shot-flashcards.png" width="480" height="800" loading="lazy" alt="A flashcard with its answer and four buttons"></a><figcaption class="sans">Flashcards</figcaption></figure>
+        <figure><a href="shot-search-book.png"><img src="shot-search-book.png" width="480" height="800" loading="lazy" alt="Search in a book, results with their pages"></a><figcaption class="sans">Search in a book</figcaption></figure>
+        <figure><a href="shot-pdf.png"><img src="shot-pdf.png" width="480" height="800" loading="lazy" alt="A PDF read as text"></a><figcaption class="sans">A PDF as text</figcaption></figure>
+        <figure><a href="shot-lock.png"><img src="shot-lock.png" width="480" height="800" loading="lazy" alt="The PIN lock screen with an owner's name and phone"></a><figcaption class="sans">Lock screen</figcaption></figure>
+        <figure><a href="shot-settings.png"><img src="shot-settings.png" width="480" height="800" loading="lazy" alt="Settings"></a><figcaption class="sans">Settings</figcaption></figure>
+        <figure><a href="shot-home-el.png"><img src="shot-home-el.png" width="480" height="800" loading="lazy" alt="The home screen in Greek"></a><figcaption class="sans">In Greek</figcaption></figure>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="comics">
+    <div class="wrap split">
+      <div>
+        <p class="eyebrow sans">Comics and manga</p>
+        <h2>Comics, cut to fit the screen</h2>
+        <p>Comics go through <a href="https://seethroughme.github.io/Banana-Comic-Converter/">Banana
+          Comic Converter</a>, a free tool by <strong>u/curseofthebanana</strong> that runs in the
+          browser on a phone or a computer. Instead of shrinking a whole page, it cuts every page into
+          its panels and repacks them to fill the small screen. It has an X4 / X4 Pro preset, manga
+          (right-to-left) or western order, a panel editor for the pages it gets wrong, and batch
+          conversion.</p>
+      </div>
+      <div>
+        <h3>How it works</h3>
+        <p>Convert to <strong>XTCH</strong> (or <strong>XTC</strong> for the fastest page turns), upload the
+          file with the companion app or the device's web page, and read it like a book. Plain
+          <strong>CBZ</strong> files open too. On the reader,
+          <kbd>Settings → Library → Convert comics</kbd> shows a QR code that opens the converter on
+          your phone.</p>
+        <p><a href="https://github.com/Somnius/VaultInk/blob/main/docs/comics.md">The comics guide</a> ·
+          <a href="https://seethroughme.github.io/Banana-Comic-Converter/">Banana Comic Converter</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="companion">
+    <div class="wrap split">
+      <div>
+        <p class="eyebrow sans">Android companion app</p>
+        <h2>Your phone, talking to the reader</h2>
+        <p>The companion app connects to the reader over Wi-Fi while File Transfer is open. Write a
+          quick note or share text and pictures from any app straight into a vault, or books and comics straight to the reader; browse the whole
+          SD card to upload, download, rename, move and delete; convert comics; and change the device
+          settings from the phone.</p>
+      </div>
+      <div>
+        <h3>Get it</h3>
+        <p>It's released separately, as an APK on the
+          <a href="https://github.com/Somnius/VaultInk/releases?q=companion&expanded=true">companion
+          releases</a>. Download it on the phone and open it. It needs VaultInk 0.29.0 or newer on the
+          device.</p>
+        <p><a href="https://github.com/Somnius/VaultInk/blob/main/docs/companion.md">The companion guide</a></p>
+      </div>
+    </div>
+    <div class="wrap">
+      <div class="carousel reveal">
+      <button class="car-btn prev" type="button" aria-label="Previous screens">‹</button>
+      <button class="car-btn next" type="button" aria-label="More screens">›</button>
+      <div class="phones" tabindex="0" aria-label="Companion app screenshots, scroll sideways">
+        <img src="phone-note.png" width="540" height="1110" loading="lazy" alt="A quick note into a vault">
+        <img src="phone-files.png" width="540" height="1110" loading="lazy" alt="The reader's SD card on the phone">
+        <img src="phone-settings.png" width="540" height="1110" loading="lazy" alt="The reader's settings on the phone">
+        <img src="phone-comic-convert.png" width="540" height="1110" loading="lazy" alt="Converting a comic inside the app">
+        <img src="phone-share.png" style="width:300px" width="540" height="375" loading="lazy" alt="A book shared from another app, sent to the reader">
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="credits">
+    <div class="wrap">
+      <p class="eyebrow sans">Credits</p>
+      <h2>Built on other people's work</h2>
+      <div class="credits">
+        <div class="credit">
+          <h3><a href="https://github.com/crosspoint-reader/crosspoint-reader">CrossPoint Reader</a></h3>
+          <p>Everything here is built on it, and on the <a href="https://freeink.org">FreeInk SDK</a>
+            under it: drivers, UI, keyboard.</p>
+        </div>
+        <div class="credit">
+          <h3><a href="https://seethroughme.github.io/Banana-Comic-Converter/">Banana Comic Converter</a></h3>
+          <p>By u/curseofthebanana (<a href="https://github.com/seethroughme">seethroughme</a>). It
+            makes the comics VaultInk reads.</p>
+        </div>
+        <div class="credit">
+          <h3>kos25k</h3>
+          <p>Tested every release on his X4 Pro, from 0.8.2 on.</p>
+        </div>
+        <div class="credit">
+          <h3><a href="https://github.com/manuelx900/CrossNext">CrossNext</a> and KOReader</h3>
+          <p>Ideas borrowed from CrossNext and KOReader's SimpleUI plugin.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<button class="to-top sans" id="toTop" type="button" aria-label="Back to top" title="Back to top">↑</button>
+
+<footer class="sans">
+  <div class="wrap">
+    <span>Made by <a href="https://lefteros.com">Lefteris Iliadis</a> ·
+      <a href="https://lefteros.com/en/apps/vaultink">Project page and donations</a></span>
+    <span><a href="https://github.com/Somnius/VaultInk">VaultInk on GitHub</a> ·
+      <a href="https://github.com/Somnius/VaultInk/releases">Releases</a> ·
+      MIT licence · No cookies, no tracking</span>
+  </div>
+</footer>
+
+<script>
+  document.documentElement.classList.add("js");
+  // Flashing needs Web Serial (desktop Chromium). Without it, stop here instead of letting the
+  // install button fail later.
+  if (!("serial" in navigator)) {
+    document.getElementById("browserBlock").hidden = false;
+    document.getElementById("agree").disabled = true;
+  }
+  // Device picker: show the steps for the chosen reader, remember it for the next visit.
+  const device = document.getElementById("device");
+  const showDevice = () => {
+    document.querySelectorAll("[data-device]").forEach(el => {
+      el.hidden = !el.dataset.device.split(" ").includes(device.value);
+    });
+    try { localStorage.setItem("vaultink-device", device.value); } catch (e) {}
+  };
+  try { const saved = localStorage.getItem("vaultink-device"); if (saved) device.value = saved; } catch (e) {}
+  device.addEventListener("change", showDevice);
+  showDevice();
+  const agree = document.getElementById("agree");
+  const box = document.getElementById("installBox");
+  const installBtn = document.getElementById("installBtn");
+  agree.addEventListener("change", () => {
+    if (!("serial" in navigator)) return;
+    box.classList.toggle("disabled", !agree.checked);
+    installBtn.disabled = !agree.checked;
+  });
+  // Back to top, shown once the page is scrolled past the first screen.
+  const toTop = document.getElementById("toTop");
+  const onScroll = () => toTop.classList.toggle("show", window.scrollY > window.innerHeight * 0.8);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+  toTop.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    document.querySelector(".brand")?.focus({ preventScroll: true });
+  });
+  // Fade sections in as they come into view (skipped when the reader prefers less motion).
+  const reveals = document.querySelectorAll(".reveal, .feature");
+  if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    reveals.forEach(el => el.classList.add("reveal"));
+    const io = new IntersectionObserver(entries => entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+    }), { rootMargin: "0px 0px -8% 0px" });
+    reveals.forEach(el => io.observe(el));
+  } else {
+    reveals.forEach(el => el.classList.add("in"));
+  }
+  // Sliders: arrows move one picture, the mouse can drag, a vertical wheel scrolls sideways.
+  document.querySelectorAll(".carousel").forEach(car => {
+    const row = car.querySelector(".strip, .phones");
+    const prev = car.querySelector(".prev"), next = car.querySelector(".next");
+    const step = () => {
+      const first = row.firstElementChild;
+      return first ? first.getBoundingClientRect().width + parseFloat(getComputedStyle(row).columnGap || 16) : 200;
+    };
+    const update = () => {
+      prev.disabled = row.scrollLeft <= 2;
+      next.disabled = row.scrollLeft + row.clientWidth >= row.scrollWidth - 2;
+    };
+    prev.addEventListener("click", () => row.scrollBy({ left: -step() * 2 }));
+    next.addEventListener("click", () => row.scrollBy({ left: step() * 2 }));
+    row.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    row.addEventListener("wheel", e => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const atStart = row.scrollLeft <= 0 && e.deltaY < 0;
+      const atEnd = row.scrollLeft + row.clientWidth >= row.scrollWidth - 1 && e.deltaY > 0;
+      if (atStart || atEnd) return;  // let the page scroll on past the ends
+      e.preventDefault();
+      row.scrollBy({ left: e.deltaY, behavior: "auto" });
+    }, { passive: false });
+    let down = null, moved = false;
+    row.addEventListener("pointerdown", e => {
+      if (e.pointerType !== "mouse") return;  // touch already swipes natively
+      down = { x: e.clientX, left: row.scrollLeft }; moved = false;
+    });
+    window.addEventListener("pointermove", e => {
+      if (!down) return;
+      const dx = e.clientX - down.x;
+      if (Math.abs(dx) > 4) { moved = true; row.classList.add("dragging"); }
+      if (moved) row.scrollLeft = down.left - dx;
+    });
+    window.addEventListener("pointerup", () => {
+      if (!down) return;
+      down = null;
+      row.classList.remove("dragging");
+    });
+    row.addEventListener("click", e => { if (moved) { e.preventDefault(); moved = false; } }, true);
+    row.addEventListener("dragstart", e => e.preventDefault());
+    update();
+    window.addEventListener("load", update);
+  });
+  fetch("manifest.json").then(r => r.json()).then(m => {
+    document.getElementById("version").textContent = "Version " + m.version + " · built " + (m.built || "");
+    document.getElementById("appBin").textContent = "vaultink-" + m.version + "-x4pro.bin";
+    document.getElementById("heroVersion").textContent = "Latest version: " + m.version + ".";
+  }).catch(() => {});
+</script>
+</body>
+</html>
