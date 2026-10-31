@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "LibraryFolders.h"
+#include "LibraryFormats.h"
 #include "LibraryIndexFile.h"
 
 namespace library {
@@ -315,4 +316,15 @@ TEST(LibraryFolders, RejectsEmptyInputAndOutOfRangeFolders) {
   EXPECT_EQ(library::bucketByFolder(good, 2, 0, counts, rows, starts, folder), 0);
   EXPECT_EQ(library::bucketByFolder(bad, 2, 2, counts, rows, starts, folder), 0);
   EXPECT_EQ(library::bucketByFolder(good, 2, 2, counts, rows, starts, folder), 2);
+}
+
+TEST(LibraryFormats, BitsAndMask) {
+  using namespace library;
+  EXPECT_EQ(formatBitOf("/a/B.EPUB"), FMT_EPUB);
+  EXPECT_EQ(formatBitOf("x.xtch"), FMT_XTC);
+  EXPECT_EQ(formatBitOf("x.pdf"), FMT_PDF);
+  EXPECT_EQ(formatBitOf("x.canvas"), 0);
+  EXPECT_TRUE(formatAllowed(FMT_ALL, "x.cbz"));
+  EXPECT_FALSE(formatAllowed(FMT_EPUB | FMT_PDF, "x.txt"));
+  EXPECT_TRUE(formatAllowed(FMT_EPUB, "x.canvas"));  // not covered by the filter
 }

@@ -8,6 +8,7 @@
 #include <I18n.h>
 #include <LibraryBuilder.h>
 #include <LibraryFolders.h>
+#include <LibraryFormats.h>
 #include <LibraryText.h>
 #include <Logging.h>
 #include <Memory.h>
@@ -20,6 +21,7 @@
 #include "FavouritesStore.h"
 #include "MappedInputManager.h"
 #include "RecentBooksStore.h"
+#include "activities/settings/LibraryFormatsActivity.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UIScale.h"
@@ -101,6 +103,7 @@ void LibraryListActivity::onEnter() {
   RenderLock lock(*this);
   UiTabListActivity::onEnter();
   app.on(ACTION_SEARCH, &LibraryListActivity::searchActionTrampoline, this);
+  app.on(ACTION_FORMATS, &LibraryListActivity::formatsActionTrampoline, this);
   app.on(ACTION_REBUILD, &LibraryListActivity::rebuildActionTrampoline, this);
   app.on(ACTION_BACK, &LibraryListActivity::backActionTrampoline, this);
   app.on(ACTION_FILTER, &LibraryListActivity::filterActionTrampoline, this);
@@ -126,7 +129,7 @@ void LibraryListActivity::onEnter() {
     LOG_ERR("LIB", "index was built without duplicate detection");
   }
   resolvePinned();
-  if (SETTINGS.libraryBooksOnly) applyFilter();  // the remembered "Books only"
+  if (SETTINGS.libraryBooksOnly || formatsFiltered()) applyFilter();  // the remembered "Books only" and formats
   applyAuthorFolders();
 
   if (startTab >= 0 && startTab < TAB_SLOTS) {
@@ -212,6 +215,7 @@ void LibraryListActivity::resolvePinned() {
         (FsHelpers::hasMarkdownExtension(path) || FsHelpers::checkFileExtension(path, ".canvas"))) {
       continue;
     }
+    if (!library::formatAllowed(SETTINGS.libraryFormatMask, path)) continue;
     pinnedAscRows[shown] = pinnedAscRows[i];
     pinnedStore[shown++] = i;
   }
@@ -295,8 +299,10 @@ bool LibraryListActivity::folderTab() const { return activeTabIndex == FOLDERS_T
 
 // The Folders tab lists every book; search and Books only belong to the other tabs.
 bool LibraryListActivity::filtering() const {
-  return !folderTab() && (!query.empty() || SETTINGS.libraryBooksOnly != 0);
+  return !folderTab() && (!query.empty() || SETTINGS.libraryBooksOnly != 0 || formatsFiltered());
 }
+
+bool LibraryListActivity::formatsFiltered() { return SETTINGS.libraryFormatMask != library::FMT_ALL; }
 
 void LibraryListActivity::onRowLongPress(const int index) {
   if (favouritesTab()) {
@@ -917,7 +923,8 @@ void LibraryListActivity::applyFilter() {
   if (!filtering()) return;
 
   const std::string needle = library::fold(query);
-  const bool booksOnly = SETTINGS.libraryBooksOnly != 0;
+  // Books only and the format filter both leave rows out of the plain list.
+  const bool booksOnly = SETTINGS.libraryBooksOnly != 0 || formatsFiltered();
   // Books only under the pins: skip the index rows a pin already shows.
   const bool skipPinned = pinnedCount() > 0;
   if (skipPinned) refreshOverlap();
@@ -941,7 +948,9 @@ void LibraryListActivity::applyFilter() {
     if (booksOnly) {
       name.clear();
       if (index.readName(record, name) &&
-          (FsHelpers::hasMarkdownExtension(name) || FsHelpers::checkFileExtension(name, ".canvas"))) {
+          ((SETTINGS.libraryBooksOnly != 0 &&
+            (FsHelpers::hasMarkdownExtension(name) || FsHelpers::checkFileExtension(name, ".canvas"))) ||
+           !library::formatAllowed(SETTINGS.libraryFormatMask, name))) {
         continue;
       }
       if (skipPinned && std::binary_search(overlapRows, overlapRows + overlapCount, static_cast<uint16_t>(row))) {
@@ -992,6 +1001,37 @@ void LibraryListActivity::handleBackAction() {
   } else {
     onGoHome();
   }
+}
+
+void LibraryListActivity::formatsActionTrampoline(const fui::ActionEvent&, void* user) {
+  static_cast<LibraryListActivity*>(user)->openFormats();
+}
+
+void LibraryListActivity::openFormats() {
+  app.clearTapFlash();
+  auto formats = makeUniqueNoThrow<LibraryFormatsActivity>(renderer, mappedInput);
+  if (!formats) {
+    LOG_ERR("LIB", "OOM: formats screen");
+    return;
+  }
+  const uint8_t maskBefore = SETTINGS.libraryFormatMask;
+  startActivityForResult(std::move(formats), [this, maskBefore](const ActivityResult&) {
+    swallowHeldReleases();
+    if (maskBefore == SETTINGS.libraryFormatMask) {
+      requestUpdate();  // nothing changed: keep the place in the list
+      return;
+    }
+    {
+      RenderLock lock(*this);
+      resolvePinned();
+      applyFilter();
+      applyAuthorFolders();
+      auto& nav = activeNav();
+      nav.selected = 0;
+      nav.top = 0;
+    }
+    requestUpdate();
+  });
 }
 
 void LibraryListActivity::searchActionTrampoline(const fui::ActionEvent&, void* user) {
@@ -1389,6 +1429,19 @@ void LibraryListActivity::buildHeader(UiScreen& screen) {
                                                          frameRect.width, static_cast<int16_t>(metrics.headerHeight)},
                                                header);
   fui::header(screen.frame(), band, header);
+  if (!degraded && mappedInput.hasTouch() && SETTINGS.libraryFormatButton != 0) {
+    // A third header button, left of search and refresh: the header control only has two slots.
+    const int16_t size = header.trailingSize > 0 ? header.trailingSize : static_cast<int16_t>(band.height - 8);
+    const int16_t x = static_cast<int16_t>(band.right() - 12 - 4 - size - 4 - size - 4 - size);
+    fui::ButtonProps gear;
+    gear.icon = fui::bitmapFromIcon(icon_settings_32);
+    gear.action = ACTION_FORMATS;
+    gear.styles = header.trailingStyles;
+    gear.radius = header.trailingRadius;
+    gear.minTouchSize = header.minTouchSize;
+    fui::button(screen.frame(), fui::Rect{x, static_cast<int16_t>(band.y + 4 + header.actionOffsetY), size, size},
+                gear);
+  }
   fui::Rect home;
   if (BaseTheme::headerHomeRect(band, home)) {
     screen.frame().target().bitmap(home, fui::bitmapFromIcon(icon_house_24), fui::BitmapMode::Center);
@@ -1416,7 +1469,7 @@ void LibraryListActivity::buildScreen(UiScreen& screen) {
       message = tr(STR_NO_FAVOURITES);
     } else if (filterFailed) {
       message = tr(STR_LIBRARY_SEARCH_UNAVAILABLE);
-    } else if (query.empty()) {
+    } else if (query.empty() && !formatsFiltered()) {
       message = tr(STR_LIBRARY_EMPTY);
     }
     screen.centeredText(message);

@@ -450,6 +450,14 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t libraryBooksOnly = 0;
   // Library Author tab as folders (kos25k #18): 2+ books by one author fold into a folder.
   uint8_t libraryAuthorFolders = 0;
+  // Library format filter (kos25k #18): which book types the Library lists (bits of library::FMT_*, 63 = all),
+  // and whether the gear button shows in the Library header.
+  uint8_t libraryFormatMask = 63;
+  uint8_t libraryFormatButton = 1;
+  // Search in book (kos25k #24): show it in the reader's More menu; 0 = search the whole book, 1 = from the
+  // start to the reading point.
+  uint8_t searchInMoreMenu = 1;
+  uint8_t searchScope = 0;
   // Bluetooth page turner, saved under the keys lib/BlePageTurner reads and writes (BlePageTurnerJson.h).
   bleturner::Config ble;
   // Quick Resume: keep current content visible with moon icon instead of showing a static sleep screen.

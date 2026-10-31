@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.58.0 (2026-11-01)
+
+A book-format filter for the Library, Search in Book that shows the words on the page, and drain per hour on the Battery page (kos25k #18, #24 and #20).
+
+- **Library format filter** (kos25k #18): a gear button in the Library header, left of search and refresh, opens a short list of formats (EPUB, PDF, TXT, Markdown, XTC and CBZ). Untick what you don't want to see. The same list is in Settings > Library > Book formats, and Settings > Library > Format filter button hides the gear. PDFs now show in the Library too; the list is rebuilt once after the update.
+- **Search in Book** (kos25k #24): after you pick a hit, the searched words are shaded on the page, and a bar at the bottom steps to the previous or next hit. The arrow at the bottom right goes back to exactly where you were; "Stay here" keeps the page you are on. While you look at hits, the reading position, reading time and sync are left alone. Settings > Reader has a switch to show Search in Book in the More menu, and a range: the whole book, or from the start to where you are.
+- **Battery** (kos25k #20): drain per hour while asleep and while awake, worked out from the battery level at each sleep and wake. It needs a few days of use before it shows a number. The firmware cannot measure what each app draws, so the page says "Not measured" for that.
+
+Tested in the simulator (the gear, the format list, hit highlights, stepping, return, progress file unchanged) and on the computer. Not tested on a device: how the drain figures look after real days of use.
+
+
 ## 0.57.0 (2026-10-31)
 
 Search in Book is much faster, and the corner lock screen is plainer (kos25k #24 and #22).

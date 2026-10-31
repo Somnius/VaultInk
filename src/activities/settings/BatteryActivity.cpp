@@ -12,6 +12,7 @@
 #include <cstdio>
 
 #include "components/UITheme.h"
+#include "util/BatteryHistory.h"
 
 namespace fui = freeink::ui;
 
@@ -86,6 +87,18 @@ void BatteryActivity::readBattery() {
     snprintf(buffer, sizeof(buffer), "%d.%d °C", tenths / 10, (tenths < 0 ? -tenths : tenths) % 10);
     add(StrId::STR_BATTERY_TEMPERATURE, buffer);
   }
+  // Drain per hour from the sleep and wake log (kos25k #20). Nothing in the firmware measures what
+  // each app draws, so that row says so.
+  const auto stats = batteryhistory::load();
+  const auto rate = [&buffer](const batterylog::Rate& r) -> std::string {
+    if (!r.known) return tr(STR_BATTERY_NOT_ENOUGH_DATA);
+    snprintf(buffer, sizeof(buffer), "%u.%02u %%/h (%u h)", static_cast<unsigned>(r.hundredthsPerHour / 100),
+             static_cast<unsigned>(r.hundredthsPerHour % 100), static_cast<unsigned>((r.seconds + 1800) / 3600));
+    return buffer;
+  };
+  add(StrId::STR_BATTERY_DRAIN_ASLEEP, rate(stats.asleep));
+  add(StrId::STR_BATTERY_DRAIN_AWAKE, rate(stats.awake));
+  add(StrId::STR_BATTERY_DRAIN_BY_APP, tr(STR_BATTERY_NOT_MEASURED));
 }
 
 void BatteryActivity::buildScreen(UiScreen& screen) {

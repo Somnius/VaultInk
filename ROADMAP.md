@@ -40,7 +40,8 @@ In this order, each also listed in its phase below:
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
-🚧 Next release (on main, 0.58.0): not started.
+🚧 Next release (on main, 0.59.0): not started.
+✅ 0.58.0: kos25k #18 Library format filter (gear in the header, Settings > Library, PDFs listed in the Library, index format 3); #24 Search in Book shows the words on the page with previous/next/return/stay-here bar, no progress saved while looking, range and More-menu settings; #20 battery drain per hour asleep and awake from a sleep/wake log (per-app drain cannot be measured).
 ✅ 0.57.0: kos25k #24 follow-up: Search in Book reads each chapter's text directly (ChapterTextSearcher, no layout, 50 ms steps, Back at once, hits as found); #22: the corner lock screen shows only "Locked" and the owner lines.
 ✅ 0.56.0: Folders tab in the Library (kos25k #18); PDF as text: AES-256 files with an empty password, three and four columns, fonts with no text map are never read as garbage; reading stats part 2 (streaks, finished books, read days on the calendar); LiveSync push for the newer id scheme (idDerivationVersion 1) and the right id for names starting with an underscore. Cut from this release: tables in PDFs, covers built when idle, the SD-card language loader (the compiled-in language tables are 482 KB of flash, about 5.8% of the app slot; a loader only pays if languages leave the firmware, which changes how releases are packed).
 ✅ 0.55.0: kos25k #24 Search in Book (reading menu, case-insensitive, hits with their page, one search per word or phrase; chapters are laid out on the first search); #22 follow-up: owner lines under the PIN dots and the corner text, the top-edge light panel is off while locked.

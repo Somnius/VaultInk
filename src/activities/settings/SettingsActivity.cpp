@@ -28,6 +28,7 @@
 #include "KOReaderSettingsActivity.h"
 #include "KeyboardLayoutsActivity.h"
 #include "LanguageSelectActivity.h"
+#include "LibraryFormatsActivity.h"
 #include "LockSettingsActivity.h"
 #include "MappedInputManager.h"
 #include "OpdsServerListActivity.h"
@@ -82,6 +83,7 @@ bool showOnDevice(const SettingInfo& setting) {
 SettingsSection sectionFor(const SettingInfo& setting) {
   if (setting.valuePtr == &CrossPointSettings::libraryUseMetadata ||
       setting.valuePtr == &CrossPointSettings::libraryAuthorFolders ||
+      setting.valuePtr == &CrossPointSettings::libraryFormatButton ||
       setting.valuePtr == &CrossPointSettings::removeReadBooksFromRecents ||
       setting.valuePtr == &CrossPointSettings::moveFinishedToReadFolder) {
     return SettingsSection::Library;
@@ -142,6 +144,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   addAction(SettingsSection::Reader, StrId::STR_PAPER_CYCLE, SettingAction::PaperCycle);
   addAction(SettingsSection::Display, StrId::STR_HOME_ROWS, SettingAction::HomeRows);
   addAction(SettingsSection::Display, StrId::STR_HOME_ITEMS, SettingAction::HomeItems);
+  addAction(SettingsSection::Library, StrId::STR_LIBRARY_FORMATS, SettingAction::LibraryFormats);
   addAction(SettingsSection::Library, StrId::STR_CONVERT_COMICS, SettingAction::ComicConverter);
   if (BoardConfig::hasHomeKey()) {
     addAction(SettingsSection::Controls, StrId::STR_HOME_BUTTON, SettingAction::HomeButton);
@@ -488,6 +491,11 @@ void SettingsActivity::toggleSelectedSetting() {
         break;
       case SettingAction::HomeItems:
         if (auto activity = makeUniqueNoThrow<HomeItemsActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), nullptr);
+        }
+        break;
+      case SettingAction::LibraryFormats:
+        if (auto activity = makeUniqueNoThrow<LibraryFormatsActivity>(renderer, mappedInput)) {
           startActivityForResult(std::move(activity), nullptr);
         }
         break;

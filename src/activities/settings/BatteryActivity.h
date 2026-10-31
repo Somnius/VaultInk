@@ -15,7 +15,7 @@ class BatteryActivity final : public UiListActivity {
   void loop() override;
 
  private:
-  static constexpr int MAX_ROWS = 5;
+  static constexpr int MAX_ROWS = 9;
   int listCount() const override { return rowCount; }
   void buildScreen(UiScreen& screen) override;
   void activateIndex(int) override {}

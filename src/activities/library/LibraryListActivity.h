@@ -70,6 +70,7 @@ class LibraryListActivity final : public UiTabListActivity {
   static constexpr freeink::ui::ActionId ACTION_REBUILD = ACTION_SEARCH + 1;
   static constexpr freeink::ui::ActionId ACTION_BACK = ACTION_REBUILD + 1;
   static constexpr freeink::ui::ActionId ACTION_FILTER = ACTION_BACK + 1;
+  static constexpr freeink::ui::ActionId ACTION_FORMATS = ACTION_FILTER + 1;
 
   // Walk the card and write a fresh index. Blocking, with a popup: at ~70 books
   // it is well under a second, and it only runs when the index is missing or the
@@ -79,6 +80,9 @@ class LibraryListActivity final : public UiTabListActivity {
   // Input
   void openSelectedBook();
   void openSearch();
+  // The gear (kos25k #18): pick which book types the Library lists.
+  void openFormats();
+  static bool formatsFiltered();
   // Shared tail of row activation and the options menu's Open entry.
   void openBookByPath(const std::string& path);
   void promptRebuildIndex();
@@ -134,6 +138,7 @@ class LibraryListActivity final : public UiTabListActivity {
   // Staged back-out shared by Button::Back and the header back arrow.
   void handleBackAction();
   static void searchActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
+  static void formatsActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
   static void rebuildActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
   static void backActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
 

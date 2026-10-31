@@ -116,6 +116,14 @@ reading toolbar, settings, and About.
 The Library by title with Books only on (no vault notes), the Author tab with Authors as folders
 (0.36.0: an author with two or more books is a folder), a page of a book, and the Folders tab (0.56.0: one row per card folder with its book count).
 
+<p>
+  <img src="docs/images/vaultink/library-gear.png" width="190" alt="Library with the format gear in the header">
+  <img src="docs/images/vaultink/library-formats.png" width="190" alt="Book formats: which types the Library lists">
+  <img src="docs/images/vaultink/search-highlight.png" width="190" alt="A book page with the searched word shaded and the search bar at the bottom">
+</p>
+
+The gear in the Library header (0.58.0) opens the list of formats to show, and Search in Book (0.58.0) shades the word on the page with a bar to step through the hits or go back to where you were.
+
 ### Flashcards
 
 <p>
@@ -239,7 +247,7 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
   see [above](#comics-and-manga-with-banana-comic-converter).
 - **Search settings** by name, with a jump to your notes for the same words.
 - **Home screen rows** in any order, and any of them hidden (Settings → Display → Home Screen Rows / Home Screen Items), with a Favourites row.
-- **Battery page** with charge, voltage, charging and temperature (Settings → System → Battery).
+- **Battery page** with charge, voltage, charging and temperature, and (0.58.0) drain per hour asleep and awake after a few days of use (Settings → System → Battery).
 - **Reading stats sleep screen**: reading time today, this week, this month and in total, the last three
   books, and a month calendar of your progress (Settings → Display → Sleep Screen, 0.51.0).
 - **Lock screen**: a 4-digit PIN or a long press on a corner, asked after 30 minutes asleep
@@ -249,8 +257,9 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 - **PDF as text**: a `.pdf` opens as reflowing text (Greek included, two columns in order, filled-in form fields, files locked
   only against copying (RC4, AES-128 and AES-256, with an empty password), three and four columns in order); scans and pictures are not read. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text).
 - **Folders tab** (0.56.0): the Library's fifth tab lists the card's folders with their book counts.
+- **Format filter** (0.58.0): a gear in the Library header picks which book types are listed (EPUB, PDF, TXT, Markdown, XTC, CBZ); PDFs are listed too. Also under Settings → Library → Book formats.
 - **Reading streaks** (0.56.0): the sleep screen shows your current and best streak and the books you finished.
-- **Search in a book**: the reading menu's Search in Book finds a word or phrase (case and accents don't matter) and lists each hit with its chapter and position (0.57.0: it reads the book's text directly, so it is quick and Back stops it at once). [docs/reading-and-files.md](docs/reading-and-files.md#search-in-a-book).
+- **Search in a book**: the reading menu's Search in Book finds a word or phrase (case and accents don't matter) and lists each hit with its chapter and position (0.57.0: it reads the book's text directly, so it is quick and Back stops it at once). 0.58.0 shades the words on the page and adds a bar to step through the hits or go back to where you were. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-a-book).
 - **Flashcards**: cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}` in notes tagged
   `#flashcards`), reviewed with spaced repetition from Vaults → Flashcards. [docs/flashcards.md](docs/flashcards.md).
 - **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.

@@ -33,6 +33,7 @@ enum class SettingAction {
   PaperCycle,
   HomeRows,
   HomeItems,
+  LibraryFormats,
   ComicConverter,
   ClearDebugLogs,
   WhatsNew,

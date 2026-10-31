@@ -20,8 +20,14 @@
 namespace fui = freeink::ui;
 
 EpubSearchActivity::EpubSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
-                                       std::shared_ptr<Epub> epub, const ReaderRenderSpec& spec)
-    : UiListActivity("EpubSearch", renderer, mappedInput), epub(std::move(epub)), spec(spec) {}
+                                       std::shared_ptr<Epub> epub, const ReaderRenderSpec& spec, SearchSession* session,
+                                       const int limitSpine, const uint32_t limitOffset)
+    : UiListActivity("EpubSearch", renderer, mappedInput),
+      epub(std::move(epub)),
+      spec(spec),
+      session(session),
+      limitSpine(limitSpine),
+      limitOffset(limitOffset) {}
 
 const char* EpubSearchActivity::headerTitle() const { return tr(STR_SEARCH_IN_BOOK); }
 
@@ -150,7 +156,8 @@ bool EpubSearchActivity::openChapter(const int spineIndex) {
 
 // One slice of work, about STEP_MS: loop() reads the buttons before the next one.
 void EpubSearchActivity::stepSearch() {
-  const int total = epub->getSpineItemsCount();
+  const int bookTotal = epub->getSpineItemsCount();
+  const int total = limitSpine >= 0 ? std::min(bookTotal, limitSpine + 1) : bookTotal;
   if (nextSpine >= total || hits.size() + pendingHits.size() >= MAX_HITS) {
     finishSearch();
     return;
@@ -199,6 +206,7 @@ void EpubSearchActivity::finishChapter() {
     auto section = makeUniqueNoThrow<Section>(epub, spineIndex, renderer);
     const bool laidOut = section && section->loadSectionFile(spec) && !section->isPartial();
     for (const auto& found : searcher->hits()) {
+      if (spineIndex == limitSpine && found.offset > limitOffset) continue;  // past the reading point
       Hit hit;
       hit.spine = spineIndex;
       hit.offset = found.offset;
@@ -284,6 +292,14 @@ void EpubSearchActivity::activateIndex(const int index) {
   result.hasSavedProgress = true;
   result.hasVisibleTextOffset = true;
   result.visibleTextOffset = hits[i].offset;  // page and totalPages unknown: the reader jumps by the offset
+  if (session) {
+    // The reader keeps the whole list to step through; the pick is where it starts.
+    session->query = prepared;
+    session->hits.clear();
+    session->hits.reserve(hits.size());
+    for (const auto& hit : hits) session->hits.push_back({hit.spine, hit.offset});
+    session->current = i;
+  }
   setResult(std::move(result));
   finish();
 }

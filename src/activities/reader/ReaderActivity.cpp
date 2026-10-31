@@ -54,6 +54,7 @@ void ReaderActivity::applyInitialOrientation() { ReaderUtils::applyOrientation(r
 void ReaderActivity::disableFastInitialRefresh() { pagesUntilFullRefresh = 0; }
 
 void ReaderActivity::notePageTurn(const bool forward, const bool succeeded) {
+  if (sessionFrozen) return;
   RenderLock lock(*this);
   readerSession.noteTurn(forward, succeeded);
 }
@@ -269,12 +270,12 @@ void ReaderActivity::render(RenderLock&&) {
     renderer.displayBuffer();
     onEndOfBookRendered();
     markPageRendered();
-    readerSession.onRenderComplete(millis(), trustedtime::trustedNow(), getProgressBasisPoints());
+    if (!sessionFrozen) readerSession.onRenderComplete(millis(), trustedtime::trustedNow(), getProgressBasisPoints());
     return;
   }
 
   renderBook();
-  readerSession.onRenderComplete(millis(), trustedtime::trustedNow(), getProgressBasisPoints());
+  if (!sessionFrozen) readerSession.onRenderComplete(millis(), trustedtime::trustedNow(), getProgressBasisPoints());
 }
 
 bool ReaderActivity::handleForcedRefresh() {

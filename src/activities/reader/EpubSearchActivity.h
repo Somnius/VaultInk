@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "BookTextSearch.h"
+#include "SearchSession.h"
 #include "activities/UiListActivity.h"
 
 // Searches the open book for a word or phrase (kos25k #24): case and accents don't matter. Asks with
@@ -20,7 +21,8 @@
 class EpubSearchActivity final : public UiListActivity {
  public:
   explicit EpubSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::shared_ptr<Epub> epub,
-                              const ReaderRenderSpec& spec);
+                              const ReaderRenderSpec& spec, SearchSession* session = nullptr, int limitSpine = -1,
+                              uint32_t limitOffset = UINT32_MAX);
   void onEnter() override;
   void loop() override;
 
@@ -55,6 +57,9 @@ class EpubSearchActivity final : public UiListActivity {
 
   std::shared_ptr<Epub> epub;
   ReaderRenderSpec spec;
+  SearchSession* session;  // gets the hits when one is picked (null in tests)
+  int limitSpine;          // -1 = the whole book; else the last chapter searched, up to limitOffset in it
+  uint32_t limitOffset;
   bool askPending = true;
   bool searching = false;
   int nextSpine = 0;

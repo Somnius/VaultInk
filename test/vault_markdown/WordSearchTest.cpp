@@ -62,3 +62,22 @@ TEST(WordSearch, Snippet) {
   EXPECT_EQ(snippet(words, 11, 1, 3), "... eleven twelve");
   EXPECT_EQ(snippet(words, 99), "");
 }
+
+TEST(WordSearch, AccentedQueryFindsPlainTextAndTheOtherWayRound) {
+  // kos25k #24: the query's accents and case must not have to match the book's.
+  EXPECT_EQ(find(split("Un zephyr leger"), prepareQuery("Zéphyr")), (std::vector<size_t>{1}));
+  EXPECT_EQ(find(split("Un Zéphyr léger"), prepareQuery("zephyr")), (std::vector<size_t>{1}));
+  EXPECT_EQ(find(split("über alles"), prepareQuery("UBER")), (std::vector<size_t>{0}));
+  EXPECT_EQ(
+      find(split("Straße"), prepareQuery("strasse")).size() + find(split("Straße"), prepareQuery("straße")).size() > 0,
+      true);
+}
+
+TEST(WordSearch, GreekTonosDialytikaAndFinalSigma) {
+  EXPECT_EQ(find(split("ΚΑΛΗΜΈΡΑ κόσμε"), prepareQuery("καλημερα")), (std::vector<size_t>{0}));
+  EXPECT_EQ(find(split("ο κόσμος"), prepareQuery("ΚΌΣΜΟΣ")), (std::vector<size_t>{1}));
+  EXPECT_EQ(find(split("ο κοσμος"), prepareQuery("κόσμοσ")), (std::vector<size_t>{1}));  // final sigma vs sigma
+  EXPECT_EQ(find(split("ο κοσμοσ"), prepareQuery("κόσμος")), (std::vector<size_t>{1}));
+  EXPECT_EQ(find(split("ΐ ϊ ι"), prepareQuery("ι")).size(), 3u);
+  EXPECT_EQ(find(split("Άννα"), prepareQuery("αννα")), (std::vector<size_t>{0}));
+}

@@ -69,6 +69,8 @@ class ReaderActivity : public Activity {
   void clearEndOfBookOptionsIfNeeded();
   void disableFastInitialRefresh();
   void notePageTurn(bool forward, bool succeeded);
+  // True while the reader is only looking (search hits): no reading-log time or turns are recorded.
+  bool sessionFrozen = false;
   void flushReaderSession();
 
  public:

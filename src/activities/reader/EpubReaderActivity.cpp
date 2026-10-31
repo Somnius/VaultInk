@@ -15,6 +15,7 @@
 #include <Memory.h>
 #include <TrustedTime.h>
 #include <WiFi.h>
+#include <WordSearch.h>
 #include <esp_system.h>
 
 #include <algorithm>
@@ -761,6 +762,8 @@ void EpubReaderActivity::loop() {
     pendingReadFolderMove = false;
   }
 
+  if (handleSearchInput()) return;
+
   const auto touch =
       ReaderUtils::detectTouchPageTurn(renderer, mappedInput, ReaderUtils::isRtlBookLanguage(epub->getLanguage()));
 
@@ -1194,6 +1197,8 @@ int EpubReaderActivity::currentTocIndex() const {
 }
 
 void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action) {
+  // Any menu action but the search itself ends the look at the hits: the page it lands on is read normally.
+  if (search.active && action != EpubReaderMenuActivity::MenuAction::SEARCH_BOOK) setSearchActive(false);
   auto progressChangeResultHandler = [this](const ActivityResult& result) {
     loadCachedBookmarks();
     if (result.isCancelled) {
@@ -1399,12 +1404,28 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
           cachedChapterTotalPageCount = section->pageCount;
           nextPageNumber = section->currentPage;
         }
+        if (!search.active) {
+          // Where to come back to; a second search from inside the first keeps the first origin.
+          search.originSpine = currentSpineIndex;
+          search.originPage = nextPageNumber;
+          search.originOffset = cachedVisibleTextOffset;
+        }
         section.reset();
       }
+      const bool toHere = SETTINGS.searchScope == 1;
       startActivityForResult(
-          std::make_unique<EpubSearchActivity>(renderer, mappedInput, epub,
-                                               SETTINGS.readerRenderSpec(buildViewportWidth, buildViewportHeight)),
-          progressChangeResultHandler);
+          std::make_unique<EpubSearchActivity>(
+              renderer, mappedInput, epub, SETTINGS.readerRenderSpec(buildViewportWidth, buildViewportHeight), &search,
+              toHere ? search.originSpine : -1, toHere ? search.originOffset.value_or(UINT32_MAX) : UINT32_MAX),
+          [this](const ActivityResult& result) {
+            loadCachedBookmarks();
+            if (result.isCancelled) {
+              openReaderMenu();
+              return;
+            }
+            if (!search.hits.empty() && search.current >= 0) setSearchActive(true);
+            applyProgressChange(std::get<ProgressChangeResult>(result.data));
+          });
       break;
     }
     case EpubReaderMenuActivity::MenuAction::BOOKMARKS: {
@@ -1474,6 +1495,7 @@ unsigned long EpubReaderActivity::confirmLongPressThreshold() const {
 }
 
 bool EpubReaderActivity::launchKOReaderSync() {
+  if (search.active) return false;  // the position on screen is a search hit, not the reader's place
   flushReaderSession();
 
   // Without a KOReader server the sync activity only brings the device online
@@ -2097,8 +2119,8 @@ void EpubReaderActivity::renderBook() {
     markPageRendered();
   }
 
-  if (currentSpineIndex != lastSavedSpineIndex || section->currentPage != lastSavedPage ||
-      section->pageCount != lastSavedPageCount) {
+  if (!search.active && (currentSpineIndex != lastSavedSpineIndex || section->currentPage != lastSavedPage ||
+                         section->pageCount != lastSavedPageCount)) {
     if (saveProgress(currentSpineIndex, section->currentPage, section->estimatedTotalPages())) {
       lastSavedSpineIndex = currentSpineIndex;
       lastSavedPage = section->currentPage;
@@ -2282,6 +2304,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   paper_texture::draw(renderer, SETTINGS.readingPaper);
   appliedPaper = SETTINGS.readingPaper;
   drawClippingHighlights(*page, fontId, orientedMarginTop, orientedMarginLeft);
+  drawSearchHighlights(*page, fontId, orientedMarginTop, orientedMarginLeft);
   page->render(renderer, fontId, orientedMarginLeft, orientedMarginTop);
   renderStatusBar();
   const auto tBwRender = millis();
@@ -2598,6 +2621,10 @@ void EpubReaderActivity::renderStatusBar() const {
   const float sectionChapterProg = (pageCount > 0) ? (static_cast<float>(currentPage) / pageCount) : 0;
   const float bookProgress = epub ? (epub->calculateProgress(currentSpineIndex, sectionChapterProg) * 100) : 0;
   publishLiveBookProgress(epub ? clampPercent(static_cast<int>(bookProgress + 0.5f)) : -1);
+  if (search.active) {
+    drawSearchBar();
+    return;
+  }
 
   std::string title;
   int textYOffset = 0;
@@ -2634,6 +2661,177 @@ void EpubReaderActivity::renderStatusBar() const {
 
   GUI.drawStatusBar(renderer, bookProgress, currentPage, pageCount, title, 0, textYOffset, true, currentPageBookmarked,
                     section ? section->isBuilding() : false);
+}
+
+// ---- Search in a book (kos25k #24) ----
+
+void EpubReaderActivity::setSearchActive(const bool active) {
+  sessionFrozen = active;  // no reading time or turns are logged while only looking at hits
+  if (active) {
+    search.active = true;
+  } else {
+    search.clear();
+  }
+}
+
+EpubReaderActivity::SearchBar EpubReaderActivity::searchBarLayout() const {
+  SearchBar bar;
+  // As tall as the strip the page leaves for the status bar, so the bar covers no text line.
+  int marginTop = 0, marginRight = 0, marginBottom = 0, marginLeft = 0;
+  renderer.getOrientedViewableTRBL(&marginTop, &marginRight, &marginBottom, &marginLeft);
+  const int reserved = marginBottom + std::max<int>(SETTINGS.screenMargin, UITheme::getInstance().getStatusBarHeight());
+  bar.height = std::max(30, reserved);
+  bar.top = renderer.getScreenHeight() - bar.height;
+  bar.button = bar.height + 16;
+  bar.backX = renderer.getScreenWidth() - bar.button;
+  bar.nextX = bar.backX - bar.button;
+  bar.prevX = bar.nextX - bar.button;
+  bar.labelX = 8;
+  bar.labelWidth = bar.prevX - bar.labelX;
+  return bar;
+}
+
+// Previous hit, next hit, and the return arrow at the bottom right; the counter doubles as "stay here".
+void EpubReaderActivity::drawSearchBar() const {
+  const SearchBar bar = searchBarLayout();
+  const int width = renderer.getScreenWidth();
+  renderer.fillRect(0, bar.top, width, bar.height, false);
+  renderer.drawLine(0, bar.top, width, bar.top, 2, true);
+
+  char label[64];
+  snprintf(label, sizeof(label), "%d / %d  %s", search.current + 1, static_cast<int>(search.hits.size()),
+           tr(STR_SEARCH_STAY_HERE));
+  if (renderer.getTextWidth(UI_12_FONT_ID, label) > bar.labelWidth) {
+    snprintf(label, sizeof(label), "%d / %d", search.current + 1, static_cast<int>(search.hits.size()));
+  }
+  renderer.drawText(UI_12_FONT_ID, bar.labelX, bar.top + (bar.height - renderer.getLineHeight(UI_12_FONT_ID)) / 2,
+                    label, true);
+
+  const int cy = bar.top + bar.height / 2;
+  const int prevCx = bar.prevX + bar.button / 2;
+  const int nextCx = bar.nextX + bar.button / 2;
+  renderer.drawLine(prevCx + 6, cy - 12, prevCx - 6, cy, 3, true);
+  renderer.drawLine(prevCx - 6, cy, prevCx + 6, cy + 12, 3, true);
+  renderer.drawLine(nextCx - 6, cy - 12, nextCx + 6, cy, 3, true);
+  renderer.drawLine(nextCx + 6, cy, nextCx - 6, cy + 12, 3, true);
+
+  // The return arrow is white on black so it cannot be mistaken for the previous-hit chevron.
+  renderer.fillRect(bar.backX, bar.top + 2, bar.button, bar.height - 2, true);
+  const int backCx = bar.backX + bar.button / 2;
+  renderer.drawLine(backCx + 11, cy, backCx - 11, cy, 3, false);
+  renderer.drawLine(backCx - 11, cy, backCx - 2, cy - 9, 3, false);
+  renderer.drawLine(backCx - 11, cy, backCx - 2, cy + 9, 3, false);
+}
+
+// The searched words on the page, shaded like a saved clipping. All of them, not only the current hit.
+void EpubReaderActivity::drawSearchHighlights(const Page& page, const int fontId, const int orientedMarginTop,
+                                              const int orientedMarginLeft) const {
+  if (!search.active || search.query.empty() || !section) return;
+  struct WordRef {
+    const PageLine* line;
+    uint16_t index;
+    int width;
+    size_t group;
+  };
+  // Words that touch in the book (an <i> or a hyphenation break inside one word) are one group, so
+  // "zephy" + "rine" still matches "zephyrine".
+  std::vector<std::string> groups;
+  std::vector<WordRef> refs;
+  const PageLine* previousLine = nullptr;
+  uint32_t previousEnd = 0;
+  for (const auto& element : page.elements) {
+    if (element->getTag() != TAG_PageLine) continue;
+    const auto& line = static_cast<const PageLine&>(*element);
+    const auto& block = line.getBlock();
+    if (!block || !block->valid()) continue;
+    for (uint16_t i = 0; i < block->wordCount(); ++i) {
+      const char* text = block->wordText(i);
+      if (!clippingText::hasVisibleText(text)) continue;
+      const auto style = static_cast<EpdFontFamily::Style>(block->wordStyle(i) & ~EpdFontFamily::UNDERLINE);
+      const int width = renderer.getTextAdvanceX(clippingWordFont(renderer, fontId, *block, i), text, style,
+                                                 block->getBlockStyle().characterSpacing);
+      if (width <= 0) continue;
+      const auto range = block->wordSourceRange(i);
+      const bool touches = !groups.empty() && range.end > range.start && range.start == previousEnd;
+      if (touches) {
+        std::string& group = groups.back();
+        // A hyphen the layout added at a line break is not part of the word.
+        if (previousLine != &line && !group.empty() && group.back() == '-') group.pop_back();
+        group += text;
+      } else {
+        groups.emplace_back(text);
+      }
+      refs.push_back({&line, i, width, groups.size() - 1});
+      previousLine = &line;
+      previousEnd = range.end;
+    }
+  }
+  const size_t tokens = static_cast<size_t>(std::count(search.query.begin(), search.query.end(), ' ')) + 1;
+  for (const size_t start : wordsearch::find(groups, search.query, 64)) {
+    for (const auto& ref : refs) {
+      if (ref.group < start || ref.group >= start + tokens) continue;
+      const Rect rect =
+          clippingWordRect(renderer, fontId, *ref.line, ref.index, orientedMarginTop, orientedMarginLeft, ref.width);
+      if (rect.width > 0) {
+        renderer.fillRectDither(rect.x, rect.y, rect.width, renderer.getLineHeight(fontId), Color::LightGray);
+      }
+    }
+  }
+}
+
+void EpubReaderActivity::searchStep(const int delta) {
+  const int count = static_cast<int>(search.hits.size());
+  if (count == 0) return;
+  search.current = ((search.current + delta) % count + count) % count;
+  ProgressChangeResult jump{};
+  jump.spineIndex = search.hits[search.current].spine;
+  jump.hasVisibleTextOffset = true;
+  jump.visibleTextOffset = search.hits[search.current].offset;
+  applyProgressChange(jump);
+}
+
+// Back to the place the reader left; nothing was saved on the way.
+void EpubReaderActivity::searchReturn() {
+  ProgressChangeResult back{};
+  back.spineIndex = search.originSpine;
+  back.page = search.originPage;
+  if (search.originOffset) {
+    back.hasVisibleTextOffset = true;
+    back.visibleTextOffset = *search.originOffset;
+  }
+  setSearchActive(false);  // before the jump, so the landing page counts as reading again
+  applyProgressChange(back);
+}
+
+// Keep the page the search ended on as the new reading point.
+void EpubReaderActivity::searchStay() {
+  setSearchActive(false);
+  requestUpdate();
+}
+
+bool EpubReaderActivity::handleSearchInput() {
+  if (!search.active || overlay != Overlay::None) return false;
+  if (mappedInput.wasReleased(MappedInputManager::Button::Back) &&
+      mappedInput.getHeldTime() < ReaderUtils::GO_BACK_OR_HOME_MS) {
+    searchReturn();
+    return true;
+  }
+  int x = 0;
+  int y = 0;
+  if (!mappedInput.hasTouch() || !mappedInput.wasScreenTapped(x, y)) return false;
+  const SearchBar bar = searchBarLayout();
+  if (y < bar.top - 14) return false;  // a thin bar: a finger just above it counts
+  haptic_feedback::touchAction();
+  if (x >= bar.backX) {
+    searchReturn();
+  } else if (x >= bar.nextX) {
+    searchStep(1);
+  } else if (x >= bar.prevX) {
+    searchStep(-1);
+  } else {
+    searchStay();
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------

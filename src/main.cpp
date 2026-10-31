@@ -53,6 +53,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "platform/UsbSerialJtagHandoff.h"
+#include "util/BatteryHistory.h"
 #include "util/ButtonNavigator.h"
 #include "util/DebugLog.h"
 #include "util/LiveSyncDevice.h"
@@ -545,6 +546,7 @@ void enterDeepSleep(bool fromTimeout = false) {
   const bool wakeOnHeldButton = false;
 #endif
 
+  batteryhistory::noteSleep();  // the rate rows on the Battery page (kos25k #20)
   halTiltSensor.deepSleep();
   display.deepSleep();
   Storage.prepareForDeepSleep();
@@ -727,6 +729,7 @@ void setup() {
   // Restore the monotonic clock floor before anything reads time() (event
   // timestamps, loan-expiry checks).
   trustedtime::init();
+  batteryhistory::noteWake();
   bleturner::begin(pageturner::host, SETTINGS.ble);
 
   // Brightness and warmth are always restored. A normal wake starts with the

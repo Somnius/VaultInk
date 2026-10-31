@@ -147,6 +147,11 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Enum(StrId::STR_IMAGES, &CrossPointSettings::imageRendering,
                          {StrId::STR_IMAGES_DISPLAY, StrId::STR_IMAGES_PLACEHOLDER, StrId::STR_IMAGES_SUPPRESS},
                          "imageRendering", StrId::STR_CAT_READER));
+  emit(SettingInfo::Toggle(StrId::STR_SEARCH_IN_MORE_MENU, &CrossPointSettings::searchInMoreMenu, "searchInMoreMenu",
+                           StrId::STR_CAT_READER));
+  emit(SettingInfo::Enum(StrId::STR_SEARCH_SCOPE, &CrossPointSettings::searchScope,
+                         {StrId::STR_SEARCH_SCOPE_BOOK, StrId::STR_SEARCH_SCOPE_TO_HERE}, "searchScope",
+                         StrId::STR_CAT_READER));
   emit(SettingInfo::Enum(StrId::STR_READER_MENU_STYLE, &CrossPointSettings::readerMenuStyle,
                          {StrId::STR_MENU_STYLE_LIST, StrId::STR_MENU_STYLE_TOOLBAR}, "readerMenuStyle",
                          StrId::STR_CAT_READER));
@@ -259,6 +264,8 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                            "libraryUseMetadata", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_LIBRARY_AUTHOR_FOLDERS, &CrossPointSettings::libraryAuthorFolders,
                            "libraryAuthorFolders", StrId::STR_CAT_SYSTEM));
+  emit(SettingInfo::Toggle(StrId::STR_LIBRARY_FORMAT_BUTTON, &CrossPointSettings::libraryFormatButton,
+                           "libraryFormatButton", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_REMOVE_READ_FROM_RECENTS, &CrossPointSettings::removeReadBooksFromRecents,
                            "removeReadBooksFromRecents", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_MOVE_FINISHED_TO_READ, &CrossPointSettings::moveFinishedToReadFolder,

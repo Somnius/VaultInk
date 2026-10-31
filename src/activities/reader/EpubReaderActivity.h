@@ -18,6 +18,7 @@
 #include "ProgressMapper.h"
 #include "ReaderActivity.h"
 #include "ReaderToolbarUi.h"
+#include "SearchSession.h"
 #include "components/OptionPopup.h"
 
 namespace linkupdate {
@@ -214,6 +215,21 @@ class EpubReaderActivity final : public ReaderActivity {
   void openClippings();
   void applyProgressChange(const ProgressChangeResult& progress);
   bool launchKOReaderSync();
+  // Search in a book (kos25k #24): hits stay on, highlighted, with a bar to step through them.
+  struct SearchBar {
+    int top = 0, height = 0;
+    int prevX = 0, nextX = 0, backX = 0, button = 0;  // left edges, button width
+    int labelX = 0, labelWidth = 0;
+  };
+  SearchBar searchBarLayout() const;
+  void drawSearchBar() const;
+  void drawSearchHighlights(const Page& page, int fontId, int orientedMarginTop, int orientedMarginLeft) const;
+  bool handleSearchInput();
+  void searchStep(int delta);
+  void searchReturn();
+  void searchStay();
+  void setSearchActive(bool active);
+  SearchSession search;
   unsigned long confirmLongPressThreshold() const;
   void toggleAutoPageTurn(uint8_t selectedPageTurnOption);
   void loadCachedBookmarks();

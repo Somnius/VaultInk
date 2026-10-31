@@ -177,6 +177,15 @@ holds books, with its book count. Tap a folder to see its books, Back to return.
 shows the Title order; Search from it jumps to the Title tab. In Greek the tab names are
 shortened (Πρόσφ., Συγγρ., Αγαπ.) so all five fit.
 
+## Format filter (0.58.0)
+
+A **gear** button in the Library header (left of search and refresh, on touch screens) opens a short
+list of formats: EPUB, PDF, TXT, Markdown, XTC / XTCH and CBZ (kos25k #18). Untick the ones you
+don't want in the Recent, Title and Author lists; at least one stays on. The Folders tab still
+shows everything. The same list is under **Settings → Library → Book formats**, and
+**Format filter button** there hides the gear. PDFs are listed in the Library from 0.58.0 (the
+first start after the update rebuilds the list once); opening one converts it to text as before.
+
 ## Long-press in the Library, Authors as folders (0.36.0)
 
 A long press on any book in the Library (every tab, and in search results) opens the same menu:
@@ -220,7 +229,11 @@ ones you don't want on the home (kos25k #14). Books and Settings always stay.
 
 **Settings → System → Battery** shows what the battery chip reports: the charge, the voltage,
 whether it's charging, whether the charger is plugged in, and the battery temperature when the chip
-gives a believable value (kos25k #20). The X4 Pro's gauge (Cellwise CW2017) keeps no charge-cycle
+gives a believable value (kos25k #20). Since 0.58.0 it also shows the **drain per hour asleep**
+and **awake**, worked out from the battery level written at each sleep and each wake (a few days
+of use before it shows a number). Whole percent steps only, so short stretches are not shown. The
+"awake" figure includes reading, the light, Wi-Fi and PDF conversion. How much each app uses is not
+measured: the firmware has no way to know, and the page says so. The X4 Pro's gauge (Cellwise CW2017) keeps no charge-cycle
 count or battery health, and the firmware can't stop charging at a set level, so those aren't
 there.
 
@@ -385,6 +398,13 @@ accents don't matter (so "ΚΑΛΗΜΕΡΑ" finds "καλημέρα"), and a par
 - Since 0.57.0 it reads each chapter's text straight from the book, without laying the pages out
   first (0.55.0 did, and was slow on a long book). Hits show up while it works, the top row shows
   how far it is, and **Back** stops it at once and keeps what was found.
+- **On the page (0.58.0):** after you pick a result the searched words are shaded on the page, and a
+  bar at the bottom steps through the hits: the counter ("6 / 8 Stay here"), previous, next, and the
+  white arrow at the bottom right that goes back to exactly where you were before the search. Tap
+  the counter to keep the page you are on instead. Back also returns. While you look at hits the
+  reading position, the reading log and the sync are left alone, so closing the book now reopens it
+  at the place you left. **Settings → Reader → Search in book in More menu** hides the entry from
+  the More menu, and **Search range** limits it to the start of the book up to where you are.
 - At most 100 results, and at most 3 close together, so one page full of the word doesn't push the
   rest away. A phrase split by a paragraph or a page break isn't found.
 - Books only (EPUB), not notes: a note has the vault search.
