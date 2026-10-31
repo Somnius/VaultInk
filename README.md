@@ -122,7 +122,7 @@ The Library by title with Books only on (no vault notes), the Author tab with Au
   <img src="docs/images/vaultink/flashcards-review.png" width="190" alt="A flashcard with its answer and four buttons">
 </p>
 
-Cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}`) with spaced repetition, from Vaults → Flashcards (next release):
+Cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}`) with spaced repetition, from Vaults → Flashcards:
 the decks with how many are due and new, and a card with the four answers and when each brings it back. The guide:
 [docs/flashcards.md](docs/flashcards.md).
 
@@ -230,11 +230,11 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
   books, and a month calendar of your progress (Settings → Display → Sleep Screen, 0.51.0).
 - **Lock screen**: a 4-digit PIN or a long press on a corner, asked after 30 minutes asleep
   (Settings → System → Lock Screen, 0.49.0). The owner's name and phone can show on it and on the
-  sleep screen (next release).
-- **Highlights to a vault note** (next release): a book's clippings written to `Highlights/<title>.md` in your vault, ready for LiveSync.
-- **PDF as text** (next release): a `.pdf` opens as reflowing text (Greek included, two columns in order, filled-in form fields, files locked
+  sleep screen.
+- **Highlights to a vault note**: a book's clippings written to `Highlights/<title>.md` in your vault, ready for LiveSync.
+- **PDF as text**: a `.pdf` opens as reflowing text (Greek included, two columns in order, filled-in form fields, files locked
   only against copying); scans and pictures are not read. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text-next-release).
-- **Flashcards** (next release): cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}` in notes tagged
+- **Flashcards**: cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}` in notes tagged
   `#flashcards`), reviewed with spaced repetition from Vaults → Flashcards. [docs/flashcards.md](docs/flashcards.md).
 - **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.
 - **Book info** on a long press, and an **All | Books only** switch in the Library that hides the vault notes.

@@ -226,7 +226,7 @@ there.
 - (0.52.0) **Lock After Sleeping**: always, or after 5, 10, 15, 30 minutes (the default), 1, 2 or
   3 hours asleep. **Unlock Corner**: any corner, or only one (the only one marked). **Corner Hold**:
   how long to hold it, from 0 (a single touch) to 10 seconds.
-- (next release) The lock options moved onto their own page, **Settings → System → Lock Screen**:
+- The lock options moved onto their own page, **Settings → System → Lock Screen**:
   **Lockscreen Type** (off, PIN, corner, change the PIN) comes first, then the three above. The same
   page holds **Owner's Name** and **Owner's Phone**: they show at the top of the lock screen, so
   whoever finds the reader knows whom to call. **Settings → Display → Owner on Sleep Screen** puts the
@@ -335,7 +335,7 @@ What's New** opens the last twelve releases any time, and **Show What's New Afte
 the note after updates off. Updating from 0.23.0 or older shows only the newest release's notes,
 because older versions didn't remember which version they were.
 
-## PDF as text (next release)
+## PDF as text
 
 A `.pdf` in **Browse Files** (or a `[[Rules.pdf]]` link in a note) opens as text: the first time, VaultInk reads the
 PDF's text and writes it to a text file on the card (`/.vaultink/pdf/<id>/<name>.txt`, with a progress bar), then
@@ -352,7 +352,7 @@ scans without a text layer. Two columns are read left then right when the page h
 shows in Recent and on the Continue card (opening it from there goes straight to the text), but it isn't a Library book;
 find it again in Browse Files or by its link.
 
-## Highlights to a vault note (next release)
+## Highlights to a vault note
 
 In a book that has clippings, the reading menu has **Highlights to a Vault Note**. It writes them to
 `Highlights/<book title>.md` in your vault (the one you used last, when you have several): the title, the author, then each

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <iterator>
 #include <map>
 #include <unordered_set>
 
@@ -276,12 +277,16 @@ std::vector<SessionCard> collectSession(const std::string& cardsPath, const vaul
              c.line = line;
              c.notePath = path;
              if (state) c.state = *state;
-             (isNew ? fresh : reviews).push_back(std::move(c));
+             if (isNew) {
+               fresh.push_back(std::move(c));
+             } else {
+               reviews.push_back(std::move(c));
+             }
            });
   std::stable_sort(reviews.begin(), reviews.end(),
                    [](const SessionCard& a, const SessionCard& b) { return a.state.due < b.state.due; });
   if (reviews.size() > spec.reviewLimit) reviews.resize(spec.reviewLimit);
-  for (auto& c : fresh) reviews.push_back(std::move(c));
+  reviews.insert(reviews.end(), std::make_move_iterator(fresh.begin()), std::make_move_iterator(fresh.end()));
   return reviews;
 }
 

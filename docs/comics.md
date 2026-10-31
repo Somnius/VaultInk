@@ -80,7 +80,7 @@ megapixels (since 0.48.0). Not timed on the device yet. Not yet:
 
 - WebP pages, CBR (RAR) files: run them through the converter.
 
-After 0.53.0 (next release): a landscape page (a two-page spread, wider than tall) is shown as
+From 0.54.0: a landscape page (a two-page spread, wider than tall) is shown as
 two pages, its left half then its right, or right then left in a right-to-left book.
 - Since 0.43.0, manga read right to left: a CBZ whose ComicInfo.xml says so (Manga: YesAndRightToLeft)
   opens that way, and Confirm or the menu tap shows **Right to left (manga): On/Off** to change it
@@ -112,5 +112,5 @@ All in [Phase 1c of the roadmap](../ROADMAP.md):
    copied into the screen buffer a byte at a time instead of pixel by pixel. Still to do on the
    device: timing it, and the grayscale refresh.
 3. More for CBZ: ✅ chapters, covers, ✅ a page cache and PNG pages over 8 megapixels (0.53.0), landscape spreads shown
-   as two halves, a progress bar with chapter ticks at the top of the CBZ menu (next release).
+   as two halves, a progress bar with chapter ticks at the top of the CBZ menu.
 4. **Right-to-left** page order for manga, per book, and covers in the Library.

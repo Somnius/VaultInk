@@ -340,9 +340,9 @@ EPUB comics show their pictures; the companion app's Files tab can upload any fi
   it through the converter.
 * ✅ **1c.4 Manga order and covers (M).** ✅ 0.43.0: right to left per CBZ (ComicInfo.xml
   YesAndRightToLeft, or the toggle at the top of the CBZ menu, kept in rtl.bin), next/previous
-  swapped; covers came in 0.40.0. ✅ (next release) landscape spreads: a page wider than tall is
+  swapped; covers came in 0.40.0. ✅ landscape spreads: a page wider than tall is
   shown as two halves in reading order (right half first for manga), each cached as its own
-  .pxc. ✅ (next release) chapter marks: pages fill the screen, so the bar with a tick per chapter
+  .pxc. ✅ chapter marks: pages fill the screen, so the bar with a tick per chapter
   sits at the top of the CBZ menu. The converter already asks for the reading direction
   (right-to-left or left-to-right) and orders the pages for it, so this is mainly for raw CBZ:
   right-to-left as a per-book flag that swaps what next and previous mean (taps, swipes and
@@ -439,8 +439,8 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
   official LiveSync CLI (new, edit, stale edit refused, delete, conflict).
 * ✅ (0.38.0) Links rewritten on rename, after asking (wiki-links that resolve to the note, not in
   code; util/LinkUpdate + lib/Vault/LinkRewrite, reviewed by Gemini and Grok).
-* ✅ (next release) Markdown links `[text](Old.md)` are rewritten on rename too (`lib/Vault/LinkRewrite`, host-tested; not driven through the rename dialog in the simulator yet).
-* ✅ (next release) Join With Next Line in the line menu (`LineBuffer::join`, host-tested, one Undo; checked in the simulator: two lines joined, Undo (1)). Later: split lines (needs a cursor, so a multi-line keyboard), a multi-line keyboard, push for vaults with
+* ✅ Markdown links `[text](Old.md)` are rewritten on rename too (`lib/Vault/LinkRewrite`, host-tested; not driven through the rename dialog in the simulator yet).
+* ✅ Join With Next Line in the line menu (`LineBuffer::join`, host-tested, one Undo; checked in the simulator: two lines joined, Undo (1)). Later: split lines (needs a cursor, so a multi-line keyboard), a multi-line keyboard, push for vaults with
   the newer id scheme or no path obfuscation, a test against a real Obsidian install.
 * Touch keyboard editor (English + Greek; the Greek layout is done, 0.5.0), atomic save, task toggles, new/rename/delete.
 * Push with the plugin's chunker, conflict copies.
@@ -517,7 +517,7 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   `lib/Pdf/PdfText` (host-tested, 12 tests) opened all 30 PDFs found in Lef's local vaults (phone and browser prints,
   ReportLab sheets, Quartz and Skia output; contents never left the machine), and the word count matched poppler's
   `pdftotext` within 3% on 26, within 20% on the rest once form-field values were added; 1 to 20 ms a file on the host.
-  ✅ (next release) wired in: a `.pdf` in Browse Files (or a link to one) opens as reflowing text through a cached `.txt`
+  ✅ wired in: a `.pdf` in Browse Files (or a link to one) opens as reflowing text through a cached `.txt`
   (`src/util/PdfConvert`), tested in the simulator with Greek text; a scan says it has no text; a read PDF shows in Recent and on the Continue card.
   Still to do: timing and memory on the device (big PDFs: a 30 MB file is read in pieces, never whole), a link in a note to a PDF in another
   folder (a `[[Rules.pdf]]` link resolves, host-tested, but opening one is not driven in the simulator), tables, three or more columns, AES-256 files, and CID fonts without a ToUnicode map. ✅ PDFs locked only against copying or printing (an empty user password: RC4 40/128 and AES-128) are read; checked on files from Ghostscript and LibreOffice and a generated AES-128 file; one that needs a password says so. ✅ Two columns come out in reading order (a gutter found from where the text lines sit; host-tested).
@@ -572,7 +572,7 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   * Vault upload from the browser, then hand the vault to LiveSync so only changes travel later
     (saves battery and data on big vaults).
   * Quick note from the phone into a vault inbox.
-  * ✅ (next release, built into the reading menu instead of a plugin) Highlights from books exported to a vault note: `Highlights/<title>.md`, host-tested builder, checked in the simulator with one clipping (the chapter heading shows only when the clipping has a chapter name).
+  * ✅ (built into the reading menu instead of a plugin) Highlights from books exported to a vault note: `Highlights/<title>.md`, host-tested builder, checked in the simulator with one clipping (the chapter heading shows only when the clipping has a chapter name).
   * Vault from a Git repo, public or private, with a fine-grained GitHub token (read-only,
     one repo), stored only on the SD card.
   * Anki deck download.

@@ -2,6 +2,22 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.54.0 (2026-10-31)
+
+Flashcards, plus the round of fixes from kos25k's #22, #21 and #14, and a few comic changes.
+
+- **Flashcards**: write cards in your notes and review them with spaced repetition. Tag a note `#flashcards` and write `Front::Back` (`Front:::Back` for both ways), a few lines then a `?` line then the answer, or `{{gaps}}`. Vaults → Flashcards shows the decks with what is due and new; a tap shows the answer, then Again, Hard, Good or Easy. A note's reading menu has Flashcards too, for just that note. Nothing is written into your notes: the state is kept next to the search index on the card. Guide: docs/flashcards.md.
+- **Lock Screen page** (kos25k #22): Settings → System → Lock Screen now holds everything, with the lock type first, then Lock After Sleeping, Unlock Corner and Corner Hold. There are also Owner's Name and Owner's Phone, shown at the top of the lock screen.
+- **Owner on the sleep screen** (kos25k #21): Settings → Display → Owner on Sleep Screen puts the same two lines at the bottom, next to the battery percent.
+- **Home card** (kos25k #14): with a long title, "Continue Reading" and the percent no longer overlap. They sit centred under the title. A two-line title hides the author so everything fits.
+- **CBZ**: a page wider than tall shows as two halves in reading order, and the CBZ menu has a progress bar with a tick at each chapter. The page caches from 0.53.0 are rebuilt once so landscape pages split.
+- **PDF as text**: a PDF in Browse Files opens as reflowing text (a link to one in a note should too, I haven't tried that one yet), Greek included, with the values of filled-in forms. The first time it reads the PDF and keeps the text on the card. Two columns read in order, and PDFs locked only against copying or printing (most shop-bought ones) open too. No pictures, tables or scans (a scan says it has no text; one that needs a password to open says so). I checked it against the desktop tool pdftotext on 30 PDFs I had around, and the word counts matched within a few percent.
+- **Highlights to a vault note**: in a book with clippings, the reading menu has Highlights to a Vault Note. It writes `Highlights/<title>.md` in your vault with every clipping as a quote, and Sync now sends it to LiveSync like any note you changed on the reader.
+- **Notes**: Join With Next Line in the line editor. Renaming a note now updates Markdown links to it (`[text](Old.md)`) as well as wiki-links.
+
+Tested in the simulator: the flashcards (decks, review with every answer, the counts after a session, a note's own cards from its menu, Greek cards), the lock page and the owner lines on the lock and sleep screens, the home card with a two-line title, the join, a PDF read as text (Greek, a scan), the highlights export with one clipping. Host tests cover the card parser, the scheduler, the journal and deck index, and the link rewriting. Not tried on a device yet: any of it, the PDF reading of big files (time and memory), and the CBZ spreads and chapter ticks with real comics. Renaming a note with a Markdown link through the dialog is covered by the host tests only.
+
+
 ## 0.53.0 (2026-10-30)
 
 Back to the roadmap: faster comics, block ids in search, and the companion's outbox (companion-0.4.0, released with it).

@@ -7,6 +7,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <set>
 #include <string_view>
 #include <unordered_map>
@@ -195,11 +196,11 @@ class Lexer {
           return true;
         }
         Obj item;
-        std::string_view word;
-        if (!object(item, &word, depth + 1)) {
-          if (word == "true" || word == "false" || word == "null") continue;
+        std::string_view keyword;
+        if (!object(item, &keyword, depth + 1)) {
+          if (keyword == "true" || keyword == "false" || keyword == "null") continue;
           if (truncated) return false;
-          if (!word.empty()) continue;  // a stray keyword inside an array: skip it
+          if (!keyword.empty()) continue;  // a stray keyword inside an array: skip it
           return false;
         }
         out.a.push_back(std::move(item));
@@ -279,10 +280,10 @@ class Lexer {
       Obj key;
       if (buf[pos] != '/' || !object(key, nullptr, depth + 1)) return false;
       Obj value;
-      std::string_view word;
-      if (!object(value, &word, depth + 1)) {
+      std::string_view keyword;
+      if (!object(value, &keyword, depth + 1)) {
         if (truncated) return false;
-        if (word == "endobj" || word == "stream") return false;
+        if (keyword == "endobj" || keyword == "stream") return false;
         continue;  // a key without a value
       }
       out.d[key.s] = std::move(value);
@@ -393,17 +394,17 @@ class Doc {
     if (!readRange(0, std::min<uint64_t>(1024, src.size), head) || head.find("%PDF-") == std::string::npos) {
       return false;
     }
-    uint64_t xref = 0;
-    if (!findStartXref(xref)) {
+    uint64_t xrefAt = 0;
+    if (!findStartXref(xrefAt)) {
       result.xrefFailed = true;
       return false;
     }
     std::set<uint64_t> seen;
     bool first = true;
-    while (xref != 0 && !seen.count(xref) && seen.size() < 200) {
-      seen.insert(xref);
+    while (xrefAt != 0 && !seen.count(xrefAt) && seen.size() < 200) {
+      seen.insert(xrefAt);
       Obj trailer;
-      if (!readXref(xref, trailer)) {
+      if (!readXref(xrefAt, trailer)) {
         result.xrefFailed = first;
         if (first) return false;
         break;
@@ -414,7 +415,7 @@ class Doc {
         firstTrailer = trailer;
       }
       const Obj* prev = trailer.get("Prev");
-      xref = prev && prev->isNum() ? static_cast<uint64_t>(prev->num()) : 0;
+      xrefAt = prev && prev->isNum() ? static_cast<uint64_t>(prev->num()) : 0;
     }
     if (root == 0) {
       result.xrefFailed = true;
@@ -624,7 +625,8 @@ class Doc {
                  16);
       for (int round = 1; round <= 19; ++round) {
         std::string roundKey = key;
-        for (char& c : roundKey) c = static_cast<char>(c ^ round);
+        std::transform(roundKey.begin(), roundKey.end(), roundKey.begin(),
+                       [round](const char c) { return static_cast<char>(c ^ round); });
         crypt::rc4(reinterpret_cast<const uint8_t*>(roundKey.data()), roundKey.size(),
                    reinterpret_cast<uint8_t*>(check.data()), 16);
       }
@@ -909,8 +911,10 @@ class Doc {
           if (!l2.object(trailer)) return false;
         }
         if (const Obj* stm = trailer.get("XRefStm")) {
-          Obj ignored;
-          if (stm->isNum()) readXrefStream(static_cast<uint64_t>(stm->num()), ignored);
+          if (stm->isNum()) {
+            Obj ignored;
+            readXrefStream(static_cast<uint64_t>(stm->num()), ignored);
+          }
         }
         return trailer.isDict();
       }
@@ -1122,8 +1126,8 @@ void parseToUnicode(const std::string& cmap, Font& font) {
   Lexer lx(cmap);
   const auto hexCode = [](const Obj& o, uint32_t& code, size_t& bytes) {
     if (o.type != Obj::Str || o.s.empty() || o.s.size() > 4) return false;
-    code = 0;
-    for (const char c : o.s) code = (code << 8) | static_cast<uint8_t>(c);
+    code = std::accumulate(o.s.begin(), o.s.end(), uint32_t{0},
+                           [](const uint32_t acc, const char c) { return (acc << 8) | static_cast<uint8_t>(c); });
     bytes = o.s.size();
     return true;
   };
@@ -1362,8 +1366,8 @@ std::vector<size_t> twoColumnOrder(const std::vector<Fragment>& frags) {
   size_t bestRunLength = 0, runLength = 0;
   for (int step = 30; step <= 70; ++step) {
     const double x = minX + width * step / 100.0;
-    size_t crossing = 0;
-    for (const Fragment& f : frags) crossing += f.x0 < x && f.x1 > x;
+    const auto crossing = static_cast<size_t>(
+        std::count_if(frags.begin(), frags.end(), [x](const Fragment& f) { return f.x0 < x && f.x1 > x; }));
     if (crossing < fewest) {
       fewest = crossing;
       gutter = x;
@@ -1559,7 +1563,7 @@ class Interpreter {
         font = nullptr;
         if (const Obj* ref = fontDict.get(nameObj.s)) {
           const uint32_t key = ref->type == Obj::Ref ? static_cast<uint32_t>(ref->i) : 0;
-          auto it = key ? fonts.find(key) : fonts.end();
+          auto it = fonts.find(key);  // key 0 is never stored
           if (it == fonts.end()) {
             auto loaded = std::make_unique<Font>(loadFont(doc, doc.resolve(*ref)));
             font = loaded.get();

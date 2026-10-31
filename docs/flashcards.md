@@ -1,4 +1,4 @@
-# Flashcards (next release)
+# Flashcards
 
 Write cards in your own notes, review them on the reader. No account, no network.
 
