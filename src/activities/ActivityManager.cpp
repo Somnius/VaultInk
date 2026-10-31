@@ -159,8 +159,8 @@ void ActivityManager::loop() {
                      !HeaderHomeTapTarget::contains(tx, ty);
     }
     // Only boards whose frontlight was detected get the panel.
-    if (Frontlight.present() && currentActivity->name != "FrontlightPanel" && !currentActivity->hasOpenMenu() &&
-        (statusBarTap || mappedInput.wasLightPanelGesture())) {
+    if (Frontlight.present() && currentActivity->name != "FrontlightPanel" && currentActivity->name != "Lock" &&
+        !currentActivity->hasOpenMenu() && (statusBarTap || mappedInput.wasLightPanelGesture())) {
       haptic_feedback::touchAction();
       pushActivity(std::make_unique<FrontlightPanelActivity>(renderer, mappedInput));
       return;

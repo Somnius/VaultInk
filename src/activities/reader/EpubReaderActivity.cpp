@@ -37,6 +37,7 @@
 #include "EpubReaderFootnoteSelectActivity.h"
 #include "EpubReaderPercentSelectionActivity.h"
 #include "EpubReaderUtils.h"
+#include "EpubSearchActivity.h"
 #include "FavouritesStore.h"
 #include "KOReaderCredentialStore.h"
 #include "KOReaderSyncActivity.h"
@@ -1379,6 +1380,31 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
     }
     case EpubReaderMenuActivity::MenuAction::SYNC: {
       launchKOReaderSync();
+      break;
+    }
+    case EpubReaderMenuActivity::MenuAction::SEARCH_BOOK: {
+      // The search lays out chapters the reader has not built: free this one, and the radio's heap,
+      // first. Back from the search returns to the menu, which rebuilds the page from the saved place.
+      if (!makeRoomForChapterBuild()) {
+        clippingMessage = StrId::STR_BT_BUILD_REFUSED;
+        showClippingMessage = true;
+        clippingMessageTime = millis();
+        break;
+      }
+      {
+        RenderLock lock;
+        if (section) {
+          rememberCurrentContentOffset();
+          cachedSpineIndex = currentSpineIndex;
+          cachedChapterTotalPageCount = section->pageCount;
+          nextPageNumber = section->currentPage;
+        }
+        section.reset();
+      }
+      startActivityForResult(
+          std::make_unique<EpubSearchActivity>(renderer, mappedInput, epub,
+                                               SETTINGS.readerRenderSpec(buildViewportWidth, buildViewportHeight)),
+          progressChangeResultHandler);
       break;
     }
     case EpubReaderMenuActivity::MenuAction::BOOKMARKS: {

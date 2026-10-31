@@ -50,9 +50,10 @@ void LockActivity::render(RenderLock&&) {
   const int width = renderer.getScreenWidth();
   const int height = renderer.getScreenHeight();
 
-  // Whose reader this is, for whoever finds it (kos25k #22). Top centre, clear of the corner marks.
-  if (mode == Mode::Unlock) {
-    int y = 30;
+  // Whose reader this is, for whoever finds it (kos25k #22): under the PIN dots, or under the corner text.
+  const bool hasOwner = mode == Mode::Unlock && (SETTINGS.ownerName[0] || SETTINGS.ownerPhone[0]);
+  const auto drawOwner = [&](int y) {
+    if (!hasOwner) return y;
     if (SETTINGS.ownerName[0]) {
       renderer.drawCenteredText(
           UI_12_FONT_ID, y,
@@ -63,8 +64,10 @@ void LockActivity::render(RenderLock&&) {
     if (SETTINGS.ownerPhone[0]) {
       renderer.drawCenteredText(UI_10_FONT_ID, y,
                                 renderer.truncatedText(UI_10_FONT_ID, SETTINGS.ownerPhone, width - 2 * 70).c_str());
+      y += renderer.getLineHeight(UI_10_FONT_ID) + 4;
     }
-  }
+    return y;
+  };
 
   if (cornerMode) {
     // A mark on the corner (or corners) that open it.
@@ -84,6 +87,7 @@ void LockActivity::render(RenderLock&&) {
     renderer.drawCenteredText(UI_12_FONT_ID, height / 2 - 30, tr(STR_LOCKED), true, EpdFontFamily::BOLD);
     renderer.drawCenteredText(UI_10_FONT_ID, height / 2 + 10,
                               SETTINGS.lockCorner == 0 ? tr(STR_LOCK_HOLD_CORNER) : tr(STR_LOCK_HOLD_THIS_CORNER));
+    drawOwner(height / 2 + 10 + renderer.getLineHeight(UI_10_FONT_ID) + 40);
     renderer.displayBuffer(HalDisplay::FAST_REFRESH);
     return;
   }
@@ -91,7 +95,10 @@ void LockActivity::render(RenderLock&&) {
   const char* title = mode == Mode::Unlock ? tr(STR_LOCK_ENTER_PIN)
                       : firstPin.empty()   ? tr(STR_LOCK_NEW_PIN)
                                            : tr(STR_LOCK_REPEAT_PIN);
-  renderer.drawCenteredText(UI_12_FONT_ID, 110, title, true, EpdFontFamily::BOLD);
+  // With the owner lines the dots move up to make room for them under the dots.
+  const int titleY = hasOwner ? 90 : 110;
+  const int dotsY = hasOwner ? 150 : 190;
+  renderer.drawCenteredText(UI_12_FONT_ID, titleY, title, true, EpdFontFamily::BOLD);
 
   // Four dots, filled as digits come in.
   const int dot = 26;
@@ -100,12 +107,13 @@ void LockActivity::render(RenderLock&&) {
   for (int i = 0; i < PIN_LENGTH; ++i) {
     const int x = dotsX + i * (dot + gap);
     if (i < static_cast<int>(digits.size())) {
-      renderer.fillRoundedRect(x, 190, dot, dot, dot / 2, Color::Black);
+      renderer.fillRoundedRect(x, dotsY, dot, dot, dot / 2, Color::Black);
     } else {
-      renderer.drawRoundedRect(x, 190, dot, dot, 2, dot / 2, true);
+      renderer.drawRoundedRect(x, dotsY, dot, dot, 2, dot / 2, true);
     }
   }
-  if (message) renderer.drawCenteredText(UI_10_FONT_ID, 250, message);
+  const int belowDots = drawOwner(dotsY + dot + 22);
+  if (message) renderer.drawCenteredText(UI_10_FONT_ID, hasOwner ? belowDots + 4 : 250, message);
 
   for (int key = 0; key < KEYS; ++key) {
     int x, y, w, h;

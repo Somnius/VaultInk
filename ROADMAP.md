@@ -40,7 +40,8 @@ In this order, each also listed in its phase below:
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
-🚧 Next release (on main, 0.54.0): Flashcards from vault notes (Phase 10); PDFs read as text (Phase 7); the Lock Screen page with owner name and phone, owner on the sleep screen, the home card with long titles (kos25k #22, #21, #14); Join With Next Line in the editor; Markdown links rewritten on rename; CBZ landscape spreads as two halves and a progress bar with chapter ticks in the CBZ menu (caches from 0.53.0 are rebuilt once so landscape pages split). Draft notes: `.work/release-notes/0.54.0.md`; nothing of it has run on a device yet.
+🚧 Next release (on main, 0.55.0): kos25k #24 Search in Book (reading menu, case-insensitive, hits with their page, one search per word or phrase; chapters are laid out on the first search); #22 follow-up: owner lines under the PIN dots and the corner text, the top-edge light panel is off while locked.
+✅ 0.54.0: Flashcards from vault notes (Phase 10); PDFs read as text (Phase 7); the Lock Screen page with owner name and phone, owner on the sleep screen, the home card with long titles (kos25k #22, #21, #14); Join With Next Line in the editor; Markdown links rewritten on rename; CBZ landscape spreads as two halves and a progress bar with chapter ticks (caches from 0.53.0 rebuilt once). Release notes must stay under ~1.9 KB (the device drops longer ones). Nothing of it has run on a device yet.
 ✅ 0.53.0 (with companion-0.4.0): the companion's outbox; CBZ page cache and PNG pages over 8 MP; block ids in search.
 ✅ 0.52.0: reading time saved when a book is left (not only at sleep); lock options (after, corner, hold); arrows and task boxes in every built-in font.
 ✅ 0.51.0: kos25k #23 reading statistics sleep screen (reading log on the card, times, last 3 books, month calendar).

@@ -233,7 +233,8 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
   sleep screen.
 - **Highlights to a vault note**: a book's clippings written to `Highlights/<title>.md` in your vault, ready for LiveSync.
 - **PDF as text**: a `.pdf` opens as reflowing text (Greek included, two columns in order, filled-in form fields, files locked
-  only against copying); scans and pictures are not read. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text-next-release).
+  only against copying); scans and pictures are not read. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text).
+- **Search in a book**: the reading menu's Search in Book finds a word or phrase (case and accents don't matter) and lists each hit with its page. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-a-book-next-release).
 - **Flashcards**: cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}` in notes tagged
   `#flashcards`), reviewed with spaced repetition from Vaults → Flashcards. [docs/flashcards.md](docs/flashcards.md).
 - **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.

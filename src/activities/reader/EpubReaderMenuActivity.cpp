@@ -59,6 +59,7 @@ void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, const 
   if (hasBookmarks) {
     items.push_back({MenuAction::BOOKMARKS, StrId::STR_BOOKMARKS});
   }
+  if (!isVaultNote) items.push_back({MenuAction::SEARCH_BOOK, StrId::STR_SEARCH_IN_BOOK});
   items.push_back({MenuAction::TOGGLE_BOOKMARK, StrId::STR_TOGGLE_BOOKMARK});
   if (!isVaultNote) {
     items.push_back(

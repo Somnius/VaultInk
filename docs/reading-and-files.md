@@ -232,6 +232,8 @@ there.
   whoever finds the reader knows whom to call. **Settings → Display → Owner on Sleep Screen** puts the
   same two lines on the sleep screen, bottom left next to the battery percent.
 
+- (next release) The owner's name and phone sit under the PIN dots (under the "Hold the marked corner" text in corner mode), no longer at the very top. While the lock screen is up, the swipe down from the top edge no longer opens the frontlight panel, so nobody gets past the lock through it (kos25k #22).
+
 Forgot the PIN? Take the SD card out and delete `/.vaultink/lock-pin.txt` on a computer: the PIN
 lock is then off. That's also why the PIN stops someone picking the reader up and reading, not
 someone who takes the card out; the notes on the card aren't encrypted.
@@ -360,3 +362,18 @@ clipping as a block quote under a heading for its chapter, in reading order. Exp
 note is rewritten. A note of that name that VaultInk didn't write is never touched: the export goes to `<title> (highlights).md`
 instead. The note counts as changed on the reader, so LiveSync Sync now sends it and it shows up in Obsidian.
 
+## Search in a book (next release)
+
+In a book's reading menu, **Search in Book** (above Toggle Bookmark) asks for a word or a short
+phrase with the keyboard, then goes through the chapters in book order and lists what it finds:
+a few words around each hit, the chapter, and the page in that chapter on the right (the same page
+number the reader shows). Capital letters and accents don't matter (so "ΚΑΛΗΜΕΡΑ" finds "καλημέρα"),
+and a part of a word matches too ("read" finds "reading"). Tap a result to open that page; tap the
+top row to search again.
+
+- The first search in a book lays out every chapter that hasn't been read yet, so it can take a
+  while on a long book; the progress shows and **Back** stops it with what was found so far. The
+  chapters stay laid out afterwards, so searching again, and opening them, is quick.
+- At most 100 results, and at most 3 per page, so one page full of the word doesn't push the rest
+  away. A phrase split by a page turn isn't found.
+- Books only (EPUB), not notes: a note has the vault search.
