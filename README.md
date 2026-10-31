@@ -118,6 +118,7 @@ The Library by title with Books only on (no vault notes), the Author tab with Au
 ### Flashcards
 
 <p>
+  <img src="docs/images/vaultink/vaults-picker.png" width="190" alt="Vaults, with Flashcards as the first row">
   <img src="docs/images/vaultink/flashcards-decks.png" width="190" alt="Flashcard decks with due and new counts">
   <img src="docs/images/vaultink/flashcards-review.png" width="190" alt="A flashcard with its answer and four buttons">
 </p>
@@ -132,6 +133,7 @@ the decks with how many are due and new, and a card with the four answers and wh
   <img src="docs/images/vaultink/search-in-book.png" width="190" alt="Search in Book results with the page of each hit">
   <img src="docs/images/vaultink/pdf-as-text.png" width="190" alt="A PDF read as reflowing text, Greek included">
   <img src="docs/images/vaultink/lock-owner.png" width="190" alt="The PIN lock screen with the owner's name and phone under the dots">
+  <img src="docs/images/vaultink/lock-settings.png" width="190" alt="Settings, System, Lock Screen">
 </p>
 
 Search in Book (0.55.0, from the reading menu): a few words around each hit and its page on the right. A PDF opened from
