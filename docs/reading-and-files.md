@@ -232,7 +232,7 @@ there.
   whoever finds the reader knows whom to call. **Settings → Display → Owner on Sleep Screen** puts the
   same two lines on the sleep screen, bottom left next to the battery percent.
 
-- (next release) The owner's name and phone sit under the PIN dots (under the "Hold the marked corner" text in corner mode), no longer at the very top. While the lock screen is up, the swipe down from the top edge no longer opens the frontlight panel, so nobody gets past the lock through it (kos25k #22).
+- The owner's name and phone sit under the PIN dots (under the "Hold the marked corner" text in corner mode), no longer at the very top. While the lock screen is up, the swipe down from the top edge no longer opens the frontlight panel, so nobody gets past the lock through it (kos25k #22).
 
 Forgot the PIN? Take the SD card out and delete `/.vaultink/lock-pin.txt` on a computer: the PIN
 lock is then off. That's also why the PIN stops someone picking the reader up and reading, not
@@ -362,7 +362,7 @@ clipping as a block quote under a heading for its chapter, in reading order. Exp
 note is rewritten. A note of that name that VaultInk didn't write is never touched: the export goes to `<title> (highlights).md`
 instead. The note counts as changed on the reader, so LiveSync Sync now sends it and it shows up in Obsidian.
 
-## Search in a book (next release)
+## Search in a book
 
 In a book's reading menu, **Search in Book** (above Toggle Bookmark) asks for a word or a short
 phrase with the keyboard, then goes through the chapters in book order and lists what it finds:

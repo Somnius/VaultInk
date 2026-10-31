@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.55.0 (2026-10-31)
+
+Search inside a book, and the lock screen follow-up (kos25k #24 and #22).
+
+- **Search in Book** (kos25k #24): the reading menu has it above Toggle Bookmark (after the Bookmarks row when the book has bookmarks). Type a word or a short phrase: capitals and accents don't matter (Greek too), and part of a word matches too. Each result shows a few words around the hit, the chapter, and the page in that chapter on the right. Tap one to go there, the top row searches again. The first search in a book lays out the chapters you haven't read yet, so a long book takes a while; Back stops it and keeps what it found. The chapters stay laid out afterwards. At most 100 results, 3 per page.
+- **Lock screen** (kos25k #22): the owner's name and phone sit under the four PIN dots, and under the "hold the marked corner" text in corner mode. While the lock screen is up, the swipe down from the top (the light panel) no longer opens.
+- **Release notes** before an update: the 0.54.0 notes were too long for the reader to show; they are short now.
+
+Tested in the simulator: a search in a test book (100 hits, a pick opened the right page, the keyboard and the results screen), and both lock layouts with an owner set. The matching is covered by host tests. Not tried on a device yet: how long the first search takes on a long book, and the light panel staying shut on the lock screen.
+
+
 ## 0.54.0 (2026-10-31)
 
 Flashcards, plus the round of fixes from kos25k's #22, #21 and #14, and a few comic changes.
