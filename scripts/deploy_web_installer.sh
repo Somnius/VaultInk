@@ -20,6 +20,13 @@ if [[ ! -s "$NOTES" ]]; then
   exit 1
 fi
 
+# The device's update screen drops notes longer than 2048 bytes once JSON-escaped (0.54.0 showed none).
+NOTES_JSON=$(python3 -c 'import json,sys;print(len(json.dumps(open(sys.argv[1]).read())))' "$NOTES")
+if (( NOTES_JSON > 1950 )); then
+  echo "Release notes are $NOTES_JSON bytes escaped; the device shows at most about 1950. Shorten $NOTES." >&2
+  exit 1
+fi
+
 if [[ -n "$(git status --porcelain -- src lib platformio.ini partitions_vaultink.csv)" ]]; then
   echo "Uncommitted firmware changes; commit them first so the installer matches a commit." >&2
   exit 1

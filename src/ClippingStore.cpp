@@ -441,12 +441,12 @@ bool ClippingStore::readFromFile() {
 
   uint8_t version = 0;
   uint16_t count = 0;
-  std::string title;
-  std::string author;
+  std::string storedTitle;
+  std::string storedAuthor;
   std::string storedPath;
   if (!serialization::tryReadPod(f, version) || (version < LEGACY_VERSION || version > VERSION) ||
-      !serialization::tryReadPod(f, count) || !serialization::tryReadString(f, title, HEADER_STRING_MAX) ||
-      !serialization::tryReadString(f, author, HEADER_STRING_MAX) ||
+      !serialization::tryReadPod(f, count) || !serialization::tryReadString(f, storedTitle, HEADER_STRING_MAX) ||
+      !serialization::tryReadString(f, storedAuthor, HEADER_STRING_MAX) ||
       !serialization::tryReadString(f, storedPath, HEADER_STRING_MAX)) {
     LOG_ERR("CLIP", "Failed to read clipping header: %s", path.c_str());
     return false;
@@ -457,8 +457,8 @@ bool ClippingStore::readFromFile() {
     return false;
   }
 
-  if (bookTitle.empty()) bookTitle = std::move(title);
-  if (bookAuthor.empty()) bookAuthor = std::move(author);
+  if (bookTitle.empty()) bookTitle = std::move(storedTitle);
+  if (bookAuthor.empty()) bookAuthor = std::move(storedAuthor);
   if (!reserveClippings(count)) return false;
   for (uint16_t i = 0; i < count; ++i) {
     Clipping clipping;
