@@ -522,12 +522,12 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   Still to do: timing and memory on the device (big PDFs: a 30 MB file is read in pieces, never whole), a link in a note to a PDF in another
   folder (a `[[Rules.pdf]]` link resolves, host-tested, but opening one is not driven in the simulator), tables, three or more columns, AES-256 files, and CID fonts without a ToUnicode map. ✅ PDFs locked only against copying or printing (an empty user password: RC4 40/128 and AES-128) are read; checked on files from Ghostscript and LibreOffice and a generated AES-128 file; one that needs a password says so. ✅ Two columns come out in reading order (a gutter found from where the text lines sit; host-tested).
 
-## 💤 Phase 8 - Website
+## ✅ Phase 8 - Website
 
 * ✅ Web installer page (somnius.github.io/VaultInk), redesigned 2026-10-30, then the same day: a
   back to top button, a "See it move" section with the GIFs, a sliding row of more screens, the
   companion's phone screens, fade-ins (off for reduced motion), and a new share image (og-2.png).
-* 🚧 App page lefteros.com/en/apps/vaultink with donations (being written in the lefteros.com project). ✅ Credited in About, README, the web installer and release notes (0.8.1).
+* ✅ App page: [lefteros.com/en/apps/vaultink](https://lefteros.com/en/apps/vaultink/) (the main app page, built in the lefteros.com project) and the fundraiser page [lefteros.com/en/vaultink-donation](https://lefteros.com/en/vaultink-donation/). Credited in About, README, the web installer and release notes (0.8.1).
 
 ## 💤 Phase 9 - Watch-only wallet
 
