@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.57.0 (2026-10-31)
+
+Search in Book is much faster, and the corner lock screen is plainer (kos25k #24 and #22).
+
+- **Search in Book** (kos25k #24): it no longer lays out every chapter first. It reads each chapter's text straight from the book in small steps, so hits show up while it works and Back stops it at once, keeping what it found. Capitals and accents still don't matter, and part of a word matches. Each hit shows a few words around it and "chapter name · N%" (the page number when that chapter has been read before). Tapping a hit goes to that spot in the book.
+- **Lock screen** (kos25k #22): with the tap-a-corner lock, the screen now shows only "Locked" and the owner's name and phone. The "Hold the marked corner" line and the small corner marks are gone.
+
+Tested in the simulator on a 120-chapter test book: hits, Back in the middle of a search, picking a hit, and the new lock screen. Not tested on a device yet, so how fast it is on a long book is still to be seen.
+
+
 ## 0.56.0 (2026-10-31)
 
 Folders tab (kos25k #18), PDFs a little wider, reading streaks, and sync ids for newer LiveSync setups.

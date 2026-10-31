@@ -1117,6 +1117,15 @@ uint8_t* Epub::readItemContentsToBytes(const std::string& itemHref, size_t* size
   return content;
 }
 
+std::unique_ptr<ZipEntryReader> Epub::openItemReader(const std::string& itemHref) const {
+  if (itemHref.empty() || Txt::isTxtOrMd(filepath)) return nullptr;
+  const std::string path = FsHelpers::normalisePath(itemHref);
+  if (decryptor && decryptor->isEncrypted(path)) return nullptr;
+  auto reader = std::make_unique<ZipEntryReader>(filepath);
+  if (!reader->open(path.c_str())) return nullptr;
+  return reader;
+}
+
 bool Epub::readItemContentsToStream(const std::string& itemHref, Print& out, const size_t chunkSize,
                                     const bool allowEarlyStop) const {
   if (itemHref.empty()) {

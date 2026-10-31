@@ -213,6 +213,28 @@ TEST_F(ZipFileTest, StreamsEntriesInChunks) {
   EXPECT_EQ(stored.text(), "application/epub+zip");
 }
 
+TEST_F(ZipFileTest, EntryReaderStepsThroughStoredAndDeflatedEntries) {
+  ZipBuilder builder;
+  builder.addStored("mimetype", "application/epub+zip")
+      .addDeflated("OEBPS/chapter.xhtml", DEFLATED_BYTES, static_cast<uint32_t>(DEFLATED_TEXT.size()));
+  install(builder);
+
+  for (const auto& [name, expected] : {std::pair<const char*, std::string>{"OEBPS/chapter.xhtml", DEFLATED_TEXT},
+                                       {"mimetype", "application/epub+zip"}}) {
+    ZipEntryReader reader(path);
+    ASSERT_TRUE(reader.open(name, 16));
+    std::string got;
+    uint8_t buf[5];
+    int n;
+    while ((n = reader.read(buf, sizeof(buf))) > 0) got.append(reinterpret_cast<char*>(buf), static_cast<size_t>(n));
+    EXPECT_EQ(n, 0) << name;
+    EXPECT_EQ(got, expected) << name;
+    EXPECT_EQ(reader.read(buf, sizeof(buf)), 0);
+  }
+  ZipEntryReader missing(path);
+  EXPECT_FALSE(missing.open("nope.xhtml"));
+}
+
 TEST_F(ZipFileTest, LookupCacheDoesNotOutliveTheOpenArchive) {
   ZipBuilder before;
   before.addStored("a.txt", "aaaa").addStored("b.txt", "bb");

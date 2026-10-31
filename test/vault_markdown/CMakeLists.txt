@@ -12,6 +12,7 @@ add_executable(VaultMarkdownTest
   CardStoreTest.cpp
   CardIndexTest.cpp
   WordSearchTest.cpp
+  BookTextSearchTest.cpp
   ${REPO_ROOT}/lib/Vault/MarkdownToHtml.cpp
   ${REPO_ROOT}/lib/Vault/VaultLink.cpp
   ${REPO_ROOT}/lib/Vault/TextFold.cpp
@@ -25,10 +26,16 @@ add_executable(VaultMarkdownTest
   ${REPO_ROOT}/lib/Vault/CardStore.cpp
   ${REPO_ROOT}/lib/Vault/CardIndex.cpp
   ${REPO_ROOT}/lib/Vault/WordSearch.cpp
+  ${REPO_ROOT}/lib/Vault/BookTextSearch.cpp
+  ${REPO_ROOT}/lib/Epub/Epub/htmlEntities.cpp
+  ${REPO_ROOT}/lib/Utf8/Utf8.cpp
 )
 
 target_include_directories(VaultMarkdownTest PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../koreader_xpath_resolver/stubs
   ${REPO_ROOT}/lib/Vault
+  ${REPO_ROOT}/lib/Epub
+  ${REPO_ROOT}/lib/Utf8
 )
 
 target_link_libraries(VaultMarkdownTest PRIVATE

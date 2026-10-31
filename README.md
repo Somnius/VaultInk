@@ -250,7 +250,7 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
   only against copying (RC4, AES-128 and AES-256, with an empty password), three and four columns in order); scans and pictures are not read. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text).
 - **Folders tab** (0.56.0): the Library's fifth tab lists the card's folders with their book counts.
 - **Reading streaks** (0.56.0): the sleep screen shows your current and best streak and the books you finished.
-- **Search in a book**: the reading menu's Search in Book finds a word or phrase (case and accents don't matter) and lists each hit with its page. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-a-book).
+- **Search in a book**: the reading menu's Search in Book finds a word or phrase (case and accents don't matter) and lists each hit with its chapter and position (0.57.0: it reads the book's text directly, so it is quick and Back stops it at once). [docs/reading-and-files.md](docs/reading-and-files.md#search-in-a-book).
 - **Flashcards**: cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}` in notes tagged
   `#flashcards`), reviewed with spaced repetition from Vaults → Flashcards. [docs/flashcards.md](docs/flashcards.md).
 - **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.

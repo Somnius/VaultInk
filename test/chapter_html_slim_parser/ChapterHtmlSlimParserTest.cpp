@@ -14,6 +14,9 @@
 #include <string>
 #include <vector>
 
+#include "BookTextSearch.h"
+#include "TextFold.h"
+#include "WordSearch.h"
 #include "src/ReaderFontSizes.h"
 #include "src/activities/settings/TextSettingsPreview.h"
 #include "src/clippings/ClippingText.h"
@@ -2021,6 +2024,85 @@ TEST(KoreanLayout, HangulGluedAcrossInlineStyleIsUnbreakable) {
   // 가나 한국 fits in 36 px, but 어 is glued to 한국, so the whole word moves down.
   const std::vector<std::vector<std::string>> expected{{"가나"}, {"한국", "어"}};
   EXPECT_EQ(lines, expected);
+}
+
+// Search in a book (#24) lands on a page through the layout parser's visible text offsets, so the
+// streaming searcher must count exactly like the layout does: the word the layout puts at a hit's
+// offset must contain the query.
+TEST_F(ChapterHtmlSlimParserTest, ChapterTextSearcherOffsetsMatchTheLayoutWordRanges) {
+  const std::string html =
+      "<?xml version=\"1.0\"?><html><head><title>needle title</title><style>needle{}</style></head><body>"
+      "<h1>Chapter  needle</h1>"
+      "<p>First &amp; <i>need</i>le &#233;t&#xE9; co\xC2\xAD"
+      "needle text more</p>"
+      "<table><tr><td>cell needle</td><td>other</td></tr></table>"
+      "<p>a<rp>needle</rp> b <b>NEEDLE</b>s and Needles</p>"
+      "<script>needle</script></body></html>";
+  const std::string testId = "search-equivalence";
+  filepath = (std::filesystem::temp_directory_path() / ("crosspoint-" + testId + ".xhtml")).string();
+  {
+    HalFile file;
+    ASSERT_TRUE(file.open(filepath.c_str(), "wb"));
+    ASSERT_EQ(file.write(html.data(), html.size()), html.size());
+  }
+  struct W {
+    uint32_t start, end;
+    std::string text;
+  };
+  std::vector<W> words;
+  const auto cachePath = (std::filesystem::temp_directory_path() / ("crosspoint-" + testId + ".bin")).string();
+  parser.completePageFn = [&](std::unique_ptr<Page> page, auto, auto, auto) {
+    {
+      HalFile file;
+      ASSERT_TRUE(file.open(cachePath.c_str(), "wb"));
+      ASSERT_TRUE(page->serialize(file));
+    }
+    HalFile file;
+    ASSERT_TRUE(file.open(cachePath.c_str(), "rb"));
+    auto cached = Page::deserialize(file);
+    ASSERT_NE(cached, nullptr);
+    for (const auto& element : cached->elements) {
+      if (element->getTag() != TAG_PageLine) continue;
+      const auto& block = *static_cast<const PageLine&>(*element).getBlock();
+      for (uint16_t i = 0; i < block.wordCount(); ++i) {
+        const auto range = block.wordSourceRange(i);
+        words.push_back({range.start, range.end, std::string(block.wordText(i))});
+      }
+    }
+  };
+  parser.paragraphIndentSpaces = 0;
+  ASSERT_TRUE(parser.parseAndBuildPages());
+  std::filesystem::remove(filepath);
+  std::filesystem::remove(cachePath);
+  ASSERT_FALSE(words.empty());
+
+  ChapterTextSearcher searcher(wordsearch::prepareQuery("needle"), 50, nullptr, 50);
+  searcher.write(reinterpret_cast<const uint8_t*>(html.data()), html.size());
+  ASSERT_TRUE(searcher.finish());
+  // Visible hits: h1, "need"+"le" is split across tags (one word), the soft-hyphen word, the table cell,
+  // NEEDLE and Needles. Not the title, style, rp or script.
+  ASSERT_EQ(searcher.hits().size(), 6u);
+  for (const auto& hit : searcher.hits()) {
+    // A word styled in two runs (need<i>le</i>) is two layout words that touch; the hit is on the first.
+    std::string joined;
+    uint32_t end = 0;
+    bool found = false;
+    for (const auto& w : words) {
+      if (!found && hit.offset >= w.start && hit.offset < w.end) {
+        found = true;
+        joined = w.text;
+        end = w.end;
+      } else if (found && w.start == end && joined.size() < 40) {
+        joined += w.text;
+        end = w.end;
+      } else if (found) {
+        break;
+      }
+    }
+    ASSERT_TRUE(found) << "no layout word at offset " << hit.offset;
+    EXPECT_NE(textfold::fold(joined).find("needle"), std::string::npos)
+        << "offset " << hit.offset << " fell on '" << joined << "'";
+  }
 }
 
 TEST(TextDecorationPosition, StrikeUsesGlyphBodyAndFollowsScriptScaling) {

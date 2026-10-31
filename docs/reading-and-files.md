@@ -235,7 +235,7 @@ there.
   of the four corners. It keeps a stray tap in a bag from opening a book, but it's no protection.
 - **Change the PIN** shows up once a PIN is set; **Off** turns the lock off and deletes the PIN.
 - (0.52.0) **Lock After Sleeping**: always, or after 5, 10, 15, 30 minutes (the default), 1, 2 or
-  3 hours asleep. **Unlock Corner**: any corner, or only one (the only one marked). **Corner Hold**:
+  3 hours asleep. **Unlock Corner**: any corner, or only one. **Corner Hold**:
   how long to hold it, from 0 (a single touch) to 10 seconds.
 - The lock options moved onto their own page, **Settings → System → Lock Screen**:
   **Lockscreen Type** (off, PIN, corner, change the PIN) comes first, then the three above. The same
@@ -243,7 +243,7 @@ there.
   whoever finds the reader knows whom to call. **Settings → Display → Owner on Sleep Screen** puts the
   same two lines on the sleep screen, bottom left next to the battery percent.
 
-- The owner's name and phone sit under the PIN dots (under the "Hold the marked corner" text in corner mode), no longer at the very top. While the lock screen is up, the swipe down from the top edge no longer opens the frontlight panel, so nobody gets past the lock through it (kos25k #22).
+- The owner's name and phone sit under the PIN dots (under the word "Locked" in corner mode), no longer at the very top. From 0.57.0 the corner lock screen shows only "Locked" and the owner lines: no hint text and no corner marks (kos25k #22). While the lock screen is up, the swipe down from the top edge no longer opens the frontlight panel, so nobody gets past the lock through it (kos25k #22).
 
 Forgot the PIN? Take the SD card out and delete `/.vaultink/lock-pin.txt` on a computer: the PIN
 lock is then off. That's also why the PIN stops someone picking the reader up and reading, not
@@ -377,14 +377,14 @@ instead. The note counts as changed on the reader, so LiveSync Sync now sends it
 
 In a book's reading menu, **Search in Book** (above Toggle Bookmark) asks for a word or a short
 phrase with the keyboard, then goes through the chapters in book order and lists what it finds:
-a few words around each hit, the chapter, and the page in that chapter on the right (the same page
-number the reader shows). Capital letters and accents don't matter (so "ΚΑΛΗΜΕΡΑ" finds "καλημέρα"),
-and a part of a word matches too ("read" finds "reading"). Tap a result to open that page; tap the
-top row to search again.
+a few words around each hit and, under it, the chapter and where in it ("Chapter 12 · 40%"; the
+page, "Chapter 12 · p. 9", once that chapter has been read or laid out before). Capital letters and
+accents don't matter (so "ΚΑΛΗΜΕΡΑ" finds "καλημέρα"), and a part of a word matches too ("read" finds
+"reading"). Tap a result to go to that spot; tap the top row to search again.
 
-- The first search in a book lays out every chapter that hasn't been read yet, so it can take a
-  while on a long book; the progress shows and **Back** stops it with what was found so far. The
-  chapters stay laid out afterwards, so searching again, and opening them, is quick.
-- At most 100 results, and at most 3 per page, so one page full of the word doesn't push the rest
-  away. A phrase split by a page turn isn't found.
+- Since 0.57.0 it reads each chapter's text straight from the book, without laying the pages out
+  first (0.55.0 did, and was slow on a long book). Hits show up while it works, the top row shows
+  how far it is, and **Back** stops it at once and keeps what was found.
+- At most 100 results, and at most 3 close together, so one page full of the word doesn't push the
+  rest away. A phrase split by a paragraph or a page break isn't found.
 - Books only (EPUB), not notes: a note has the vault search.

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <new>
 
 struct ZipInflateCtx {
   HalFile* file = nullptr;
@@ -591,4 +592,80 @@ bool ZipFile::readFileToStream(const char* filename, Print& out, const size_t ch
 
   LOG_ERR("ZIP", "Unsupported compression method");
   return false;
+}
+
+bool ZipFile::seekToEntry(const char* filename, FileStatSlim* stat) {
+  if (!isOpen() || !loadFileStatSlim(filename, stat)) return false;
+  const long offset = getDataOffset(*stat);
+  if (offset < 0) return false;
+  return file.seek(offset);
+}
+
+struct ZipEntryReader::Impl {
+  explicit Impl(const std::string& zipPath) : path(zipPath), zip(path) {}
+  Impl(const Impl&) = delete;
+  Impl& operator=(const Impl&) = delete;
+  ~Impl() {
+    free(readBuf);
+    if (zip.isOpen()) zip.close();
+  }
+  std::string path;
+  ZipFile zip;
+  ZipFile::FileStatSlim stat = {};
+  uint8_t* readBuf = nullptr;
+  ZipInflateCtx ctx;
+  InflateStream inflate;
+  size_t produced = 0;
+  size_t storedRemaining = 0;
+  bool ready = false;
+  bool done = false;
+};
+
+ZipEntryReader::ZipEntryReader(const std::string& zipPath) : impl(new (std::nothrow) Impl(zipPath)) {}
+ZipEntryReader::~ZipEntryReader() = default;
+
+bool ZipEntryReader::open(const char* entryName, const size_t chunkSize) {
+  if (!impl || impl->ready) return false;
+  if (!impl->zip.open()) return false;
+  if (!impl->zip.seekToEntry(entryName, &impl->stat)) return false;
+  if (impl->stat.method == ZIP_METHOD_STORED) {
+    impl->storedRemaining = impl->stat.uncompressedSize;
+  } else if (impl->stat.method == ZIP_METHOD_DEFLATED) {
+    impl->readBuf = static_cast<uint8_t*>(malloc(chunkSize));
+    if (!impl->readBuf) return false;
+    impl->ctx.file = &impl->zip.rawFile();
+    impl->ctx.fileRemaining = impl->stat.compressedSize;
+    impl->ctx.readBuf = impl->readBuf;
+    impl->ctx.readBufSize = chunkSize;
+    if (!impl->inflate.init(true)) return false;
+    impl->inflate.setFill(zipFillCallback, &impl->ctx);
+  } else {
+    return false;
+  }
+  impl->ready = true;
+  return true;
+}
+
+int ZipEntryReader::read(uint8_t* out, const size_t max) {
+  if (!impl || !impl->ready) return -1;
+  if (impl->done || max == 0) return 0;
+  if (impl->stat.method == ZIP_METHOD_STORED) {
+    if (impl->storedRemaining == 0) {
+      impl->done = true;
+      return 0;
+    }
+    const int n = impl->zip.rawFile().read(out, std::min(max, impl->storedRemaining));
+    if (n <= 0) return -1;
+    impl->storedRemaining -= static_cast<size_t>(n);
+    return n;
+  }
+  size_t produced = 0;
+  const auto status = impl->inflate.readAtMost(out, max, &produced);
+  impl->produced += produced;
+  if (status == InflateStream::Status::Error || impl->produced > impl->stat.uncompressedSize) return -1;
+  if (status == InflateStream::Status::Done) {
+    impl->done = true;
+    if (impl->produced != impl->stat.uncompressedSize) return -1;
+  }
+  return static_cast<int>(produced);
 }

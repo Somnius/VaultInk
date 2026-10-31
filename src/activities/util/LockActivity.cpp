@@ -70,24 +70,9 @@ void LockActivity::render(RenderLock&&) {
   };
 
   if (cornerMode) {
-    // A mark on the corner (or corners) that open it.
-    const int m = 18;
-    const int len = 40;
-    const uint8_t only = SETTINGS.lockCorner;
-    const auto mark = [&](const bool right, const bool bottom) {
-      const int x = right ? width - m - len : m;
-      const int y = bottom ? height - m - 4 : m;
-      renderer.fillRect(x, y, len, 4);
-      renderer.fillRect(right ? width - m - 4 : m, bottom ? height - m - len : m, 4, len);
-    };
-    if (only == 0 || only == 1) mark(false, false);
-    if (only == 0 || only == 2) mark(true, false);
-    if (only == 0 || only == 3) mark(false, true);
-    if (only == 0 || only == 4) mark(true, true);
+    // Only the word and the owner's lines (kos25k #22): no hint and no corner marks.
     renderer.drawCenteredText(UI_12_FONT_ID, height / 2 - 30, tr(STR_LOCKED), true, EpdFontFamily::BOLD);
-    renderer.drawCenteredText(UI_10_FONT_ID, height / 2 + 10,
-                              SETTINGS.lockCorner == 0 ? tr(STR_LOCK_HOLD_CORNER) : tr(STR_LOCK_HOLD_THIS_CORNER));
-    drawOwner(height / 2 + 10 + renderer.getLineHeight(UI_10_FONT_ID) + 40);
+    drawOwner(height / 2 + 10);
     renderer.displayBuffer(HalDisplay::FAST_REFRESH);
     return;
   }

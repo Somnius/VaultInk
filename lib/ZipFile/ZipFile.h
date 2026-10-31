@@ -1,7 +1,9 @@
 #pragma once
 #include <HalStorage.h>
 
+#include <cstdint>
 #include <deque>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -78,6 +80,10 @@ class ZipFile {
   // stop (returns true) instead of a write failure — used by header probes
   // that only need the first bytes of an entry.
   bool readFileToStream(const char* filename, Print& out, size_t chunkSize, bool allowEarlyStop = false);
+  // For ZipEntryReader: with the archive open, finds the entry, positions the file at its data and
+  // fills the entry's method and sizes.
+  bool seekToEntry(const char* filename, FileStatSlim* stat);
+  HalFile& rawFile() { return file; }
 
   template <typename F>
   bool enumerateFilePaths(F&& callback) {
@@ -146,4 +152,25 @@ class ZipFile {
     }
     return true;
   }
+};
+
+// Reads one zip entry a piece at a time, so a caller can look at its buttons between pieces (a
+// deflated entry cannot be paused inside ZipFile::readFileToStream). Keeps the archive open for its
+// lifetime; one reader at a time on a device.
+class ZipEntryReader {
+ public:
+  explicit ZipEntryReader(const std::string& zipPath);
+  ~ZipEntryReader();
+  ZipEntryReader(const ZipEntryReader&) = delete;
+  ZipEntryReader& operator=(const ZipEntryReader&) = delete;
+
+  // Finds the entry and gets ready to inflate it. False when it is missing or not stored/deflated.
+  bool open(const char* entryName, size_t chunkSize = 4096);
+  // Up to `max` bytes of the entry into `out`. Returns the byte count; 0 at the end of the entry;
+  // -1 when the data is broken (or the size does not match the zip's record).
+  int read(uint8_t* out, size_t max);
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl;
 };

@@ -2,18 +2,21 @@
 
 #include <Epub.h>
 #include <Epub/ReaderRenderSpec.h>
+#include <HalStorage.h>
+#include <ZipFile.h>
 
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "BookTextSearch.h"
 #include "activities/UiListActivity.h"
 
 // Searches the open book for a word or phrase (kos25k #24): case and accents don't matter. Asks with
-// the keyboard, then goes through the chapters in book order (laying out the ones the reader has not
-// built yet, which keeps their cache for later), and lists each hit with its page in the chapter.
-// Back while searching stops it and shows what was found so far. A pick finishes with a
-// ProgressChangeResult for the reader.
+// the keyboard, then reads the chapters' text in book order, without laying anything out
+// (ChapterTextSearcher), in steps of about 50 ms per loop() so Back is always seen. Hits appear in
+// the list as chapters finish. Back while searching stops it and keeps what was found; a pick
+// finishes with a ProgressChangeResult (spine + visible text offset) for the reader.
 class EpubSearchActivity final : public UiListActivity {
  public:
   explicit EpubSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::shared_ptr<Epub> epub,
@@ -24,15 +27,14 @@ class EpubSearchActivity final : public UiListActivity {
  private:
   struct Hit {
     int spine;
-    int page;
-    int totalPages;
-    uint32_t offset;       // visible text offset where the page starts
-    std::string label;     // a few words around the hit
-    std::string where;     // chapter title
-    std::string pageText;  // "p. 12"
+    uint32_t offset;     // visible text offset of the match
+    std::string label;   // a few words around the hit
+    std::string detail;  // "chapter name · 37%" or "chapter name · p. 12"
   };
+  static constexpr size_t READ_CHUNK = 4096;
   static constexpr size_t MAX_HITS = 100;
-  static constexpr size_t MAX_HITS_PER_PAGE = 3;  // a page full of the word does not flood the list
+  static constexpr unsigned long STEP_MS = 50;      // work per loop() before input is looked at again
+  static constexpr unsigned long REDRAW_MS = 1500;  // e-ink: at most one refresh per this while searching
 
   int listCount() const override { return static_cast<int>(rows.size()); }
   void buildScreen(UiScreen& screen) override;
@@ -42,7 +44,12 @@ class EpubSearchActivity final : public UiListActivity {
 
   void askForQuery();
   void startSearch(const std::string& text);
-  void searchChapter(int spineIndex);
+  void stepSearch();
+  bool openChapter(int spineIndex);
+  void finishChapter();
+  void closeChapter();
+  void mergePendingHits();
+  bool backRequested();
   void finishSearch();
   void rebuildRows();
 
@@ -55,6 +62,16 @@ class EpubSearchActivity final : public UiListActivity {
   std::string prepared;
   std::string queryLabel;
   std::string progressText;
+  std::unique_ptr<ChapterTextSearcher> searcher;
+  HalFile chapterFile;  // the chapter's unzipped html in the book cache, when it is there
+  bool chapterFromFile = false;
+  std::unique_ptr<ZipEntryReader> entryReader;  // the chapter in the zip, when it is not in the cache
+  std::unique_ptr<uint8_t[]> readBuf;
+  bool swallowBackRelease = false;  // Back stopped the search; its release must not also leave
+  bool rowsDirty = false;
+  unsigned long lastRedrawMs = 0;
   std::vector<Hit> hits;
+  std::vector<Hit> pendingHits;  // found since the last redraw; merged under the render lock
+  int chaptersDone = 0;
   std::vector<freeink::ui::ListItem> rows;
 };

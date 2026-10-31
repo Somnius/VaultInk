@@ -13,6 +13,7 @@
 #include "Epub/css/CssParser.h"
 
 class ZipFile;
+class ZipEntryReader;
 
 class Epub {
  public:
@@ -83,6 +84,9 @@ class Epub {
                                    bool trailingNullByte = false) const;
   bool readItemContentsToStream(const std::string& itemHref, Print& out, size_t chunkSize,
                                 bool allowEarlyStop = false) const;
+  // A reader that hands out one plain (not encrypted, not a note) zip item a piece at a time, so the caller can
+  // check its buttons in between; nullptr when the item is not like that (use readItemContentsToStream).
+  std::unique_ptr<ZipEntryReader> openItemReader(const std::string& itemHref) const;
   // Extract an item to a file on SD. On failure the partial file is removed.
   bool extractItemToFile(const std::string& itemHref, const std::string& destPath) const;
   bool getItemSize(const std::string& itemHref, size_t* size) const;
