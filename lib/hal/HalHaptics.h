@@ -14,6 +14,7 @@ class HalHaptics {
   // not pulse duration; perceived strength depends on the motor and battery.
   // Metalio's motor did not respond to short pulses at 50% in device testing.
   // Use approximately 60%, 75%, and 88%; validate the new floor on hardware.
+  // cppcheck-suppress unusedPrivateFunction
   static constexpr uint8_t gain(uint8_t level) { return level == 0 ? 153 : level == 1 ? 191 : 224; }
 
  public:

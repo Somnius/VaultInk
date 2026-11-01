@@ -370,8 +370,7 @@ void EpubSearchActivity::openTypeSettings(const bool restart) {
   if (!screen) return;
   startActivityForResult(std::move(screen), [this, restart, beforeType, beforeScope](const ActivityResult&) {
     // The range reaches this screen only when the reader opens it again; the type applies at once.
-    const bool changed = SETTINGS.searchType != beforeType || SETTINGS.searchScope != beforeScope;
-    if (restart && changed && !query.empty()) {
+    if (restart && !query.empty() && (SETTINGS.searchType != beforeType || SETTINGS.searchScope != beforeScope)) {
       startSearch(query);
     }
     requestUpdate();
