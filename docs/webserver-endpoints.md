@@ -462,6 +462,7 @@ curl http://vaultink.local/api/livesync/status
   "unlocked": true,
   "running": false,
   "canSync": false,
+  "syncRequest": true,
   "vault": "Notes",
   "lastResult": "12 notes pulled, 1 sent",
   "lastAttempt": 1762000000,
@@ -482,6 +483,13 @@ curl http://vaultink.local/api/livesync/status
   the File Transfer screen already runs at the edge of, so there is no `POST /api/livesync/sync`
   yet. The companion shows **Sync now** only when `canSync` is true, so a later firmware can add
   the endpoint without an app change.
+- `syncRequest` is `true` (0.64.0): a sync can be asked for **with a file**. Upload a file named
+  `/.vaultink/sync-request` (any content) with the normal `/upload` while File Transfer is open. When
+  File Transfer is left the reader restarts, and the wake that follows runs one LiveSync sync as if it were
+  due, then deletes the file. Without a saved profile the file is just removed.
+- **Text for a text field** (0.64.0): upload `/.vaultink/phone-text.txt` (UTF-8, up to 2,000 bytes). When a text
+  entry screen on the reader is open (a note line, a search, a habit name), a **From phone** button appears
+  in its header; tapping it puts the text into the line (line breaks become spaces) and deletes the file.
 
 ## WebSocket Upload
 

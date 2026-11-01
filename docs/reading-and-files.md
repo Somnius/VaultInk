@@ -156,7 +156,9 @@ swipe still turns to the previous page.
 ## Book info (0.35.0)
 
 Long-press a book to see what it is without opening it: title, author, file name, size, how far
-you've read and whether it's a favourite (fields the book doesn't have are left out).
+you've read and whether it's a favourite (fields the book doesn't have are left out). Since 0.64.0 the
+file name is left out when it only repeats the title and author ("Title - Author.epub"), so the same words are not
+shown twice; it is still shown when it says something the title does not.
 
 - **Browse Files**: long-press a file or folder, the last entry is **Info**: for a book its title, size and read percent, for any other file or folder its name, size and the date and time it was last changed (0.59.0).
 - **Library**: long-press a book in Recent, Title or Author (last entry), or in Favourites.
@@ -450,7 +452,7 @@ SD plugins cannot run code on the reader, so the roller is built into the firmwa
 
 <p><img src="images/vaultink/excalidraw.png" width="190" alt="An Excalidraw drawing in the viewer, with the zoom panel"></p>
 
-A `.excalidraw` file (or the Obsidian Excalidraw plugin's `.excalidraw.md`) opens in a viewer like the canvas one: the whole drawing fitted to the screen, pan with swipes or the buttons, zoom with the **« + − Fit** panel at the bottom right (or Confirm), Back returns. Rectangles, ellipses, diamonds, lines, arrows (with arrowheads), free drawing and text are drawn, dashed and dotted lines as such, a rotated shape rotated; colours are not shown (a filled shape is drawn plain), pictures are skipped and counted. Text is shown in the nearest of the reader's sizes and left out when it would be too small to read. A drawing the plugin saved **compressed** (`compressed-json`) cannot be read: the screen says so (turn compression off in the plugin's settings). Large drawings are cut at 1,500 shapes, 12,000 points and 24 KB of text. Read only. Not yet tried on a drawing exported from the real plugin: only on hand-written samples.
+A `.excalidraw` file (or the Obsidian Excalidraw plugin's `.excalidraw.md`) opens in a viewer like the canvas one: the whole drawing fitted to the screen, pan with swipes or the buttons, zoom with the **« + − Fit** panel at the bottom right (or Confirm), Back returns. Rectangles, ellipses, diamonds, lines, arrows (with arrowheads), free drawing and text are drawn, dashed and dotted lines as such, a rotated shape rotated; colours are not shown (a filled shape is drawn plain), pictures are skipped and counted. Text is shown in the nearest of the reader's sizes and left out when it would be too small to read. A drawing the plugin saved **compressed** (`compressed-json`, the plugin's default) is read too: the block is decoded (lz-string) before parsing, up to 512 KB of compressed text; a damaged block shows a message. Large drawings are cut at 1,500 shapes, 12,000 points and 24 KB of text. Read only. Not yet tried on a drawing exported from the real plugin: only on hand-written samples.
 
 ## Bluetooth keyboard typing (0.63.0)
 
@@ -475,14 +477,20 @@ A `.excalidraw` file (or the Obsidian Excalidraw plugin's `.excalidraw.md`) open
 - **Tab order.** *Settings → Library → Tab order*: tap a tab, then tap the place it goes to. The last row puts
   the default order back. The tab bar, the left/right keys and "Open on tab" all follow the order.
 
-## Random page! (0.60.0, 0.61.0)
+## Search in Browse Files (0.64.0)
+
+A magnifier at the top right of **Browse Files** (on button boards: "Search files" in the menu) asks for a name and then walks the card from the folder you are in, down through every sub folder, and lists everything whose **name contains what you typed**: files of **any extension** and folders, capitals and Greek accents ignored. There is no index of the card, so it works in small steps like Search in Book: results appear as it goes, the top row says how many folders it has looked in, **Back stops it** (keeping what was found) and Back again leaves. Hidden folders (names starting with a dot) and `System Volume Information` are skipped; it looks at most 12 folders deep and lists at most 200 hits.
+
+Each result shows the name and, under it, its folder. **Tap** a result: Browse Files opens that folder with the file selected and scrolled to about the middle of the screen, so it is easy to spot (a file of a kind the browser does not normally list, such as a `.bin`, is shown too for this). **Long press** a result for **Info** (size, last changed), **Copy**, **Move** (both choose the folder with the usual picker and never overwrite a name that exists) and **Show in folder**. A moved file disappears from the list. The magnifier is on touch boards; on buttons a long press of Confirm opens the same menu.
+
+## Random page! (0.60.0, 0.61.0, 0.64.0)
 
 <p>
   <img src="images/vaultink/random-page.png" width="190" alt="A book opened on a random page, with the bar at the bottom to go back">
 </p>
 
 A Home item that opens a random page of a random book from your library: EPUB, text, PDF, comics (CBZ)
-and XTC books (notes are not picked). It is **off by default**: *Settings → Display → Home screen items →
+and XTC books. Only real book files are picked (0.64.0): not notes, not the changelog, not crash logs or other texts in `/debug` or in the reader's own dot-folders. The book does **not** show up on the Home's Continue Reading card or in the Library's Recent list because of a random page; it does once you open it yourself from the Library, like any book. It is **off by default**: *Settings → Display → Home screen items →
 Random page!* (VaultInk home only). With all ten Home items on, the rows are a little tighter so Settings
 still fits. The dice on its row is an icon: the reading fonts have no dice character.
 

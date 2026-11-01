@@ -65,6 +65,7 @@ Home → Plugins holds the built-in tools: Sudoku, a dice roller, and VaultEUC f
   <img src="docs/images/vaultink/random-page.png" width="190" alt="Random page: a book opened on a random page with a bar to go back to your place">
   <img src="docs/images/vaultink/library-gear.png" width="190" alt="The Library header with the format filter gear">
   <img src="docs/images/vaultink/lock-owner.png" width="190" alt="The PIN lock screen with the owner's name and phone">
+  <img src="docs/images/vaultink/file-search.png" width="190" alt="Search files in Browse Files: hits with their folders">
 </p>
 
 Page background contrast with a preview, Random page!, the Library's format filter, and the lock screen.
@@ -79,7 +80,8 @@ Each line links to its guide where there is one. The full list is in [SPECS.md](
 - Everything CrossPoint Reader offers: EPUB, TXT and XTC books, PDFs read as text, comics (CBZ and XTC/XTCH), SD-card fonts, hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS catalogs, Calibre wireless transfer and SD-card plugins. [docs/reading-and-files.md](docs/reading-and-files.md)
 - **Library**: tabs for Recent, Title, Author, Favourites and Folders, in an order you choose (Settings → Library → Tab order) with a tab it opens on. With Recent open, a bar sorts by how far you have read (**↑%** most read first, **↓%** least read first), and every book shows its percent. A gear picks the formats listed; **All | Books only** hides vault notes; Authors can be folders.
 - **Search in Book**: a word or phrase, partial or whole words (accents and capitals never matter), starting at your chapter and wrapping, with the words shaded on the page and a bar to step through the hits or return to your place. The gear sets the type and the range; Settings → Reader → Search word has the rest, including an opt-in index that makes repeat searches faster.
-- **Random page!** (a Home item, off by default): a random page of a random book, saving nothing, with a way back to where you were.
+- **Random page!** (a Home item, off by default): a random page of a random book (book formats only), saving nothing, with a way back to where you were.
+- **Search in Browse Files** (0.64.0): a magnifier looks for files and folders by name through the whole card, with a way to show a hit in its folder. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-browse-files-0640)
 - **Page backgrounds** from plain to papyrus and bath towel, a set you choose for the quick button, and a 0 to 100 **contrast** slider with a preview. [Mostly for fun](#page-backgrounds).
 - **Reading stats**, streaks and the reading-stats sleep screen; **battery** page with drain per hour; **book info** on a long press, **Favourites**, **Gallery** for pictures.
 

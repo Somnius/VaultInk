@@ -25,7 +25,8 @@ data class DeviceStatus(val version: String, val ip: String, val hotspot: Boolea
 /**
  * What /api/livesync/status says (firmware 0.63.0+). `lastResult` is the LiveSync screen's own text;
  * `lastAttempt` is the epoch second of the last automatic try (0 when there was none); `canSync`
- * says whether the device would accept a sync request from here (it doesn't, so far).
+ * says whether the device would accept a sync request from here (it doesn't, so far); `syncRequest`
+ * (firmware 0.64.0+) says a sync can be asked for with a file the reader picks up at its next wake.
  */
 data class LiveSyncStatus(
     val configured: Boolean,
@@ -33,6 +34,7 @@ data class LiveSyncStatus(
     val unlocked: Boolean,
     val running: Boolean,
     val canSync: Boolean,
+    val syncRequest: Boolean,
     val vault: String,
     val lastResult: String,
     val lastAttempt: Long,
@@ -95,6 +97,7 @@ class DeviceClient(host: String) {
             unlocked = o.optBoolean("unlocked"),
             running = o.optBoolean("running"),
             canSync = o.optBoolean("canSync"),
+            syncRequest = o.optBoolean("syncRequest"),
             vault = o.optString("vault"),
             lastResult = o.optString("lastResult"),
             lastAttempt = o.optLong("lastAttempt"),
@@ -107,6 +110,32 @@ class DeviceClient(host: String) {
         val (code, text) = call(Request.Builder().url(url("api/livesync/sync")).post(ByteArray(0).toRequestBody()).build())
         if (code != 200) throw IOException(text.ifBlank { "HTTP $code" })
     }
+
+    /**
+     * Asks for one LiveSync sync at the reader's next wake (firmware 0.64.0+, `syncRequest`): a file the
+     * reader looks for after File Transfer is left and deletes once it has run.
+     */
+    fun requestLiveSync() = putFile(SYNC_REQUEST_PATH, "sync\n".toByteArray(), "text/plain")
+
+    /** Leaves text for the reader's next text field (its "From phone" button); replaces an older one. */
+    fun sendPhoneText(text: String) = putFile(PHONE_TEXT_PATH, text.toByteArray(), "text/plain; charset=utf-8")
+
+    /**
+     * Writes `path` on the card with exactly this name, replacing a file already there (the server
+     * never overwrites, so the old one is deleted first; a missing old file is fine).
+     */
+    fun putFile(path: String, bytes: ByteArray, mime: String) {
+        val folder = path.substringBeforeLast('/').ifEmpty { "/" }
+        val name = path.substringAfterLast('/')
+        runCatching { delete(path) }
+        val form = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("file", name, bytes.toRequestBody(mime.toMediaType())).build()
+        val (code, text) = call(Request.Builder().url(url("upload", "path" to folder)).post(form).build())
+        if (code != 200) throw Refused(text.ifBlank { "HTTP $code" })
+    }
+
+    /** The reader answered and said no (unlike a plain IOException, which means it couldn't be reached). */
+    class Refused(message: String) : IOException(message)
 
     fun list(path: String): List<Entry> {
         val (code, body) = call(Request.Builder().url(url("api/files", "path" to path)).build())
@@ -243,6 +272,11 @@ class DeviceClient(host: String) {
     }
 
     companion object {
+        /** The reader runs one LiveSync sync at the wake after this file appears (docs/webserver-endpoints.md). */
+        const val SYNC_REQUEST_PATH = "/.vaultink/sync-request"
+        /** Text for the reader's next text-entry screen, UTF-8, up to [PhoneText.MAX_BYTES]. */
+        const val PHONE_TEXT_PATH = "/.vaultink/phone-text.txt"
+
         /** A name the SD card and Obsidian both accept. */
         fun safeName(title: String): String =
             title.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), " ").trim().trimStart('.').take(100).trim()

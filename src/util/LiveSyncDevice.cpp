@@ -445,7 +445,14 @@ bool pushChanges(Profile& p, PushStats& stats, std::string& error) {
   return true;
 }
 
+// The companion app drops this tiny file on the card while File Transfer is open (the web server cannot start a sync
+// itself: it would restart the device). Leaving File Transfer restarts the reader, and the wake that follows runs the
+// sync once, as if it were due.
+constexpr char SYNC_REQUEST[] = "/.vaultink/sync-request";
+
 bool autoSyncDue() {
+  const bool requested = Storage.exists(SYNC_REQUEST);
+  if (requested) Storage.remove(SYNC_REQUEST);
   if (!hasProfile()) return false;
   Profile p;
   if (!load(p)) return false;
@@ -456,7 +463,7 @@ bool autoSyncDue() {
     save(p);
   }
   wipeProfile(p);
-  return due;
+  return due || requested;
 }
 
 bool hasOwnCaCert() { return Storage.exists(CA_CERT); }

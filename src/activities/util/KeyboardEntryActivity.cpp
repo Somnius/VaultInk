@@ -3,7 +3,9 @@
 #include <BidiUtils.h>
 #include <BlePageTurner.h>
 #include <HalGPIO.h>
+#include <HalStorage.h>
 #include <I18n.h>
+#include <Utf8.h>
 
 #include <algorithm>
 #include <cstring>
@@ -18,6 +20,8 @@
 namespace fui = freeink::ui;
 
 namespace {
+constexpr char kPhoneTextPath[] = "/.vaultink/phone-text.txt";
+constexpr int kPhoneButtonWidth = 150;
 
 constexpr fui::ActionId ACTION_KEY = 1;
 constexpr int KEYBOARD_MIN_GAP = 6;
@@ -157,7 +161,8 @@ void KeyboardEntryActivity::onEnter() {
   rightLongHandled = false;
   savedCursorPos = 0;
   rightStartCursorPos = 0;
-  textinput::global().clear();    // keys typed before this screen opened are not for it
+  textinput::global().clear();  // keys typed before this screen opened are not for it
+  phoneTextWaiting = Storage.exists(kPhoneTextPath);
   bleturner::setTextEntry(true);  // a Bluetooth keyboard may type here (Settings > Connectivity), off by default
   bleturner::setKeyboardLayout(layoutId == fui::KeyboardLayoutId::GreekEl ? bleturner::KeyboardLayout::Greek
                                                                           : bleturner::KeyboardLayout::Us);
@@ -580,10 +585,46 @@ bool KeyboardEntryActivity::drainTypedInput() {
   return false;
 }
 
+void KeyboardEntryActivity::insertPhoneText() {
+  HalFile file;
+  if (!Storage.openFileForRead("KBD", kPhoneTextPath, file)) {
+    phoneTextWaiting = false;
+    return;
+  }
+  char data[2001];
+  const int n = file.read(data, sizeof(data) - 1);
+  file.close();
+  Storage.remove(kPhoneTextPath);
+  phoneTextWaiting = false;
+  if (n <= 0) return;
+  data[n] = '\0';
+  // One code point at a time through the same path as typed keys; line breaks become spaces (a field is one line).
+  const auto* p = reinterpret_cast<const unsigned char*>(data);
+  for (uint32_t cp = utf8NextCodepoint(&p); cp != 0; cp = utf8NextCodepoint(&p)) {
+    if (cp == '\r') continue;
+    if (cp == '\n' || cp == '\t') cp = ' ';
+    textinput::apply(text, cursorPos, maxLength != 0 ? maxLength : kTypedMaxBytes,
+                     textinput::Event{cp, textinput::Special::None});
+  }
+  cursorMode = false;
+  requestUpdate();
+}
+
 void KeyboardEntryActivity::loop() {
   if (drainTypedInput()) return;
   int tx = 0;
   int ty = 0;
+
+  if (phoneTextWaiting && mappedInput.wasScreenTapped(tx, ty)) {
+    const auto& phoneMetrics = UITheme::getInstance().getMetrics();
+    const int right = renderer.getScreenWidth() - (gearAction ? 64 : 12);
+    if (tx >= right - kPhoneButtonWidth && tx < right && ty >= phoneMetrics.topPadding + 8 &&
+        ty < phoneMetrics.topPadding + phoneMetrics.headerHeight + 8) {
+      haptic_feedback::touchAction();
+      insertPhoneText();
+      return;
+    }
+  }
 
   if (gearAction && mappedInput.wasScreenTapped(tx, ty)) {
     const auto& headerMetrics = UITheme::getInstance().getMetrics();
@@ -798,6 +839,15 @@ void KeyboardEntryActivity::render(RenderLock&&) {
 
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, title.c_str());
   if (gearAction) renderer.drawIcon(Settings2Icon, pageWidth - 52, metrics.topPadding + 22, 32);
+  if (phoneTextWaiting) {
+    const int right = pageWidth - (gearAction ? 64 : 12);
+    const int boxY = metrics.topPadding + 22;
+    renderer.drawRect(right - kPhoneButtonWidth, boxY, kPhoneButtonWidth, 36, 2, true);
+    const char* label = tr(STR_PHONE_TEXT);
+    renderer.drawText(UI_10_FONT_ID,
+                      right - kPhoneButtonWidth + (kPhoneButtonWidth - renderer.getTextWidth(UI_10_FONT_ID, label)) / 2,
+                      boxY + (36 - renderer.getLineHeight(UI_10_FONT_ID)) / 2, label, true);
+  }
 
   const int lineHeight = renderer.getLineHeight(UI_12_FONT_ID);
   const int inputStartY = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing +

@@ -326,7 +326,10 @@ bool EpubReaderActivity::loadBook() {
     }
   }
 
-  if (randomPeek) beginRandomPeek();
+  if (randomPeek) {
+    skipRecents = true;  // even a book too short to jump in stays off the Home card
+    beginRandomPeek();
+  }
 
   loadLinkStack();
   loadCachedBookmarks();
@@ -1135,6 +1138,7 @@ void EpubReaderActivity::beginRandomPeek() {
   search.originSpine = currentSpineIndex;
   search.originPage = nextPageNumber;
   search.originOffset = cachedVisibleTextOffset;
+  skipRecents = true;
   setSearchActive(true);
   currentSpineIndex = spine;
   nextPageNumber = 0;

@@ -82,7 +82,35 @@
     <string name="intro_tab_note">Note: write a quick note or share text and pictures from other apps. It\'s saved on the reader\'s card right away; with LiveSync set up, the reader also sends it to your other devices on its next sync.</string>
     <string name="intro_tab_files">Files: the whole SD card. Upload, download, rename, move and delete.</string>
     <string name="intro_tab_settings">Settings: the reader\'s settings, by category. Changes apply right away.</string>
-    <string name="intro_tab_device">Device: the reader\'s address and firmware version, and app updates.</string>
+    <string name="intro_tab_device">Device: the reader\'s address and firmware version, the LiveSync status, and app updates.</string>
+    <string name="intro_tab_comics">Convert a comic (in Files): Banana Comic Converter inside the app; the converted comic goes straight to the reader\'s Comics folder.</string>
+    <string name="intro_tab_keep">Bring notes in (in Note): a Google Keep export becomes Markdown notes in your vault.</string>
+    <string name="intro_tab_type">Type into the reader (in Note): text you write here appears behind a From phone button in the reader\'s next text field. In Device, LiveSync can be asked to sync when you leave File Transfer.</string>
+    <string name="intro_tab_help">Help (in the ⋮ menu): VaultInk\'s documentation, offline, with a search.</string>
+    <string name="intro_privacy_title">Your data stays with you</string>
+    <string name="intro_privacy_body">The app talks only to the reader on your Wi-Fi, and to GitHub when you ask it to check for an update. The comic converter runs from its own website only when you open it. No account, no tracking, nothing sent anywhere else.</string>
+    <!-- Header menu, About, Help -->
+    <string name="menu_intro">Intro</string>
+    <string name="menu_help">Help</string>
+    <string name="menu_about">About</string>
+    <string name="back">Back</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_what">The companion app for VaultInk, the Obsidian-vault firmware for the Xteink X4 Pro e-reader. It talks to the reader over Wi-Fi while File Transfer is open: quick notes and shares into a vault, the SD card, the reader\'s settings, comics, Keep imports and the LiveSync status, from the phone. Free software under the MIT licence.</string>
+    <string name="about_links">Links</string>
+    <string name="about_repo">Source code and issues (GitHub)</string>
+    <string name="about_project_page">Project page</string>
+    <string name="about_releases">Releases</string>
+    <string name="about_stack_app">This app</string>
+    <string name="about_stack_firmware">VaultInk firmware</string>
+    <string name="about_credits">Credits</string>
+    <string name="about_credit_tester">kos25k: testing on a real reader and the issues that shaped it</string>
+    <string name="about_credit_crosspoint">CrossPoint Reader: the firmware VaultInk is built on</string>
+    <string name="about_credit_banana">Banana Comic Converter by u/curseofthebanana, an independent tool</string>
+    <string name="help_search">Search the documentation</string>
+    <string name="help_english_only">The documentation is in English.</string>
+    <string name="help_no_results">Nothing found for \"%1$s\".</string>
+    <string name="help_image">[image: %1$s]</string>
+    <string name="help_missing">This document isn\'t bundled with the app: %1$s</string>
     <string name="connect_checklist">On the reader, File Transfer must be open, and the phone on the same Wi-Fi or on the reader\'s hotspot.</string>
     <string name="not_found_title">No VaultInk found</string>
     <string name="not_found_step1">1. On the reader, open File Transfer and leave it open.</string>
@@ -143,6 +171,17 @@
     <string name="livesync_sync_now">Sync now</string>
     <string name="livesync_no_remote">A sync starts on the reader (its LiveSync screen); it can\'t run while File Transfer is open.</string>
     <string name="livesync_failed">Couldn\'t read the LiveSync status: %1$s</string>
+    <string name="livesync_request">Sync when I leave File Transfer</string>
+    <string name="livesync_request_hint">A sync can\'t run while File Transfer is open. This leaves a request on the card; the reader runs one sync when it wakes after you leave File Transfer.</string>
+    <string name="livesync_requested">Request left on the reader. Leave File Transfer there; the sync runs at its next wake.</string>
+    <!-- Type into the reader (firmware 0.64.0) -->
+    <string name="phone_text_title">Type into the reader</string>
+    <string name="phone_text_hint">Write here, send, then on the reader open a text field (a note line, a search, a habit name) and tap From phone to put the text in. Line breaks become spaces.</string>
+    <string name="phone_text_label">Text for the reader</string>
+    <string name="phone_text_count">%1$d / %2$d bytes</string>
+    <string name="phone_text_send">Send to the reader</string>
+    <string name="phone_text_sent">Sent. On the reader, leave File Transfer, open the text field and tap From phone.</string>
+    <string name="phone_text_kept">Couldn\'t reach the reader. The text is kept on the phone and goes to the reader as soon as it\'s found.</string>
     <!-- Bring notes in (0.5.0) -->
     <string name="import_title">Bring notes in</string>
     <string name="import_keep_intro">Google Keep: export it with Google Takeout (Keep only), then pick the .zip or the unzipped Takeout/Keep folder. The notes go to Imported/Keep in the vault %1$s as Markdown; notes in the bin and attachments are left out.</string>

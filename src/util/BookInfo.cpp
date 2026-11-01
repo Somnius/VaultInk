@@ -5,6 +5,7 @@
 #include <LibraryBuilder.h>
 #include <LibraryIndexFile.h>
 
+#include <algorithm>
 #include <cstdio>
 
 #include "FavouritesStore.h"
@@ -22,6 +23,30 @@ std::string sizeText(const uint32_t bytes) {
     snprintf(buf, sizeof(buf), "%u KB", static_cast<unsigned>((bytes + 1023) / 1024));
   }
   return buf;
+}
+
+// ASCII-lowercased copy, enough to compare names that differ only in capitals.
+std::string lowered(const std::string& text) {
+  std::string out = text;
+  std::transform(out.begin(), out.end(), out.begin(),
+                 [](const char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; });
+  return out;
+}
+
+// True when the file name only repeats the title (and the author): "Title - Author.epub", "title.epub".
+bool fileNameRepeats(const std::string& fileName, const std::string& title, const std::string& author) {
+  const size_t dot = fileName.find_last_of('.');
+  const std::string stem = lowered(dot == std::string::npos ? fileName : fileName.substr(0, dot));
+  const std::string t = lowered(title);
+  if (stem.empty() || t.empty()) return false;
+  // Too short a part would match inside any name ("It" in "Switch").
+  constexpr size_t MIN_LEN = 5;
+  if (t.size() >= MIN_LEN && stem.find(t) != std::string::npos) return true;
+  if (stem.size() >= MIN_LEN && t.find(stem) != std::string::npos) return true;
+  // "Author - Title": both parts are in the name.
+  const std::string a = lowered(author);
+  return a.size() >= MIN_LEN && stem.find(a) != std::string::npos &&
+         stem.find(t.substr(0, std::min<size_t>(t.size(), 12))) != std::string::npos;
 }
 
 }  // namespace
@@ -103,7 +128,8 @@ std::string text(const std::string& path) {
   // One wrapped paragraph (the popup has no line breaks), parts kept apart by " · ".
   std::string out = title.empty() ? fileName : title;
   if (!author.empty()) out += " · " + author;
-  if (!title.empty() && title != fileName) out += " · " + fileName;
+  // The file name only when it says something the title does not: "Title - Author.epub" would repeat both (kos25k #15).
+  if (!title.empty() && !fileNameRepeats(fileName, title, author)) out += " · " + fileName;
   out += " · " + std::string(tr(STR_INFO_SIZE)) + " " + sizeText(fileSize);
   const int progress = loadBookProgress(path);
   if (progress >= 0) out += " · " + std::string(tr(STR_INFO_READ)) + " " + std::to_string(progress) + "%";

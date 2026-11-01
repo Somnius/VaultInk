@@ -693,10 +693,7 @@ void HomeActivity::openRandomPage() {
     const auto ordinal = static_cast<uint16_t>(randompage::random32() % index.bookCount());
     library::ClixRecord record{};
     if (!index.readRecord(ordinal, record) || !index.readPath(record, path)) continue;
-    if (!FsHelpers::hasEpubExtension(path) && !FsHelpers::hasTxtExtension(path) && !FsHelpers::hasCbzExtension(path) &&
-        !FsHelpers::hasXtcExtension(path) && !FsHelpers::hasPdfExtension(path)) {
-      continue;
-    }
+    if (!FsHelpers::isRandomPageBook(path)) continue;
     index.close();  // the reader wants the card to itself
     randompage::request();
     activityManager.goToReader(path);

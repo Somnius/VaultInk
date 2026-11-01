@@ -864,6 +864,10 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
       state.path = "/";
     }
 
+    // The companion app leaves small request files in /.vaultink (a sync request, text for a text field); the folder
+    // may not exist yet, and /mkdir refuses dot-folders.
+    if (state.path == "/.vaultink" || state.path == "/.vaultink/") Storage.ensureDirectoryExists("/.vaultink");
+
     LOG_DBG("WEB", "[UPLOAD] START: %s to path: %s", state.fileName.c_str(), state.path.c_str());
     LOG_DBG("WEB", "[UPLOAD] Free heap: %d bytes", ESP.getFreeHeap());
 
@@ -1864,6 +1868,9 @@ void CrossPointWebServer::handleLiveSyncStatus() const {
   doc["unlocked"] = configured;
   doc["running"] = false;
   doc["canSync"] = false;
+  // A sync can be asked for with a file: upload /.vaultink/sync-request while File Transfer is open; leaving File
+  // Transfer restarts the reader and the wake that follows runs the sync (LiveSyncDevice.cpp autoSyncDue).
+  doc["syncRequest"] = true;
   if (configured) {
     livesyncdev::Profile profile;
     if (livesyncdev::load(profile)) {

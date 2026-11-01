@@ -77,3 +77,21 @@ TEST(SanitizePathComponentForFat32, DoesNotSplitLetterAtBufferLimit) {
 }
 
 }  // namespace
+
+TEST(RandomPageBook, PicksBookFormatsOnly) {
+  for (const char* path : {"/Books/a.epub", "/Books/a.EPUB", "/Comics/x.cbz", "/Comics/x.xtch", "/Books/p.pdf",
+                           "/Books/novel.txt", "/Ελληνικά/βιβλίο.epub"}) {
+    EXPECT_TRUE(FsHelpers::isRandomPageBook(path)) << path;
+  }
+  for (const char* path : {"/Vaults/V/note.md", "/pic.png", "/a.canvas", "/a.zip", "/Sketch.excalidraw"}) {
+    EXPECT_FALSE(FsHelpers::isRandomPageBook(path)) << path;
+  }
+}
+
+TEST(RandomPageBook, LeavesOutLogsChangelogsAndTheReadersOwnFolders) {
+  for (const char* path : {"/debug/crash-2026-11-01.txt", "/Books/Crash report.txt", "/.vaultink/whats-new.md",
+                           "/.vaultink/whats-new.txt", "/Books/CHANGELOG.txt", "/Books/run.log", "/.crosspoint/x.txt",
+                           "/Books/.hidden/novel.epub", "/Docs/backtrace-1.txt"}) {
+    EXPECT_FALSE(FsHelpers::isRandomPageBook(path)) << path;
+  }
+}

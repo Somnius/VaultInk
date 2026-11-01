@@ -21,6 +21,17 @@ and host tests.
 
 ---
 
+## 0.64.0 plan (decided 2026-11-01: every open issue and every "not done" fixed before the next release; nothing is released until Lef says so)
+
+From kos25k's issues (all checked, open and closed, on 2026-11-01):
+* ✅ (built, unreleased) **#13 Browse Files search** (asked again 2026-10-29): a search at the top right of Browse Files that finds files of any extension by name, with a long press on a result for Info, Copy, Move and Show in folder (the folder opens with the file in the middle of the screen, highlighted). Not books-only, no index: it walks the card in small steps with Back to stop, like Search in Book.
+* ✅ (built, unreleased) **#15 Random page!**: pull only book formats (no changelog or crash-log texts), and never put the book on the Home's Continue Reading card unless it is later opened by hand from the Library. **#15 Info**: the long-press Info shows the title and author twice; remove the duplicate.
+* ✅ **Companion app (screenshot from kos25k, 2026-11-01)**: the file list shows what type each file is (its extension as a chip, since long names are cut) and the Up button's text wraps in Greek ("Πά νω"). Done in companion 0.5.0 (chip + icon by kind, one-line toolbar that scrolls); compiled, not yet run on a phone.
+* ✅ **Companion app, from Lef**: an intro screen that explains what the app does (it must show on first start), an About entry in the three-dot menu with pills for the tech stack of the companion and of VaultInk, and VaultInk's full documentation inside the app as a helper (offline). Done in companion 0.5.0 (four-page intro, ⋮ menu with Intro/Help/About, docs bundled as assets at build time with search and a Kotlin Markdown reader); compiled and unit tested, not yet run on a phone.
+* ✅ **Not done in 0.63.0, done now through files** (the web server cannot run next to an editor or a sync, so both go through a small file on the card that the phone uploads while File Transfer is open): a LiveSync sync from the phone (`/.vaultink/sync-request`; the companion's LiveSync card has **Sync when I leave File Transfer** when the status says `syncRequest`; the reader runs one sync at the wake after File Transfer and deletes the file) and typing into the reader from the phone (`/.vaultink/phone-text.txt`, up to 2000 bytes; **Type into the reader** at the bottom of the companion's Note tab, with an outbox fallback; the reader's next text-entry screen shows a **From phone** button that inserts it and deletes the file). Companion side built and unit tested, not yet run on a phone. Compressed Excalidraw drawings (`compressed-json`, LZ-string): ⏳.
+* ✅ Closed after kos25k tested on a real device: #9, #16 (his router), #18, #20, #22, #24. Still open and waiting for him: #19 (needs a close photo of a gap), #1 (separate contrast screen: fine or inline?).
+* ⏳ Needs hardware, cannot be settled here: VaultEUC on a real wheel, Bluetooth keyboard typing with a real keyboard, the XTCH refresh choice.
+
 ## Next (reviewed by Gemini and Grok, 2026-10-30)
 
 In this order, each also listed in its phase below:
@@ -522,6 +533,12 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   **LiveSync card** on the Device tab reading the new `GET /api/livesync/status` (firmware 0.63.0);
   Sync now is shown only when the firmware reports `canSync`, which it doesn't yet (a sync runs on
   the reader's LiveSync screen; leaving File Transfer restarts the device). Not yet tested on a phone.
+  Also in 0.5.0: file-type chips and icons in the Files list, a one-line scrolling toolbar (Greek
+  "Πάνω" no longer wraps), a ⋮ menu in the header with **Intro**, **Help** and **About**, the intro
+  grown to four pages (what the app does, how it finds the reader, privacy), an About screen (version,
+  MIT, links, tech-stack pills, credits) and **Help**: the repo's `README.md` and `docs/*.md` copied
+  into the APK at build time (no images) with a search and a Kotlin Markdown reader (`Markdown.kt`,
+  JUnit tests). Compiled and unit tested only, not yet run on a phone.
 * 💤 Bring notes in, the rest: Samsung Notes (`.sdocx` export) -> contacts (one note per contact plus a
   `.vcf` backup) -> formats Obsidian's Importer handles. Other apps' private databases can't be read
   without root, so only exports and sharing.
@@ -676,3 +693,5 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
 
 * A phase starts when the previous one is done or an item is carried over with a note here.
 * Changes are made by Lef.
+
+- 0.64.0 status: Grok review fixes applied (Random page recents, book-info name check, LzString first code, search "may be more", phone text outbox on refusal). Host tests, x4pro build, companion tests and cppcheck vs HEAD clean. README, SPECS and site text updated (site not deployed). Waiting for hardware checks and Lef's go.

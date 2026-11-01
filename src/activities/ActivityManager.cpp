@@ -45,6 +45,7 @@
 #include "vault/LiveSyncActivity.h"
 #include "vault/VaultPickerActivity.h"
 #include "vault/VaultSearchActivity.h"
+#include "util/RandomPage.h"
 
 static portMUX_TYPE activityManagerSpinlock = portMUX_INITIALIZER_UNLOCKED;
 
@@ -402,6 +403,7 @@ void ActivityManager::goToReader(std::string path, const bool allowFastInitialRe
     const auto status = pdfconvert::ensureText(renderer, path, textPath);
     if (status != pdfconvert::Status::Ok) {
       pdfconvert::showFailure(renderer, status);
+      randompage::take();  // a Random page! request dies with the failed book
       const size_t slash = path.find_last_of('/');
       goToFileBrowser(slash == std::string::npos || slash == 0 ? "/" : path.substr(0, slash));
       return;

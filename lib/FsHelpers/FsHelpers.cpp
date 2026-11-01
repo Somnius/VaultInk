@@ -186,6 +186,22 @@ bool hasPdfExtension(std::string_view fileName) { return checkFileExtension(file
 
 bool hasCanvasExtension(std::string_view fileName) { return checkFileExtension(fileName, ".canvas"); }
 
+bool isRandomPageBook(const std::string_view path) {
+  if (!(hasEpubExtension(path) || hasPdfExtension(path) || hasCbzExtension(path) || hasXtcExtension(path) ||
+        hasTxtExtension(path))) {
+    return false;
+  }
+  if (path.find("/.") != std::string_view::npos || path.rfind("/debug/", 0) == 0) return false;
+  const size_t slash = path.find_last_of('/');
+  std::string name(slash == std::string_view::npos ? path : path.substr(slash + 1));
+  std::transform(name.begin(), name.end(), name.begin(),
+                 [](const char c) { return static_cast<char>(tolower(static_cast<unsigned char>(c))); });
+  for (const char* word : {"crash", "changelog", "whats-new", "whats_new", "backtrace"}) {
+    if (name.find(word) != std::string::npos) return false;
+  }
+  return !checkFileExtension(std::string_view(name), ".log");
+}
+
 bool hasExcalidrawExtension(std::string_view fileName) {
   return checkFileExtension(fileName, ".excalidraw") || checkFileExtension(fileName, ".excalidraw.md");
 }

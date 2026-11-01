@@ -34,6 +34,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -222,6 +223,8 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
     }
     LaunchedEffect(Unit) { connect() }
 
+    // The intro, Help and About draw over the tabs; the connection and tab state below stay as they are.
+    var page by remember { mutableStateOf<String?>(null) }  // "help", "about"
     if (intro) {
         Box(Modifier.fillMaxSize().safeDrawingPadding()) {
             IntroScreen(onDone = {
@@ -231,14 +234,33 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
         }
         return
     }
+    page?.let { p ->
+        Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+            if (p == "help") HelpScreen(onBack = { page = null }) else AboutScreen(onBack = { page = null })
+        }
+        return
+    }
 
     // The header colour runs up behind the status bar; only the content keeps clear of it.
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primaryContainer).statusBarsPadding()
         .background(MaterialTheme.colorScheme.background).navigationBarsPadding().imePadding()) {
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer)
-                .padding(horizontal = 16.dp, vertical = 12.dp))
+        Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.weight(1f))
+            // ⋮ menu: Intro, Help, About.
+            var menu by remember { mutableStateOf(false) }
+            Box {
+                TextButton(onClick = { menu = true }) {
+                    Text("⋮", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.menu_intro)) }, onClick = { menu = false; intro = true })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.menu_help)) }, onClick = { menu = false; page = "help" })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.menu_about)) }, onClick = { menu = false; page = "about" })
+                }
+            }
+        }
         TabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer) {
             listOf(R.string.tab_note, R.string.tab_files, R.string.tab_settings, R.string.tab_device).forEachIndexed { i, label ->
@@ -278,6 +300,7 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
                         Text(stringResource(R.string.offline_note_hint), Modifier.padding(top = 8.dp))
                         NoteScreen(null, draft, onDraft) { waiting = Outbox.count(context) }
                     }
+                    PhoneTextSection(null) { waiting = Outbox.count(context) }
                 }
                 else -> {
                     if (draft.books.isNotEmpty() || draft.refused.isNotEmpty() || draft.unreadable.isNotEmpty()) {
@@ -289,7 +312,10 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
                     }
                     Hint(listOf(R.string.hint_note, R.string.hint_files, R.string.settings_hint, R.string.hint_device)[tab])
                     when (tab) {
-                        0 -> NoteScreen(DeviceClient(host), draft, onDraft) { waiting = Outbox.count(context) }
+                        0 -> {
+                            NoteScreen(DeviceClient(host), draft, onDraft) { waiting = Outbox.count(context) }
+                            PhoneTextSection(remember(host) { DeviceClient(host) }) { waiting = Outbox.count(context) }
+                        }
                         1 -> FilesScreen(remember(host) { DeviceClient(host) })
                         2 -> SettingsScreen(remember(host) { DeviceClient(host) })
                         else -> DeviceScreen(host, connected, onSearch = { connect() }, onIntro = { intro = true })
@@ -388,6 +414,19 @@ fun LiveSyncCard(client: DeviceClient) {
                                 busy = false
                             }
                         }) { Text(stringResource(R.string.livesync_sync_now)) }
+                    } else if (s.syncRequest) {
+                        // Firmware 0.64.0+: the request is a file the reader picks up at the wake after File Transfer.
+                        OutlinedButton(enabled = !busy, onClick = {
+                            busy = true
+                            scope.launch {
+                                message = withContext(Dispatchers.IO) { runCatching { client.requestLiveSync() } }
+                                    .fold({ context.getString(R.string.livesync_requested) },
+                                          { context.getString(R.string.action_failed, it.message ?: "") })
+                                busy = false
+                            }
+                        }) { Text(stringResource(R.string.livesync_request)) }
+                        Text(stringResource(R.string.livesync_request_hint), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
                         Text(stringResource(R.string.livesync_no_remote), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -481,6 +520,54 @@ fun NoteScreen(client: DeviceClient?, draft: Draft, onDraft: (Draft) -> Unit, on
     var importing by remember { mutableStateOf(false) }
     OutlinedButton(onClick = { importing = true }) { Text(stringResource(R.string.import_title)) }
     if (importing) KeepImportDialog(client, vault, onOutbox = onOutbox) { importing = false }
+}
+
+/**
+ * Type into the reader (firmware 0.64.0+): the text goes to `/.vaultink/phone-text.txt` on
+ * the card and the reader's next text-entry screen (a note line, a search, a habit name) shows a
+ * "From phone" button that inserts it. Without a reader it waits in the outbox like a note.
+ */
+@Composable
+fun PhoneTextSection(client: DeviceClient?, onOutbox: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var text by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("") }
+    HorizontalDivider(Modifier.padding(top = 8.dp))
+    Text(stringResource(R.string.phone_text_title), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.phone_text_hint), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+    OutlinedTextField(text, { text = PhoneText.clip(it) }, label = { Text(stringResource(R.string.phone_text_label)) },
+        supportingText = { Text(stringResource(R.string.phone_text_count, PhoneText.bytes(text), PhoneText.MAX_BYTES)) },
+        modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp))
+    Button(enabled = !busy && text.isNotBlank(), onClick = {
+        busy = true
+        scope.launch {
+            val sending = text
+            var done = true
+            message = withContext(Dispatchers.IO) {
+                fun keep(): String {
+                    Outbox.addPath(context, DeviceClient.PHONE_TEXT_PATH, sending.toByteArray())
+                    onOutbox()
+                    return context.getString(R.string.phone_text_kept)
+                }
+                if (client == null) return@withContext keep()
+                runCatching { client.sendPhoneText(sending) }.fold(
+                    { context.getString(R.string.phone_text_sent) },
+                    {
+                        when (it) {
+                            // Unreachable or refused: the old card file may already be gone, so the outbox keeps the text.
+                            is java.io.IOException -> keep()
+                            else -> { done = false; context.getString(R.string.send_failed, it.message ?: "") }
+                        }
+                    })
+            }
+            if (done) text = ""
+            busy = false
+        }
+    }) { Text(stringResource(R.string.phone_text_send)) }
+    if (message.isNotEmpty()) Text(message)
 }
 
 @Composable

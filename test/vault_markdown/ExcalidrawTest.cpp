@@ -6,6 +6,7 @@
 #include <string>
 
 #include "Excalidraw.h"
+#include "LzStringVectors.inc"
 
 namespace {
 
@@ -250,11 +251,52 @@ TEST(Excalidraw, ObsidianMarkdownWrapper) {
   EXPECT_EQ(d.textOf(d.shapes[0]), "Hello");
 }
 
-TEST(Excalidraw, CompressedMarkdownIsReported) {
+TEST(Excalidraw, DamagedCompressedMarkdownIsReported) {
   const std::string md =
       "---\nexcalidraw-plugin: parsed\n---\n# Text Elements\n%%\n# Drawing\n```compressed-json\n"
       "N4KAkARALgngDgUwgLgAQBQjtBECGAzgLYCWANgIYBWAvgHQD2AVgA==\n```\n%%";
   Drawing d;
-  EXPECT_EQ(excalidraw::parse(readerFor(md), d), Error::CompressedUnsupported);
+  // A cut stream decodes to the start of the JSON, which parses to an empty drawing.
+  EXPECT_EQ(excalidraw::parse(readerFor(md), d), Error::Ok);
   EXPECT_TRUE(d.shapes.empty());
+  // Text that is not lz-string base64 at all.
+  const std::string bad =
+      "# Drawing\n```compressed-json\nN4KAkARALg!!ngDgUwgLgAQ_-BQjtBECGAzgLYCWANgIYBWAvgHQD2AVgA==\n```\n";
+  EXPECT_EQ(excalidraw::parse(readerFor(bad), d), Error::BadCompressed);
+  EXPECT_TRUE(d.shapes.empty());
+  // An empty block is no drawing at all.
+  EXPECT_EQ(excalidraw::parse(readerFor("# Drawing\n```compressed-json\n\n```\n"), d), Error::NotJson);
+}
+
+TEST(Excalidraw, CompressedMarkdownParsesLikeItsPlainTwin) {
+  const std::string head =
+      "---\nexcalidraw-plugin: parsed\ntags: [excalidraw]\n---\n# Text Elements\nHello ^t1\n\n%%\n# Drawing\n";
+  const std::string plain = head + "```json\n" + LZ_GREEK_DOC_PLAIN + "\n```\n%%";
+  const std::string compressed = head + "```compressed-json\n" + LZ_GREEK_DOC_B64_LINES + "\n```\n%%";
+  Drawing a, b;
+  ASSERT_EQ(excalidraw::parse(readerFor(plain), a), Error::Ok);
+  ASSERT_EQ(excalidraw::parse(readerFor(compressed), b), Error::Ok);
+  ASSERT_EQ(a.shapes.size(), 4u);
+  ASSERT_EQ(b.shapes.size(), a.shapes.size());
+  EXPECT_EQ(b.skipped, a.skipped);
+  EXPECT_EQ(b.text, a.text);
+  EXPECT_EQ(b.points.size(), a.points.size());
+  for (size_t i = 0; i < a.shapes.size(); ++i) {
+    EXPECT_EQ(b.shapes[i].kind, a.shapes[i].kind);
+    EXPECT_FLOAT_EQ(b.shapes[i].x, a.shapes[i].x);
+    EXPECT_FLOAT_EQ(b.shapes[i].y, a.shapes[i].y);
+    EXPECT_FLOAT_EQ(b.shapes[i].angle, a.shapes[i].angle);
+    EXPECT_EQ(b.shapes[i].strokeStyle, a.shapes[i].strokeStyle);
+    EXPECT_EQ(b.shapes[i].pointCount, a.shapes[i].pointCount);
+    EXPECT_EQ(b.textOf(b.shapes[i]), a.textOf(a.shapes[i]));
+  }
+  EXPECT_EQ(b.textOf(b.shapes[2]), "Hello\nΓειά σου κόσμε 😀");
+  EXPECT_FLOAT_EQ(b.minX, a.minX);
+  EXPECT_FLOAT_EQ(b.maxY, a.maxY);
+
+  // A large compressed drawing, read in SD-sized chunks.
+  const std::string big = head + "```compressed-json\n" + LZ_BIG_DOC_B64_LINES + "\n```\n%%";
+  Drawing c;
+  ASSERT_EQ(excalidraw::parse(readerFor(big, 512), c), Error::Ok);
+  EXPECT_EQ(c.shapes.size(), LZ_BIG_DOC_SHAPES);
 }

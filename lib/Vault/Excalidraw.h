@@ -7,18 +7,19 @@
 #include <vector>
 
 // Excalidraw drawings (.excalidraw JSON, and the Obsidian Excalidraw plugin's .excalidraw.md with a
-// ```json block), read only. The file is streamed once into fixed-capacity pools: shapes in z-order,
-// their points (relative to x,y as in the file) in one point pool, their text in one text pool.
-// Deleted elements, images, frames and embeddables are skipped; the `files` map (base64 images)
-// is skipped without being stored.
+// ```json or ```compressed-json block; the latter is lz-string base64, see LzString.h), read only. The file is streamed
+// once into fixed-capacity pools: shapes in z-order, their points (relative to x,y as in the file) in one point pool,
+// their text in one text pool. Deleted elements, images, frames and embeddables are skipped; the `files` map (base64
+// images) is skipped without being stored.
 namespace excalidraw {
 
 enum class Kind : uint8_t { Rect, Ellipse, Diamond, Text, Line, Arrow, FreeDraw };
 
 enum class Error : uint8_t {
   Ok,
-  NotJson,                // no JSON object and no ```json block
-  CompressedUnsupported,  // .excalidraw.md with a ```compressed-json block
+  NotJson,                // no JSON object and no ```json / ```compressed-json block
+  CompressedUnsupported,  // no longer returned (compressed blocks are decoded since 0.64.0); kept for callers
+  BadCompressed,          // a ```compressed-json block that could not be decoded (damaged or too large)
 };
 
 struct Point {

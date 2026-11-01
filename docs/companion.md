@@ -4,17 +4,43 @@ The companion is an Android app that talks to the device over Wi-Fi, through the
 device runs while **File Transfer** is open. Its code is in [`companion/`](../companion/) in this
 repo, and it has its own releases, tagged `companion-x.y.z`.
 
-Status: `companion-0.4.0` is out (needs VaultInk 0.29.0 or newer on the device). Download the APK
+Status: `companion-0.5.0` is out (needs VaultInk 0.29.0 or newer on the device; typing and sync from the phone need 0.64.0). Download the APK
 from the [newest companion release](https://github.com/Somnius/VaultInk/releases?q=companion&expanded=true)
 on the phone and open it. After an update the reader shows a QR code that opens this page. It's tested on one phone (Android 16) against the simulator, not yet
 against a real X4 Pro. See "Tested so far" below.
 
 ## First start
 
-Three short pages: what the app is (the reader's companion), what the reader needs (File Transfer
-open, with **Join a Network** or **Create Hotspot**), and what each tab does. **Skip** or **Start**
-goes to the connect step, Back goes to the previous page, and **Show the intro again** on the
-Device tab brings it back. Each tab then has a one-line hint at the top.
+Four short pages (0.5.0; three before): what the app is (the reader's companion), what the reader
+needs (File Transfer open, with **Join a Network** or **Create Hotspot**), what the app does (the
+four tabs, the comic converter, Bring notes in, Type into the reader, the LiveSync status, Help), and a privacy note (the
+app talks only to the reader on your Wi-Fi, to GitHub when you check for an update, and to the
+comic converter's site when you open it). **Skip** or **Start** goes to the connect step, Back goes
+to the previous page. **Intro** in the ⋮ menu of the header (or **Show the intro again** on the
+Device tab) brings it back without losing the connection or the open tab. Each tab then has a
+one-line hint at the top.
+
+## The ⋮ menu: Intro, Help, About (0.5.0)
+
+At the right of the blue header:
+
+- **Intro**: the first-start pages again.
+- **Help**: VaultInk's documentation inside the app, offline. At build time Gradle copies the
+  repo's `README.md` and `docs/*.md` (Markdown only, no images, about 300 KB) into the APK's
+  assets with a generated index. The screen lists the documents by title, with a search box that
+  matches titles and words inside the documents (a matching document shows its first matching
+  line). A document is rendered by a small Markdown reader of our own (`Markdown.kt`, pure Kotlin,
+  JUnit tests): headings, paragraphs, bullet and numbered lists, task boxes, bold, italic, inline
+  code, fenced code, block quotes, pipe tables as "header: cell" rows, rules; images appear as
+  their alt text. A link to another bundled document opens it in the app (with `#anchor` scrolling
+  to that heading); `http` links open the browser. Back goes back the way you came. The
+  documentation is in English; the list says so in the phone's language.
+- **About**: app name and version, what it is and the MIT licence, links (source code, project page,
+  releases), the tech stack as two groups of pills ("This app": Kotlin, Jetpack Compose, Material 3,
+  coroutines, OkHttp, AndroidX WebView, Gradle, API levels; "VaultInk firmware": C++20, ESP32-S3,
+  PlatformIO, Arduino + FreeRTOS, NimBLE, Expat, FreeInk SDK, CrossPoint Reader, Obsidian,
+  Self-hosted LiveSync, English · Ελληνικά), and credits (kos25k for testing, CrossPoint Reader,
+  Banana Comic Converter by u/curseofthebanana).
 
 ## Connecting
 
@@ -69,6 +95,13 @@ the device's next LiveSync sync sends them to the server (from 0.29.0).
 The whole SD card:
 
 - Tap a folder to open it; the path at the top ("SD card › books") takes you back up.
+- Every file shows its type (0.5.0, from kos25k's screenshot: a long name is cut with "…" and
+  loses its extension): the extension as a small chip under the name (EPUB, CBZ, XTCH, MD, PDF,
+  PNG…) next to the size, and an icon by kind: 📘 books (EPUB, TXT, PDF…), 📚 comics (CBZ, XTC,
+  XTCH), 📝 notes (MD, canvas, Excalidraw, JSON…), 🖼️ pictures, 📄 anything else; folders keep 📁.
+  Names wrap onto two lines.
+- The toolbar buttons (**Upload**, **New folder**, **↑ Up**, **Convert a comic**) are one line each
+  and the row scrolls sideways when they don't fit (0.5.0; before, Greek "Πάνω" broke into two lines).
 - **Upload** picks one or more files on the phone and sends them to the open folder, with a
   progress bar.
 - **New folder** makes a folder here.
@@ -130,6 +163,11 @@ points to the maintainer's keystore). Without it, `assembleDebug` still builds a
 
 Kotlin + Jetpack Compose, OkHttp; minSdk 26, targetSdk 36. Package `com.lefteros.vaultink`.
 
+The Help assets are copied by the `copyHelpDocs` task in `app/build.gradle.kts` from `../README.md`
+and `../docs/*.md` into `app/build/generated/helpdocs/help/` (with `index.txt`), so the repo's
+docs are the source; nothing is checked in twice. Unit tests: `./gradlew testDebugUnitTest`
+(`KeepImportTest`, `MarkdownTest`, `PhoneTextTest`).
+
 ### Bring notes in: Google Keep (0.5.0)
 
 On the Note tab, under **Send**, **Bring notes in** imports a Google Keep export. Export Keep with
@@ -161,6 +199,31 @@ interval with the last automatic try. **Sync now** appears only when the reader 
 sync request from there (`canSync`); today's firmware can't, because a sync runs on the reader's
 LiveSync screen and leaving File Transfer restarts the reader, so the card says to start it there.
 
+**Sync when I leave File Transfer** (companion 0.5.0, firmware 0.64.0 or newer, `syncRequest`
+in the status): the sync still can't run next to the web server, so the button leaves a small file on
+the card instead (`/.vaultink/sync-request`, uploaded like a note). When you leave File Transfer the
+reader restarts, and at the wake that follows it runs one LiveSync sync as if it were due, then
+deletes the file. The card says so under the button and confirms "Request left on the reader. Leave
+File Transfer there; the sync runs at its next wake." Without a saved profile the reader just
+removes the file. An older firmware (no `syncRequest`) keeps the previous text, "a sync starts on
+the reader".
+
+### Type into the reader (firmware 0.64.0)
+
+At the bottom of the Note tab, under **Bring notes in**: a text box for the reader's keyboard
+screen. The reader's on-screen keyboard is slow for anything longer than a word, so you type here
+instead and **Send to the reader** writes the text to `/.vaultink/phone-text.txt` on the card (UTF-8,
+2,000 bytes at most; the counter under the box counts bytes, and the box stops at the limit without
+splitting a character). A newer text replaces the older one. Then, on the reader, leave File Transfer
+and open any text field (a note line, a search, a habit name): a **From phone** button appears in its
+header; tapping it puts the text into the line (line breaks become spaces) and deletes the file.
+The app says so after sending. If the reader can't be reached the text waits in the outbox like a
+note (only the last text typed is kept, since the reader holds one) and is sent the next time the
+reader is found. An upload to `/.vaultink` makes that folder when it is missing (reader firmware
+0.64.0), so this works on a brand-new card too; an older firmware answers with an error.
+
+The byte counting and clipping are in `PhoneText.kt` with JUnit tests (`PhoneTextTest`).
+
 ## Releases
 
 Tag `companion-x.y.z`, asset `vaultink-companion-x.y.z.apk`. A companion release is never marked
@@ -190,6 +253,11 @@ On a OnePlus phone (Android 16) against the simulator's web server, over USB deb
 - 0.4.0 (2026-10-30): with no reader, a note written in the offline form was kept ("1 item waiting
   for the reader"); after connecting to the simulator the app said "Sent 1 waiting item" and the
   note was on the card. Not tried yet: a book shared with no reader, and a reader lost halfway.
+- 0.5.0 (2026-11-01, not released): the file-type chips, the one-line toolbar, the ⋮ menu, the
+  four-page intro, About and Help were only compiled (`assembleDebug`) and unit tested
+  (`MarkdownTest`, 11 tests); none of it has run on a phone yet. The same goes for **Sync when I
+  leave File Transfer** and **Type into the reader** (firmware 0.64.0): compiled and unit tested
+  (`PhoneTextTest`), not yet tried against the simulator or a reader.
 
 Not tested yet:
 

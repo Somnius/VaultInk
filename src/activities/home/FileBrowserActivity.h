@@ -32,6 +32,14 @@ class FileBrowserActivity final : public UiListActivity {
   void reloadSelecting(const std::string& entry);
   void showError(StrId heading, const std::string& name);
   bool picker() const { return mode != Mode::Books; }
+  // Search files (kos25k #13): the magnifier at the header's right (touch), the blank-space menu and, on
+  // button boards, the last entry of the file menu. A pick comes back as a path to show here.
+  static constexpr freeink::ui::ActionId ACTION_SEARCH = ACTION_USER;
+  static void searchActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
+  void openSearch();
+  void showInFolder(const std::string& path);
+  std::string revealName;      // a search hit to list although the browser would not (any extension, kos25k #13)
+  bool centerPending = false;  // the next build puts the selection near the middle of the viewport
 
   Mode mode = Mode::Books;
 

@@ -22,6 +22,9 @@ class ReaderActivity : public Activity {
   ReaderSession readerSession;
   std::atomic<bool> pageRendered{false};
   bool bookRemembered = false;
+  // Opened by Random page!: the book stays off the recents and off the Home card until it is opened by hand (kos25k
+  // #15).
+  bool skipRecents = false;
   void markPageRendered() { pageRendered.store(true, std::memory_order_release); }
   void rememberBookOnceRendered();
 

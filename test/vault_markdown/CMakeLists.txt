@@ -5,6 +5,7 @@ add_executable(VaultMarkdownTest
   VaultIndexTest.cpp
   CanvasTest.cpp
   ExcalidrawTest.cpp
+  LzStringTest.cpp
   TaskToggleTest.cpp
   LineBufferTest.cpp
   FlashcardsTest.cpp
@@ -21,6 +22,7 @@ add_executable(VaultMarkdownTest
   ${REPO_ROOT}/lib/Vault/VaultIndex.cpp
   ${REPO_ROOT}/lib/Vault/Canvas.cpp
   ${REPO_ROOT}/lib/Vault/Excalidraw.cpp
+  ${REPO_ROOT}/lib/Vault/LzString.cpp
   ${REPO_ROOT}/lib/Vault/TaskToggle.cpp
   ${REPO_ROOT}/lib/Vault/LineBuffer.cpp
   ${REPO_ROOT}/lib/Vault/Flashcards.cpp

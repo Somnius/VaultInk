@@ -2,6 +2,20 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.64.0 (2026-11-01)
+
+Search in Browse Files, a safer Random page!, and typing and sync from the phone (kos25k #13, #15).
+
+- **Search in Browse Files** (kos25k #13): a magnifier in Browse Files looks for files and folders by name through the whole card (accents and capitals never matter, up to 200 hits, 12 folders deep). A hit opens, or Show in folder takes you to it. It says when there may be more than it listed.
+- **Random page!** (kos25k #15): only book formats are picked (not notes, logs, the changelog or crash files), and a peek is never remembered: it stays off the Continue card and the Recent list.
+- **Book info** (kos25k #15): the file name is left out when it only repeats the title or author.
+- **From phone**: the text keyboard has a From phone button that types in text the companion app left on the card (/.vaultink/phone-text.txt, up to 2,000 bytes).
+- **LiveSync from the phone**: the companion app can leave /.vaultink/sync-request through File Transfer, and the reader runs one sync at its next wake. GET /api/livesync/status reports syncRequest.
+- **Excalidraw**: compressed drawings (compressed-json) open now; filled ellipses and rotated shapes are drawn properly.
+- **Companion 0.5.0**: an intro screen, About with the tech stack, the VaultInk documentation inside the app, file types in the Files list, and the Greek Up button no longer wraps.
+
+Tried in the simulator and on the computer (host tests, device build). Not tried on a device, with a real Bluetooth keyboard or a real wheel.
+
 ## 0.63.0 (2026-11-01)
 
 A Focus timer, Habits, Excalidraw drawings, Bluetooth keyboard typing, a better dice seed, and companion 0.5.0.

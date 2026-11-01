@@ -5,15 +5,18 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -68,6 +71,37 @@ private fun displayName(context: Context, uri: Uri): Pair<String, Long> {
             }
         }
     return name to size
+}
+
+/** What a file is, from its extension, so the list reads at a glance. */
+enum class FileKind(val icon: String) { BOOK("📘"), COMIC("📚"), NOTE("📝"), IMAGE("🖼️"), OTHER("📄") }
+
+fun fileKind(name: String): FileKind = when (name.substringAfterLast('.', "").lowercase()) {
+    "epub", "txt", "pdf", "fb2", "mobi", "azw3" -> FileKind.BOOK
+    "cbz", "cbr", "xtc", "xtch" -> FileKind.COMIC
+    "md", "markdown", "canvas", "excalidraw", "json", "yaml", "yml" -> FileKind.NOTE
+    "jpg", "jpeg", "png", "gif", "bmp", "webp", "svg" -> FileKind.IMAGE
+    else -> FileKind.OTHER
+}
+
+private val TOOLBAR_PADDING = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+
+@Composable
+private fun ToolbarLabel(text: String) = Text(text, maxLines = 1, softWrap = false)
+
+/** The extension in upper case on a small rounded chip, tinted by the file's kind. */
+@Composable
+private fun TypeChip(ext: String, kind: FileKind) {
+    val scheme = MaterialTheme.colorScheme
+    val (bg, fg) = when (kind) {
+        FileKind.BOOK -> scheme.primaryContainer to scheme.onPrimaryContainer
+        FileKind.COMIC -> scheme.tertiaryContainer to scheme.onTertiaryContainer
+        FileKind.NOTE -> scheme.secondaryContainer to scheme.onSecondaryContainer
+        FileKind.IMAGE -> scheme.surfaceVariant to scheme.onSurfaceVariant
+        FileKind.OTHER -> scheme.surfaceVariant to scheme.onSurfaceVariant
+    }
+    Text(ext, Modifier.background(bg, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 1.dp),
+        style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1, softWrap = false)
 }
 
 /** The SD card: browse, upload, download, new folder, rename, move and delete. */
@@ -162,14 +196,22 @@ fun FilesScreen(client: DeviceClient) {
             TextButton(onClick = { dir = to }) { Text(part) }
         }
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(enabled = transfer == null, onClick = { upload.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.upload)) }
-        OutlinedButton(onClick = { target = null; dialog = "mkdir" }) { Text(stringResource(R.string.new_folder)) }
-        if (dir != "/") OutlinedButton(onClick = { dir = parentOf(dir) }) { Text(stringResource(R.string.up)) }
-    }
-    // Banana Comic Converter inside the app; its files go to the reader's /Comics folder.
-    OutlinedButton(onClick = { context.startActivity(android.content.Intent(context, ComicsActivity::class.java)) }) {
-        Text("📚 " + stringResource(R.string.comics_open))
+    // One line each, never wrapped mid-word ("Πά νω"); the row scrolls sideways when the four don't fit.
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(enabled = transfer == null, onClick = { upload.launch(arrayOf("*/*")) }, contentPadding = TOOLBAR_PADDING) {
+            ToolbarLabel(stringResource(R.string.upload))
+        }
+        OutlinedButton(onClick = { target = null; dialog = "mkdir" }, contentPadding = TOOLBAR_PADDING) {
+            ToolbarLabel(stringResource(R.string.new_folder))
+        }
+        if (dir != "/") OutlinedButton(onClick = { dir = parentOf(dir) }, contentPadding = TOOLBAR_PADDING) {
+            ToolbarLabel("↑ " + stringResource(R.string.up))
+        }
+        // Banana Comic Converter inside the app; its files go to the reader's /Comics folder.
+        OutlinedButton(onClick = { context.startActivity(android.content.Intent(context, ComicsActivity::class.java)) },
+            contentPadding = TOOLBAR_PADDING) {
+            ToolbarLabel("📚 " + stringResource(R.string.comics_open))
+        }
     }
     transfer?.let { t ->
         Text(t.label, style = MaterialTheme.typography.bodyMedium)
@@ -195,10 +237,16 @@ fun FilesScreen(client: DeviceClient) {
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(if (e.isDirectory) "📁" else "📄", Modifier.padding(end = 12.dp))
+                    val kind = if (e.isDirectory) null else fileKind(e.name)
+                    Text(kind?.icon ?: "📁", Modifier.padding(end = 12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(e.name, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        if (!e.isDirectory) Text(sizeText(e.size), style = MaterialTheme.typography.bodySmall)
+                        // The type as a chip, since a long name loses its extension to the ellipsis.
+                        if (kind != null) Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 2.dp)) {
+                            TypeChip(e.name.substringAfterLast('.', "").ifEmpty { "?" }.uppercase(), kind)
+                            Text(sizeText(e.size), style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                     Column {
                         TextButton(onClick = { menuFor = e }) { Text("⋮") }

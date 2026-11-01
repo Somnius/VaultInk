@@ -70,6 +70,9 @@ bool hasMarkdownExtension(std::string_view fileName);
 bool hasCanvasExtension(std::string_view fileName);
 // .excalidraw, and the Obsidian Excalidraw plugin's .excalidraw.md (0.63.0)
 bool hasExcalidrawExtension(std::string_view fileName);
+// Which files Random page! may pick (kos25k #15): book formats only (EPUB, PDF, CBZ, XTC/XTCH, TXT), and no text that
+// is not a book: anything under a dot-folder or /debug, crash logs, the changelog note, .log files.
+bool isRandomPageBook(std::string_view path);
 bool hasPdfExtension(std::string_view fileName);  // read as text (src/util/PdfConvert)
 
 bool hasReflowableBookExtension(std::string_view fileName);

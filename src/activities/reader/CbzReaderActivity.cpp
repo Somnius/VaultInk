@@ -65,6 +65,7 @@ bool CbzReaderActivity::loadBook() {
   if (randompage::take() && !book.pages.empty()) {
     // Random page! (kos25k #15): a look at a random page; nothing is saved, so the place stays where it was.
     randomPeek = true;
+    skipRecents = true;
     currentPage = randompage::random32() % static_cast<uint32_t>(book.pages.size());
   }
   loadDirection(zip);

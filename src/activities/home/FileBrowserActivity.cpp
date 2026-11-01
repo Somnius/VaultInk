@@ -14,6 +14,7 @@
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "FavouritesStore.h"
+#include "FileSearchActivity.h"
 #include "MappedInputManager.h"
 #include "RecentBooksStore.h"
 #include "activities/ActivityManager.h"
@@ -21,6 +22,7 @@
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
+#include "components/icons/search32.h"
 #include "fontIds.h"
 #include "util/BookCacheUtils.h"
 #include "util/BookInfo.h"
@@ -115,8 +117,9 @@ void FileBrowserActivity::loadFiles() {
       } else if (FsHelpers::hasReflowableBookExtension(filename) || FsHelpers::hasXtcExtension(filename) ||
                  FsHelpers::hasCbzExtension(filename) || FsHelpers::hasImageExtension(filename) ||
                  FsHelpers::hasCanvasExtension(filename) || FsHelpers::hasExcalidrawExtension(filename) ||
-                 FsHelpers::hasPdfExtension(filename) || FsHelpers::checkFileExtension(filename, ".zip")) {
-        files.emplace_back(filename);
+                 FsHelpers::hasPdfExtension(filename) || FsHelpers::checkFileExtension(filename, ".zip") ||
+                 (!revealName.empty() && filename == revealName)) {
+        files.emplace_back(filename);  // the browser lists known types; a search hit of any type is shown too
       }
     }
   }
@@ -214,6 +217,41 @@ void FileBrowserActivity::onEnter() {
   } else {
     loadFiles();
   }
+  if (mode == Mode::Books) app.on(ACTION_SEARCH, &FileBrowserActivity::searchActionTrampoline, this);
+}
+
+void FileBrowserActivity::searchActionTrampoline(const fui::ActionEvent&, void* user) {
+  static_cast<FileBrowserActivity*>(user)->openSearch();
+}
+
+void FileBrowserActivity::openSearch() {
+  app.clearTapFlash();
+  auto search = makeUniqueNoThrow<FileSearchActivity>(renderer, mappedInput, basepath);
+  if (!search) {
+    LOG_ERR("FileBrowser", "OOM: file search");
+    return;
+  }
+  startActivityForResult(std::move(search), [this](const ActivityResult& result) {
+    if (result.isCancelled) return;
+    showInFolder(std::get<FilePathResult>(result.data).path);
+  });
+}
+
+// Shows `path` (a trailing slash marks a folder) selected in its folder, scrolled near the middle.
+void FileBrowserActivity::showInFolder(const std::string& path) {
+  const bool folder = path.size() > 1 && path.back() == '/';
+  const std::string bare = folder ? path.substr(0, path.size() - 1) : path;
+  const size_t slash = bare.find_last_of('/');
+  if (slash == std::string::npos) return;
+  {
+    RenderLock lock(*this);
+    basepath = slash == 0 ? "/" : bare.substr(0, slash);
+    revealName = folder ? std::string() : bare.substr(slash + 1);  // listed even when its type is not a known one
+    loadFiles();
+    nav.reset(static_cast<int>(findEntry(bare.substr(slash + 1) + (folder ? "/" : ""))));
+    centerPending = true;
+  }
+  requestUpdate(true);
 }
 
 void FileBrowserActivity::onExit() {
@@ -222,84 +260,7 @@ void FileBrowserActivity::onExit() {
   fileNameBuffer.reset();
 }
 
-// To avoid traversing directories twice (once for cache clearing, once for deletion),
-// we do both in one pass here, instead of using Storage.removeDir
-bool FileBrowserActivity::removeDirFile(const std::string& fullPath) {
-  auto file = Storage.open(fullPath.c_str());
-  if (!file) {
-    LOG_ERR("FileBrowser", "Failed to open for metadata clearing: %s", fullPath.c_str());
-    return false;
-  }
-
-  if (!file.isDirectory()) {
-    file.close();
-    return removeBookFile(fullPath);
-  }
-  file.close();
-
-  if (!fileNameBuffer) {
-    LOG_ERR("FileBrowser", "fileNameBuffer not allocated");
-    return false;
-  }
-
-  // Stack of (dirPath, postOrder): postOrder=true means rmdir this path after children are processed.
-  std::vector<std::pair<std::string, bool>> stack;
-  stack.reserve(16);
-  stack.push_back({fullPath, false});
-
-  while (!stack.empty()) {
-    auto [currentPath, postOrder] = std::move(stack.back());
-    stack.pop_back();
-
-    if (postOrder) {
-      if (!Storage.rmdir(currentPath.c_str())) {
-        LOG_ERR("FileBrowser", "Failed to rmdir: %s", currentPath.c_str());
-        return false;
-      }
-      continue;
-    }
-
-    auto dir = Storage.open(currentPath.c_str());
-    if (!dir) {
-      LOG_ERR("FileBrowser", "Failed to open dir: %s", currentPath.c_str());
-      return false;
-    }
-    if (!dir.isDirectory()) {
-      LOG_ERR("FileBrowser", "Not a directory: %s", currentPath.c_str());
-      return false;
-    }
-
-    // Push this dir for post-order rmdir (after all children are processed).
-    stack.push_back({currentPath, true});
-
-    dir.rewindDirectory();
-    for (auto entry = dir.openNextFile(); entry; entry = dir.openNextFile()) {
-      entry.getName(fileNameBuffer.get(), NAME_BUFFER_SIZE);
-      if (strcmp(fileNameBuffer.get(), ".") == 0 || strcmp(fileNameBuffer.get(), "..") == 0) {
-        continue;
-      }
-      std::string entryPath = currentPath;
-      if (entryPath.back() != '/') {
-        entryPath += "/";
-      }
-      entryPath += fileNameBuffer.get();
-
-      const bool isDir = entry.isDirectory();
-      entry.close();
-
-      if (isDir) {
-        stack.push_back({std::move(entryPath), false});
-      } else {
-        if (!removeBookFile(entryPath)) {
-          LOG_ERR("FileBrowser", "Failed to remove file: %s", entryPath.c_str());
-          return false;
-        }
-      }
-    }
-  }
-
-  return true;
-}
+bool FileBrowserActivity::removeDirFile(const std::string& fullPath) { return fileops::removeTree(fullPath); }
 
 void FileBrowserActivity::activateIndex(const int index) {
   (void)index;  // base already synced nav.selected to the tapped row
@@ -410,8 +371,17 @@ void FileBrowserActivity::showEntryActions() {
   const bool book = !folder && (FsHelpers::hasReflowableBookExtension(selected) ||
                                 FsHelpers::hasXtcExtension(selected) || FsHelpers::hasCbzExtension(selected));
   const StrId* options = folder ? FOLDER8_OPTIONS : (book ? BOOK_OPTIONS : (zip ? ZIP8_OPTIONS : FILE_OPTIONS));
-  const int count = (folder || zip) ? 8 : 7;
-  optionPopup.show(StrId::STR_FILENAME, options, count, 0, [this, folder, book, zip](const int index) {
+  int count = (folder || zip) ? 8 : 7;
+  // Button boards have no header magnifier: Search files is the last entry here (kos25k #13).
+  StrId withSearch[9];
+  std::copy_n(options, count, withSearch);
+  const int searchIndex = mappedInput.hasTouch() ? -1 : count;
+  if (searchIndex >= 0) withSearch[count++] = StrId::STR_FILE_SEARCH;
+  optionPopup.show(StrId::STR_FILENAME, withSearch, count, 0, [this, folder, book, zip, searchIndex](const int index) {
+    if (index == searchIndex) {
+      openSearch();
+      return;
+    }
     switch (index) {
       case 0:
         activateSelected();
@@ -634,32 +604,17 @@ void FileBrowserActivity::startTransfer(const bool copy) {
 
 void FileBrowserActivity::transferInto(const std::string& srcPath, const std::string& destDir, const bool copy) {
   const std::string name = srcPath.substr(srcPath.find_last_of('/') + 1);
-  const std::string dest = (destDir.back() == '/' ? destDir : destDir + "/") + name;
-  const StrId failed = copy ? StrId::STR_COPY_FAILED : StrId::STR_MOVE_FAILED;
-  if (dest == srcPath && !copy) return;  // moved onto itself: nothing to do
-  // A folder can't go inside itself, and nothing overwrites an existing name.
-  if (dest == srcPath || dest.rfind(srcPath + "/", 0) == 0 || Storage.exists(dest.c_str())) {
-    showError(failed, name);
+  if (copy) {
+    RenderLock lock(*this);
+    GUI.drawPopup(renderer, tr(STR_COPYING));
+  }
+  bool isDirectory = false;
+  const auto r = fileops::transferInto(srcPath, destDir, copy, isDirectory);
+  if (r == fileops::Transfer::Refused) {
+    showError(copy ? StrId::STR_COPY_FAILED : StrId::STR_MOVE_FAILED, name);
     return;
   }
-  bool ok;
-  if (copy) {
-    {
-      RenderLock lock(*this);
-      GUI.drawPopup(renderer, tr(STR_COPYING));
-    }
-    ok = fileops::copyTree(srcPath, dest);
-    if (!ok) removeDirFile(dest);  // nothing half-copied stays behind
-  } else {
-    ok = moveFile(srcPath, dest);
-  }
-  auto probe = Storage.open(ok && !copy ? dest.c_str() : srcPath.c_str());
-  const bool isDirectory = probe && probe.isDirectory();
-  if (probe) probe.close();
-  if (!ok) {
-    LOG_ERR("FileBrowser", "%s failed: %s -> %s", copy ? "Copy" : "Move", srcPath.c_str(), dest.c_str());
-    showError(failed, name);
-  }
+  if (r == fileops::Transfer::Failed) showError(copy ? StrId::STR_COPY_FAILED : StrId::STR_MOVE_FAILED, name);
   reloadSelecting(isDirectory ? name + "/" : name);
 }
 
@@ -690,9 +645,10 @@ bool FileBrowserActivity::handleCustomInput() {
     const bool emptyTap = files.empty() && ((mappedInput.wasScreenTapped(tx, ty) && ty > contentTop) ||
                                             mappedInput.wasReleased(MappedInputManager::Button::Confirm));
     if (blankPress || emptyTap) {
-      static constexpr StrId BLANK_OPTIONS[] = {StrId::STR_NEW_FOLDER};
-      optionPopup.show(StrId::STR_BROWSE_FILES, BLANK_OPTIONS, 1, 0, [this](const int index) {
+      static constexpr StrId BLANK_OPTIONS[] = {StrId::STR_NEW_FOLDER, StrId::STR_FILE_SEARCH};
+      optionPopup.show(StrId::STR_BROWSE_FILES, BLANK_OPTIONS, 2, 0, [this](const int index) {
         if (index == 0) startNewFolder();
+        if (index == 1) openSearch();
         requestUpdate();
       });
       requestUpdate();
@@ -785,6 +741,17 @@ std::string getFileExtension(const std::string& filename) {
 
 void FileBrowserActivity::buildScreen(UiScreen& screen) {
   const auto& metrics = UITheme::getInstance().getMetrics();
+  if (mode == Mode::Books && mappedInput.hasTouch()) {
+    // Search files at the header's right edge, away from the home button at the top centre (kos25k #13):
+    // GUI.drawHeader has no slot for it, so it is drawn by hand like Search in Book's gear.
+    const int16_t size = static_cast<int16_t>(metrics.headerHeight - 24);
+    const int16_t x = static_cast<int16_t>(renderer.getScreenWidth() - metrics.contentSidePadding - 8 - size);
+    fui::ButtonProps search;
+    search.icon = fui::bitmapFromIcon(icon_search_32);
+    search.action = ACTION_SEARCH;
+    search.minTouchSize = 44;
+    fui::button(screen.frame(), fui::Rect{x, static_cast<int16_t>(metrics.topPadding + 22), size, size}, search);
+  }
   // Content below the GUI.drawHeader band, above the button hints.
   screen.setContentMarginFromScreen(fui::Insets{static_cast<int16_t>(metrics.topPadding + metrics.headerHeight), 0,
                                                 static_cast<int16_t>(metrics.buttonHintsHeight), 0});
@@ -842,6 +809,15 @@ void FileBrowserActivity::buildScreen(UiScreen& screen) {
   // 60%-band wrap cap and let both name lines run the full width before it.
   props.balanceWrappedLabelWithValue = false;
   syncListViewport(screen, props);
+  if (centerPending) {
+    // A search result: the selected row near the middle of the page, not at its edge.
+    centerPending = false;
+    const int count = listCount();
+    const int page = std::max(1, nav.pageRowsFor(count));
+    const int top = std::clamp(nav.selected.load() - page / 2, 0, std::max(0, count - page));
+    nav.top = top;
+    props.topIndex = static_cast<uint16_t>(top);
+  }
   // Prewarm the window at the final viewport (syncListViewport just applied
   // follow/clamping to nav.top) before the list resolves rows through the
   // provider.

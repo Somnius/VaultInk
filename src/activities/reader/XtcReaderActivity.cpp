@@ -34,6 +34,7 @@ bool XtcReaderActivity::loadBook() {
   if (randompage::take() && xtc->getPageCount() > 0) {
     // Random page! (kos25k #15): a look at a random page; nothing is saved, so the place stays where it was.
     randomPeek = true;
+    skipRecents = true;
     currentPage = randompage::random32() % xtc->getPageCount();
   }
   return true;

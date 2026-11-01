@@ -93,6 +93,7 @@ void ReaderActivity::onEnter() {
 void ReaderActivity::rememberBookOnceRendered() {
   if (bookRemembered || !pageRendered.load(std::memory_order_acquire)) return;
   bookRemembered = true;
+  if (skipRecents) return;  // a random page: not the book on the Home card
   if (whatsnew::isNote(bookPath)) {
     // The changelog is read once (kos25k #9): not the book on the home, and gone from the recents, including
     // an entry an earlier version left there.

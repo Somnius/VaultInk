@@ -50,6 +50,21 @@ object Outbox {
             JSONObject().put("type", "markdown").put("vault", vault).put("folder", folder).put("name", name).toString())
     }
 
+    /**
+     * A small file for an exact `path` on the card (text for the reader's "From phone" button); it
+     * replaces whatever is there. A newer item for the same path drops the older one, so only the
+     * last text typed reaches the reader.
+     */
+    fun addPath(context: Context, path: String, bytes: ByteArray) {
+        for (dir in items(context)) {
+            val json = runCatching { JSONObject(File(dir, "item.json").readText()) }.getOrNull() ?: continue
+            if (json.optString("type") == "path" && json.optString("path") == path) dir.deleteRecursively()
+        }
+        val dir = newItem(context)
+        File(dir, "data").writeBytes(bytes)
+        File(dir, "item.json").writeText(JSONObject().put("type", "path").put("path", path).toString())
+    }
+
     private fun items(context: Context): List<File> =
         root(context).listFiles()?.filter { File(it, "item.json").isFile }?.sortedBy { it.name }.orEmpty()
 
@@ -69,6 +84,11 @@ object Outbox {
                         if (!file.isFile) throw org.json.JSONException("file missing")
                         client.ensureFolder(folder)
                         client.upload(folder, json.getString("name"), file, "text/markdown")
+                    }
+                    "path" -> {
+                        val file = File(dir, "data")
+                        if (!file.isFile) throw org.json.JSONException("file missing")
+                        client.putFile(json.getString("path"), file.readBytes(), "application/octet-stream")
                     }
                     "file" -> {
                         val folder = json.getString("folder")

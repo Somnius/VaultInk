@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <string>
 
 #include "util/Entropy.h"
 

@@ -46,6 +46,10 @@ class KeyboardEntryActivity : public Activity {
   bool passwordVisible = false;
   static constexpr size_t kTypedMaxBytes = 4000;  // the limit for typed text when the caller set none
   bool drainTypedInput();
+  // Text the companion app left on the card (/.vaultink/phone-text.txt): a "From phone" button in the header puts it
+  // into the line and removes the file.
+  void insertPhoneText();
+  bool phoneTextWaiting = false;
   std::function<void()> gearAction;
 
   ButtonNavigator buttonNavigator;

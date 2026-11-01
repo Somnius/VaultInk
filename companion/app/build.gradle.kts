@@ -24,6 +24,9 @@ android {
         targetSdk = 36
         versionCode = 5
         versionName = "0.5.0"
+        // Shown as pills on the About screen.
+        buildConfigField("int", "MIN_SDK", "$minSdk")
+        buildConfigField("int", "TARGET_SDK", "$targetSdk")
     }
 
     signingConfigs {
@@ -58,6 +61,29 @@ android {
 kotlin {
     jvmToolchain(17)
 }
+
+// Help: the repo's documentation goes into the APK as assets at build time. Only the Markdown files
+// (README.md as the start page, docs/*.md), no images, so the APK stays small. help/index.txt lists
+// them as "file<TAB>title" in reading order, README first.
+val helpDocsDir = layout.buildDirectory.dir("generated/helpdocs")
+val copyHelpDocs by tasks.registering(Copy::class) {
+    from(rootProject.file("../README.md"))
+    from(rootProject.file("../docs")) { include("*.md") }
+    into(helpDocsDir.map { it.dir("help") })
+    doLast {
+        val dir = helpDocsDir.get().dir("help").asFile
+        val heading = Regex("""^#\s+(.+?)\s*$""")
+        val files = dir.listFiles { f -> f.extension == "md" }!!.sortedWith(compareBy({ it.name != "README.md" }, { it.name }))
+        dir.resolve("index.txt").writeText(files.joinToString("\n") { f ->
+            // README.md has no level-1 heading (its title is a picture), so it's named by hand.
+            val title = if (f.name == "README.md") "VaultInk"
+                else f.readLines().firstNotNullOfOrNull { heading.find(it)?.groupValues?.get(1) } ?: f.nameWithoutExtension
+            "${f.name}\t$title"
+        })
+    }
+}
+android.sourceSets["main"].assets.srcDir(helpDocsDir)
+tasks.named("preBuild") { dependsOn(copyHelpDocs) }
 
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

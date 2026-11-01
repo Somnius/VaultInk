@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <string>
+
+#include "LzString.h"
 
 namespace excalidraw {
 namespace {
@@ -69,14 +72,22 @@ class Parser {
  public:
   Parser(const Reader& read, Drawing& out) : in(read), out(out) {}
 
-  Error run() {
+  // Parses the stream. A ```compressed-json block is not parsed here: its base64 text is returned in
+  // `compressed` with Error::BadCompressed, and parse() decodes it and runs a second Parser.
+  Error run(std::string& compressed) {
     skipSpace();
     if (in.peek() != '{') {
       const Error e = findFence();
+      if (e == Error::BadCompressed) return readCompressedBlock(compressed);
       if (e != Error::Ok) return e;
       skipSpace();
       if (in.peek() != '{') return Error::NotJson;
     }
+    return parseObject();
+  }
+
+ private:
+  Error parseObject() {
     in.next();  // '{'
     // Top level: the "elements" array; "files", "appState" and the rest are skipped.
     while (true) {
@@ -102,15 +113,31 @@ class Parser {
     return Error::Ok;
   }
 
- private:
   static bool isSpace(const int c) { return c == ' ' || c == '\n' || c == '\r' || c == '\t'; }
+
+  // After a ```compressed-json fence line: collects the block's base64 text (the plugin writes it in
+  // lines of 256 characters; whitespace is dropped) up to the closing fence or the end of the file.
+  Error readCompressedBlock(std::string& compressed) {
+    compressed.clear();
+    bool lineStart = true;
+    while (true) {
+      const int c = in.next();
+      if (c < 0) break;
+      if (lineStart && c == '`') break;  // the closing fence
+      lineStart = c == '\n';
+      if (isSpace(c)) continue;
+      if (compressed.size() >= lzstring::MAX_INPUT) return Error::BadCompressed;
+      compressed += static_cast<char>(c);
+    }
+    return compressed.empty() ? Error::NotJson : Error::BadCompressed;
+  }
 
   void skipSpace() {
     for (int c = in.peek(); isSpace(c); c = in.peek()) in.next();
   }
 
-  // Markdown wrapper: moves past the first "```json" fence line. A "```compressed-json" fence is the
-  // plugin's compressed form, which this reader does not open.
+  // Markdown wrapper: moves past the first "```json" fence line (Ok) or "```compressed-json" fence
+  // line (BadCompressed, meaning "compressed block follows").
   Error findFence() {
     bool lineStart = true;
     while (true) {
@@ -133,7 +160,7 @@ class Parser {
         info += static_cast<char>(in.next());
       while (!info.empty() && isSpace(info.back())) info.pop_back();
       if (info == "json") return Error::Ok;
-      if (info == "compressed-json") return Error::CompressedUnsupported;
+      if (info == "compressed-json") return Error::BadCompressed;
       lineStart = false;
     }
   }
@@ -546,8 +573,25 @@ class Parser {
 
 Error parse(const Reader& read, Drawing& out) {
   out = Drawing{};
-  Parser parser(read, out);
-  return parser.run();
+  std::string compressed;
+  const Error first = Parser(read, out).run(compressed);
+  if (first != Error::BadCompressed || compressed.empty()) return first;
+
+  std::string json;
+  if (!lzstring::decompressFromBase64(compressed, json)) return Error::BadCompressed;
+  compressed.clear();
+  compressed.shrink_to_fit();
+  size_t pos = 0;
+  const Reader fromJson = [&json, &pos](char* buf, const size_t cap) {
+    const size_t n = std::min(cap, json.size() - pos);
+    std::copy_n(json.data() + pos, n, buf);
+    pos += n;
+    return n;
+  };
+  std::string none;
+  const Error second = Parser(fromJson, out).run(none);
+  // The decoded text is plain JSON; a fence or another compressed block inside it is damage.
+  return second == Error::BadCompressed ? Error::NotJson : second;
 }
 
 }  // namespace excalidraw

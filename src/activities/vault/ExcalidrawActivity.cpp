@@ -219,7 +219,7 @@ void ExcalidrawActivity::draw(const bool firstFrame) {
   renderer.clearScreen();
   if (!loaded) {
     const char* message =
-        error == excalidraw::Error::CompressedUnsupported ? tr(STR_EXCALIDRAW_COMPRESSED) : tr(STR_FILE_OPEN_FAILED);
+        error == excalidraw::Error::BadCompressed ? tr(STR_EXCALIDRAW_COMPRESSED) : tr(STR_FILE_OPEN_FAILED);
     renderer.drawCenteredText(UI_10_FONT_ID, renderer.getScreenHeight() / 2, message);
     renderer.displayBuffer(HalDisplay::HALF_REFRESH);
     return;
