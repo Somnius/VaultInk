@@ -133,6 +133,7 @@ class PluginCatalogActivity final : public CatalogActivity {
   std::string manifestPath;  // empty while the picker is showing
   std::string catalogTitle;
   Manifest manifest;
+  static constexpr int BUILTIN_ROWS = 1;  // Sudoku, first in the picker
   std::vector<PluginRef> installedPlugins;
   bool pluginHubAvailable = false;
   bool showPluginHubInstallRow = false;

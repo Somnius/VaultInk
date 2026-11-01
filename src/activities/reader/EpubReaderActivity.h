@@ -218,7 +218,9 @@ class EpubReaderActivity final : public ReaderActivity {
   // Search in a book (kos25k #24): hits stay on, highlighted, with a bar to step through them.
   struct SearchBar {
     int top = 0, height = 0;
-    int prevX = 0, nextX = 0, backX = 0, button = 0;  // left edges, button width
+    int prevX = 0, nextX = 0, backX = 0, button = 0;  // left edge of each touch zone, button width
+    int backZoneX = 0;                                // the return arrow's touch zone starts here
+    int prevCx = 0, nextCx = 0;                       // where the two chevrons are drawn
     int labelX = 0, labelWidth = 0;
   };
   SearchBar searchBarLayout() const;

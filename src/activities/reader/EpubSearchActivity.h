@@ -44,6 +44,10 @@ class EpubSearchActivity final : public UiListActivity {
   const char* headerTitle() const override;
   void onBackButton() override;
 
+  static constexpr freeink::ui::ActionId ACTION_TYPE = ACTION_USER;
+  static void typeActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
+  void openTypeSettings();
+
   void askForQuery();
   void startSearch(const std::string& text);
   void stepSearch();

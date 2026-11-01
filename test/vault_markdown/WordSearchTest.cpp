@@ -81,3 +81,14 @@ TEST(WordSearch, GreekTonosDialytikaAndFinalSigma) {
   EXPECT_EQ(find(split("ΐ ϊ ι"), prepareQuery("ι")).size(), 3u);
   EXPECT_EQ(find(split("Άννα"), prepareQuery("αννα")), (std::vector<size_t>{0}));
 }
+
+TEST(WordSearch, ExactWordsOnly) {
+  const auto words = split("reading read, unread Read");
+  EXPECT_EQ(find(words, prepareQuery("read")), (std::vector<size_t>{0, 1, 2, 3}));
+  EXPECT_EQ(find(words, prepareQuery("read"), 50, true), (std::vector<size_t>{1, 3}));
+}
+
+TEST(WordSearch, ExactPhraseKeepsAccentsAndCaseInsensitive) {
+  const auto words = split("Le Zéphyr souffle, le zephyrs non");
+  EXPECT_EQ(find(words, prepareQuery("zephyr"), 50, true), (std::vector<size_t>{1}));
+}

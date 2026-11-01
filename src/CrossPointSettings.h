@@ -458,6 +458,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // start to the reading point.
   uint8_t searchInMoreMenu = 1;
   uint8_t searchScope = 0;
+  uint8_t searchType = 0;  // 0 = part of a word matches, 1 = whole words only
   // Bluetooth page turner, saved under the keys lib/BlePageTurner reads and writes (BlePageTurnerJson.h).
   bleturner::Config ble;
   // Quick Resume: keep current content visible with moon icon instead of showing a static sleep screen.

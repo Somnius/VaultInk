@@ -11,11 +11,14 @@
 #include <algorithm>
 #include <functional>
 
+#include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "activities/ActivityManager.h"
+#include "activities/settings/SearchWordSettingsActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
+#include "components/icons/headerIcons.h"
 
 namespace fui = freeink::ui;
 
@@ -33,6 +36,7 @@ const char* EpubSearchActivity::headerTitle() const { return tr(STR_SEARCH_IN_BO
 
 void EpubSearchActivity::onEnter() {
   UiListActivity::onEnter();
+  app.on(ACTION_TYPE, &EpubSearchActivity::typeActionTrampoline, this);
   rebuildRows();
   requestUpdate();
 }
@@ -136,7 +140,8 @@ void EpubSearchActivity::closeChapter() {
 bool EpubSearchActivity::openChapter(const int spineIndex) {
   closeChapter();
   const size_t room = MAX_HITS - hits.size() - pendingHits.size();
-  searcher = makeUniqueNoThrow<ChapterTextSearcher>(prepared, room);
+  searcher = makeUniqueNoThrow<ChapterTextSearcher>(prepared, room, nullptr, ChapterTextSearcher::kHitsPerBucket,
+                                                    SETTINGS.searchType == 1);
   if (!searcher || !searcher->ok()) {
     LOG_ERR("BSR", "OOM: chapter %d searcher", spineIndex);
     closeChapter();
@@ -258,8 +263,37 @@ void EpubSearchActivity::rebuildRows() {
   }
 }
 
+void EpubSearchActivity::typeActionTrampoline(const fui::ActionEvent&, void* user) {
+  static_cast<EpubSearchActivity*>(user)->openTypeSettings();
+}
+
+// The gear next to the title: part of a word or whole words. A search already on screen runs again with it.
+void EpubSearchActivity::openTypeSettings() {
+  app.clearTapFlash();
+  if (searching) finishSearch();
+  const uint8_t before = SETTINGS.searchType;
+  auto screen = makeUniqueNoThrow<SearchWordSettingsActivity>(renderer, mappedInput, true);
+  if (!screen) return;
+  startActivityForResult(std::move(screen), [this, before](const ActivityResult&) {
+    if (SETTINGS.searchType != before && !query.empty()) startSearch(query);
+    requestUpdate();
+  });
+}
+
 void EpubSearchActivity::buildScreen(UiScreen& screen) {
   const auto& metrics = UITheme::getInstance().getMetrics();
+  if (mappedInput.hasTouch()) {
+    // Header gear, right after the title: the header control has no slot there, so it is drawn by hand.
+    const int16_t size = static_cast<int16_t>(metrics.headerHeight - 24);
+    const int16_t x =
+        static_cast<int16_t>(metrics.contentSidePadding + 8 +
+                             renderer.getTextWidth(UI_12_FONT_ID, tr(STR_SEARCH_IN_BOOK), EpdFontFamily::BOLD) + 34);
+    fui::ButtonProps gear;
+    gear.icon = fui::bitmapFromIcon(icon_settings_32);
+    gear.action = ACTION_TYPE;
+    gear.minTouchSize = 44;
+    fui::button(screen.frame(), fui::Rect{x, static_cast<int16_t>(metrics.topPadding + 8), size, size}, gear);
+  }
   screen.setContentMarginFromScreen(fui::Insets{static_cast<int16_t>(metrics.topPadding + metrics.headerHeight), 0,
                                                 static_cast<int16_t>(metrics.buttonHintsHeight), 0});
   screen.spacer(static_cast<int16_t>(metrics.verticalSpacing));

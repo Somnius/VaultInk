@@ -36,6 +36,7 @@
 #include "PaperCycleActivity.h"
 #include "SdCardFontSystem.h"
 #include "SdFirmwareUpdateActivity.h"
+#include "SearchWordSettingsActivity.h"
 #include "SettingsList.h"
 #include "SilentRestart.h"
 #include "StatusBarSettingsActivity.h"
@@ -81,6 +82,11 @@ bool showOnDevice(const SettingInfo& setting) {
 // End = not a row here: other categories (KOReader Sync, Status Bar, ...)
 // only group the web UI; their rows live on their own sub-screens.
 SettingsSection sectionFor(const SettingInfo& setting) {
+  // These three live on the Search word screen.
+  if (setting.valuePtr == &CrossPointSettings::searchInMoreMenu ||
+      setting.valuePtr == &CrossPointSettings::searchScope || setting.valuePtr == &CrossPointSettings::searchType) {
+    return SettingsSection::End;
+  }
   if (setting.valuePtr == &CrossPointSettings::libraryUseMetadata ||
       setting.valuePtr == &CrossPointSettings::libraryAuthorFolders ||
       setting.valuePtr == &CrossPointSettings::libraryFormatButton ||
@@ -142,6 +148,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   addAction(SettingsSection::Reader, StrId::STR_TEXT_SETTINGS, SettingAction::TextSettings);
   addAction(SettingsSection::Reader, StrId::STR_MANAGE_FONTS, SettingAction::DownloadFonts);
   addAction(SettingsSection::Reader, StrId::STR_PAPER_CYCLE, SettingAction::PaperCycle);
+  addAction(SettingsSection::Reader, StrId::STR_SEARCH_WORD, SettingAction::SearchWord);
   addAction(SettingsSection::Display, StrId::STR_HOME_ROWS, SettingAction::HomeRows);
   addAction(SettingsSection::Display, StrId::STR_HOME_ITEMS, SettingAction::HomeItems);
   addAction(SettingsSection::Library, StrId::STR_LIBRARY_FORMATS, SettingAction::LibraryFormats);
@@ -496,6 +503,11 @@ void SettingsActivity::toggleSelectedSetting() {
         break;
       case SettingAction::LibraryFormats:
         if (auto activity = makeUniqueNoThrow<LibraryFormatsActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), nullptr);
+        }
+        break;
+      case SettingAction::SearchWord:
+        if (auto activity = makeUniqueNoThrow<SearchWordSettingsActivity>(renderer, mappedInput, false)) {
           startActivityForResult(std::move(activity), nullptr);
         }
         break;

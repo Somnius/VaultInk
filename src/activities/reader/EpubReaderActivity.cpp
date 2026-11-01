@@ -2685,8 +2685,14 @@ EpubReaderActivity::SearchBar EpubReaderActivity::searchBarLayout() const {
   bar.top = renderer.getScreenHeight() - bar.height;
   bar.button = bar.height + 16;
   bar.backX = renderer.getScreenWidth() - bar.button;
-  bar.nextX = bar.backX - bar.button;
-  bar.prevX = bar.nextX - bar.button;
+  // The chevrons sit apart and left of the return arrow (kos25k #24); each touch zone runs to the
+  // midpoint between neighbours, so there is no dead strip.
+  const int stride = bar.button * 8 / 5;
+  bar.nextCx = bar.backX - stride;
+  bar.prevCx = bar.nextCx - stride;
+  bar.backZoneX = (bar.nextCx + bar.backX + bar.button / 2) / 2;  // midway between the next chevron and the arrow
+  bar.nextX = bar.nextCx - stride / 2;
+  bar.prevX = bar.prevCx - stride / 2;
   bar.labelX = 8;
   bar.labelWidth = bar.prevX - bar.labelX;
   return bar;
@@ -2709,8 +2715,8 @@ void EpubReaderActivity::drawSearchBar() const {
                     label, true);
 
   const int cy = bar.top + bar.height / 2;
-  const int prevCx = bar.prevX + bar.button / 2;
-  const int nextCx = bar.nextX + bar.button / 2;
+  const int prevCx = bar.prevCx;
+  const int nextCx = bar.nextCx;
   renderer.drawLine(prevCx + 6, cy - 12, prevCx - 6, cy, 3, true);
   renderer.drawLine(prevCx - 6, cy, prevCx + 6, cy + 12, 3, true);
   renderer.drawLine(nextCx - 6, cy - 12, nextCx + 6, cy, 3, true);
@@ -2768,7 +2774,7 @@ void EpubReaderActivity::drawSearchHighlights(const Page& page, const int fontId
     }
   }
   const size_t tokens = static_cast<size_t>(std::count(search.query.begin(), search.query.end(), ' ')) + 1;
-  for (const size_t start : wordsearch::find(groups, search.query, 64)) {
+  for (const size_t start : wordsearch::find(groups, search.query, 64, SETTINGS.searchType == 1)) {
     for (const auto& ref : refs) {
       if (ref.group < start || ref.group >= start + tokens) continue;
       const Rect rect =
@@ -2823,7 +2829,7 @@ bool EpubReaderActivity::handleSearchInput() {
   const SearchBar bar = searchBarLayout();
   if (y < bar.top - 14) return false;  // a thin bar: a finger just above it counts
   haptic_feedback::touchAction();
-  if (x >= bar.backX) {
+  if (x >= bar.backZoneX) {
     searchReturn();
   } else if (x >= bar.nextX) {
     searchStep(1);

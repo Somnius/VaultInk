@@ -10,11 +10,12 @@
 #include <cstring>
 
 #include "TextFold.h"
+#include "WordSearch.h"
 
 namespace {
 constexpr size_t kRawKeep = 240;       // bytes of raw text kept behind the reader head
-constexpr size_t kSnippetAfter = 30;   // bytes of raw text kept after the start of a match
-constexpr size_t kSnippetBefore = 16;  // and before it
+constexpr size_t kSnippetAfter = 110;  // bytes of raw text kept after the start of a match
+constexpr size_t kSnippetBefore = 22;  // and before it
 
 bool isBlockTag(const char* name) {
   static const char* const kBlocks[] = {"p",       "div",     "br",    "li",     "tr",         "td",     "th",
@@ -30,8 +31,10 @@ bool isIgnorable(const uint32_t cp) { return cp == 0xAD || cp == 0x200B || cp ==
 }  // namespace
 
 ChapterTextSearcher::ChapterTextSearcher(std::string preparedQuery, const size_t maxHits,
-                                         std::function<bool()> shouldAbort, const size_t hitsPerBucket)
+                                         std::function<bool()> shouldAbort, const size_t hitsPerBucket,
+                                         const bool exactWords)
     : query_(std::move(preparedQuery)),
+      exact_(exactWords),
       maxHits_(maxHits),
       hitsPerBucket_(hitsPerBucket),
       shouldAbort_(std::move(shouldAbort)) {
@@ -70,6 +73,7 @@ bool ChapterTextSearcher::finish() {
   if (parser_ && ok_ && !done() && !aborted_) {
     if (XML_Parse(parser_, "", 0, 1) == XML_STATUS_ERROR) ok_ = false;
   }
+  resolveAwaiting(true);
   completeReady(true);
   return ok_;
 }
@@ -125,7 +129,10 @@ void ChapterTextSearcher::onText(const char* s, const int len) {
   }
 }
 
-void ChapterTextSearcher::breakWord() { pendingSpace_ = true; }
+void ChapterTextSearcher::breakWord() {
+  resolveAwaiting(true);
+  pendingSpace_ = true;
+}
 
 void ChapterTextSearcher::appendRaw(const uint32_t cp) {
   if (isIgnorable(cp)) return;
@@ -148,6 +155,7 @@ void ChapterTextSearcher::appendRaw(const uint32_t cp) {
 void ChapterTextSearcher::addCodepoint(const uint32_t cp) {
   if (isIgnorable(cp)) return;
   if (cp >= 0x0300 && cp <= 0x036F) return;  // separate accents fold away (textfold::fold)
+  if (awaiting_) resolveAwaiting(!wordsearch::isWordChar(cp));
   if (isSpace(cp)) {
     pendingSpace_ = true;
     appendRaw(cp);
@@ -178,23 +186,65 @@ void ChapterTextSearcher::checkMatch() {
   const size_t q = query_.size();
   if (window_.size() >= q && window_.compare(window_.size() - q, q, query_) == 0) {
     const Mark start = marks_[window_.size() - q];
-    const uint32_t bucket = start.offset / kHitBucket;
-    if (bucket != bucket_) {
-      bucket_ = bucket;
-      bucketCount_ = 0;
+    if (exact_) {
+      // The character before the match (kept behind the window's tail) must not be part of a word.
+      if (startsAtWordEdge(window_.size() - q)) {
+        awaiting_ = true;  // its end is judged by the next character
+        awaitingMatch_ = {start.offset, start.raw};
+        return;
+      }
+    } else {
+      acceptMatch({start.offset, start.raw});
+      return;
     }
-    if (bucketCount_ < hitsPerBucket_) {
-      bucketCount_++;
-      pending_.push_back({start.offset, start.raw});
-    }
-    // No overlaps: the next match starts after this one.
-    window_.clear();
-    marks_.clear();
-    if (hits_.size() + pending_.size() >= maxHits_) stopped_ = true;
-  } else if (window_.size() > q) {
-    window_.erase(0, window_.size() - q);
-    marks_.erase(marks_.begin(), marks_.end() - static_cast<std::ptrdiff_t>(q));
   }
+  const size_t keep = q + (exact_ ? kLookBehind : 0);
+  if (window_.size() > keep) {
+    window_.erase(0, window_.size() - keep);
+    marks_.erase(marks_.begin(), marks_.end() - static_cast<std::ptrdiff_t>(keep));
+  }
+}
+
+// True when the folded window has no word character right before byte `pos` (the start of a match).
+bool ChapterTextSearcher::startsAtWordEdge(const size_t pos) const {
+  if (pos == 0) return true;
+  size_t i = pos - 1;
+  while (i > 0 && (static_cast<unsigned char>(window_[i]) & 0xC0) == 0x80) i--;
+  if ((static_cast<unsigned char>(window_[i]) & 0xC0) == 0x80) return false;  // cut mid-character: a letter
+  const unsigned char* ptr = reinterpret_cast<const unsigned char*>(window_.data()) + i;
+  return !wordsearch::isWordChar(utf8NextCodepoint(&ptr));
+}
+
+// Exact mode: the character after a match arrived (or the text ended). A letter or digit means the match
+// was only part of a longer word.
+void ChapterTextSearcher::resolveAwaiting(const bool accept) {
+  if (!awaiting_) return;
+  awaiting_ = false;
+  if (accept) {
+    acceptMatch(awaitingMatch_);
+  } else {
+    const size_t keep = query_.size() + kLookBehind;
+    if (window_.size() > keep) {
+      window_.erase(0, window_.size() - keep);
+      marks_.erase(marks_.begin(), marks_.end() - static_cast<std::ptrdiff_t>(keep));
+    }
+  }
+}
+
+void ChapterTextSearcher::acceptMatch(const Pending& p) {
+  const uint32_t bucket = p.offset / kHitBucket;
+  if (bucket != bucket_) {
+    bucket_ = bucket;
+    bucketCount_ = 0;
+  }
+  if (bucketCount_ < hitsPerBucket_) {
+    bucketCount_++;
+    pending_.push_back(p);
+  }
+  // No overlaps: the next match starts after this one.
+  window_.clear();
+  marks_.clear();
+  if (hits_.size() + pending_.size() >= maxHits_) stopped_ = true;
 }
 
 // A hit is complete once enough text followed it.

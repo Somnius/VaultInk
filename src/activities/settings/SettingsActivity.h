@@ -34,6 +34,7 @@ enum class SettingAction {
   HomeRows,
   HomeItems,
   LibraryFormats,
+  SearchWord,
   ComicConverter,
   ClearDebugLogs,
   WhatsNew,

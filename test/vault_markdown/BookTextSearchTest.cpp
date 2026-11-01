@@ -21,8 +21,10 @@ struct Result {
   bool ok = false;
 };
 
-Result run(const std::string& xml, const std::string& query, const size_t chunk = 0, const size_t maxHits = 50) {
-  ChapterTextSearcher searcher(wordsearch::prepareQuery(query), maxHits);
+Result run(const std::string& xml, const std::string& query, const size_t chunk = 0, const size_t maxHits = 50,
+           const bool exact = false) {
+  ChapterTextSearcher searcher(wordsearch::prepareQuery(query), maxHits, nullptr, ChapterTextSearcher::kHitsPerBucket,
+                               exact);
   const size_t step = chunk ? chunk : xml.size();
   for (size_t i = 0; i < xml.size(); i += step) {
     const size_t n = std::min(step, xml.size() - i);
@@ -224,4 +226,22 @@ TEST(BookTextSearch, ALongRunWithoutAMatchKeepsOnlyAShortTail) {
   const auto r = run(doc("", body), "needle", 4096);
   ASSERT_EQ(r.hits.size(), 1u);
   EXPECT_EQ(r.hits[0].offset, 800000u);
+}
+
+TEST(BookTextSearch, ExactMatchesWholeWordsOnly) {
+  const auto r = run(doc("", "<p>reading read, a read. unread Read</p>"), "read", 0, 50, true);
+  EXPECT_EQ(r.hits.size(), 3u);  // "read,", "read." and "Read"; not "reading" or "unread"
+  EXPECT_EQ(run(doc("", "<p>reading read, unread</p>"), "read").hits.size(), 3u);  // partial still finds all
+}
+
+TEST(BookTextSearch, ExactIgnoresCaseAndAccentsAndSeesAcrossTagsAndParagraphs) {
+  const auto r = run(doc("", "<p>Zéphyr</p><p>the <i>ZEPHYR</i>s</p><p>zephyr</p>"), "zephyr", 0, 50, true);
+  EXPECT_EQ(r.hits.size(), 2u);  // the "s" glues the middle one into another word
+  const auto g = run(doc("", "<p>\xCE\xB1\xCE\xB2 \xCE\xB1\xCE\xB2\xCE\xB3</p>"), "\xCE\xB1\xCE\xB2", 0, 50, true);
+  EXPECT_EQ(g.hits.size(), 1u);  // Greek: "αβ" but not the start of "αβγ"
+}
+
+TEST(BookTextSearch, ExactAtTheEndOfTheText) {
+  EXPECT_EQ(run(doc("", "<p>the cat</p>"), "cat", 0, 50, true).hits.size(), 1u);
+  EXPECT_EQ(run(doc("", "<p>the cat</p>"), "cat", 3, 50, true).hits.size(), 1u);  // small chunks too
 }

@@ -158,7 +158,7 @@ swipe still turns to the previous page.
 Long-press a book to see what it is without opening it: title, author, file name, size, how far
 you've read and whether it's a favourite (fields the book doesn't have are left out).
 
-- **Browse Files**: long-press a book (EPUB, TXT, XTC/XTCH), the last entry is **Info**.
+- **Browse Files**: long-press a file or folder, the last entry is **Info**: for a book its title, size and read percent, for any other file or folder its name, size and the date and time it was last changed (0.59.0).
 - **Library**: long-press a book in Recent, Title or Author (last entry), or in Favourites.
 - **Home**: long-press the Continue card, or on the CrossPoint home styles with a row of covers,
   long-press a cover or hold Confirm on it; on the Cover grid, hold Confirm (0.35.2).
@@ -405,6 +405,23 @@ accents don't matter (so "ΚΑΛΗΜΕΡΑ" finds "καλημέρα"), and a par
   reading position, the reading log and the sync are left alone, so closing the book now reopens it
   at the place you left. **Settings → Reader → Search in book in More menu** hides the entry from
   the More menu, and **Search range** limits it to the start of the book up to where you are.
+- **0.59.0:** the three settings now sit in **Settings → Reader → Search word**, with a new **Search
+  type**: *Partial match* (a part of a word matches, "read" finds "reading") or *Exact match* (whole
+  words only, "read" does not find "reading" or "unread"; case and accents still don't matter). The
+  gear next to the "Search in Book" title (touch screens) opens the same two choices, and a search
+  already on screen runs again with the new type. Each result line is longer and fills the row, and
+  the previous/next arrows sit further apart and left of the return arrow.
 - At most 100 results, and at most 3 close together, so one page full of the word doesn't push the
   rest away. A phrase split by a paragraph or a page break isn't found.
 - Books only (EPUB), not notes: a note has the vault search.
+
+## Sudoku (0.59.0)
+
+**Home → Plugins → Sudoku** (the first row) is a built-in game, not an SD-card plugin: SD plugins can't
+run code on the device. Pick a cell, then a digit. **Notes** switches to pencil marks, **Erase** clears the
+cell, **Undo** takes back the last 64 changes, **Hint** fills the next easiest cell, **New** starts another
+puzzle and the last button cycles **Easy / Medium / Hard**. A wrong digit gets a box around it, a finished
+digit is blanked on the pad, and the timer stops when it is solved (tap for a new one). On the buttons:
+Up/Left and Down/Right move the cursor, Confirm adds one to the digit in the cell, a long Confirm turns
+notes on or off, Back leaves. The game is saved to `/.vaultink/sudoku.sav` when you leave, change
+something or the device sleeps, and carries on where you left it.

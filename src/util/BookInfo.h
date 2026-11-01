@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 // The lines of the book info popup (kos25k #15): title and author from the library index (the
@@ -8,6 +9,12 @@
 namespace bookinfo {
 
 std::string text(const std::string& path);
+
+// Any other file or folder: name, size and when it was last changed.
+std::string fileText(const std::string& path);
+
+// FAT date and time as packed by HalFile::modificationTime(), as "2026-11-01 01:46"; "" when unknown.
+std::string modifiedText(uint32_t packed);
 
 // When to show the info popup opened from another popup's choice: a little after that popup closed,
 // so the screen behind it is drawn again first.

@@ -26,14 +26,42 @@ std::string sizeText(const uint32_t bytes) {
 
 }  // namespace
 
+std::string modifiedText(const uint32_t packed) {
+  const unsigned date = packed >> 16;
+  const unsigned time = packed & 0xFFFF;
+  if (date == 0) return "";
+  char buf[24];
+  snprintf(buf, sizeof(buf), "%04u-%02u-%02u %02u:%02u", 1980 + (date >> 9), (date >> 5) & 0xF, date & 0x1F, time >> 11,
+           (time >> 5) & 0x3F);
+  return buf;
+}
+
+std::string fileText(const std::string& path) {
+  const bool folder = !path.empty() && path.back() == '/';
+  const std::string clean = folder ? path.substr(0, path.size() - 1) : path;
+  const size_t slash = clean.find_last_of('/');
+  std::string out = slash == std::string::npos ? clean : clean.substr(slash + 1);
+  HalFile file;
+  if (Storage.openFileForRead("INFO", clean.c_str(), file)) {
+    if (!file.isDirectory())
+      out += " · " + std::string(tr(STR_INFO_SIZE)) + " " + sizeText(static_cast<uint32_t>(file.fileSize()));
+    const std::string modified = modifiedText(file.modificationTime());
+    if (!modified.empty()) out += " · " + std::string(tr(STR_INFO_MODIFIED)) + " " + modified;
+    file.close();
+  }
+  return out;
+}
+
 std::string text(const std::string& path) {
   const size_t slash = path.find_last_of('/');
   const std::string fileName = slash == std::string::npos ? path : path.substr(slash + 1);
 
   uint32_t fileSize = 0;
+  std::string modified;
   HalFile file;
   if (Storage.openFileForRead("INFO", path.c_str(), file)) {
     fileSize = static_cast<uint32_t>(file.fileSize());
+    modified = modifiedText(file.modificationTime());
     file.close();
   }
 
@@ -79,6 +107,7 @@ std::string text(const std::string& path) {
   out += " · " + std::string(tr(STR_INFO_SIZE)) + " " + sizeText(fileSize);
   const int progress = loadBookProgress(path);
   if (progress >= 0) out += " · " + std::string(tr(STR_INFO_READ)) + " " + std::to_string(progress) + "%";
+  if (!modified.empty()) out += " · " + std::string(tr(STR_INFO_MODIFIED)) + " " + modified;
   if (FAVOURITES.contains(path)) out += " · " + std::string(tr(STR_FAVOURITES));
   return out;
 }

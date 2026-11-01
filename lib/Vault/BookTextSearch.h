@@ -15,8 +15,8 @@ struct XML_ParserStruct;
 // Epub::readItemContentsToStream can feed it straight from the zip), finish() ends the document.
 //
 // Matching is the same as wordsearch::find / textfold: case and accents don't matter, a part of a
-// word matches, a space in the query matches any run of white space (also across tags and
-// paragraphs). Soft hyphens inside a word are ignored.
+// word matches (unless exactWords: then only whole words, still ignoring case and accents), a space in the query
+// matches any run of white space (also across tags and paragraphs). Soft hyphens inside a word are ignored.
 //
 // Offsets are the reader's "visible text offset": one per UTF-8 code point of the text inside
 // <body>, outside head/style/script/title/rp, counted exactly like ChapterHtmlSlimParser does
@@ -37,7 +37,7 @@ class ChapterTextSearcher final : public Print {
   // `preparedQuery` comes from wordsearch::prepareQuery (folded, spaces collapsed, not empty).
   // `shouldAbort` is polled once per write(); when it answers true the stream is cut short.
   ChapterTextSearcher(std::string preparedQuery, size_t maxHits, std::function<bool()> shouldAbort = nullptr,
-                      size_t hitsPerBucket = kHitsPerBucket);
+                      size_t hitsPerBucket = kHitsPerBucket, bool exactWords = false);
   ~ChapterTextSearcher() override;
   ChapterTextSearcher(const ChapterTextSearcher&) = delete;
   ChapterTextSearcher& operator=(const ChapterTextSearcher&) = delete;
@@ -57,6 +57,7 @@ class ChapterTextSearcher final : public Print {
   uint32_t visibleTotal() const { return visibleOffset_; }
 
  private:
+  static constexpr size_t kLookBehind = 4;  // bytes kept before a match: one UTF-8 character
   struct Pending {
     uint32_t offset;
     size_t rawStart;  // absolute index of the match in the raw text
@@ -75,11 +76,15 @@ class ChapterTextSearcher final : public Print {
   void breakWord();
   void appendRaw(uint32_t cp);
   void checkMatch();
+  bool startsAtWordEdge(size_t pos) const;
+  void resolveAwaiting(bool accept);
+  void acceptMatch(const Pending& p);
   void completePending(const Pending& p);
   void completeReady(bool all);
   std::string makeSnippet(size_t rawStart) const;
 
   std::string query_;
+  bool exact_;  // whole words only: the match must not touch a letter or digit on either side
   size_t maxHits_;
   size_t hitsPerBucket_;
   std::function<bool()> shouldAbort_;
@@ -110,6 +115,8 @@ class ChapterTextSearcher final : public Print {
   bool rawLastSpace_ = true;
 
   std::vector<Pending> pending_;
+  bool awaiting_ = false;  // exact mode: a match whose end still needs the next character
+  Pending awaitingMatch_{};
   std::vector<Hit> hits_;
   uint32_t bucket_ = UINT32_MAX;
   size_t bucketCount_ = 0;

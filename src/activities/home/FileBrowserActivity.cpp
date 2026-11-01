@@ -394,54 +394,71 @@ void FileBrowserActivity::showEntryActions() {
   static constexpr StrId BOOK_OPTIONS[] = {StrId::STR_OPEN, StrId::STR_DELETE,  StrId::STR_RENAME,
                                            StrId::STR_MOVE, StrId::STR_COPY_TO, StrId::STR_NEW_FOLDER,
                                            StrId::STR_INFO};
+  // Any other file: the six, then Info (size and modified time, kos25k #6).
+  static constexpr StrId FILE_OPTIONS[] = {StrId::STR_OPEN, StrId::STR_DELETE,  StrId::STR_RENAME,
+                                           StrId::STR_MOVE, StrId::STR_COPY_TO, StrId::STR_NEW_FOLDER,
+                                           StrId::STR_INFO};
+  static constexpr StrId ZIP8_OPTIONS[] = {StrId::STR_OPEN,         StrId::STR_DELETE,  StrId::STR_RENAME,
+                                           StrId::STR_MOVE,         StrId::STR_COPY_TO, StrId::STR_NEW_FOLDER,
+                                           StrId::STR_EXTRACT_HERE, StrId::STR_INFO};
+  static constexpr StrId FOLDER8_OPTIONS[] = {
+      StrId::STR_OPEN,    StrId::STR_DELETE,     StrId::STR_RENAME,          StrId::STR_MOVE,
+      StrId::STR_COPY_TO, StrId::STR_NEW_FOLDER, StrId::STR_OPEN_AS_GALLERY, StrId::STR_INFO};
   const std::string& selected = files[nav.selected];
   const bool zip = FsHelpers::checkFileExtension(selected, ".zip");
   const bool folder = selected.back() == '/';
   const bool book = !folder && (FsHelpers::hasReflowableBookExtension(selected) ||
                                 FsHelpers::hasXtcExtension(selected) || FsHelpers::hasCbzExtension(selected));
-  optionPopup.show(StrId::STR_FILENAME, folder ? FOLDER_OPTIONS : (book ? BOOK_OPTIONS : ZIP_OPTIONS),
-                   zip || folder || book ? 7 : 6, 0, [this, folder, book](const int index) {
-                     switch (index) {
-                       case 0:
-                         activateSelected();
-                         break;
-                       case 1:
-                         deleteSelected();
-                         break;
-                       case 2:
-                         startRename();
-                         break;
-                       case 3:
-                         startTransfer(false);
-                         break;
-                       case 4:
-                         startTransfer(true);
-                         break;
-                       case 5:
-                         startNewFolder();
-                         break;
-                       case 6:
-                         if (book) {
-                           showBookInfo();
-                         } else if (folder) {
-                           const std::string entry = files[nav.selected];
-                           activityManager.goToGallery((basepath.back() == '/' ? basepath : basepath + "/") +
-                                                       entry.substr(0, entry.size() - 1));
-                         } else {
-                           extractSelected();
-                         }
-                         break;
-                       default:
-                         break;
-                     }
-                   });
+  const StrId* options = folder ? FOLDER8_OPTIONS : (book ? BOOK_OPTIONS : (zip ? ZIP8_OPTIONS : FILE_OPTIONS));
+  const int count = (folder || zip) ? 8 : 7;
+  optionPopup.show(StrId::STR_FILENAME, options, count, 0, [this, folder, book, zip](const int index) {
+    switch (index) {
+      case 0:
+        activateSelected();
+        break;
+      case 1:
+        deleteSelected();
+        break;
+      case 2:
+        startRename();
+        break;
+      case 3:
+        startTransfer(false);
+        break;
+      case 4:
+        startTransfer(true);
+        break;
+      case 5:
+        startNewFolder();
+        break;
+      case 6:
+        if (book || (!folder && !zip)) {
+          showBookInfo();
+        } else if (folder) {
+          const std::string entry = files[nav.selected];
+          activityManager.goToGallery((basepath.back() == '/' ? basepath : basepath + "/") +
+                                      entry.substr(0, entry.size() - 1));
+        } else {
+          extractSelected();
+        }
+        break;
+      case 7:
+        showBookInfo();  // the 8th option on a folder or a .zip
+        break;
+      default:
+        break;
+    }
+  });
   requestUpdate();
 }
 
 void FileBrowserActivity::showBookInfo() {
   if (files.empty() || nav.selected < 0 || nav.selected >= listCount()) return;
   const std::string path = (basepath.back() == '/' ? basepath : basepath + "/") + files[nav.selected];
-  infoText = bookinfo::text(path);
+  const std::string& entry = files[nav.selected];
+  const bool book = entry.back() != '/' && (FsHelpers::hasReflowableBookExtension(entry) ||
+                                            FsHelpers::hasXtcExtension(entry) || FsHelpers::hasCbzExtension(entry));
+  infoText = book ? bookinfo::text(path) : bookinfo::fileText(path);
   infoAt = millis() + bookinfo::SHOW_AFTER_MS;  // opened from the file menu: let it close first
   requestUpdate();
 }

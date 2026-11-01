@@ -40,7 +40,8 @@ In this order, each also listed in its phase below:
    rebuilt when an embedded note changes; ✅ 0.37.0: recent notes in the Vaults screen).
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
-🚧 Next release (on main, 0.59.0): not started.
+✅ 0.59.0: kos25k #24 Search word settings (Settings > Reader > Search word), partial/exact match, gear in Search in Book, longer result lines, arrows further apart; #6 Info (size, modified date/time) on every file and folder in Browse Files; Sudoku, a built-in game in Home > Plugins (lib/Sudoku).
+🚧 Next release (on main, 0.60.0): kos25k #15 (Recent tab read-percent sorts ↑%/↓%, percent beside the author, a "Random page! 🎲" home item), #1 (paper contrast slider and preview).
 ✅ 0.58.1: crash fix (kos25k #24): Back on the Search in Book keyboard with no query gave a result with no data and std::get aborted; now it cancels back to the reader menu, and the handler checks with get_if. Crash logs say "VaultInk version".
 ✅ 0.58.0: kos25k #18 Library format filter (gear in the header, Settings > Library, PDFs listed in the Library, index format 3); #24 Search in Book shows the words on the page with previous/next/return/stay-here bar, no progress saved while looking, range and More-menu settings; #20 battery drain per hour asleep and awake from a sleep/wake log (per-app drain cannot be measured).
 ✅ 0.57.0: kos25k #24 follow-up: Search in Book reads each chapter's text directly (ChapterTextSearcher, no layout, 50 ms steps, Back at once, hits as found); #22: the corner lock screen shows only "Locked" and the owner lines.

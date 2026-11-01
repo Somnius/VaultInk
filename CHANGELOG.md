@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.59.0 (2026-11-01)
+
+Search word settings and exact match, Info on every file, and Sudoku (kos25k #24 and #6).
+
+- **Search in Book** (kos25k #24): the result lines are longer and fill the row. The previous and next arrows are further apart and moved left. The search settings moved to Settings > Reader > Search word, which has a new Search type: partial match (a part of a word) or exact match (whole words only). Case and accents never matter. A gear next to the "Search in Book" title opens the type choice.
+- **Browse Files** (kos25k #6): the long-press menu has Info as its last entry for every file and folder, with the date and time it was last changed. That includes the debug crash files.
+- **Sudoku**: a built-in game, first row in Home > Plugins. Three levels, pencil notes, undo, hints, a timer, wrong digits boxed, and it saves where you left off.
+
+Tested in the simulator (the search gear and type choice, the arrows) and on the computer (exact match, the Sudoku engine). The Sudoku screen and Info are not tried on a device.
+
 ## 0.58.1 (2026-11-01)
 
 A crash fix for Search in Book, and crash logs now say VaultInk (kos25k #24).

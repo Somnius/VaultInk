@@ -152,6 +152,9 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Enum(StrId::STR_SEARCH_SCOPE, &CrossPointSettings::searchScope,
                          {StrId::STR_SEARCH_SCOPE_BOOK, StrId::STR_SEARCH_SCOPE_TO_HERE}, "searchScope",
                          StrId::STR_CAT_READER));
+  emit(SettingInfo::Enum(StrId::STR_SEARCH_TYPE, &CrossPointSettings::searchType,
+                         {StrId::STR_SEARCH_TYPE_PARTIAL, StrId::STR_SEARCH_TYPE_EXACT}, "searchType",
+                         StrId::STR_CAT_READER));
   emit(SettingInfo::Enum(StrId::STR_READER_MENU_STYLE, &CrossPointSettings::readerMenuStyle,
                          {StrId::STR_MENU_STYLE_LIST, StrId::STR_MENU_STYLE_TOOLBAR}, "readerMenuStyle",
                          StrId::STR_CAT_READER));
