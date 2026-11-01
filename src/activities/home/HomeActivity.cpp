@@ -281,6 +281,7 @@ void HomeActivity::onEnter() {
 }
 
 void HomeActivity::setupHome() {
+  randompage::take();  // a request a reader never took (a book that did not open) must not outlive this visit
   hasOpdsServers = OPDS_STORE.hasServers();
   // Plugin System is the global opt-in. Once enabled, expose the Plugins entry
   // even when no SD plugins are installed yet so Plugin Hub can be installed
@@ -682,8 +683,8 @@ void HomeActivity::onFileTransferOpen() { activityManager.goToFileTransfer(); }
 
 void HomeActivity::onOpdsBrowserOpen() { activityManager.goToBrowser(); }
 
-// Random page! (kos25k #15): a random EPUB or text book from the library, opened on a random page. Tries a few books
-// in case the draw lands on a note, a comic or a PDF.
+// Random page! (kos25k #15): a random book from the library (EPUB, text, PDF, comic or XTC), opened on a random page.
+// Tries a few books in case the draw lands on a note.
 void HomeActivity::openRandomPage() {
   library::LibraryIndexFile index;
   if (!index.open(library::libraryIndexPath()) || index.bookCount() == 0) return;
@@ -692,13 +693,16 @@ void HomeActivity::openRandomPage() {
     const auto ordinal = static_cast<uint16_t>(randompage::random32() % index.bookCount());
     library::ClixRecord record{};
     if (!index.readRecord(ordinal, record) || !index.readPath(record, path)) continue;
-    if (!FsHelpers::hasEpubExtension(path) && !FsHelpers::hasTxtExtension(path)) continue;
+    if (!FsHelpers::hasEpubExtension(path) && !FsHelpers::hasTxtExtension(path) && !FsHelpers::hasCbzExtension(path) &&
+        !FsHelpers::hasXtcExtension(path) && !FsHelpers::hasPdfExtension(path)) {
+      continue;
+    }
     index.close();  // the reader wants the card to itself
     randompage::request();
     activityManager.goToReader(path);
     return;
   }
-  LOG_DBG("HOME", "Random page: no EPUB or text book found");
+  LOG_DBG("HOME", "Random page: no book found");
 }
 
 void HomeActivity::onPluginsOpen() { activityManager.goToPlugins(hasOpdsServers); }

@@ -35,6 +35,7 @@
 #include "util/BookCacheUtils.h"
 #include "util/BookInfo.h"
 #include "util/BookProgress.h"
+#include "util/LibraryTabOrder.h"
 
 namespace fui = freeink::ui;
 
@@ -89,7 +90,9 @@ const char* tabLabelFor(const int tab) {
 }  // namespace
 
 LibraryListActivity::LibraryListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const int startTab)
-    : UiTabListActivity("Library", renderer, mappedInput, true), startTab(startTab) {
+    : UiTabListActivity("Library", renderer, mappedInput, true),
+      startTab(startTab),
+      tabOrder(libtabs::decode(SETTINGS.libraryTabOrder)) {
   // Five tabs, each as wide as its label: equal fifths cut "Favourites" and the longer Greek
   // labels short.
   tabsSpaceBetween = true;
@@ -648,12 +651,13 @@ void LibraryListActivity::openSearch() {
 
 void LibraryListActivity::stepTab(const int direction) {
   const int next = (activeTab() + (direction > 0 ? 1 : TAB_SLOTS - 1)) % TAB_SLOTS;
-  selectTab(next, false);
+  selectTab(tabOrder[next], false);
 }
 
 void LibraryListActivity::onTabAction(const int index) {
   app.clearTapFlash();
-  selectTab(index, true);
+  if (index < 0 || index >= TAB_SLOTS) return;
+  selectTab(tabOrder[index], true);  // the strip gives a position, the tab is known by its id
 }
 
 void LibraryListActivity::selectTab(const int index, const bool toggleIfActive) {
@@ -666,7 +670,7 @@ void LibraryListActivity::selectTab(const int index, const bool toggleIfActive) 
     if (groupsCollapsed) restoreExpandedList();
   } else if (index == FOLDERS_TAB) {
     // Folders have one order too: the folders as the index lists them, books by title.
-  } else if (toggleIfActive && index == activeTab()) {
+  } else if (toggleIfActive && index == activeTabIndex) {
     descendingTabs ^= static_cast<uint8_t>(1u << index);
   }
   if (index == FAVOURITES_TAB)
@@ -689,16 +693,22 @@ void LibraryListActivity::selectTab(const int index, const bool toggleIfActive) 
   requestUpdate();
 }
 
-void LibraryListActivity::toggleSortDirection() { selectTab(activeTab(), true); }
+void LibraryListActivity::toggleSortDirection() { selectTab(activeTabIndex, true); }
 
 int LibraryListActivity::tabCount() const { return TAB_SLOTS; }
 
-int LibraryListActivity::activeTab() const { return activeTabIndex; }
+// The tab strip works in positions, everything else in tab ids (the order is Settings > Library > Tab order).
+int LibraryListActivity::activeTab() const {
+  return libtabs::positionOf(tabOrder, static_cast<uint8_t>(activeTabIndex));
+}
 
-const char* LibraryListActivity::tabLabel(const int index) const { return tabLabelFor(index); }
+const char* LibraryListActivity::tabLabel(const int index) const {
+  return tabLabelFor(index >= 0 && index < TAB_SLOTS ? tabOrder[index] : index);
+}
 
-fui::TabIndicator LibraryListActivity::tabIndicator(const int index) const {
-  if (index != activeTab() || index == FAVOURITES_TAB || index == FOLDERS_TAB) return fui::TabIndicator::None;
+fui::TabIndicator LibraryListActivity::tabIndicator(const int position) const {
+  const int tabId = position >= 0 && position < TAB_SLOTS ? tabOrder[position] : position;
+  if (tabId != activeTabIndex || tabId == FAVOURITES_TAB || tabId == FOLDERS_TAB) return fui::TabIndicator::None;
   return isDescending(sortOrder) ? fui::TabIndicator::Down : fui::TabIndicator::Up;
 }
 
@@ -1458,7 +1468,15 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
           formatInitialHeading(initial, heading);
         item.sectionHeading = heading.c_str();
       }
-      if (!authorGrouped) {
+      if (authorGrouped) {
+        // The author is the heading above the rows, so the line under the title holds the percent alone.
+        const int percent = percentForEntry(entry);
+        if (percent >= 0) {
+          std::string& line = winCounts[static_cast<size_t>(rows)];
+          line = std::to_string(percent) + "%";
+          item.subtitle = line.c_str();
+        }
+      } else {
         const int percent = percentForEntry(entry);
         if (percent >= 0) {
           if (!author.empty()) author += "  ";

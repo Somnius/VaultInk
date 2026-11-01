@@ -421,11 +421,22 @@ accents don't matter (so "ΚΑΛΗΜΕΡΑ" finds "καλημέρα"), and a par
 - Typing the same words again (same type and range) shows the last finished result at once.
 - **Settings → Reader → Search word → Index books** (off by default): each search saves a small filter per chapter in the book's cache (`search.idx`, 8 KB per chapter). Later searches skip a chapter whose filter shows it cannot contain the words, and fill the chapters they read. The hits are the same; words under three letters are never skipped. It grows with use, so there is no waiting to build it. Clearing the book cache removes it.
 
+## Dice (0.61.0)
+
+Home → Plugins → **Dice**. The top row picks the system (tap < or >, or Left/Right); the rows under it are that system's numbers and switches; **Roll** rolls (Confirm on the buttons). The dice show as tiles: Hunger dice black, criticals with a thick border, a dot on a die a rule added or rerolled, a crossed die was dropped by keep-highest. What you set is kept for next time, and the last results are listed at the bottom.
+
+- **D&D / polyhedral**: number of dice (1 to 20), die (d4, d6, d8, d10, d12, d20, d100), modifier, keep the highest N, Advantage or Disadvantage (one d20), Exploding (a top face adds a die, at most 20 extra).
+- **World of Darkness (classic)**: pool, difficulty (target number), Specialty (10s add a die), Willpower (one automatic success, never a botch), Mage rerolls. 1s cancel successes; no successes and a 1 is a botch.
+- **Vampire V5**: pool, Hunger (the last dice), difficulty (successes needed). Pairs of 10s are worth 4; messy critical when the pair has a Hunger 10; bestial failure when a failed roll has a Hunger 1. **Willpower reroll** rerolls up to three normal dice that failed, once. **Rouse check** rolls one Hunger die and raises your Hunger on a failure (at Hunger 5 it says frenzy test).
+- **Chronicles of Darkness** (pool, 10/9/8-again, rote, a pool of 0 is a chance die), **Fate**, **Powered by the Apocalypse**, **Blades in the Dark**, **Call of Cthulhu** (skill, bonus and penalty dice), **Shadowrun** (hits and glitches), **Savage Worlds** (trait and wild die, raises), **Year Zero** (with Push), **Cyberpunk Red** (exploding d10, DV).
+
+SD plugins cannot run code on the reader, so the roller is built into the firmware like Sudoku.
+
 ## Library by progress, Random page and paper contrast (0.60.0)
 
 - **Library**: with the Recent tab open a bar offers **Recent**, **↑%** (most read first) and **↓%** (least read first). Each book row shows how far you have read after the author. The first percent sort takes a few seconds on a big library.
 - **Random page!**: Settings → Display → Home screen items → Random page! (off by default, VaultInk home only). It opens a random page of a random EPUB. Nothing is saved: the arrow at the bottom right goes back to where you were, "Stay here" keeps the page.
-- **Open on tab**: Settings → Library → Open on tab picks the tab the Library opens on.
+- **Open on tab**: Settings → Library → Open on tab picks the tab the Library opens on. **Tab order** (0.61.0): Settings → Library → Tab order, tap a tab then tap where it goes.
 - **Paper contrast**: Settings → Reader → Paper Button Cycle, first row. A 0 to 100 slider for how many of the dots of the paper backgrounds are drawn, with a tile of every background above it.
 
 ## Sudoku (0.59.0)

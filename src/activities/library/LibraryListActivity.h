@@ -10,6 +10,7 @@
 #include "RecentBooksStore.h"
 #include "activities/UiTabListActivity.h"
 #include "components/OptionPopup.h"
+#include "util/LibraryTabOrder.h"
 
 // One Library screen: every indexed book on the card shown by recency, title,
 // or author. The Recent shelf orders by file modification time (when a book
@@ -190,7 +191,8 @@ class LibraryListActivity final : public UiTabListActivity {
   void refreshOverlap();
 
   library::LibraryIndexFile index;
-  int activeTabIndex = 0;
+  int activeTabIndex = 0;  // the tab id (Recent 0, Title 1, Author 2, Favourites 3, Folders 4)
+  libtabs::Order tabOrder = libtabs::DEFAULT_ORDER;  // tab ids by position on the strip
   int startTab = -1;
   library::SortOrder sortOrder = library::SortOrder::RecentDesc;
   // One bit per tab; Recent starts descending (newest first).

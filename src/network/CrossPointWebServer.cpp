@@ -942,7 +942,9 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
       }
     }
   } else if (upload.status == UPLOAD_FILE_END) {
-    if (!server->client().connected()) return;
+    // END means every byte has arrived, so the last buffer is flushed and the file closed even when the phone has
+    // already hung up (returning here left the file open and cut short, kos25k #1c.1). A connection that drops
+    // earlier ends in UPLOAD_FILE_ABORTED below, which removes the partial file.
     if (state.file) {
       // Flush any remaining buffered data
       if (!flushUploadBuffer(state)) {

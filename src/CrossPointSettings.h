@@ -455,7 +455,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // and whether the gear button shows in the Library header.
   uint8_t libraryFormatMask = 63;
   uint8_t libraryFormatButton = 1;
-  uint8_t libraryStartTab = 0;  // the tab the Library opens on: 0 Recent, 1 Title, 2 Author, 3 Favourites, 4 Folders
+  uint32_t libraryTabOrder = 0;  // the order of the Library tabs, util/LibraryTabOrder.h; 0 = default
+  uint8_t libraryStartTab = 0;   // the tab the Library opens on: 0 Recent, 1 Title, 2 Author, 3 Favourites, 4 Folders
   // Search in book (kos25k #24): show it in the reader's More menu; 0 = search the whole book, 1 = from the
   // start to the reading point.
   uint8_t searchInMoreMenu = 1;

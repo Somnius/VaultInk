@@ -23,6 +23,7 @@ class XtcReaderActivity final : public ReaderActivity {
   void renderStatusBarOverlay(GfxRenderer& renderer, StatusBarOverlayPosition position) const;
   StatusBarInfo getStatusBarInfo() const;
   void saveProgress() const;
+  bool randomPeek = false;  // opened by Random page!: the page is not saved
   void loadProgress();
 
   bool loadBook() override;

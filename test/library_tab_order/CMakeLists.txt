@@ -1,0 +1,4 @@
+add_executable(LibraryTabOrderTest LibraryTabOrderTest.cpp)
+target_include_directories(LibraryTabOrderTest PRIVATE ${REPO_ROOT})
+target_link_libraries(LibraryTabOrderTest PRIVATE crosspoint_test_common GTest::gtest_main)
+gtest_discover_tests(LibraryTabOrderTest)

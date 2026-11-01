@@ -22,6 +22,7 @@
 #include "fontIds.h"
 #include "util/BookProgress.h"
 #include "util/CbzCover.h"
+#include "util/RandomPage.h"
 
 namespace {
 
@@ -61,6 +62,11 @@ bool CbzReaderActivity::loadBook() {
   Storage.ensureDirectoryExists(cachePath.c_str());
   dropStalePageCaches();
   loadProgress();
+  if (randompage::take() && !book.pages.empty()) {
+    // Random page! (kos25k #15): a look at a random page; nothing is saved, so the place stays where it was.
+    randomPeek = true;
+    currentPage = randompage::random32() % static_cast<uint32_t>(book.pages.size());
+  }
   loadDirection(zip);
   LOG_DBG("CBZ", "%s: %u pages, %u chapters", bookPath.c_str(), static_cast<unsigned>(book.pages.size()),
           static_cast<unsigned>(book.chapters.size()));
@@ -408,6 +414,7 @@ void CbzReaderActivity::onReturnFromEndOfBook() {
 }
 
 void CbzReaderActivity::saveProgress() const {
+  if (randomPeek) return;
   // The page, then the page count, so the home and Library can show progress without the zip.
   const auto pages = static_cast<uint32_t>(book.pages.size());
   const uint8_t data[8] = {static_cast<uint8_t>(currentPage & 0xFF),

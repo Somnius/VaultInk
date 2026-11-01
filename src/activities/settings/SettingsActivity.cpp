@@ -29,6 +29,7 @@
 #include "KeyboardLayoutsActivity.h"
 #include "LanguageSelectActivity.h"
 #include "LibraryFormatsActivity.h"
+#include "LibraryTabsActivity.h"
 #include "LockSettingsActivity.h"
 #include "MappedInputManager.h"
 #include "OpdsServerListActivity.h"
@@ -154,6 +155,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   addAction(SettingsSection::Display, StrId::STR_HOME_ROWS, SettingAction::HomeRows);
   addAction(SettingsSection::Display, StrId::STR_HOME_ITEMS, SettingAction::HomeItems);
   addAction(SettingsSection::Library, StrId::STR_LIBRARY_FORMATS, SettingAction::LibraryFormats);
+  addAction(SettingsSection::Library, StrId::STR_LIBRARY_TAB_ORDER, SettingAction::LibraryTabs);
   addAction(SettingsSection::Library, StrId::STR_CONVERT_COMICS, SettingAction::ComicConverter);
   if (BoardConfig::hasHomeKey()) {
     addAction(SettingsSection::Controls, StrId::STR_HOME_BUTTON, SettingAction::HomeButton);
@@ -490,6 +492,11 @@ void SettingsActivity::toggleSelectedSetting() {
         break;
       case SettingAction::PaperCycle:
         if (auto activity = makeUniqueNoThrow<PaperCycleActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), nullptr);
+        }
+        break;
+      case SettingAction::LibraryTabs:
+        if (auto activity = makeUniqueNoThrow<LibraryTabsActivity>(renderer, mappedInput)) {
           startActivityForResult(std::move(activity), nullptr);
         }
         break;

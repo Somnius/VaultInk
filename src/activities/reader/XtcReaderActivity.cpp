@@ -16,6 +16,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/BookProgress.h"
+#include "util/RandomPage.h"
 
 bool XtcReaderActivity::loadBook() {
   auto loadedXtc = makeUniqueNoThrow<Xtc>(bookPath, "/.crosspoint");
@@ -30,6 +31,11 @@ bool XtcReaderActivity::loadBook() {
   xtc = std::move(loadedXtc);
   xtc->setupCacheDir();
   loadProgress();
+  if (randompage::take() && xtc->getPageCount() > 0) {
+    // Random page! (kos25k #15): a look at a random page; nothing is saved, so the place stays where it was.
+    randomPeek = true;
+    currentPage = randompage::random32() % xtc->getPageCount();
+  }
   return true;
 }
 
@@ -343,7 +349,7 @@ void XtcReaderActivity::onReturnFromEndOfBook() {
 }
 
 void XtcReaderActivity::saveProgress() const {
-  if (!xtc) return;
+  if (!xtc || randomPeek) return;
   uint8_t data[4];
   data[0] = currentPage & 0xFF;
   data[1] = (currentPage >> 8) & 0xFF;

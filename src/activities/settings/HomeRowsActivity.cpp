@@ -18,7 +18,7 @@ void HomeRowsActivity::onEnter() {
 }
 
 void HomeRowsActivity::onExit() {
-  const uint32_t stored = homerows::encode(order);
+  const uint64_t stored = homerows::encode(order);  // ten rows are 40 bits: a uint32 lost the last ones
   if (stored != SETTINGS.homeRowOrder) {
     SETTINGS.homeRowOrder = stored;
     SETTINGS.saveToFile();

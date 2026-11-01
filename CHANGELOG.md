@@ -2,6 +2,18 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.61.0 (2026-11-01)
+
+A dice roller, the Library tab order, and the rest of the Random page! and percent requests (kos25k #15 and #18).
+
+- **Dice**: a built-in roller, second row of Home > Plugins after Sudoku. Pick the system with the top row: D&D and other polyhedral dice (1 to 20 dice, d4 to d100, a modifier, keep the highest, advantage and disadvantage, exploding), old World of Darkness (pool, difficulty, specialty, Willpower, Mage rerolls), Vampire V5 (pool, Hunger, difficulty, Willpower reroll, Rouse check that raises your Hunger), Chronicles of Darkness (again, rote, chance die), Fate, Powered by the Apocalypse, Blades in the Dark, Call of Cthulhu (bonus and penalty dice), Shadowrun, Savage Worlds, Year Zero (push) and Cyberpunk Red. Dice are drawn as tiles, Hunger dice black, criticals with a thick border. What you set is kept for next time. Buttons: Up and Down pick a row, Left and Right change it, Confirm rolls.
+- **Library tab order** (kos25k #18): Settings > Library > Tab order. Tap a tab, then tap where it goes.
+- **Random page!** (kos25k #15) now also picks comics, XTC books and PDFs. For comics and XTC nothing is saved while you look, so your place stays.
+- **Library percent** (kos25k #15): the percent also shows in the Author tab's grouped view, under each title.
+- **Fixes**: Settings > Display > Home Screen Rows lost the last rows of a saved order (the stored number was cut to 32 bits, ten rows need 40). An upload from the phone that ended just after the last bytes could leave the file cut short on the card.
+
+Tried in the simulator and on the computer (host tests, device build). Not tried on a device.
+
 ## 0.60.0 (2026-11-01)
 
 Sort the Library by how far you have read, a Random page, a paper contrast slider, faster Search in Book, and a default Library tab (kos25k #15, #1, #24 and #18).

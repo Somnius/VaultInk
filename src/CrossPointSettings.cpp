@@ -118,6 +118,7 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   if (paperCycle != 0) doc["paperCycle"] = paperCycle;
   if (paperContrast != 100) doc["paperContrast"] = paperContrast;
   if (homeRowOrder != 0) doc["homeRowOrder"] = homeRowOrder;
+  if (libraryTabOrder != 0) doc["libraryTabOrder"] = libraryTabOrder;
   if (homeRowsHidden != 0) doc["homeRowsHidden"] = homeRowsHidden;
   if (galleryFilter != 0) doc["galleryFilter"] = galleryFilter;
   if (lockMode != 0) doc["lockMode"] = lockMode;
@@ -308,6 +309,7 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   if (lineSpacing >= LINE_COMPRESSION_COUNT) lineSpacing = LINE_SPACING_DEFAULT;
   if (doc["paperCycle"].is<uint16_t>()) paperCycle = doc["paperCycle"].as<uint16_t>();
   if (doc["paperContrast"].is<uint8_t>()) paperContrast = std::min<uint8_t>(doc["paperContrast"].as<uint8_t>(), 100);
+  if (doc["libraryTabOrder"].is<uint32_t>()) libraryTabOrder = doc["libraryTabOrder"].as<uint32_t>();
   if (doc["homeRowOrder"].is<uint64_t>()) homeRowOrder = doc["homeRowOrder"].as<uint64_t>();
   if (doc["homeRowsHidden"].is<uint16_t>()) homeRowsHidden = doc["homeRowsHidden"].as<uint16_t>();
   if (doc["galleryFilter"].is<uint8_t>()) galleryFilter = doc["galleryFilter"].as<uint8_t>() % 4;

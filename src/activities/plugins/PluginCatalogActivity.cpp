@@ -26,6 +26,7 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "PluginCatalogPaging.h"
+#include "activities/games/DiceActivity.h"
 #include "activities/games/SudokuActivity.h"
 #include "activities/reader/DictionaryDefinitionActivity.h"  // plain-text README viewer
 #include "activities/settings/PluginHubInstallActivity.h"
@@ -1337,6 +1338,17 @@ void PluginCatalogActivity::activateIndex(const int index) {
       startActivityForResult(std::move(game), [this](const ActivityResult&) { enterPluginPicker(); });
       return;
     }
+    if (index == 1) {
+      // The dice roller (0.61.0), built in as well.
+      app.clearTapFlash();
+      auto roller = makeUniqueNoThrow<DiceActivity>(renderer, mappedInput);
+      if (!roller) {
+        LOG_ERR("PCAT", "OOM: Dice");
+        return;
+      }
+      startActivityForResult(std::move(roller), [this](const ActivityResult&) { enterPluginPicker(); });
+      return;
+    }
     const int row = index - BUILTIN_ROWS;  // the rows below, as before the game was added
     if (showOpds && row == 0) {
       app.clearTapFlash();            // the row leaves this screen
@@ -1706,6 +1718,7 @@ void PluginCatalogActivity::rebuildRowItems() {
   };
   if (state == State::PLUGIN_PICKER) {
     addRow(tr(STR_SUDOKU), tr(STR_SUDOKU_DESC), ">");
+    addRow(tr(STR_DICE), tr(STR_DICE_DESC), ">");
     if (showOpds) addRow(tr(STR_OPDS_BROWSER), tr(STR_OPDS_SERVERS));
     if (showPluginHubInstallRow) addRow(tr(STR_PLUGIN_HUB), tr(STR_PLUGIN_HUB_DESCRIPTION), ">");
     for (const auto& plugin : installedPlugins) {

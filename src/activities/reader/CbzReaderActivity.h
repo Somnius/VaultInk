@@ -47,6 +47,7 @@ class CbzReaderActivity final : public ReaderActivity {
   bool drawPasses(const std::function<bool()>& draw);
   void prefetchNext();
   void saveProgress() const;
+  bool randomPeek = false;  // opened by Random page!: the page is not saved
   void loadProgress();
   void loadDirection(ZipFile& zip);
 
