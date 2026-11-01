@@ -2,6 +2,15 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.58.1 (2026-11-01)
+
+A crash fix for Search in Book, and crash logs now say VaultInk (kos25k #24).
+
+- **Search in Book** (kos25k #24): pressing Back on the keyboard before typing anything crashed the device (it restarted with a panic). Back now returns to the reader menu. Found from the crash logs kos25k sent.
+- **Crash logs** now start with "VaultInk version" instead of "CrossPoint version".
+
+Tested on the computer (host tests, device build). The crash was traced from the logs to the Search in Book result handler; not re-tried on a device.
+
 ## 0.58.0 (2026-11-01)
 
 A book-format filter for the Library, Search in Book that shows the words on the page, and drain per hour on the Battery page (kos25k #18, #24 and #20).

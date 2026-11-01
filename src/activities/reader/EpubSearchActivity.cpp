@@ -78,12 +78,12 @@ void EpubSearchActivity::askForQuery() {
   auto keyboard = makeUniqueNoThrow<KeyboardEntryActivity>(renderer, mappedInput, tr(STR_SEARCH_IN_BOOK), query, 80);
   if (!keyboard) {
     LOG_ERR("BSR", "OOM: search keyboard");
-    finish();
+    onBackButton();
     return;
   }
   startActivityForResult(std::move(keyboard), [this](const ActivityResult& result) {
     if (result.isCancelled) {
-      if (query.empty()) finish();  // nothing searched yet: back to the reader menu
+      if (query.empty()) onBackButton();  // nothing searched yet: back to the reader menu
       return;
     }
     startSearch(std::get<KeyboardResult>(result.data).text);

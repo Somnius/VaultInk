@@ -1419,12 +1419,13 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
               toHere ? search.originSpine : -1, toHere ? search.originOffset.value_or(UINT32_MAX) : UINT32_MAX),
           [this](const ActivityResult& result) {
             loadCachedBookmarks();
-            if (result.isCancelled) {
+            const auto* picked = std::get_if<ProgressChangeResult>(&result.data);
+            if (result.isCancelled || !picked) {
               openReaderMenu();
               return;
             }
             if (!search.hits.empty() && search.current >= 0) setSearchActive(true);
-            applyProgressChange(std::get<ProgressChangeResult>(result.data));
+            applyProgressChange(*picked);
           });
       break;
     }
