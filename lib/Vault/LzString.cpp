@@ -173,7 +173,7 @@ class Decoder {
     // First character: a 2-bit code, 0 = 8-bit char, 1 = 16-bit char, 2 = end.
     uint16_t c = 0;
     const uint32_t first = bits.read(2);
-    if (first == 3) return false;  // not a valid opening code
+    if (first == 3) return false;          // not a valid opening code
     if (!readChar(first, c)) return true;  // code 2: an empty string
     dict.setSingle(3, c);
     uint32_t w = 3;

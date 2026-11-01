@@ -37,6 +37,7 @@
 #include "util/FrontlightPanelActivity.h"
 #include "util/FullScreenMessageActivity.h"
 #include "util/PdfConvert.h"
+#include "util/RandomPage.h"
 #include "util/VaultEdit.h"
 #include "util/VaultNavigation.h"
 #include "util/WelcomeGuideActivity.h"
@@ -45,7 +46,6 @@
 #include "vault/LiveSyncActivity.h"
 #include "vault/VaultPickerActivity.h"
 #include "vault/VaultSearchActivity.h"
-#include "util/RandomPage.h"
 
 static portMUX_TYPE activityManagerSpinlock = portMUX_INITIALIZER_UNLOCKED;
 
