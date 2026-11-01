@@ -156,6 +156,12 @@ void ChapterTextSearcher::addCodepoint(const uint32_t cp) {
   if (isIgnorable(cp)) return;
   if (cp >= 0x0300 && cp <= 0x036F) return;  // separate accents fold away (textfold::fold)
   if (awaiting_) resolveAwaiting(!wordsearch::isWordChar(cp));
+  if (trigrams_) {
+    if (isSpace(cp))
+      trigrams_->endWord();
+    else
+      trigrams_->push(textfold::foldCodepoint(cp));
+  }
   if (isSpace(cp)) {
     pendingSpace_ = true;
     appendRaw(cp);
@@ -286,7 +292,7 @@ std::string ChapterTextSearcher::makeSnippet(const size_t rawStart) const {
   while (from < to && at(from) == ' ') from++;
   std::string out = raw_.substr(from - rawBase_, to - from);
   while (!out.empty() && out.back() == ' ') out.pop_back();
-  if (leading) out.insert(0, "... ");
-  if (trailing) out += " ...";
+  // Two dots where the text was cut at the front, none at the end: the row shows as much as fits (kos25k #24).
+  if (leading) out.insert(0, ".. ");
   return out;
 }

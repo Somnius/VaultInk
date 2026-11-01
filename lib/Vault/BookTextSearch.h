@@ -5,8 +5,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
+
+#include "TrigramFilter.h"
 
 struct XML_ParserStruct;
 
@@ -53,6 +56,10 @@ class ChapterTextSearcher final : public Print {
   bool ok() const { return ok_; }            // no parse error so far
   bool aborted() const { return aborted_; }  // shouldAbort() cut the stream
   bool full() const { return stopped_; }     // maxHits reached; the rest of the chapter was skipped
+  // Optional: collects the chapter's trigrams into `bits` (trigramfilter::kBytes, zeroed by the caller) while
+  // it reads. Only a chapter read to its end (trigramsComplete) gives a usable filter.
+  void collectTrigrams(uint8_t* bits) { trigrams_ = bits ? std::make_unique<trigramfilter::Collector>(bits) : nullptr; }
+  bool trigramsComplete() const { return finished_ && ok_ && !aborted_ && !stopped_; }
   // Visible code points seen so far (the chapter's total once finish() was called).
   uint32_t visibleTotal() const { return visibleOffset_; }
 
@@ -117,6 +124,7 @@ class ChapterTextSearcher final : public Print {
   std::vector<Pending> pending_;
   bool awaiting_ = false;  // exact mode: a match whose end still needs the next character
   Pending awaitingMatch_{};
+  std::unique_ptr<trigramfilter::Collector> trigrams_;
   std::vector<Hit> hits_;
   uint32_t bucket_ = UINT32_MAX;
   size_t bucketCount_ = 0;

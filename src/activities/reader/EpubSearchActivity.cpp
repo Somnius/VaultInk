@@ -5,11 +5,13 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <TrigramFilter.h>
 #include <WordSearch.h>
 #include <ZipFile.h>
 
 #include <algorithm>
 #include <functional>
+#include <iterator>
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
@@ -24,13 +26,14 @@ namespace fui = freeink::ui;
 
 EpubSearchActivity::EpubSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
                                        std::shared_ptr<Epub> epub, const ReaderRenderSpec& spec, SearchSession* session,
-                                       const int limitSpine, const uint32_t limitOffset)
+                                       const int limitSpine, const uint32_t limitOffset, const int startSpine)
     : UiListActivity("EpubSearch", renderer, mappedInput),
       epub(std::move(epub)),
       spec(spec),
       session(session),
       limitSpine(limitSpine),
-      limitOffset(limitOffset) {}
+      limitOffset(limitOffset),
+      startSpine(startSpine) {}
 
 const char* EpubSearchActivity::headerTitle() const { return tr(STR_SEARCH_IN_BOOK); }
 
@@ -100,20 +103,86 @@ void EpubSearchActivity::startSearch(const std::string& text) {
   prepared = wordsearch::prepareQuery(query);
   hits.clear();
   pendingHits.clear();
-  nextSpine = 0;
+  step = 0;
+  chapterSkipped = false;
+  chaptersSkipped = 0;
+  nextSpine = spineAt(0);
   chaptersDone = 0;
   searching = !prepared.empty();
+  searchIndex.reset();
+  filterBits.reset();
+  queryGrams.clear();
+  if (searching && SETTINGS.searchIndex != 0) {
+    filterBits = makeUniqueNoThrow<uint8_t[]>(trigramfilter::kBytes);
+    auto index = makeUniqueNoThrow<SearchIndex>(epub->getCachePath() + "/search.idx", epub->getSpineItemsCount());
+    if (filterBits && index && index->open()) {
+      searchIndex = std::move(index);
+      queryGrams = trigramfilter::queryTrigrams(prepared);
+    }
+  }
+  if (searching && session && !session->lastKey.empty() && session->lastKey == cacheKey()) {
+    // The same words again: the finished list is still here.
+    std::transform(session->lastFound.begin(), session->lastFound.end(), std::back_inserter(hits),
+                   [](const SearchSession::Found& f) { return Hit{f.spine, f.offset, f.label, f.detail}; });
+    searching = false;
+    nav.selected = hits.empty() ? 0 : 1;
+    rebuildRows();
+    requestUpdate();
+    return;
+  }
   lastRedrawMs = millis();
   progressText.clear();
   rebuildRows();
   requestUpdate();
 }
 
+// A chapter's size plus one: the index slot is only good while the chapter has the size it was read at.
+uint32_t EpubSearchActivity::chapterStamp(const int spineIndex) const {
+  const size_t end = epub->getCumulativeSpineItemSize(spineIndex);
+  const size_t begin = spineIndex > 0 ? epub->getCumulativeSpineItemSize(spineIndex - 1) : 0;
+  return static_cast<uint32_t>(end > begin ? end - begin : 0) + 1;
+}
+
+// True when the index already knows this chapter and its filter lacks the searched words.
+bool EpubSearchActivity::skippedByIndex(const int spineIndex) {
+  if (!searchIndex || queryGrams.empty()) return false;
+  if (!searchIndex->read(spineIndex, chapterStamp(spineIndex), filterBits.get())) return false;
+  return !trigramfilter::mayContain(filterBits.get(), queryGrams);
+}
+
+// A search over the book, spine by spine from the reader's chapter: the chapters after it, then the ones before.
+int EpubSearchActivity::spineAt(const int searchStep) const {
+  const int bookTotal = epub->getSpineItemsCount();
+  if (limitSpine >= 0 || bookTotal <= 0) return searchStep;  // up to the reading point: in book order
+  return (std::clamp(startSpine, 0, bookTotal - 1) + searchStep) % bookTotal;
+}
+
+int EpubSearchActivity::stepTotal() const {
+  const int bookTotal = epub->getSpineItemsCount();
+  return limitSpine >= 0 ? std::min(bookTotal, limitSpine + 1) : bookTotal;
+}
+
+// What makes two searches of this book the same: the words, whole words or not, and how far it reads.
+std::string EpubSearchActivity::cacheKey() const {
+  return prepared + "|" + std::to_string(SETTINGS.searchType) + "|" + std::to_string(limitSpine) + "|" +
+         std::to_string(limitOffset);
+}
+
+// Only a search that read every chapter is worth keeping; one that was stopped is not the whole answer.
+void EpubSearchActivity::rememberFinished() {
+  if (!session) return;
+  session->lastKey = cacheKey();
+  session->lastFound.clear();
+  std::transform(hits.begin(), hits.end(), std::back_inserter(session->lastFound),
+                 [](const Hit& h) { return SearchSession::Found{h.spine, h.offset, h.label, h.detail}; });
+}
+
 void EpubSearchActivity::finishSearch() {
   closeChapter();
   searching = false;
-  LOG_DBG("BSR", "Search \"%s\": %u hits, stopped at chapter %d of %d", query.c_str(),
-          static_cast<unsigned>(hits.size() + pendingHits.size()), nextSpine, epub->getSpineItemsCount());
+  LOG_DBG("BSR", "Search \"%s\": %u hits, stopped at chapter %d of %d, %d skipped by the index", query.c_str(),
+          static_cast<unsigned>(hits.size() + pendingHits.size()), nextSpine, epub->getSpineItemsCount(),
+          chaptersSkipped);
   progressText.clear();
   mergePendingHits();
   nav.selected = hits.empty() ? 0 : 1;
@@ -147,6 +216,10 @@ bool EpubSearchActivity::openChapter(const int spineIndex) {
     closeChapter();
     return false;
   }
+  if (searchIndex) {
+    std::fill_n(filterBits.get(), trigramfilter::kBytes, uint8_t{0});
+    searcher->collectTrigrams(filterBits.get());
+  }
   if (!readBuf) readBuf = makeUniqueNoThrow<uint8_t[]>(READ_CHUNK);
   if (!readBuf) {
     LOG_ERR("BSR", "OOM: read buffer");
@@ -161,16 +234,24 @@ bool EpubSearchActivity::openChapter(const int spineIndex) {
 
 // One slice of work, about STEP_MS: loop() reads the buttons before the next one.
 void EpubSearchActivity::stepSearch() {
-  const int bookTotal = epub->getSpineItemsCount();
-  const int total = limitSpine >= 0 ? std::min(bookTotal, limitSpine + 1) : bookTotal;
-  if (nextSpine >= total || hits.size() + pendingHits.size() >= MAX_HITS) {
+  const int total = stepTotal();
+  if (step >= total || hits.size() + pendingHits.size() >= MAX_HITS) {
+    const bool whole = step >= total && !chapterSkipped;  // a full list or a chapter that would not open is no answer
     finishSearch();
+    if (whole) rememberFinished();
+    return;
+  }
+  nextSpine = spineAt(step);
+  if (!searcher && skippedByIndex(nextSpine)) {
+    ++chaptersSkipped;
+    noteChapterDone();
     return;
   }
   const unsigned long start = millis();
   if (!searcher) {
     if (!openChapter(nextSpine)) {
-      ++nextSpine;
+      chapterSkipped = true;
+      ++step;
       return;
     }
   }
@@ -227,8 +308,15 @@ void EpubSearchActivity::finishChapter() {
       pendingHits.push_back(std::move(hit));
     }
   }
+  if (searchIndex && searcher->trigramsComplete()) {
+    searchIndex->write(spineIndex, chapterStamp(spineIndex), filterBits.get());
+  }
   closeChapter();
-  ++nextSpine;
+  noteChapterDone();
+}
+
+void EpubSearchActivity::noteChapterDone() {
+  ++step;
   ++chaptersDone;
   // One e-ink refresh now and then, not one per chapter.
   if (millis() - lastRedrawMs >= REDRAW_MS) {
@@ -283,20 +371,35 @@ void EpubSearchActivity::openTypeSettings() {
 void EpubSearchActivity::buildScreen(UiScreen& screen) {
   const auto& metrics = UITheme::getInstance().getMetrics();
   if (mappedInput.hasTouch()) {
-    // Header gear, right after the title: the header control has no slot there, so it is drawn by hand.
+    // Header gear at the right edge, away from the home button at the top centre (kos25k #24): the header
+    // control has no slot for it, so it is drawn by hand.
     const int16_t size = static_cast<int16_t>(metrics.headerHeight - 24);
-    const int16_t x =
-        static_cast<int16_t>(metrics.contentSidePadding + 8 +
-                             renderer.getTextWidth(UI_12_FONT_ID, tr(STR_SEARCH_IN_BOOK), EpdFontFamily::BOLD) + 34);
+    const int16_t x = static_cast<int16_t>(renderer.getScreenWidth() - metrics.contentSidePadding - 8 - size);
     fui::ButtonProps gear;
     gear.icon = fui::bitmapFromIcon(icon_settings_32);
     gear.action = ACTION_TYPE;
     gear.minTouchSize = 44;
-    fui::button(screen.frame(), fui::Rect{x, static_cast<int16_t>(metrics.topPadding + 8), size, size}, gear);
+    fui::button(screen.frame(), fui::Rect{x, static_cast<int16_t>(metrics.topPadding + 22), size, size}, gear);
   }
   screen.setContentMarginFromScreen(fui::Insets{static_cast<int16_t>(metrics.topPadding + metrics.headerHeight), 0,
                                                 static_cast<int16_t>(metrics.buttonHintsHeight), 0});
   screen.spacer(static_cast<int16_t>(metrics.verticalSpacing));
+  // Each result line is cut to the row's width, with no dots at the end, so it fills the line.
+  {
+    const fui::TextStyle style = screen.theme().bodyText;
+    const int available = screen.frame().screen().width - 2 * (metrics.contentSidePadding + 8) - 28;
+    fitted.resize(hits.size());
+    for (size_t i = 0; i < hits.size() && i + 1 < rows.size(); ++i) {
+      fitted[i] = hits[i].label;
+      while (!fitted[i].empty() &&
+             screen.target().measureText(style.font, fitted[i].c_str(), style).width > available) {
+        size_t cut = fitted[i].size() - 1;
+        while (cut > 0 && (static_cast<unsigned char>(fitted[i][cut]) & 0xC0) == 0x80) --cut;  // whole characters
+        fitted[i].erase(cut);
+      }
+      rows[i + 1].label = fitted[i].c_str();
+    }
+  }
   fui::ListProps props;
   props.items = rows.data();
   props.count = static_cast<uint16_t>(rows.size());

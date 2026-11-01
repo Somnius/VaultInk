@@ -72,6 +72,7 @@ class HomeActivity final : public Activity {
     return HomeMenuItem::NONE;
   }
   void onRecentBookSelected(const std::string& path);
+  void openRandomPage();
   void onFileBrowserOpen();
   void onLibraryOpen();
   void onSettingsOpen();
@@ -99,6 +100,7 @@ class HomeActivity final : public Activity {
         initialMenuItem(initialMenuItemValue),
         cleanInitialRefresh(cleanInitialRefresh) {}
   void onEnter() override;
+  void setupHome();  // what onEnter does once the companion QR (shown once per update) is out of the way
   void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;

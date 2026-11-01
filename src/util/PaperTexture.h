@@ -57,7 +57,11 @@ constexpr uint8_t nextInCycle(const uint8_t current, const uint16_t stored) {
   return current;
 }
 
-// Draws `style` over the whole logical screen. PLAIN draws nothing.
-void draw(const GfxRenderer& renderer, uint8_t style);
+// Draws `style` over the whole logical screen. PLAIN draws nothing. `contrast` 0..100 keeps that
+// share of the dots (100 = the pattern as designed), thinned evenly so the look stays the same.
+void draw(const GfxRenderer& renderer, uint8_t style, uint8_t contrast = 100);
+
+// The same, inside a rectangle only (the preview in the contrast screen).
+void drawIn(const GfxRenderer& renderer, uint8_t style, uint8_t contrast, int x, int y, int width, int height);
 
 }  // namespace paper_texture

@@ -2,6 +2,22 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.60.0 (2026-11-01)
+
+Sort the Library by how far you have read, a Random page, a paper contrast slider, faster Search in Book, and a default Library tab (kos25k #15, #1, #24 and #18).
+
+- **Library** (kos25k #15): under the tabs, while Recent is open, a small bar with Recent, ↑% and ↓%. ↑% lists the most read books first, ↓% the least read. Every book row now shows how far you have read, as a number and %, to the right of the author. The first time you pick a percent sort the list is worked out in a few seconds.
+- **Random page!** (kos25k #15): a new Home item, off until you switch it on in Settings > Display > Home screen items (VaultInk home). It opens a random page of a random EPUB. Nothing is saved while you look: the arrow at the bottom right goes back to where you were, "Stay here" keeps the page. With all ten items shown the rows are a little tighter.
+- **Paper contrast** (kos25k #1): the first row of Settings > Reader > Paper Button Cycle opens a 0 to 100 slider with a tile of every background above it, changing as you move it.
+- **Search in Book** (kos25k #24): it starts at the chapter you are in, then the ones before it, so the hits near you come first. Typing the same words again shows the last result at once. A new switch, Settings > Reader > Search word > Index books, makes each search remember what it read; later searches skip the chapters that cannot hold the words, with the same hits.
+
+- **Search in Book, your last notes** (kos25k #24): the gear moved to the right edge, clear of the home button, and the result lines now start with just two dots and run to the edge of the row with no dots at the end.
+- **Home after an update** (kos25k): the first Home after an update showed the CrossPoint home instead of the VaultInk one. The home skipped part of its set-up when it showed the companion app QR (shown once per update), so it came back without the VaultInk layout until you left it and came back. The set-up now finishes after the QR.
+- **Changelog** (kos25k #9): the What's New note no longer stays in the Library's Recent list or replaces your current book on the Home after you read it. An entry left there by an earlier version is removed the next time you open it.
+- **Library tab** (kos25k #18): Settings > Library > Open on tab picks the tab the Library opens on (Recent, Title, Author, Favourites or Folders). The Favourites row on the Home still opens Favourites.
+
+Random page! draws from EPUB and text books. Tested in the simulator and on the computer (host tests, device build). None of it is tried on a device yet, so the speed on a real long book is not measured.
+
 ## 0.59.0 (2026-11-01)
 
 Search word settings and exact match, Info on every file, and Sudoku (kos25k #24 and #6).

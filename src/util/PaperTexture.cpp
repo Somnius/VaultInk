@@ -94,15 +94,20 @@ bool inked(const int x, const int y, const uint8_t style) {
 
 }  // namespace
 
-void draw(const GfxRenderer& renderer, const uint8_t style) {
-  if (style == PLAIN || style >= STYLE_COUNT) return;
-  const int width = renderer.getScreenWidth();
-  const int height = renderer.getScreenHeight();
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      if (inked(x, y, style)) renderer.drawPixel(x, y, true);
+void drawIn(const GfxRenderer& renderer, const uint8_t style, const uint8_t contrast, const int x0, const int y0,
+            const int width, const int height) {
+  if (style == PLAIN || style >= STYLE_COUNT || contrast == 0) return;
+  for (int y = y0; y < y0 + height; ++y) {
+    for (int x = x0; x < x0 + width; ++x) {
+      if (!inked(x, y, style)) continue;
+      if (contrast < 100 && hash(x, y, 99) % 100 >= contrast) continue;
+      renderer.drawPixel(x, y, true);
     }
   }
+}
+
+void draw(const GfxRenderer& renderer, const uint8_t style, const uint8_t contrast) {
+  drawIn(renderer, style, contrast, 0, 0, renderer.getScreenWidth(), renderer.getScreenHeight());
 }
 
 }  // namespace paper_texture

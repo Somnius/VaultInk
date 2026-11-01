@@ -93,4 +93,6 @@ bool afterUpdate(std::string& path) {
 
 bool writeAll(std::string& path) { return write("", path); }
 
+bool isNote(const std::string& path) { return path == NOTE; }
+
 }  // namespace whatsnew

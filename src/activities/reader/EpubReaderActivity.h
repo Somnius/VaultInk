@@ -177,6 +177,8 @@ class EpubReaderActivity final : public ReaderActivity {
   void askUpdateLinks(const std::shared_ptr<linkupdate::Plan>& links, const std::string& oldPath,
                       const std::string& newPath);
   void jumpToPercent(int percent);
+  bool locateBookSize(size_t targetSize, int& targetSpineIndex);
+  void beginRandomPeek();
   void onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action);
   int currentTocIndex() const;
   // Live section position, or the values cached before a child screen
@@ -253,6 +255,7 @@ class EpubReaderActivity final : public ReaderActivity {
   // to be noticed here rather than assumed away.
   uint8_t appliedOrientation = 0;
   uint8_t appliedPaper = 0;  // background of the page last drawn
+  uint8_t appliedContrast = 100;
   // A Markdown note (opened from a vault or Files): the menu offers backlinks.
   bool hasOpenMenu() const override { return overlay != Overlay::None || overlayPopup.isActive(); }
   bool isVaultNote() const {

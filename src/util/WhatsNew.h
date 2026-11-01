@@ -11,6 +11,9 @@ namespace whatsnew {
 // Remembers the running version either way; a first install shows the welcome guide instead.
 bool afterUpdate(std::string& path);
 
+// True for the changelog note itself: it is read once and must not stay in the recents or become the book on the home.
+bool isNote(const std::string& path);
+
 // Writes every release the firmware carries to the note; false when it couldn't be written.
 bool writeAll(std::string& path);
 

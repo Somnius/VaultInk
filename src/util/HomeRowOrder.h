@@ -9,17 +9,23 @@
 // VaultInkHomeUi::Row values and are append-only, so a stored order keeps its meaning.
 namespace homerows {
 
-inline constexpr int COUNT = 9;  // VaultInkHomeUi::MAX_ROWS
+inline constexpr int COUNT = 10;  // VaultInkHomeUi::MAX_ROWS
 
 using Order = std::array<uint8_t, COUNT>;
 
-// Books, Vaults, Favourites (0.44.0), Search, Files, Gallery, Transfer, Library, Settings.
-inline constexpr Order DEFAULT_ORDER = {0, 1, 8, 2, 3, 4, 5, 6, 7};
+// Books, Vaults, Favourites (0.44.0), Search, Files, Gallery, Transfer, Library, Random page (0.60.0), Settings.
+inline constexpr Order DEFAULT_ORDER = {0, 1, 8, 2, 3, 4, 5, 6, 9, 7};
+
+// Random page! (0.60.0) is off until switched on: its bit in the hidden mask means "shown".
+inline constexpr uint8_t RANDOM_PAGE = 9;
 
 // Rows that can't be hidden (Settings > Display > Home Screen Items): Books, and Settings, the way
 // back to the switch itself.
 inline constexpr bool canHide(const uint8_t id) { return id != 0 && id != 7; }
-inline bool hidden(const uint16_t mask, const uint8_t id) { return canHide(id) && (mask & (1u << id)) != 0; }
+inline bool hidden(const uint16_t mask, const uint8_t id) {
+  if (id == RANDOM_PAGE) return (mask & (1u << id)) == 0;
+  return canHide(id) && (mask & (1u << id)) != 0;
+}
 
 // The stored order, repaired: unknown ids and repeats are dropped, rows the stored order lacks (one
 // added in a later version) are appended in default order.

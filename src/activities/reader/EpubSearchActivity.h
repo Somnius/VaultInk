@@ -12,6 +12,7 @@
 #include "BookTextSearch.h"
 #include "SearchSession.h"
 #include "activities/UiListActivity.h"
+#include "util/SearchIndex.h"
 
 // Searches the open book for a word or phrase (kos25k #24): case and accents don't matter. Asks with
 // the keyboard, then reads the chapters' text in book order, without laying anything out
@@ -22,7 +23,7 @@ class EpubSearchActivity final : public UiListActivity {
  public:
   explicit EpubSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::shared_ptr<Epub> epub,
                               const ReaderRenderSpec& spec, SearchSession* session = nullptr, int limitSpine = -1,
-                              uint32_t limitOffset = UINT32_MAX);
+                              uint32_t limitOffset = UINT32_MAX, int startSpine = 0);
   void onEnter() override;
   void loop() override;
 
@@ -52,6 +53,13 @@ class EpubSearchActivity final : public UiListActivity {
   void startSearch(const std::string& text);
   void stepSearch();
   bool openChapter(int spineIndex);
+  int spineAt(int searchStep) const;
+  int stepTotal() const;
+  std::string cacheKey() const;
+  uint32_t chapterStamp(int spineIndex) const;
+  bool skippedByIndex(int spineIndex);
+  void noteChapterDone();
+  void rememberFinished();
   void finishChapter();
   void closeChapter();
   void mergePendingHits();
@@ -64,6 +72,10 @@ class EpubSearchActivity final : public UiListActivity {
   SearchSession* session;  // gets the hits when one is picked (null in tests)
   int limitSpine;          // -1 = the whole book; else the last chapter searched, up to limitOffset in it
   uint32_t limitOffset;
+  int startSpine;               // the chapter the reader is in: searched first, then the ones before it (wrapping)
+  bool chapterSkipped = false;  // a chapter could not be opened, so the result is not the whole answer
+  int chaptersSkipped = 0;      // by the index, for the log
+  int step = 0;                 // chapters finished in this search
   bool askPending = true;
   bool searching = false;
   int nextSpine = 0;
@@ -83,4 +95,11 @@ class EpubSearchActivity final : public UiListActivity {
   std::vector<Hit> pendingHits;  // found since the last redraw; merged under the render lock
   int chaptersDone = 0;
   std::vector<freeink::ui::ListItem> rows;
+  std::vector<std::string> fitted;  // the result lines cut to the row width, rebuilt per screen
+
+  // The opt-in search index (Settings -> Reader -> Search word): chapters it knows lack the words are skipped, and
+  // the ones read now fill it.
+  std::unique_ptr<SearchIndex> searchIndex;
+  std::unique_ptr<uint8_t[]> filterBits;  // trigramfilter::kBytes
+  std::vector<uint32_t> queryGrams;
 };

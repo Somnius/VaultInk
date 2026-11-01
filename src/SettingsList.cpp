@@ -152,6 +152,8 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Enum(StrId::STR_SEARCH_SCOPE, &CrossPointSettings::searchScope,
                          {StrId::STR_SEARCH_SCOPE_BOOK, StrId::STR_SEARCH_SCOPE_TO_HERE}, "searchScope",
                          StrId::STR_CAT_READER));
+  emit(SettingInfo::Toggle(StrId::STR_SEARCH_INDEX, &CrossPointSettings::searchIndex, "searchIndex",
+                           StrId::STR_CAT_READER));
   emit(SettingInfo::Enum(StrId::STR_SEARCH_TYPE, &CrossPointSettings::searchType,
                          {StrId::STR_SEARCH_TYPE_PARTIAL, StrId::STR_SEARCH_TYPE_EXACT}, "searchType",
                          StrId::STR_CAT_READER));
@@ -267,6 +269,10 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                            "libraryUseMetadata", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_LIBRARY_AUTHOR_FOLDERS, &CrossPointSettings::libraryAuthorFolders,
                            "libraryAuthorFolders", StrId::STR_CAT_SYSTEM));
+  emit(SettingInfo::Enum(StrId::STR_LIBRARY_START_TAB, &CrossPointSettings::libraryStartTab,
+                         {StrId::STR_LIBRARY_TAB_RECENT, StrId::STR_LIBRARY_TAB_TITLE, StrId::STR_LIBRARY_TAB_AUTHOR,
+                          StrId::STR_LIBRARY_TAB_FAVOURITES, StrId::STR_LIBRARY_TAB_FOLDERS},
+                         "libraryStartTab", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_LIBRARY_FORMAT_BUTTON, &CrossPointSettings::libraryFormatButton,
                            "libraryFormatButton", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_REMOVE_READ_FROM_RECENTS, &CrossPointSettings::removeReadBooksFromRecents,

@@ -23,6 +23,17 @@ struct SearchSession {
   int originPage = 0;
   std::optional<uint32_t> originOffset;
 
+  // The last finished search of this book (kept while the reader is open): typing the same words again
+  // shows it at once instead of reading the chapters again.
+  struct Found {
+    int spine = 0;
+    uint32_t offset = 0;
+    std::string label;
+    std::string detail;
+  };
+  std::string lastKey;
+  std::vector<Found> lastFound;
+
   void clear() {
     active = false;
     query.clear();

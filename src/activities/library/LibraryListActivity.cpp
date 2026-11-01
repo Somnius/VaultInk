@@ -34,6 +34,7 @@
 #include "fontIds.h"
 #include "util/BookCacheUtils.h"
 #include "util/BookInfo.h"
+#include "util/BookProgress.h"
 
 namespace fui = freeink::ui;
 
@@ -107,6 +108,7 @@ void LibraryListActivity::onEnter() {
   app.on(ACTION_REBUILD, &LibraryListActivity::rebuildActionTrampoline, this);
   app.on(ACTION_BACK, &LibraryListActivity::backActionTrampoline, this);
   app.on(ACTION_FILTER, &LibraryListActivity::filterActionTrampoline, this);
+  app.on(ACTION_SORT, &LibraryListActivity::sortActionTrampoline, this);
   if (app.handlerOverflowed()) LOG_ERR("LIB", "action handlers full: raise UiApp MaxHandlers");
 
   // Recent is backed by the resident store. Prune before opening the index so
@@ -132,6 +134,8 @@ void LibraryListActivity::onEnter() {
   if (SETTINGS.libraryBooksOnly || formatsFiltered()) applyFilter();  // the remembered "Books only" and formats
   applyAuthorFolders();
 
+  // Opened without a tab in mind (not the Favourites row of the home): the one chosen in Settings > Library.
+  if (startTab < 0 && SETTINGS.libraryStartTab > 0) startTab = SETTINGS.libraryStartTab;
   if (startTab >= 0 && startTab < TAB_SLOTS) {
     selectTab(startTab, false);
     startTab = -1;
@@ -149,6 +153,8 @@ void LibraryListActivity::onExit() {
 }
 
 bool LibraryListActivity::rebuildIndex() {
+  percentCache.reset();  // the ordinals change with the index
+  percentCacheSize = 0;
   library::BuildStats stats;
   const bool ok = library::buildLibraryIndex("/", stats, SETTINGS.libraryUseMetadata != 0);
   if (!ok) {
@@ -180,7 +186,7 @@ int LibraryListActivity::selectedEntry() const {
 // oldest-first, which pinned fresh reads would contradict.
 int LibraryListActivity::pinnedCount() const {
   // Books only keeps the book pins (resolvePinned drops the notes); a search drops them all.
-  if (activeTabIndex != RECENT_TAB || !query.empty() || !isDescending(sortOrder)) return 0;
+  if (activeTabIndex != RECENT_TAB || !query.empty() || !isDescending(sortOrder) || percentSortActive()) return 0;
   return pinnedTotal;
 }
 
@@ -272,6 +278,8 @@ void LibraryListActivity::openBookAtEntry(const int entry) {
 // hold a file open at a time, and the reader is about to open files of its own.
 void LibraryListActivity::openBookByPath(const std::string& path) {
   app.clearTapFlash();
+  percentCache.reset();  // reading changes the percent
+  percentCacheSize = 0;
   index.close();
   onSelectBook(path);
 }
@@ -299,8 +307,11 @@ bool LibraryListActivity::folderTab() const { return activeTabIndex == FOLDERS_T
 
 // The Folders tab lists every book; search and Books only belong to the other tabs.
 bool LibraryListActivity::filtering() const {
-  return !folderTab() && (!query.empty() || SETTINGS.libraryBooksOnly != 0 || formatsFiltered());
+  return !folderTab() && (!query.empty() || SETTINGS.libraryBooksOnly != 0 || formatsFiltered() || percentSortActive());
 }
+
+// The read-percent orders belong to the Recent tab only.
+bool LibraryListActivity::percentSortActive() const { return percentSort != 0 && activeTabIndex == RECENT_TAB; }
 
 bool LibraryListActivity::formatsFiltered() { return SETTINGS.libraryFormatMask != library::FMT_ALL; }
 
@@ -945,6 +956,10 @@ void LibraryListActivity::applyFilter() {
     const uint16_t ordinal = index.ordinalForRow(sortOrder, static_cast<uint16_t>(row));
     library::ClixRecord record{};
     if (ordinal == 0xFFFF || !index.readRecord(ordinal, record)) continue;
+    if (query.empty() && !booksOnly) {  // only the read-percent order narrows nothing down
+      matches[matchCount++] = static_cast<uint16_t>(row);
+      continue;
+    }
     if (booksOnly) {
       name.clear();
       if (index.readName(record, name) &&
@@ -976,6 +991,109 @@ void LibraryListActivity::applyFilter() {
   }
   filtered = std::move(matches);
   filteredCount = matchCount;
+  if (percentSortActive()) sortFilteredByPercent();
+}
+
+int LibraryListActivity::percentForRow(const uint16_t row) {
+  const uint16_t ordinal = index.ordinalForRow(sortOrder, row);
+  if (ordinal == 0xFFFF) return -1;
+  if (!percentCache || percentCacheSize != index.bookCount()) {
+    percentCache = makeUniqueNoThrow<int8_t[]>(index.bookCount());
+    percentCacheSize = percentCache ? index.bookCount() : 0;
+    if (percentCache) std::fill_n(percentCache.get(), percentCacheSize, int8_t{-2});
+  }
+  if (percentCache && ordinal < percentCacheSize && percentCache[ordinal] != -2) return percentCache[ordinal];
+  library::ClixRecord record{};
+  std::string path;
+  int percent = -1;
+  if (index.readRecord(ordinal, record) && index.readPath(record, path)) percent = loadBookProgressQuick(path);
+  if (percentCache && ordinal < percentCacheSize) percentCache[ordinal] = static_cast<int8_t>(percent);
+  return percent;
+}
+
+// Percent for the row shown at `entry`: a favourite, a pinned recent or an index row.
+int LibraryListActivity::percentForEntry(const int entry) {
+  if (favouritesTab()) {
+    const auto& favs = FAVOURITES.getAll();
+    return entry >= 0 && entry < static_cast<int>(favs.size())
+               ? loadBookProgressQuick(favs[static_cast<size_t>(entry)].path)
+               : -1;
+  }
+  if (entry < pinnedCount()) {
+    const auto& books = RECENT_BOOKS.getBooks();
+    return entry >= 0 && pinnedStore[entry] < books.size() ? loadBookProgressQuick(books[pinnedStore[entry]].path) : -1;
+  }
+  return percentForRow(static_cast<uint16_t>(rowFor(entry)));
+}
+
+// Orders the matched rows by read percent (kos25k #15). Books without a percent count as 0 and keep their
+// Recent order among equals. Reads one file check per book that was never opened, the first time only.
+void LibraryListActivity::sortFilteredByPercent() {
+  if (!filtered || filteredCount < 2) return;
+  GUI.drawPopup(renderer, tr(STR_LIBRARY_SORTING));
+  const bool mostFirst = percentSort == 1;
+  std::vector<std::pair<int8_t, uint16_t>> keyed;
+  keyed.reserve(filteredCount);
+  for (uint16_t i = 0; i < filteredCount; i++) {
+    keyed.emplace_back(static_cast<int8_t>(std::max(0, percentForRow(filtered[i]))), filtered[i]);
+  }
+  std::stable_sort(keyed.begin(), keyed.end(), [mostFirst](const auto& a, const auto& b) {
+    return mostFirst ? a.first > b.first : a.first < b.first;
+  });
+  for (uint16_t i = 0; i < filteredCount; i++) filtered[i] = keyed[i].second;
+}
+
+void LibraryListActivity::sortActionTrampoline(const fui::ActionEvent& event, void* user) {
+  auto& self = *static_cast<LibraryListActivity*>(user);
+  self.app.clearTapFlash();
+  const uint8_t mode = static_cast<uint8_t>(std::clamp(static_cast<int>(event.value), 0, 2));
+  if (mode == self.percentSort) return;
+  self.percentSort = mode;
+  {
+    RenderLock lock(self);
+    self.resolvePinned();
+    self.applyFilter();
+    self.applyAuthorFolders();
+    auto& nav = self.activeNav();
+    nav.selected = 0;
+    nav.top = 0;
+  }
+  self.requestUpdate();
+}
+
+void LibraryListActivity::buildSortBar(UiScreen& screen) {
+  const auto& metrics = UITheme::getInstance().getMetrics();
+  fui::TabItem tabs[3];
+  const char* labels[3] = {tr(STR_LIBRARY_TAB_RECENT), "\xE2\x86\x91%", "\xE2\x86\x93%"};
+  for (int i = 0; i < 3; i++) {
+    tabs[i].label = labels[i];
+    tabs[i].value = static_cast<int16_t>(i);
+    tabs[i].selected = percentSort == i;
+  }
+  fui::TabBarProps props;
+  props.tabs = tabs;
+  props.count = 3;
+  props.action = ACTION_SORT;
+  props.inputMask = fui::InputTouch;
+  props.text = screen.theme().smallText;
+  props.layout = fui::TabBarLayout::EqualWidth;
+  props.tabInset = fui::Insets{2, 4, 2, 4};
+  props.contentInset = fui::Insets{1, 0, 1, 0};
+  props.selectedUnderline = 2;
+  fui::StyleSet styles;
+  styles.explicitlySet = true;
+  styles.normal.foreground = fui::Paint::solid(fui::Color::Black);
+  styles.selected.foreground = fui::Paint::solid(fui::Color::Black);
+  styles.selected.background = fui::Paint::dither(fui::Color::LightGray);
+  styles.selected.radius = screen.theme().listRowRadius;
+  props.tabStyles = styles;
+  const int16_t height = static_cast<int16_t>(renderer.getLineHeight(SMALL_FONT_ID) + 14);
+  const fui::Rect row = screen.takeTop(height);
+  const auto side = static_cast<int16_t>(metrics.contentSidePadding);
+  fui::tabBar(
+      screen.frame(),
+      fui::Rect{static_cast<int16_t>(row.x + side), row.y, static_cast<int16_t>(row.width - 2 * side), row.height},
+      props);
 }
 
 // Staged back-out, shared by the Back button and the header's back arrow:
@@ -1340,7 +1458,14 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
           formatInitialHeading(initial, heading);
         item.sectionHeading = heading.c_str();
       }
-      if (!authorGrouped && !author.empty()) item.subtitle = author.c_str();
+      if (!authorGrouped) {
+        const int percent = percentForEntry(entry);
+        if (percent >= 0) {
+          if (!author.empty()) author += "  ";
+          author += std::to_string(percent) + "%";
+        }
+        if (!author.empty()) item.subtitle = author.c_str();
+      }
     }
 
     item.label = title.c_str();
@@ -1463,6 +1588,7 @@ void LibraryListActivity::buildScreen(UiScreen& screen) {
 
   if (!degraded) buildTabBar(screen);
   if (!degraded && !favouritesTab() && !folderTab()) buildFilterBar(screen);
+  if (!degraded && activeTabIndex == RECENT_TAB) buildSortBar(screen);
   if (bookRowCount() == 0) {
     const char* message = tr(STR_LIBRARY_NO_RESULTS);
     if (favouritesTab()) {

@@ -29,6 +29,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/CbzCover.h"
+#include "util/RandomPage.h"
 #include "util/VaultFiles.h"
 
 // The companion app's guide, which links its newest release (a fixed URL for the QR code).
@@ -267,11 +268,19 @@ void HomeActivity::onEnter() {
     APP_STATE.saveToFile();
     if (auto qr = makeUniqueNoThrow<QrDisplayActivity>(renderer, mappedInput, COMPANION_URL, tr(STR_COMPANION_APP),
                                                        tr(STR_COMPANION_APP_CAPTION))) {
-      startActivityForResult(std::move(qr), [this](const ActivityResult&) { requestUpdate(true); });
+      // The rest of the set-up waits for the QR screen: without it the home came back with no VaultInk
+      // layout (the CrossPoint one showed) until the next time it was entered (kos25k #9).
+      startActivityForResult(std::move(qr), [this](const ActivityResult&) {
+        setupHome();
+        requestUpdate(true);
+      });
       return;
     }
   }
+  setupHome();
+}
 
+void HomeActivity::setupHome() {
   hasOpdsServers = OPDS_STORE.hasServers();
   // Plugin System is the global opt-in. Once enabled, expose the Plugins entry
   // even when no SD plugins are installed yet so Plugin Hub can be installed
@@ -673,6 +682,25 @@ void HomeActivity::onFileTransferOpen() { activityManager.goToFileTransfer(); }
 
 void HomeActivity::onOpdsBrowserOpen() { activityManager.goToBrowser(); }
 
+// Random page! (kos25k #15): a random EPUB or text book from the library, opened on a random page. Tries a few books
+// in case the draw lands on a note, a comic or a PDF.
+void HomeActivity::openRandomPage() {
+  library::LibraryIndexFile index;
+  if (!index.open(library::libraryIndexPath()) || index.bookCount() == 0) return;
+  std::string path;
+  for (int attempt = 0; attempt < 40; ++attempt) {
+    const auto ordinal = static_cast<uint16_t>(randompage::random32() % index.bookCount());
+    library::ClixRecord record{};
+    if (!index.readRecord(ordinal, record) || !index.readPath(record, path)) continue;
+    if (!FsHelpers::hasEpubExtension(path) && !FsHelpers::hasTxtExtension(path)) continue;
+    index.close();  // the reader wants the card to itself
+    randompage::request();
+    activityManager.goToReader(path);
+    return;
+  }
+  LOG_DBG("HOME", "Random page: no EPUB or text book found");
+}
+
 void HomeActivity::onPluginsOpen() { activityManager.goToPlugins(hasOpdsServers); }
 
 void HomeActivity::activateVaultInkItem(const int index) {
@@ -708,6 +736,9 @@ void HomeActivity::activateVaultInkItem(const int index) {
       break;
     case VaultInkHomeUi::Row::Favourites:
       activityManager.goToLibrary(LibraryListActivity::FAVOURITES_TAB_INDEX);
+      break;
+    case VaultInkHomeUi::Row::RandomPage:
+      openRandomPage();
       break;
   }
 }

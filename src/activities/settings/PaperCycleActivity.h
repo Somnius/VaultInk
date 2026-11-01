@@ -18,11 +18,13 @@ class PaperCycleActivity final : public UiListActivity {
   void onExit() override;
 
  private:
-  int listCount() const override { return paper_texture::STYLE_COUNT; }
+  // Row 0 is the contrast row; the backgrounds follow.
+  int listCount() const override { return paper_texture::STYLE_COUNT + 1; }
   void buildScreen(UiScreen& screen) override;
   void activateIndex(int index) override;
   const char* headerTitle() const override;
 
-  freeink::ui::ListItem rowItems[paper_texture::STYLE_COUNT]{};
+  freeink::ui::ListItem rowItems[paper_texture::STYLE_COUNT + 1]{};
   uint16_t workingMask = 0;
+  char contrastText[8]{};
 };

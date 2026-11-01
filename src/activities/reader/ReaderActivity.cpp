@@ -21,6 +21,7 @@
 #include "XtcReaderActivity.h"
 #include "util/PluginEvents.h"
 #include "util/ReadingStats.h"
+#include "util/WhatsNew.h"
 
 ReaderActivity::ReaderActivity(const char* name, GfxRenderer& renderer, MappedInputManager& mappedInput,
                                std::string bookPath, const bool allowFastInitialRefresh)
@@ -92,6 +93,12 @@ void ReaderActivity::onEnter() {
 void ReaderActivity::rememberBookOnceRendered() {
   if (bookRemembered || !pageRendered.load(std::memory_order_acquire)) return;
   bookRemembered = true;
+  if (whatsnew::isNote(bookPath)) {
+    // The changelog is read once (kos25k #9): not the book on the home, and gone from the recents, including
+    // an entry an earlier version left there.
+    if (RECENT_BOOKS.removeByPath(bookPath)) RECENT_BOOKS.saveToFile();
+    return;
+  }
   APP_STATE.openEpubPath = bookPath;
   APP_STATE.saveToFile();
   RECENT_BOOKS.addBook(bookPath, getBookTitle(), getBookAuthor(), getBookThumbBmpPath());

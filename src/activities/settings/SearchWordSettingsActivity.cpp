@@ -21,6 +21,8 @@ void SearchWordSettingsActivity::activateIndex(const int index) {
     SETTINGS.searchInMoreMenu = SETTINGS.searchInMoreMenu ? 0 : 1;
   } else if (index == 1) {
     SETTINGS.searchScope = SETTINGS.searchScope ? 0 : 1;
+  } else if (index == 3) {
+    SETTINGS.searchIndex = SETTINGS.searchIndex ? 0 : 1;
   } else {
     SETTINGS.searchType = SETTINGS.searchType ? 0 : 1;
   }
@@ -54,6 +56,9 @@ void SearchWordSettingsActivity::buildScreen(UiScreen& screen) {
     rowItems[1].value = SETTINGS.searchScope ? tr(STR_SEARCH_SCOPE_TO_HERE) : tr(STR_SEARCH_SCOPE_BOOK);
     rowItems[2].label = tr(STR_SEARCH_TYPE);
     rowItems[2].value = typeName;
+    rowItems[3].label = tr(STR_SEARCH_INDEX);
+    rowItems[3].toggle = true;
+    rowItems[3].toggleChecked = SETTINGS.searchIndex != 0;
   }
   fui::ListProps props;
   props.items = rowItems;

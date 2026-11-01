@@ -432,6 +432,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint16_t keyboardLayouts = 0;
   // Backgrounds the quick-settings paper tile cycles through, bit = paper_texture::Style; 0 = all.
   uint16_t paperCycle = 0;
+  uint8_t paperContrast = 100;  // 0..100, the share of the paper texture's dots that are drawn (kos25k #1)
   // VaultInk home row order (util/HomeRowOrder.h); 0 = default.
   uint64_t homeRowOrder = 0;
   // Home rows hidden from the VaultInk home, bit = VaultInkHomeUi::Row id (kos25k #14); 0 = all shown.
@@ -454,11 +455,13 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // and whether the gear button shows in the Library header.
   uint8_t libraryFormatMask = 63;
   uint8_t libraryFormatButton = 1;
+  uint8_t libraryStartTab = 0;  // the tab the Library opens on: 0 Recent, 1 Title, 2 Author, 3 Favourites, 4 Folders
   // Search in book (kos25k #24): show it in the reader's More menu; 0 = search the whole book, 1 = from the
   // start to the reading point.
   uint8_t searchInMoreMenu = 1;
   uint8_t searchScope = 0;
-  uint8_t searchType = 0;  // 0 = part of a word matches, 1 = whole words only
+  uint8_t searchIndex = 0;  // 1 = searches build a per-book index so later ones skip chapters (kos25k #24)
+  uint8_t searchType = 0;   // 0 = part of a word matches, 1 = whole words only
   // Bluetooth page turner, saved under the keys lib/BlePageTurner reads and writes (BlePageTurnerJson.h).
   bleturner::Config ble;
   // Quick Resume: keep current content visible with moon icon instead of showing a static sleep screen.

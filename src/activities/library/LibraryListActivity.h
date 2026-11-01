@@ -71,6 +71,7 @@ class LibraryListActivity final : public UiTabListActivity {
   static constexpr freeink::ui::ActionId ACTION_BACK = ACTION_REBUILD + 1;
   static constexpr freeink::ui::ActionId ACTION_FILTER = ACTION_BACK + 1;
   static constexpr freeink::ui::ActionId ACTION_FORMATS = ACTION_FILTER + 1;
+  static constexpr freeink::ui::ActionId ACTION_SORT = ACTION_FORMATS + 1;
 
   // Walk the card and write a fresh index. Blocking, with a popup: at ~70 books
   // it is well under a second, and it only runs when the index is missing or the
@@ -101,6 +102,14 @@ class LibraryListActivity final : public UiTabListActivity {
   // Search or "Books only": rows come from the filtered list.
   bool filtering() const;
   void buildFilterBar(UiScreen& screen);
+  // Under the tabs while Recent is open (kos25k #15): Recent | most read first | least read first.
+  void buildSortBar(UiScreen& screen);
+  static void sortActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
+  bool percentSortActive() const;
+  // Read percent of the book at index row `row` (-1 when it has none), kept for the session.
+  int percentForRow(uint16_t row);
+  int percentForEntry(int entry);
+  void sortFilteredByPercent();
   static void filterActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
   std::string infoText;      // the info popup shows it
   unsigned long infoAt = 0;  // when to open the info popup (0 = none pending)
@@ -200,6 +209,12 @@ class LibraryListActivity final : public UiTabListActivity {
   std::unique_ptr<uint16_t[]> filtered;
   uint16_t filteredCount = 0;
   bool filterFailed = false;
+
+  // Recent tab sub-sort by how far each book is read: 0 = by arrival, 1 = most read first, 2 = least read first.
+  uint8_t percentSort = 0;
+  // Per index record (ordinal): -2 not read yet, -1 no percent, else 0..100. Dropped when a book is opened.
+  std::unique_ptr<int8_t[]> percentCache;
+  uint16_t percentCacheSize = 0;
 
   // One start row per group. Grouping is only offered for the sorted <=512-book
   // index, so this fallible allocation is at most 1 KiB and is reused after its

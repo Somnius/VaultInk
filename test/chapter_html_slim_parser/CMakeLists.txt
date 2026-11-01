@@ -16,6 +16,7 @@ add_executable(ChapterHtmlSlimParserTest
   ${REPO_ROOT}/lib/Epub/Epub/converters/ImageToFramebufferDecoder.cpp
   ${REPO_ROOT}/lib/Utf8/Utf8.cpp
   ${REPO_ROOT}/lib/Vault/BookTextSearch.cpp
+  ${REPO_ROOT}/lib/Vault/TrigramFilter.cpp
   ${REPO_ROOT}/lib/Vault/TextFold.cpp
   ${REPO_ROOT}/lib/Vault/WordSearch.cpp
 )

@@ -72,6 +72,14 @@ int loadBookProgress(const std::string& path) {
   return -1;
 }
 
+int loadBookProgressQuick(const std::string& path) {
+  if (FsHelpers::hasReflowableBookExtension(path)) {
+    const Epub epub(path, "/.crosspoint");  // the constructor only works out the cache folder
+    if (!Storage.exists((epub.getCachePath() + "/progress.bin").c_str())) return 0;
+  }
+  return loadBookProgress(path);
+}
+
 namespace {
 // Written by the reader's render task, read by the loop task.
 std::atomic<int> liveProgress{-1};

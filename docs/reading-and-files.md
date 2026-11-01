@@ -415,6 +415,19 @@ accents don't matter (so "ΚΑΛΗΜΕΡΑ" finds "καλημέρα"), and a par
   rest away. A phrase split by a paragraph or a page break isn't found.
 - Books only (EPUB), not notes: a note has the vault search.
 
+### Faster searching (0.60.0)
+
+- Search in Book starts at the chapter you are in and goes on to the end, then wraps to the chapters before it, so hits near you come first.
+- Typing the same words again (same type and range) shows the last finished result at once.
+- **Settings → Reader → Search word → Index books** (off by default): each search saves a small filter per chapter in the book's cache (`search.idx`, 8 KB per chapter). Later searches skip a chapter whose filter shows it cannot contain the words, and fill the chapters they read. The hits are the same; words under three letters are never skipped. It grows with use, so there is no waiting to build it. Clearing the book cache removes it.
+
+## Library by progress, Random page and paper contrast (0.60.0)
+
+- **Library**: with the Recent tab open a bar offers **Recent**, **↑%** (most read first) and **↓%** (least read first). Each book row shows how far you have read after the author. The first percent sort takes a few seconds on a big library.
+- **Random page!**: Settings → Display → Home screen items → Random page! (off by default, VaultInk home only). It opens a random page of a random EPUB. Nothing is saved: the arrow at the bottom right goes back to where you were, "Stay here" keeps the page.
+- **Open on tab**: Settings → Library → Open on tab picks the tab the Library opens on.
+- **Paper contrast**: Settings → Reader → Paper Button Cycle, first row. A 0 to 100 slider for how many of the dots of the paper backgrounds are drawn, with a tile of every background above it.
+
 ## Sudoku (0.59.0)
 
 **Home → Plugins → Sudoku** (the first row) is a built-in game, not an SD-card plugin: SD plugins can't

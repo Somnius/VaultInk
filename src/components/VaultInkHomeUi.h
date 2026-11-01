@@ -18,9 +18,20 @@ class VaultInkHomeUi final : public UiAppHost {
  public:
   // Values are stored (Settings -> Home Screen Rows, util/HomeRowOrder.h): append only.
   // Append-only: the ids are stored in SETTINGS.homeRowOrder and homeRowsHidden.
-  enum class Row : uint8_t { Books, Vaults, Search, Files, Gallery, Transfer, Library, Settings, Favourites };
+  enum class Row : uint8_t {
+    Books,
+    Vaults,
+    Search,
+    Files,
+    Gallery,
+    Transfer,
+    Library,
+    Settings,
+    Favourites,
+    RandomPage
+  };
   static const char* rowLabel(Row row, bool plugins);
-  static constexpr int MAX_ROWS = 9;
+  static constexpr int MAX_ROWS = 10;
 
   explicit VaultInkHomeUi(GfxRenderer& renderer);
   // hasLibrarySlot adds the Plugins (or OPDS) row; usePlugins picks which.

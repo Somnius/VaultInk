@@ -117,6 +117,8 @@ const char* VaultInkHomeUi::rowLabel(const Row row, const bool plugins) {
       return tr(STR_SETTINGS_TITLE);
     case Row::Favourites:
       return tr(STR_FAVOURITES);
+    case Row::RandomPage:
+      return tr(STR_RANDOM_PAGE);
   }
   return "";
 }
@@ -322,6 +324,11 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
         item.subtitle = tr(STR_HOME_SETTINGS_DESC);
         item.icon = fui::bitmapFromIcon(icon_settings_32);
         break;
+      case Row::RandomPage:
+        item.label = tr(STR_RANDOM_PAGE);
+        item.subtitle = tr(STR_HOME_RANDOM_PAGE_DESC);
+        item.icon = fui::bitmapFromIcon(icon_dice_32);
+        break;
       case Row::Favourites:
         item.label = tr(STR_FAVOURITES);
         item.subtitle = tr(STR_HOME_FAVOURITES_DESC);
@@ -332,7 +339,11 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
   // Books and Vaults (always rows 0 and 1) are the main destinations: a taller list with a
   // black outline. The rest share a lighter list below it. Same focus outline in both.
   const int primaryCount = std::min(rowCount, 2);
-  const int full = primaryCount * (88 + 8) + (rowCount - primaryCount) * (68 + 8);
+  // All ten rows (Random page! switched on) only fit with the first two no taller than the rest and a thin gap.
+  const bool compact = rowCount > 9;
+  const int primaryHeight = compact ? 68 : 88;
+  const int rowGap = compact ? 3 : 8;
+  const int full = primaryCount * (primaryHeight + rowGap) + (rowCount - primaryCount) * (68 + rowGap);
   const int scale = std::min(100, std::max<int>(1, screen.body().height) * 100 / std::max(1, full));
   const auto drawList = [&](const int first, const int count, const bool primary) {
     fui::ListProps props;
@@ -347,8 +358,8 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
     props.iconSize = ROW_ICON_SIZE;
     // Full size in portrait; on a short (landscape) screen the rows shrink to fit, down to the
     // touch minimum the list enforces itself.
-    props.rowHeight = static_cast<int16_t>((primary ? 88 : 68) * scale / 100);
-    props.rowGap = 8;
+    props.rowHeight = static_cast<int16_t>((primary ? primaryHeight : 68) * scale / 100);
+    props.rowGap = static_cast<int16_t>(rowGap);
     props.rowRadius = 10;
     props.rowInset = 0;
     props.sidePadding = 16;

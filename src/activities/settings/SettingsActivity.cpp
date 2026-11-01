@@ -84,12 +84,14 @@ bool showOnDevice(const SettingInfo& setting) {
 SettingsSection sectionFor(const SettingInfo& setting) {
   // These three live on the Search word screen.
   if (setting.valuePtr == &CrossPointSettings::searchInMoreMenu ||
-      setting.valuePtr == &CrossPointSettings::searchScope || setting.valuePtr == &CrossPointSettings::searchType) {
+      setting.valuePtr == &CrossPointSettings::searchScope || setting.valuePtr == &CrossPointSettings::searchType ||
+      setting.valuePtr == &CrossPointSettings::searchIndex) {
     return SettingsSection::End;
   }
   if (setting.valuePtr == &CrossPointSettings::libraryUseMetadata ||
       setting.valuePtr == &CrossPointSettings::libraryAuthorFolders ||
       setting.valuePtr == &CrossPointSettings::libraryFormatButton ||
+      setting.valuePtr == &CrossPointSettings::libraryStartTab ||
       setting.valuePtr == &CrossPointSettings::removeReadBooksFromRecents ||
       setting.valuePtr == &CrossPointSettings::moveFinishedToReadFolder) {
     return SettingsSection::Library;

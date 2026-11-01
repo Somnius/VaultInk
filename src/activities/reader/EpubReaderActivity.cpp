@@ -72,6 +72,7 @@
 #include "util/LineSpacing.h"
 #include "util/LinkUpdate.h"
 #include "util/PaperTexture.h"
+#include "util/RandomPage.h"
 #include "util/ScreenshotUtil.h"
 #include "util/TextOptions.h"
 #include "util/VaultEdit.h"
@@ -258,6 +259,7 @@ EpubReaderActivity::~EpubReaderActivity() {
 }
 
 bool EpubReaderActivity::loadBook() {
+  const bool randomPeek = randompage::take();  // taken first: a book that fails to load must not leave it set
   auto loadedEpub = makeUniqueNoThrow<Epub>(bookPath, "/.crosspoint");
   if (!loadedEpub) {
     LOG_ERR("ERS", "Failed to allocate EPUB object");
@@ -323,6 +325,8 @@ bool EpubReaderActivity::loadBook() {
       LOG_DBG("ERS", "Opened for first time, navigating to text reference at index %d", textSpineIndex);
     }
   }
+
+  if (randomPeek) beginRandomPeek();
 
   loadLinkStack();
   loadCachedBookmarks();
@@ -694,8 +698,9 @@ void EpubReaderActivity::loop() {
     return;
   }
   // Same for the paper tile: the page in the framebuffer has the old background.
-  if (appliedPaper != SETTINGS.readingPaper) {
+  if (appliedPaper != SETTINGS.readingPaper || appliedContrast != SETTINGS.paperContrast) {
     appliedPaper = SETTINGS.readingPaper;
+    appliedContrast = SETTINGS.paperContrast;
     pageBufferStale = true;
     overlayPageStored = false;
     requestUpdate();
@@ -1098,21 +1103,12 @@ void EpubReaderActivity::loop() {
   requestUpdate();
 }
 
-void EpubReaderActivity::jumpToPercent(int percent) {
-  if (!epub) return;
-  const size_t bookSize = epub->getBookSize();
-  if (bookSize == 0) return;
-
-  percent = clampPercent(percent);
-
-  size_t targetSize =
-      (bookSize / 100) * static_cast<size_t>(percent) + (bookSize % 100) * static_cast<size_t>(percent) / 100;
-  if (percent >= 100) targetSize = bookSize - 1;
-
+// The chapter that holds byte `targetSize` of the book, and how far into it that is (pendingSpineProgress).
+bool EpubReaderActivity::locateBookSize(const size_t targetSize, int& targetSpineIndex) {
   const int spineCount = epub->getSpineItemsCount();
-  if (spineCount == 0) return;
+  if (spineCount == 0) return false;
 
-  int targetSpineIndex = spineCount - 1;
+  targetSpineIndex = spineCount - 1;
   size_t prevCumulative = 0;
 
   const int found = epub->getSpineIndexForSize(targetSize);
@@ -1126,6 +1122,39 @@ void EpubReaderActivity::jumpToPercent(int percent) {
   pendingSpineProgress =
       (spineSize == 0) ? 0.0f : static_cast<float>(targetSize - prevCumulative) / static_cast<float>(spineSize);
   pendingSpineProgress = std::clamp(pendingSpineProgress, 0.0f, 1.0f);
+  return true;
+}
+
+// Opens on a random page without touching the saved place: the search bar's return arrow goes back to it
+// and "stay here" keeps the page (kos25k #15).
+void EpubReaderActivity::beginRandomPeek() {
+  const size_t bookSize = epub->getBookSize();
+  if (bookSize < 2) return;
+  int spine = 0;
+  if (!locateBookSize(randompage::random32() % bookSize, spine)) return;
+  search.originSpine = currentSpineIndex;
+  search.originPage = nextPageNumber;
+  search.originOffset = cachedVisibleTextOffset;
+  setSearchActive(true);
+  currentSpineIndex = spine;
+  nextPageNumber = 0;
+  pendingPercentJump = true;
+  cachedVisibleTextOffset.reset();
+}
+
+void EpubReaderActivity::jumpToPercent(int percent) {
+  if (!epub) return;
+  const size_t bookSize = epub->getBookSize();
+  if (bookSize == 0) return;
+
+  percent = clampPercent(percent);
+
+  size_t targetSize =
+      (bookSize / 100) * static_cast<size_t>(percent) + (bookSize % 100) * static_cast<size_t>(percent) / 100;
+  if (percent >= 100) targetSize = bookSize - 1;
+
+  int targetSpineIndex = 0;
+  if (!locateBookSize(targetSize, targetSpineIndex)) return;
 
   {
     RenderLock lock;
@@ -1416,7 +1445,8 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       startActivityForResult(
           std::make_unique<EpubSearchActivity>(
               renderer, mappedInput, epub, SETTINGS.readerRenderSpec(buildViewportWidth, buildViewportHeight), &search,
-              toHere ? search.originSpine : -1, toHere ? search.originOffset.value_or(UINT32_MAX) : UINT32_MAX),
+              toHere ? search.originSpine : -1, toHere ? search.originOffset.value_or(UINT32_MAX) : UINT32_MAX,
+              currentSpineIndex),
           [this](const ActivityResult& result) {
             loadCachedBookmarks();
             const auto* picked = std::get_if<ProgressChangeResult>(&result.data);
@@ -2302,8 +2332,9 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     renderer.clearScreen();
   }
 
-  paper_texture::draw(renderer, SETTINGS.readingPaper);
+  paper_texture::draw(renderer, SETTINGS.readingPaper, SETTINGS.paperContrast);
   appliedPaper = SETTINGS.readingPaper;
+  appliedContrast = SETTINGS.paperContrast;
   drawClippingHighlights(*page, fontId, orientedMarginTop, orientedMarginLeft);
   drawSearchHighlights(*page, fontId, orientedMarginTop, orientedMarginLeft);
   page->render(renderer, fontId, orientedMarginLeft, orientedMarginTop);
@@ -2708,7 +2739,9 @@ void EpubReaderActivity::drawSearchBar() const {
   char label[64];
   snprintf(label, sizeof(label), "%d / %d  %s", search.current + 1, static_cast<int>(search.hits.size()),
            tr(STR_SEARCH_STAY_HERE));
-  if (renderer.getTextWidth(UI_12_FONT_ID, label) > bar.labelWidth) {
+  if (search.hits.empty()) {  // a random page, not a search
+    snprintf(label, sizeof(label), "%s", tr(STR_SEARCH_STAY_HERE));
+  } else if (renderer.getTextWidth(UI_12_FONT_ID, label) > bar.labelWidth) {
     snprintf(label, sizeof(label), "%d / %d", search.current + 1, static_cast<int>(search.hits.size()));
   }
   renderer.drawText(UI_12_FONT_ID, bar.labelX, bar.top + (bar.height - renderer.getLineHeight(UI_12_FONT_ID)) / 2,
