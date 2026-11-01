@@ -64,7 +64,7 @@ class FileSearchActivity final : public UiListActivity {
   void startTransfer(int hit, bool copy);
   void showInFolder(int hit);
   void showError(StrId heading, const std::string& name);
-  std::string hitPath(const filesearch::Hit& hit) const;
+  static std::string hitPath(const filesearch::Hit& hit);
 
   std::string rootPath;
   std::string query;

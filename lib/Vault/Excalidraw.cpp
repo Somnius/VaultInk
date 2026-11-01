@@ -126,7 +126,7 @@ class Parser {
       if (lineStart && c == '`') break;  // the closing fence
       lineStart = c == '\n';
       if (isSpace(c)) continue;
-      if (compressed.size() >= lzstring::MAX_INPUT) return Error::BadCompressed;
+      if (compressed.size() >= lzstring::MAX_INPUT_CHARS) return Error::BadCompressed;
       compressed += static_cast<char>(c);
     }
     return compressed.empty() ? Error::NotJson : Error::BadCompressed;

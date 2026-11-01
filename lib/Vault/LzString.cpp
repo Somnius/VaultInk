@@ -34,7 +34,7 @@ class Bits {
   bool prepare() {
     if (std::any_of(in.begin(), in.end(), [](const char c) { return baseValue(c) == -2; })) return false;
     length = static_cast<size_t>(std::count_if(in.begin(), in.end(), [](const char c) { return baseValue(c) >= 0; }));
-    if (length > MAX_INPUT) return false;
+    if (length > MAX_INPUT_CHARS) return false;
     val = nextValue();
     index = 1;
     return true;

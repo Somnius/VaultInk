@@ -290,7 +290,7 @@ void FileSearchActivity::render(RenderLock&& lock) {
   UiListActivity::render(std::move(lock));
 }
 
-std::string FileSearchActivity::hitPath(const filesearch::Hit& hit) const {
+std::string FileSearchActivity::hitPath(const filesearch::Hit& hit) {
   return (hit.folder == "/" ? hit.folder : hit.folder + "/") + hit.name;
 }
 

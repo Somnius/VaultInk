@@ -77,7 +77,7 @@ TEST(LzString, EmptyAndGarbageDoNotCrash) {
 
 TEST(LzString, InputLimit) {
   std::string out;
-  const std::string tooLong(lzstring::MAX_INPUT + 1, 'A');
+  const std::string tooLong(lzstring::MAX_INPUT_CHARS + 1, 'A');
   EXPECT_FALSE(lzstring::decompressFromBase64(tooLong, out));
   EXPECT_TRUE(out.empty());
 }
