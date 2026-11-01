@@ -4,6 +4,7 @@
 #include <I18n.h>
 #include <Logging.h>
 
+#include <algorithm>
 #include <cstdio>
 
 #include "MappedInputManager.h"
@@ -121,8 +122,8 @@ int SudokuActivity::cellAt(const int x, const int y) const {
 void SudokuActivity::pressDigit(const uint8_t digit, const bool forceValue) {
   if (solved) return;
   if (!(notesMode && !forceValue)) {
-    int placed = 0;
-    for (const auto& c : game.board.cells) placed += c.value == digit ? 1 : 0;
+    const auto placed = std::count_if(game.board.cells.begin(), game.board.cells.end(),
+                                      [digit](const sudoku::Cell& c) { return c.value == digit; });
     if (placed >= 9 && game.board.cells[selected].value != digit) return;  // all nine are on the board
   }
   const bool changed =
