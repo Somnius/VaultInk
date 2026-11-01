@@ -389,37 +389,51 @@ instead. The note counts as changed on the reader, so LiveSync Sync now sends it
 ## Search in a book
 
 In a book's reading menu, **Search in Book** (above Toggle Bookmark) asks for a word or a short
-phrase with the keyboard, then goes through the chapters in book order and lists what it finds:
-a few words around each hit and, under it, the chapter and where in it ("Chapter 12 · 40%"; the
-page, "Chapter 12 · p. 9", once that chapter has been read or laid out before). Capital letters and
-accents don't matter (so "ΚΑΛΗΜΕΡΑ" finds "καλημέρα"), and a part of a word matches too ("read" finds
-"reading"). Tap a result to go to that spot; tap the top row to search again.
+phrase with the keyboard, then reads the chapters' text and lists what it finds: a few words around
+each hit and, under it, the chapter and where in it ("Chapter 12 · 40%"; the page, "Chapter 12 · p. 9",
+once that chapter has been laid out before). Tap a result to go to that spot; tap the top row to
+search again. EPUB books only: notes have the vault search.
 
-- Since 0.57.0 it reads each chapter's text straight from the book, without laying the pages out
-  first (0.55.0 did, and was slow on a long book). Hits show up while it works, the top row shows
-  how far it is, and **Back** stops it at once and keeps what was found.
-- **On the page (0.58.0):** after you pick a result the searched words are shaded on the page, and a
-  bar at the bottom steps through the hits: the counter ("6 / 8 Stay here"), previous, next, and the
-  white arrow at the bottom right that goes back to exactly where you were before the search. Tap
-  the counter to keep the page you are on instead. Back also returns. While you look at hits the
-  reading position, the reading log and the sync are left alone, so closing the book now reopens it
-  at the place you left. **Settings → Reader → Search in book in More menu** hides the entry from
-  the More menu, and **Search range** limits it to the start of the book up to where you are.
-- **0.59.0:** the three settings now sit in **Settings → Reader → Search word**, with a new **Search
-  type**: *Partial match* (a part of a word matches, "read" finds "reading") or *Exact match* (whole
-  words only, "read" does not find "reading" or "unread"; case and accents still don't matter). The
-  gear next to the "Search in Book" title (touch screens) opens the same two choices, and a search
-  already on screen runs again with the new type. Each result line is longer and fills the row, and
-  the previous/next arrows sit further apart and left of the return arrow.
-- At most 100 results, and at most 3 close together, so one page full of the word doesn't push the
-  rest away. A phrase split by a paragraph or a page break isn't found.
-- Books only (EPUB), not notes: a note has the vault search.
+<p>
+  <img src="images/vaultink/search-gear-keyboard.png" width="190" alt="The keyboard screen of Search in Book, with the gear at the top right">
+  <img src="images/vaultink/search-results-wide.png" width="190" alt="Search results: lines starting with two dots and running to the edge, the gear at the right of the header">
+  <img src="images/vaultink/search-highlight.png" width="190" alt="A page with the searched word shaded and the bar at the bottom">
+</p>
 
-### Faster searching (0.60.0)
+**What matches.** Capital letters and accents never matter ("ΚΑΛΗΜΕΡΑ" finds "καλημέρα"). The
+**search type** is either *Partial match* (a part of a word matches: "read" finds "reading") or *Exact
+match* (whole words only: "read" does not find "reading" or "unread"). A space in the phrase matches
+any run of white space, also across a paragraph; a phrase split by a page break is still found.
 
-- Search in Book starts at the chapter you are in and goes on to the end, then wraps to the chapters before it, so hits near you come first.
-- Typing the same words again (same type and range) shows the last finished result at once.
-- **Settings → Reader → Search word → Index books** (off by default): each search saves a small filter per chapter in the book's cache (`search.idx`, 8 KB per chapter). Later searches skip a chapter whose filter shows it cannot contain the words, and fill the chapters they read. The hits are the same; words under three letters are never skipped. It grows with use, so there is no waiting to build it. Clearing the book cache removes it.
+**The gear.** On touch screens a gear sits at the right of the header, on the keyboard screen and on
+the results screen. It opens **Partial match**, **Exact match** and **Search range** (the whole book,
+or the start up to where you are). The type applies at once (a search on screen runs again); the
+range applies to the next search you start. The same settings, plus the switch that shows Search in
+Book in the More menu and the book index, are in **Settings → Reader → Search word**.
+
+**Where it starts.** It starts at the chapter you are in, goes on to the end, then wraps to the
+chapters before it, so the hits near you come first. With the range "start to reading point" it goes
+through the book in order, up to where you are. Typing the same words again (same type and range)
+shows the last finished result at once, without reading the book again.
+
+**While it works.** The top row shows how far it is, hits appear as chapters finish, and **Back**
+stops it at once and keeps what was found. At most 100 results are listed, and at most 3 close
+together, so one page full of the word does not push the rest away. The result lines start with two
+dots where the text was cut and run to the right edge of the row, with no dots at the end.
+
+**On the page.** After you pick a result the searched words are shaded on the page, and a bar at the
+bottom steps through the hits: the counter ("6 / 8 Stay here"), previous, next, and the white arrow at
+the bottom right that goes back to exactly where you were before the search. Tap the counter to keep
+the page you are on instead. Back also returns. While you look at hits the reading position, the
+reading log and the sync are left alone, so closing the book reopens it where you left it.
+
+**Index books (off by default).** *Settings → Reader → Search word → Index books* makes each search
+remember what it read: a small filter of the three-letter pieces of each chapter's text is saved in
+the book's cache (`search.idx`, 8 KB per chapter, removed by Clear cache). Later searches skip a
+chapter whose filter shows it cannot contain the words, and fill in the chapters they read. The hits
+are the same with the index and without it; words of fewer than three letters are never skipped. It
+grows with use, so there is no waiting to build it. The speed on a long book on the device has not
+been measured yet.
 
 ## Dice (0.61.0)
 
@@ -432,12 +446,52 @@ Home → Plugins → **Dice**. The top row picks the system (tap < or >, or Left
 
 SD plugins cannot run code on the reader, so the roller is built into the firmware like Sudoku.
 
-## Library by progress, Random page and paper contrast (0.60.0)
+## Library: sort by progress, tab order (0.60.0, 0.61.0)
 
-- **Library**: with the Recent tab open a bar offers **Recent**, **↑%** (most read first) and **↓%** (least read first). Each book row shows how far you have read after the author. The first percent sort takes a few seconds on a big library.
-- **Random page!**: Settings → Display → Home screen items → Random page! (off by default, VaultInk home only). It opens a random page of a random EPUB. Nothing is saved: the arrow at the bottom right goes back to where you were, "Stay here" keeps the page.
-- **Open on tab**: Settings → Library → Open on tab picks the tab the Library opens on. **Tab order** (0.61.0): Settings → Library → Tab order, tap a tab then tap where it goes.
-- **Paper contrast**: Settings → Reader → Paper Button Cycle, first row. A 0 to 100 slider for how many of the dots of the paper backgrounds are drawn, with a tile of every background above it.
+<p>
+  <img src="images/vaultink/library-sort.png" width="190" alt="The Library with the Recent, up-percent and down-percent bar">
+</p>
+
+- **Sort by how far you have read.** With the **Recent** tab open, a small bar under the tabs offers
+  **Recent** (the usual order), **↑%** (the most read first) and **↓%** (the least read first). A book
+  you never opened counts as 0%. Percent sorting leaves out the pinned recent books that sit on top of the
+  normal Recent list. The first time you pick it takes a few seconds on a big library while it looks at each
+  book's saved place; the numbers are remembered until you open a book.
+- **The percent on every book.** Each book row shows its percent after the author ("Jane Austen  37%"),
+  with no progress bar. In the Author tab, where the author is the heading, the percent is on its own
+  under the title. Comics and XTC books show theirs too; a file with no saved place shows nothing.
+- **Open on tab.** *Settings → Library → Open on tab* picks the tab the Library opens on (Recent, Title,
+  Author, Favourites or Folders). The Favourites row on the Home still opens Favourites.
+- **Tab order.** *Settings → Library → Tab order*: tap a tab, then tap the place it goes to. The last row puts
+  the default order back. The tab bar, the left/right keys and "Open on tab" all follow the order.
+
+## Random page! (0.60.0, 0.61.0)
+
+<p>
+  <img src="images/vaultink/random-page.png" width="190" alt="A book opened on a random page, with the bar at the bottom to go back">
+</p>
+
+A Home item that opens a random page of a random book from your library: EPUB, text, PDF, comics (CBZ)
+and XTC books (notes are not picked). It is **off by default**: *Settings → Display → Home screen items →
+Random page!* (VaultInk home only). With all ten Home items on, the rows are a little tighter so Settings
+still fits. The dice on its row is an icon: the reading fonts have no dice character.
+
+Nothing is saved while you look. In an EPUB or text book the bar at the bottom is the one from Search
+in Book: the white arrow goes back to where you were, the counter ("Stay here") keeps the page. In a
+comic or XTC book your saved place is simply left alone, and Back leaves. Tap the Home item again for another page.
+
+## Paper contrast (0.60.0)
+
+<p>
+  <img src="images/vaultink/paper-cycle.png" width="190" alt="Settings, Paper Button Cycle, with the Paper contrast row on top">
+  <img src="images/vaultink/paper-contrast.png" width="190" alt="The contrast slider with a tile of every page background above it">
+</p>
+
+The first row of *Settings → Reader → Paper Button Cycle* is **Paper contrast**. It opens a slider from
+0 to 100: how many of the dots of the paper backgrounds are drawn (100 is the pattern as designed, the
+default; 0 draws none). Above the slider is a small tile of every background that changes while you move
+it: drag the slider, tap - or +, or use the buttons (Left/Right one step, Up/Down ten). Confirm keeps the
+value and Back leaves the old one. The setting applies to every page background in the reader.
 
 ## Sudoku (0.59.0)
 

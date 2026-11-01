@@ -16,7 +16,7 @@ An electric unicycle companion built into VaultInk: Home → Plugins → **Vault
 | Ninebot | One S/A1, One E+/C/P, One Z6/Z8/Z10 (read only) |
 | VESC | Floatwheel, DIY boards |
 
-The protocols come from the open reference apps (WheelDash, VESCDash, eucWatch, WheelLog). **None of it has run against a real wheel yet**; every point the sources disagree on is marked UNVERIFIED in `lib/Euc/`. The InMotion V13/V14/P6 may refuse a client that does not do the maker's key handshake (no open code for it exists). KingSong and Leaperkim PIN locks are not supported.
+The protocols come from the open reference apps (WheelDash, VESCDash, eucWatch, WheelLog). **None of it has run against a real wheel yet**; every point the sources disagree on is marked UNVERIFIED in `lib/Euc/`. For the InMotion V13, V14 and P6 it is not known whether a client that sends only the open reference apps' requests is answered: WheelLog's open InMotion code decodes V13 and V14 without any key exchange, so it should be, but only a real wheel will tell (the closed WheelDash Amazfit docs mention an "encrypted handshake" for InMotion V2, and the Bluetooth link here does no pairing or bonding). KingSong and Leaperkim PIN locks are not supported.
 
 ## Using it
 

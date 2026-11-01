@@ -35,118 +35,87 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Early days.** Version 0.19.0 opens your vaults, reads their notes, links and images, Greek
-> included, and searches them. Sync isn't in yet. Every release from 0.8.2 on has been tested by kos25k
-> on his X4 Pro (UC8279 screen); the bugs he found are fixed and listed in the release notes. It's still
-> one tester on one device, so back up your SD card. The screenshots below come from the simulator.
+> **Still early.** VaultInk is at 0.62.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
+> tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Most of the
+> newest features (Dice, VaultEUC, the Library sort bar) have only run in the simulator. Back up your SD
+> card. The screenshots below come from the simulator.
 
-## Screenshots
-
-<p>
-  <img src="docs/images/vaultink/notes.gif" width="240" alt="Opening the demo vault, a note, and following a link to another note">
-  <img src="docs/images/vaultink/library.gif" width="240" alt="The Library: Authors as folders, an author's folder, and the Title tab with Books only">
-</p>
-
-Left: a vault opens like a folder, a note reads like a book page, and a link goes to the other
-note (Back returns). Right: the Library with Authors as folders, one author's folder, and the
-Title tab with Books only.
-
-### Vaults, notes and search
+## At a glance
 
 <p>
-  <img src="docs/images/vaultink/vaults.png" width="190" alt="A vault's folders and notes">
-  <img src="docs/images/vaultink/note.png" width="190" alt="A note with links, a callout, tasks and a table">
-  <img src="docs/images/vaultink/search.png" width="190" alt="Search results">
+  <img src="docs/images/vaultink/home-062.png" width="190" alt="Home screen with the current book, Books, Vaults, Favourites, Search, Files, Gallery, File Transfer, Plugins, Random page and Settings">
+  <img src="docs/images/vaultink/library-sort.png" width="190" alt="Library with the Recent, up-percent and down-percent bar and the percent read next to each author">
+  <img src="docs/images/vaultink/note.png" width="190" alt="An Obsidian note with links, a callout, tasks and a table">
+  <img src="docs/images/vaultink/search-results-wide.png" width="190" alt="Search in Book results that fill the row, with the gear at the right of the header">
 </p>
 
-Every vault on the SD card opens like a folder of notes. A note reads like a book page, with links,
-callouts, tasks and tables. Search looks through every vault at once. These show a small demo
-vault.
-
-### Greek and English keyboard
+Home, the Library sorted by how far you have read, an Obsidian note, and Search in Book.
 
 <p>
-  <img src="docs/images/vaultink/keyboard-el.png" width="190" alt="Greek keyboard">
-  <img src="docs/images/vaultink/keyboard-el-upper.png" width="190" alt="Greek keyboard with Shift">
-  <img src="docs/images/vaultink/keyboard-en.png" width="190" alt="English keyboard">
+  <img src="docs/images/vaultink/plugins-062.png" width="190" alt="Home, Plugins: Sudoku, Dice and VaultEUC">
+  <img src="docs/images/vaultink/dice-09-vampire-willpower.png" width="190" alt="Dice: Vampire V5 with Hunger dice in black and the Willpower reroll button">
+  <img src="docs/images/vaultink/euc-05-dash.png" width="190" alt="VaultEUC: the live dash of a demo wheel">
+  <img src="docs/images/vaultink/sudoku.png" width="190" alt="Sudoku">
 </p>
 
-The on-screen keyboard types Greek and English. The globe key switches between them. Hold a vowel
-for its accent (ά έ ή ί ό ύ ώ); ϊ and ϋ have their own keys, and holding them gives ΐ and ΰ. With
-the Greek interface the keyboard opens in Greek.
+Home → Plugins holds the built-in tools: Sudoku, a dice roller, and VaultEUC for electric unicycles.
+
+<p>
+  <img src="docs/images/vaultink/paper-contrast.png" width="190" alt="Paper contrast: a tile of every page background and a slider">
+  <img src="docs/images/vaultink/random-page.png" width="190" alt="Random page: a book opened on a random page with a bar to go back to your place">
+  <img src="docs/images/vaultink/library-gear.png" width="190" alt="The Library header with the format filter gear">
+  <img src="docs/images/vaultink/lock-owner.png" width="190" alt="The PIN lock screen with the owner's name and phone">
+</p>
+
+Page background contrast with a preview, Random page!, the Library's format filter, and the lock screen.
+
+More screenshots are in the sections below and in [docs/](docs/).
+
+## What it does
+
+Each line links to its guide where there is one. The full list is in [SPECS.md](SPECS.md).
+
+**Books**
+- Everything CrossPoint Reader offers: EPUB, TXT and XTC books, PDFs read as text, comics (CBZ and XTC/XTCH), SD-card fonts, hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS catalogs, Calibre wireless transfer and SD-card plugins. [docs/reading-and-files.md](docs/reading-and-files.md)
+- **Library**: tabs for Recent, Title, Author, Favourites and Folders, in an order you choose (Settings → Library → Tab order) with a tab it opens on. With Recent open, a bar sorts by how far you have read (**↑%** most read first, **↓%** least read first), and every book shows its percent. A gear picks the formats listed; **All | Books only** hides vault notes; Authors can be folders.
+- **Search in Book**: a word or phrase, partial or whole words (accents and capitals never matter), starting at your chapter and wrapping, with the words shaded on the page and a bar to step through the hits or return to your place. The gear sets the type and the range; Settings → Reader → Search word has the rest, including an opt-in index that makes repeat searches faster.
+- **Random page!** (a Home item, off by default): a random page of a random book, saving nothing, with a way back to where you were.
+- **Page backgrounds** from plain to papyrus and bath towel, a set you choose for the quick button, and a 0 to 100 **contrast** slider with a preview. [Mostly for fun](#page-backgrounds).
+- **Reading stats**, streaks and the reading-stats sleep screen; **battery** page with drain per hour; **book info** on a long press, **Favourites**, **Gallery** for pictures.
+
+**Obsidian vaults** [docs/editing.md](docs/editing.md), [docs/livesync.md](docs/livesync.md), [docs/flashcards.md](docs/flashcards.md)
+- Notes read like book pages: headings, lists, tasks, quotes, tables, code, callouts, highlights, embeds, links and backlinks, with Greek handled throughout. Canvas files open in a viewer.
+- Search across every vault by title, alias, tag, heading, text and block id. Edit a note line by line, tick tasks, make, rename and delete notes.
+- **LiveSync** both ways with Obsidian Self-hosted LiveSync over Wi-Fi, including end-to-end encryption. **Flashcards** written in your notes with spaced repetition. Highlights from a book go to a vault note. Import a vault from a ZIP.
+
+**Tools** (Home → Plugins)
+- **Sudoku**: three levels, pencil notes, undo, hints, saves where you left off.
+- **Dice**: polyhedral dice with advantage, keep-highest and exploding dice; old World of Darkness; Vampire V5 with Hunger dice, Willpower reroll and Rouse checks; Chronicles of Darkness; Fate; Powered by the Apocalypse; Blades in the Dark; Call of Cthulhu; Shadowrun; Savage Worlds; Year Zero; Cyberpunk Red. [docs/reading-and-files.md](docs/reading-and-files.md#dice-0610)
+- **VaultEUC**: an electric unicycle companion over Bluetooth (Begode, Veteran/Leaperkim, KingSong, InMotion, Ninebot, VESC): live numbers every 5 to 30 seconds, alarms, ride logs on the SD card, your wheels remembered, km/h or mph. **Not for use while riding, and not tried on a real wheel yet.** [docs/vaulteuc.md](docs/vaulteuc.md)
+- **Plugins** from the SD card and the Plugin Hub: [docs/sd-plugins.md](docs/sd-plugins.md).
+
+**The device**
+- A home screen with the book you are reading, rows in any order and any of them hidden; quick settings with a swipe down; settings grouped by task; touch or buttons.
+- **Lock screen** with a 4-digit PIN or a corner long-press, with the owner's name and phone; sleep screens; **What's New** after an update.
+- Full **Greek** interface, Greek and English keyboards, Greek hyphenation and reading font. Menus in many more languages. [docs/translating.md](docs/translating.md)
+- File browser with Move, Copy, Rename, Delete, Extract and Info on every file; web page and **Android companion app** for files, notes and settings: [docs/companion.md](docs/companion.md).
 
 ### Page backgrounds
 
-<p><img src="docs/images/vaultink/paper.gif" width="240" alt="Swiping down quick settings and tapping the paper tile to change the page background"></p>
+<p>
+  <img src="docs/images/vaultink/paper.gif" width="240" alt="Swiping down quick settings and tapping the paper tile to change the page background">
+  <img src="docs/images/vaultink/paper-cycle.png" width="190" alt="Settings, Paper Button Cycle, with the contrast row on top">
+</p>
 
 Swipe down from the top for quick settings, then tap the paper tile to change the page background
 under the text. It's also under **Settings → Reader → Page Background**. The choices are plain,
 paper, sandpaper, papyrus (soft, medium, hard and cloudy), toilet paper, kitchen paper and bath towel.
-**Settings → Reader → Paper Button Cycle** sets which of them the tile steps through.
+**Settings → Reader → Paper Button Cycle** sets which of them the tile steps through, and its first row,
+**Paper contrast**, opens a 0 to 100 slider with a tile of every background that changes as you move it (0.60.0).
 
 While a background is on, text anti-aliasing is switched off, so the letters stay sharp on the
-real screen.
-
-This one is mostly for fun 😄. Plain is the default and the easiest to read, but the papyrus ones
+real screen. This one is mostly for fun 😄. Plain is the default and the easiest to read, but the papyrus ones
 are actually nice for a long read. The idea came from kos25k.
-
-### Home, reading and settings
-
-<p>
-  <img src="docs/images/vaultink/home.png" width="190" alt="Home screen">
-  <img src="docs/images/vaultink/home-el.png" width="190" alt="Home screen in Greek">
-  <img src="docs/images/vaultink/quick.png" width="190" alt="Quick settings over a book">
-  <img src="docs/images/vaultink/toolbar.png" width="190" alt="Reading toolbar">
-  <img src="docs/images/vaultink/settings.png" width="190" alt="Settings">
-  <img src="docs/images/vaultink/about.png" width="190" alt="About">
-</p>
-
-From left to right: the home screen, the same in Greek, quick settings pulled down over a book, the
-reading toolbar, settings, and About.
-
-### Library and reading
-
-<p>
-  <img src="docs/images/vaultink/library-title.png" width="190" alt="Library, Title tab, books only">
-  <img src="docs/images/vaultink/library-author-folders.png" width="190" alt="Library, Author tab as folders">
-  <img src="docs/images/vaultink/reading.png" width="190" alt="A book page">
-  <img src="docs/images/vaultink/library-folders.png" width="190" alt="Library, Folders tab">
-</p>
-
-The Library by title with Books only on (no vault notes), the Author tab with Authors as folders
-(0.36.0: an author with two or more books is a folder), a page of a book, and the Folders tab (0.56.0: one row per card folder with its book count).
-
-<p>
-  <img src="docs/images/vaultink/library-gear.png" width="190" alt="Library with the format gear in the header">
-  <img src="docs/images/vaultink/library-formats.png" width="190" alt="Book formats: which types the Library lists">
-  <img src="docs/images/vaultink/search-highlight.png" width="190" alt="A book page with the searched word shaded and the search bar at the bottom">
-</p>
-
-The gear in the Library header (0.58.0) opens the list of formats to show, and Search in Book (0.58.0) shades the word on the page with a bar to step through the hits or go back to where you were.
-
-### Flashcards
-
-<p>
-  <img src="docs/images/vaultink/vaults-picker.png" width="190" alt="Vaults, with Flashcards as the first row">
-  <img src="docs/images/vaultink/flashcards-decks.png" width="190" alt="Flashcard decks with due and new counts">
-  <img src="docs/images/vaultink/flashcards-review.png" width="190" alt="A flashcard with its answer and four buttons">
-</p>
-
-Cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}`) with spaced repetition, from Vaults → Flashcards:
-the decks with how many are due and new, and a card with the four answers and when each brings it back. The guide:
-[docs/flashcards.md](docs/flashcards.md).
-
-### Search in a book, PDFs as text, and the lock screen
-
-<p>
-  <img src="docs/images/vaultink/search-in-book.png" width="190" alt="Search in Book results with the page of each hit">
-  <img src="docs/images/vaultink/pdf-as-text.png" width="190" alt="A PDF read as reflowing text, Greek included">
-  <img src="docs/images/vaultink/lock-owner.png" width="190" alt="The PIN lock screen with the owner's name and phone under the dots">
-  <img src="docs/images/vaultink/lock-settings.png" width="190" alt="Settings, System, Lock Screen">
-</p>
-
-Search in Book (0.55.0, from the reading menu): a few words around each hit and its page on the right. A PDF opened from
-Browse Files as reflowing text (0.54.0; Greek works). The lock screen with an owner's name and phone under the PIN dots.
 
 ## Getting started
 
@@ -196,136 +165,24 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 
 <br clear="right">
 
-## What works now
-
-- **Reading.** Everything CrossPoint Reader offers: EPUB, TXT and XTC books, SD-card fonts,
-  hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS catalogs, Calibre wireless
-  transfer and SD-card plugins.
-- **Obsidian notes.** Open a `.md` note from a vault and it reads like a book: headings, bold and
-  italic, lists (nested and numbered) and tasks, quotes, tables, code, footnotes, and embedded
-  images found anywhere in the vault.
-  - **Callouts** (`> [!quote] Title`) are a framed box with the title in bold.
-  - **Highlights** (`==text==`) are a light gray band behind the words. Settings → Vaults →
-    Highlight style also offers Inverted (white on black) and Dark gray (white on dark gray).
-  - **Embeds:** `![[Note]]` shows the other note inside this one, `![[Note#Heading]]` just that
-    heading's section, and `![[Note#^id]]` just that paragraph or list item.
-  - **Links:** tap a `[[link]]` to open the other note (or jump to its heading), and press Back to
-    return. Links are found the way Obsidian finds them: by name, by a path from the vault root, or
-    by the end of a path (`[[People/Anna]]` finds `Notes/People/Anna.md`), and names with dots
-    (`[[Dr. Smith]]`, `[[Section 2.1]]`) work too.
-- **Vaults and search.** The Vaults row lists every vault on the SD card (folders under `Vaults/`
-  and any folder with `.obsidian` in it), and the home screen shows how many there are. Each vault
-  remembers the note you read last and opens on it (Settings → Vaults → Open last note). Under the vaults, **Recent notes** lists the last five notes you read, from any vault (0.37.0). Search
-  looks through all of them by title, alias, tag, heading and text; a match in a heading shows as
-  `Note > Heading` and opens the note there (0.47.0); searching for a block id (`^id`) opens the note at that block (0.53.0). Accents don't matter, so `καλημερα` finds `Καλημέρα`. In a note, **More → Backlinks** lists
-  the notes that link to it. The search index lives outside the vault (`/.vaultink/` on the SD
-  card) and also keeps a list of the vault's files, so links and images open without scanning the
-  card; Settings → Vaults → Rebuild Search Index starts it over.
-- **LiveSync, both ways.** Sync a vault with Obsidian Self-hosted LiveSync over Wi-Fi: paste the
-  Setup URI on the device's web page, type its passphrase on the device, then Settings → Vaults →
-  LiveSync → Sync now. End-to-end encryption (V2) and path obfuscation are supported; edits,
-  deletes and renames come across, deleted files go to a trash folder, and notes you change on
-  the device are sent back (a note changed on both sides keeps both versions). A Sync tile in quick
-  settings, optional sync on wake, and the server's certificate checked by default (built-in
-  roots, or your own `ca.pem`). See [docs/livesync.md](docs/livesync.md).
-- **Changes on the device.** Tap a task box to tick it; edit a note line by line (with undo);
-  new note, rename and delete (to the vault's `.trash`) from the reading menu. Notes changed here are never overwritten by a LiveSync
-  pull: a newer server copy is saved beside them. See [docs/editing.md](docs/editing.md).
-- **Debug logs**, off by default: Settings → System → Debug Logs saves the device's log to
-  `/debug` on the SD card, to email to me@lefteros.com when something goes wrong. See
-  [docs/debug-logs.md](docs/debug-logs.md).
-- **Import a vault from a ZIP** on the device's web page (File Transfer, then Files →
-  **Import Vault (.zip)**): it lands in `/Vaults/<name>/` ready to open. A
-  [demo vault](demo-vault/VaultInk%20Demo) with notes, pictures and a canvas is in this repo
-  and attached to the releases as `VaultInk-Demo.zip`.
-- **Canvases.** `.canvas` files open in a viewer: the whole board fitted to the screen, cards,
-  groups, labelled arrows, pictures in image cards, and coloured cards shaded gray. Pan with the
-  buttons or swipes, zoom with the + / − / Fit buttons at the bottom right (or Confirm), and tap a
-  card to open its note (or the card's own text). Back returns to the canvas.
-- **Greek and English keyboard** on screen, switched with the globe key.
-- **Comics and manga**, converted with Banana Comic Converter to XTCH or XTC and read like books:
-  see [above](#comics-and-manga-with-banana-comic-converter).
-- **Search settings** by name, with a jump to your notes for the same words.
-- **Home screen rows** in any order, and any of them hidden (Settings → Display → Home Screen Rows / Home Screen Items), with a Favourites row.
-- **Battery page** with charge, voltage, charging and temperature, and (0.58.0) drain per hour asleep and awake after a few days of use (Settings → System → Battery).
-- **Reading stats sleep screen**: reading time today, this week, this month and in total, the last three
-  books, and a month calendar of your progress (Settings → Display → Sleep Screen, 0.51.0).
-- **Lock screen**: a 4-digit PIN or a long press on a corner, asked after 30 minutes asleep
-  (Settings → System → Lock Screen, 0.49.0). The owner's name and phone can show on it and on the
-  sleep screen.
-- **Highlights to a vault note**: a book's clippings written to `Highlights/<title>.md` in your vault, ready for LiveSync.
-- **PDF as text**: a `.pdf` opens as reflowing text (Greek included, two columns in order, filled-in form fields, files locked
-  only against copying (RC4, AES-128 and AES-256, with an empty password), three and four columns in order); scans and pictures are not read. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text).
-- **Folders tab** (0.56.0): the Library's fifth tab lists the card's folders with their book counts.
-- **Format filter** (0.58.0): a gear in the Library header picks which book types are listed (EPUB, PDF, TXT, Markdown, XTC, CBZ); PDFs are listed too. Also under Settings → Library → Book formats.
-- **Reading streaks** (0.56.0): the sleep screen shows your current and best streak and the books you finished.
-- **VaultEUC** (0.62.0): Home → Plugins → VaultEUC, an electric unicycle companion over Bluetooth: Begode, Veteran/Leaperkim, KingSong, InMotion, Ninebot and VESC wheels, live numbers every 5 to 30 seconds, alarms, ride logs on the SD card and a list of your wheels; a demo wheel runs without hardware. Not for use while riding; not tried on a real wheel yet. [docs/vaulteuc.md](docs/vaulteuc.md).
-- **Dice** (0.61.0): a built-in roller, Home → Plugins → Dice. Polyhedral dice with advantage and keep-highest, World of Darkness, Vampire V5 (Hunger, Willpower reroll, Rouse), Chronicles of Darkness, Fate, PbtA, Blades in the Dark, Call of Cthulhu, Shadowrun, Savage Worlds, Year Zero and Cyberpunk Red. **Library tab order**: Settings → Library → Tab order.
-- **Library by progress** (0.60.0): in the Library, with Recent open, a bar offers Recent, ↑% (most read first) and ↓% (least read first); each book shows its percent next to the author. **Random page!** is an optional Home item (Settings → Display → Home screen items) that opens a random page of a random EPUB without touching your place. **Paper contrast** is a slider in Settings → Reader → Paper Button Cycle, with a preview of every background.
-- **Sudoku** (0.59.0): a built-in game, Home → Plugins → Sudoku. Three levels, pencil notes, undo, hints, and it saves where you left off.
-- **Search in a book**: the reading menu's Search in Book finds a word or phrase (case and accents don't matter) and lists each hit with its chapter and position (0.57.0: it reads the book's text directly, so it is quick and Back stops it at once). 0.58.0 shades the words on the page and adds a bar to step through the hits or go back to where you were. 0.59.0 adds Settings → Reader → Search word with partial or exact match. 0.60.0 starts at the chapter you are in, shows the last result again for the same words, and can keep a per-book index (Search word → Index books) so repeat searches skip chapters that cannot hold the words. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-a-book).
-- **Flashcards**: cards written in your notes (`Front::Back`, `?` lines, `{{clozes}}` in notes tagged
-  `#flashcards`), reviewed with spaced repetition from Vaults → Flashcards. [docs/flashcards.md](docs/flashcards.md).
-- **Favourites**: a Library tab for the books you mark, from the reading menu or the Recent tab.
-- **Book info** on a long press, and an **All | Books only** switch in the Library that hides the vault notes.
-- **Authors as folders**: the Library's Author tab can show one folder per author.
-  See [docs/reading-and-files.md](docs/reading-and-files.md#favourites-0310).
-- **Page backgrounds**, from plain to papyrus to bath towel, [mostly for fun](#page-backgrounds).
-- **A new home screen.** The book you're reading sits at the top, followed by Books and Vaults, then
-  Files, Transfer, Plugins and Settings. Every row says in one line what's behind it. You can use
-  touch or the buttons. CrossPoint's own home styles are still there under Settings → Display.
-- **Quick settings.** Swipe down from the top, or tap the status bar, for brightness, warmth, night
-  mode, refresh, orientation, sleep, file transfer and home. Inside a book the panel also shows the
-  title and how far you've read.
-- **Settings by task.** Settings are grouped under Reading and Device. Each group says what's in it.
-- **Greek.** A full Greek interface, monotonic and polytonic Greek in the interface fonts, and Greek
-  hyphenation for both. The built-in reading font has Greek too, polytonic included, so Greek books
-  and notes read out of the box. SD-card fonts with Greek (Literata, Noto Serif, Gentium Book Plus)
-  work as well.
-- **File browser actions.** Long-press a file or folder for Open, Delete, Rename, Move, Copy and
-  New folder; Extract here for a .zip; Open as gallery for a folder.
-- **Tap zones.** Turn pages by tapping anywhere, or only in the corners (Settings → Controls).
-- **Gallery.** Home → Gallery: the pictures on the card as a grid, with View, Delete, Move, Copy. Phone photos
-  (JPEG up to 50 MP), a refresh button, and a gear to show all, PNG only, vault pictures or chosen folders.
-- **What's New.** After an update the device shows what changed (Settings → System → What's New). Move and Copy open a folder picker; nothing overwrites a file with the same name, and
-  a copy that runs out of space leaves nothing half-written.
-- **Reading layout.** Line spacing in eleven steps (0 to 10), a Hide Status Bar switch, and
-  hyphenation on by default, and an Even Word Gaps option for justified text. The battery percent
-  shows on the sleep screen. All of it in
-  [docs/reading-and-files.md](docs/reading-and-files.md).
-- **A welcome guide** on the first start, described [above](#getting-started).
-- **Updates.** The device checks this repository's releases for new versions.
-
 ## What's coming
 
-The [roadmap](ROADMAP.md) has the details and the order. In short:
+The [roadmap](ROADMAP.md) has the details and the order. Open items right now:
 
-1. **The vault reader.** Open a vault from the SD card, browse folders, read notes with their links,
-   embeds, callouts, tasks and tables, and search, with Greek accents taken into account.
-2. **Canvas files**, read only (the first version is in: viewing, pan, zoom, open a card).
-3. **Obsidian LiveSync**, so a vault stays in step with your other devices (pull is in; push comes
-   with editing).
-4. **Editing notes** on the device, then a **Bluetooth keyboard**.
-5. **An Android companion app** (in `companion/` in this repo, released separately; the first
-   version, `companion-0.1.0`, is out). It does: quick notes and sharing into a vault, the whole SD card (upload, download, rename,
-   move, delete) and the device settings from the phone. Since `companion-0.3.0`, books and comics
-   shared from other apps go straight to the reader's Books or Comics folder. Since `companion-0.4.0`,
-   notes and shares made while the reader can't be reached wait on the phone and are sent when it's
-   found. Later: typing into the
-   device and bringing in notes from other apps. Guide: [docs/companion.md](docs/companion.md).
+- Real-device testing of the newest features, above all VaultEUC with a real wheel and the Bluetooth client.
+- Library tab order was added in 0.61.0; the XTCH refresh choice and a few share-to-reader edge cases wait for device tests.
+- A Bluetooth keyboard for editing, and typing into the device from the companion app.
 
-   <p>
-     <img src="docs/images/companion/1-note.png" width="190" alt="Companion: a quick note into a vault">
-     <img src="docs/images/companion/2-files.png" width="190" alt="Companion: the reader's SD card">
-     <img src="docs/images/companion/3-settings.png" width="190" alt="Companion: the reader's settings">
-     <img src="docs/images/companion/0-noreader.png" width="190" alt="Companion: no reader found, with the app update check">
-   </p>
-   <p>
-     <img src="docs/images/companion/5-share.png" width="300" alt="Companion: a book shared from the file manager, sent to the reader">
-   </p>
+The companion app lives in `companion/` in this repo and is released separately (guide: [docs/companion.md](docs/companion.md)).
 
-The full feature list is in [SPECS.md](SPECS.md), and what is in and out of scope is in
-[SCOPE.md](SCOPE.md).
+<p>
+  <img src="docs/images/companion/1-note.png" width="190" alt="Companion: a quick note into a vault">
+  <img src="docs/images/companion/2-files.png" width="190" alt="Companion: the reader's SD card">
+  <img src="docs/images/companion/3-settings.png" width="190" alt="Companion: the reader's settings">
+  <img src="docs/images/companion/0-noreader.png" width="190" alt="Companion: no reader found, with the app update check">
+</p>
+
+What is in and out of scope is in [SCOPE.md](SCOPE.md).
 
 ## Installing
 
