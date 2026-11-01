@@ -5,9 +5,7 @@
 #include <atomic>
 #include <cstdint>
 
-#if defined(ESP_PLATFORM)
-#include <esp_random.h>
-#endif
+#include "util/Entropy.h"
 
 // "Random page!" on the home (kos25k #15): the home picks a book and asks the reader to open it on a
 // random page, as a look that saves nothing (the return arrow goes back to the reader's own place).
@@ -22,12 +20,8 @@ inline std::atomic<bool>& pending() {
 inline void request() { pending().store(true); }
 inline bool take() { return pending().exchange(false); }
 
-inline uint32_t random32() {
-#if defined(ESP_PLATFORM)
-  return esp_random();
-#else
-  return static_cast<uint32_t>(millis()) * 2654435761u ^ static_cast<uint32_t>(micros());
-#endif
-}
+// Every random pick in the reader (Random page!, the dice) takes its seed from src/util/Entropy.h: the chip's
+// generator mixed with the date and time and the battery percentage and voltage.
+inline uint32_t random32() { return entropy::seed(); }
 
 }  // namespace randompage

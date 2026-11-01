@@ -1,6 +1,7 @@
 #pragma once
 #include <FreeInkUIGfxRenderer.h>
 #include <GfxRenderer.h>
+#include <TextInput.h>
 
 #include <atomic>
 #include <cstdint>
@@ -43,6 +44,8 @@ class KeyboardEntryActivity : public Activity {
   size_t maxLength;
   InputType inputType;
   bool passwordVisible = false;
+  static constexpr size_t kTypedMaxBytes = 4000;  // the limit for typed text when the caller set none
+  bool drainTypedInput();
   std::function<void()> gearAction;
 
   ButtonNavigator buttonNavigator;

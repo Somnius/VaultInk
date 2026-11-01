@@ -433,6 +433,56 @@ curl -X POST \
   http://vaultink.local/api/wifi/delete
 ```
 
+## LiveSync API
+
+### `POST /api/livesync/setup`
+
+Saves a LiveSync Setup URI pasted on the Settings page. It stays encrypted on the card until the
+device's LiveSync screen unlocks it with the passphrase typed there.
+
+```bash
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"uri":"obsidian://setuplivesync?settings=..."}' http://vaultink.local/api/livesync/setup
+```
+
+`400` for a body that isn't a Setup URI, `500` when the card can't be written.
+
+### `GET /api/livesync/status` (0.63.0)
+
+What the companion app's LiveSync card shows. Read-only.
+
+```bash
+curl http://vaultink.local/api/livesync/status
+```
+
+```json
+{
+  "configured": true,
+  "pendingSetup": false,
+  "unlocked": true,
+  "running": false,
+  "canSync": false,
+  "vault": "Notes",
+  "lastResult": "12 notes pulled, 1 sent",
+  "lastAttempt": 1762000000,
+  "autoHours": 6,
+  "canPush": true
+}
+```
+
+- `configured`: a LiveSync profile is saved. `unlocked` is the same value: the passphrase is typed
+  once on the device and the derived key is kept on the card, so a saved profile is usable.
+- `pendingSetup`: a Setup URI was posted (above) and the device hasn't unlocked it yet.
+- `vault`, `lastResult` (the LiveSync screen's own summary or error text), `lastAttempt` (epoch
+  seconds of the last *automatic* try, 0 for none; manual syncs aren't timestamped), `autoHours`,
+  `canPush`: only when configured. Secrets are never returned.
+- `running` is always `false` and `canSync` always `false` today: a sync runs in the LiveSync
+  screen, not next to the web server. Leaving File Transfer turns Wi-Fi off and restarts the device
+  (`CrossPointWebServerActivity::onExit`), and the pull engine's HTTPS session doesn't fit the heap
+  the File Transfer screen already runs at the edge of, so there is no `POST /api/livesync/sync`
+  yet. The companion shows **Sync now** only when `canSync` is true, so a later firmware can add
+  the endpoint without an app change.
+
 ## WebSocket Upload
 
 ### Port 81

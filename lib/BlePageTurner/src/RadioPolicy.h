@@ -82,6 +82,10 @@ struct RadioInputs {
   Heap heap;
   bool connectionBusy = false;
   bool hasBond = false;  // a remote has been chosen (Config::peerAddr): a book or Home starts the radio only for one
+  // Text entry (Where::TextEntry): the option is on, and some device is bonded (a keyboard bonds without
+  // becoming the chosen remote, so the bond list is what counts, not peerAddr).
+  bool keyboardTyping = false;
+  bool anyBond = false;
 };
 
 // The ONE answer to "may the radio be on now". Everything that starts, keeps or stops the
@@ -100,6 +104,13 @@ constexpr Why radioVerdict(const RadioInputs& in, const Profile& profile = activ
         if (!in.pageShown) return Why::PageNotShown;
         return in.idleStopped ? Why::IdleNoLink : Why::Ok;
       }
+      // A text-entry screen with keyboard typing on: the same heap rules as Home (S3 only, its heap whole
+      // enough for the stack beside the screen). With the option off it is just another screen.
+      if (in.where == Where::TextEntry) {
+        if (!in.keyboardTyping || profile.homeStartLargest == 0) return Why::NotReading;
+        if (!in.anyBond) return Why::NoBond;
+        return in.idleStopped ? Why::IdleNoLink : Why::Ok;
+      }
       if (in.where != Where::Reader) return Why::NotReading;
       if (!in.hasBond) return Why::NoBond;
       if (!in.pageShown) return Why::PageNotShown;
@@ -115,7 +126,7 @@ constexpr Why radioVerdict(const RadioInputs& in, const Profile& profile = activ
       if (in.storageBusy) return Why::StorageBusy;
       // A start at Home needs the block the reader will want after the stack; a refusal there is HeapLow, which
       // never asks for a restart into the book (there is none to restart into).
-      if (in.where == Where::Home) {
+      if (in.where == Where::Home || in.where == Where::TextEntry) {
         return stackFits && in.heap.largestBlock >= profile.homeStartLargest ? Why::Ok : Why::HeapLow;
       }
       if (stackFits) return Why::Ok;

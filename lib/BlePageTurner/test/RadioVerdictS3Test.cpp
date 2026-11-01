@@ -55,6 +55,75 @@ TEST(RadioVerdictS3Test, TheNumbersAreTheMeasuredOnesPlusMargin) {
   EXPECT_LE(kS3Profile.startFreeBytes, kHomeBefore.freeBytes);
 }
 
+// A text-entry screen (the note editor's line, a search field) with a Bluetooth keyboard.
+RadioInputs textEntry(const Phase phase) {
+  RadioInputs in{};
+  in.phase = phase;
+  in.enabled = true;
+  in.where = Where::TextEntry;
+  in.keyboardTyping = true;
+  in.anyBond = true;
+  in.heap = kHomeBefore;
+  return in;
+}
+
+TEST(RadioVerdictS3Test, TextEntryStartsOnlyWithTypingOnAndABond) {
+  EXPECT_EQ(radioVerdict(textEntry(Phase::Idle), kS3Profile), Why::Ok);
+  RadioInputs off = textEntry(Phase::Idle);
+  off.keyboardTyping = false;
+  EXPECT_EQ(radioVerdict(off, kS3Profile), Why::NotReading) << "the option off: just another screen";
+  RadioInputs noBond = textEntry(Phase::Idle);
+  noBond.anyBond = false;
+  EXPECT_EQ(radioVerdict(noBond, kS3Profile), Why::NoBond);
+  RadioInputs chosenOnly = textEntry(Phase::Idle);
+  chosenOnly.hasBond = true;
+  chosenOnly.anyBond = false;
+  EXPECT_EQ(radioVerdict(chosenOnly, kS3Profile), Why::NoBond) << "the bond list counts, not the chosen remote";
+  RadioInputs keyboardOnly = textEntry(Phase::Idle);
+  keyboardOnly.hasBond = false;
+  EXPECT_EQ(radioVerdict(keyboardOnly, kS3Profile), Why::Ok) << "a keyboard bonded beside no chosen remote";
+  RadioInputs disabled = textEntry(Phase::Idle);
+  disabled.enabled = false;
+  EXPECT_EQ(radioVerdict(disabled, kS3Profile), Why::Off) << "the Bluetooth switch rules both";
+  RadioInputs busy = textEntry(Phase::Idle);
+  busy.storageBusy = true;
+  EXPECT_EQ(radioVerdict(busy, kS3Profile), Why::StorageBusy);
+  RadioInputs idle = textEntry(Phase::Idle);
+  idle.idleStopped = true;
+  EXPECT_EQ(radioVerdict(idle, kS3Profile), Why::IdleNoLink);
+  RadioInputs unshown = textEntry(Phase::Idle);
+  unshown.pageShown = false;
+  unshown.bookIndexing = true;
+  EXPECT_EQ(radioVerdict(unshown, kS3Profile), Why::Ok) << "the book's conditions do not apply to a text field";
+  EXPECT_EQ(radioVerdict(textEntry(Phase::Idle), kX3Profile), Why::NotReading) << "X3: no heap for it";
+}
+
+TEST(RadioVerdictS3Test, TextEntryStartHasTheHeapRulesOfHome) {
+  EXPECT_EQ(radioVerdict(textEntry(Phase::BeforeStart), kS3Profile), Why::Ok);
+  RadioInputs tight = textEntry(Phase::BeforeStart);
+  tight.heap = kLiteBookBefore;  // enough for a book start, not for Home's rule
+  EXPECT_EQ(radioVerdict(tight, kS3Profile), Why::HeapLow);
+  EXPECT_EQ(radioVerdict(textEntry(Phase::JustStarted), kS3Profile), Why::Ok);
+  RadioInputs after = textEntry(Phase::JustStarted);
+  after.heap = kHomeAfter;
+  EXPECT_EQ(radioVerdict(after, kS3Profile), Why::Ok);
+  RadioInputs running = textEntry(Phase::Running);
+  running.linked = true;
+  EXPECT_EQ(radioVerdict(running, kS3Profile), Why::Ok);
+  running.linked = false;
+  running.idleMs = kIdleOffMs;
+  EXPECT_EQ(radioVerdict(running, kS3Profile), Why::IdleNoLink);
+}
+
+TEST(RadioVerdictS3Test, ElsewhereStillRefusesWithTypingOff) {
+  RadioInputs in = textEntry(Phase::Idle);
+  in.where = Where::Elsewhere;
+  in.keyboardTyping = false;
+  EXPECT_EQ(radioVerdict(in, kS3Profile), Why::NotReading);
+  in.keyboardTyping = true;
+  EXPECT_EQ(radioVerdict(in, kS3Profile), Why::NotReading) << "only a reported text-entry screen counts";
+}
+
 TEST(RadioVerdictS3Test, TheDefaultProfileIsStillTheX3One) {
   EXPECT_EQ(kStackBytes, 49152u);
   EXPECT_EQ(kStartFreeBytes, 81920u);

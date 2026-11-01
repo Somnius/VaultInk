@@ -33,9 +33,12 @@ struct Heap {
 };
 
 // The saved settings. ConfigJson reads and writes them under the keys blePageTurnerEnabled,
-// blePick, blePeerAddr, blePeerName, blePrevKeyUsage, bleNextKeyUsage and bleRemotes.
+// bleKeyboardTyping, blePick, blePeerAddr, blePeerName, blePrevKeyUsage, bleNextKeyUsage and bleRemotes.
 struct Config {
   uint8_t enabled = 0;
+  // A Bluetooth keyboard may type into the text-entry screens (Where::TextEntry). Off: those screens
+  // never start the radio and the page turner behaves as before. Needs `enabled` too.
+  uint8_t keyboardTyping = 0;
   uint8_t pick = 1;  // 1: the first remote to come up; 0: the chosen remote first
   char peerAddr[18] = "";
   char peerName[32] = "";
@@ -130,8 +133,10 @@ struct Host {
 };
 
 // Home is the first screen after boot with its first frame up; only a build with the S3 profile
-// (RadioPolicy.h) lets the radio start there.
-enum class Where : uint8_t { Elsewhere, Reader, PairingScreen, Home };
+// (RadioPolicy.h) lets the radio start there. TextEntry is a text-entry screen (the note editor's line, a
+// search field) in front: the host reports it with setTextEntry(), and the radio runs there only with
+// Config::keyboardTyping on, a bond of any kind and the S3 profile; its keys are typed, never page turns.
+enum class Where : uint8_t { Elsewhere, Reader, PairingScreen, Home, TextEntry };
 
 // Host -> module, once per main-loop pass.
 struct Scene {
@@ -148,6 +153,14 @@ struct Scene {
 
 void begin(const Host& host, Config& config);
 void requestConnect();
+// A text-entry screen came in front (true) or left (false). While it is in front a Scene reported as
+// Elsewhere counts as Where::TextEntry. Main loop.
+void setTextEntry(bool inFront);
+bool textEntry();
+// The layout a keyboard's key positions are read with while typing (textinput::Layout). Main loop.
+enum class KeyboardLayout : uint8_t { Us, Greek };
+void setKeyboardLayout(KeyboardLayout layout);
+KeyboardLayout keyboardLayout();
 // Returns true when a remote press acted this pass (the host counts it as user activity).
 bool tick(const Scene& scene);
 // False: the radio is still stopping (or a start is in flight); call again next pass before

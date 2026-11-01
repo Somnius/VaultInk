@@ -1,6 +1,6 @@
-// The module depends only on the SDK's BleKeyboardHost, ArduinoJson and the C++ library; the
-// chip's headers only in SdkRadio.cpp. Any other include (a host's settings, activities,
-// renderer, HAL) would tie the module to one host and break its extraction.
+// The module depends only on the SDK's BleKeyboardHost, ArduinoJson, the typed-input ring (lib/TextInput, itself
+// platform-free) and the C++ library; the chip's headers only in SdkRadio.cpp. Any other include (a host's settings,
+// activities, renderer, HAL) would tie the module to one host and break its extraction.
 
 #include <gtest/gtest.h>
 
@@ -40,6 +40,7 @@ TEST(BlePageTurnerSourceContractTest, IncludesStayInsideTheAllowList) {
         if (name == "BleRemoteProfiles.h" && file == "BleKeyBinding.h") continue;
         if (name == "ArduinoJson.h" && file == "BlePageTurnerJson.h") continue;
         if (kSdkRadioOnly.count(name) && file == "SdkRadio.cpp") continue;
+        if (name == "TextInput.h" && file == "Runtime.cpp") continue;
         outside += file + ": " + name + "\n";
       }
     }

@@ -15,7 +15,7 @@
 namespace fui = freeink::ui;
 
 namespace {
-enum class MenuAction : int16_t { Enable, Scan, Paired, Mapping };
+enum class MenuAction : int16_t { Enable, KeyboardTyping, Scan, Paired, Mapping };
 constexpr bleturner::Action MAP_ACTIONS[] = {bleturner::Action::NextPage,    bleturner::Action::PrevPage,
                                              bleturner::Action::NextChapter, bleturner::Action::PrevChapter,
                                              bleturner::Action::Confirm,     bleturner::Action::Back,
@@ -147,6 +147,12 @@ void BleSettingsActivity::refresh() {
       enable.subtitle = status.c_str();
       enable.toggle = true;
       enable.toggleChecked = SETTINGS.ble.enabled != 0;
+      // A paired keyboard types into the text-entry screens (note editor line, search). Off by default: the
+      // page turner then behaves as before.
+      auto& typing =
+          add(tr(STR_BLE_KEYBOARD_TYPING), static_cast<int16_t>(MenuAction::KeyboardTyping), SETTINGS.ble.enabled != 0);
+      typing.toggle = true;
+      typing.toggleChecked = SETTINGS.ble.keyboardTyping != 0;
       add(tr(STR_BT_SCAN), static_cast<int16_t>(MenuAction::Scan), st.running);
       add(tr(STR_BT_PAIRED_REMOTES), static_cast<int16_t>(MenuAction::Paired), st.running);
       auto& mapping = add(tr(STR_BT_MAP_BUTTONS), static_cast<int16_t>(MenuAction::Mapping), st.connected);
@@ -208,6 +214,10 @@ void BleSettingsActivity::activateIndex(const int index) {
             bleturner::switchOn();
           else
             bleturner::switchOff();
+          SETTINGS.saveToFile();
+          break;
+        case MenuAction::KeyboardTyping:
+          SETTINGS.ble.keyboardTyping = SETTINGS.ble.keyboardTyping ? 0 : 1;
           SETTINGS.saveToFile();
           break;
         case MenuAction::Scan:

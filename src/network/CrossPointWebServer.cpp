@@ -274,6 +274,7 @@ void CrossPointWebServer::begin() {
   server->on("/api/wifi", HTTP_POST, [this] { handlePostWifiNetwork(); });
   server->on("/api/wifi/delete", HTTP_POST, [this] { handleDeleteWifiNetwork(); });
   server->on("/api/livesync/setup", HTTP_POST, [this] { handleLiveSyncSetup(); });
+  server->on("/api/livesync/status", HTTP_GET, [this] { handleLiveSyncStatus(); });
 
   server->onNotFound([this] { handleNotFound(); });
   LOG_DBG("WEB", "[MEM] Free heap after route setup: %d bytes", ESP.getFreeHeap());
@@ -1846,6 +1847,37 @@ void CrossPointWebServer::handleLiveSyncSetup() {
     return;
   }
   server->send(200, "text/plain", "OK");
+}
+
+// What the companion app shows on its LiveSync card. Read-only: a sync can't be started from here,
+// because a sync runs in the LiveSync screen and leaving File Transfer restarts the device (its
+// onExit turns Wi-Fi off and calls silentRestart), and running the pull engine's HTTPS session
+// next to this server would not fit the heap this screen already runs at the edge of.
+void CrossPointWebServer::handleLiveSyncStatus() const {
+  JsonDocument doc;
+  const bool configured = livesyncdev::hasProfile();
+  doc["configured"] = configured;
+  // A Setup URI pasted on the web page that the device hasn't unlocked with its passphrase yet.
+  doc["pendingSetup"] = livesyncdev::hasPendingSetup();
+  // The passphrase is typed once, on the device; the derived key stays on the card, so a saved
+  // profile is an unlocked one.
+  doc["unlocked"] = configured;
+  doc["running"] = false;
+  doc["canSync"] = false;
+  if (configured) {
+    livesyncdev::Profile profile;
+    if (livesyncdev::load(profile)) {
+      doc["vault"] = profile.vaultName;
+      doc["lastResult"] = profile.lastResult;    // the LiveSync screen's own summary or error text
+      doc["lastAttempt"] = profile.lastAttempt;  // epoch seconds of the last automatic try; 0 = none
+      doc["autoHours"] = profile.autoHours;
+      doc["canPush"] = profile.canPush();
+      livesyncdev::wipeProfile(profile);
+    }
+  }
+  String response;
+  serializeJson(doc, response);
+  server->send(200, "application/json", response);
 }
 
 void CrossPointWebServer::handleDeleteWifiNetwork() {

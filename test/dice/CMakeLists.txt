@@ -1,5 +1,6 @@
 add_executable(DiceTest
   DiceTest.cpp
+  EntropyTest.cpp
   ${REPO_ROOT}/lib/Dice/Dice.cpp
 )
 

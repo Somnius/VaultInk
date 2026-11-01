@@ -41,6 +41,7 @@ In this order, each also listed in its phase below:
 7. Phase 4 leftover: ✅ 0.38.0 links rewritten when a note is renamed (wiki-links).
 
 ✅ 0.59.0: kos25k #24 Search word settings (Settings > Reader > Search word), partial/exact match, gear in Search in Book, longer result lines, arrows further apart; #6 Info (size, modified date/time) on every file and folder in Browse Files; Sudoku, a built-in game in Home > Plugins (lib/Sudoku).
+✅ 0.63.0: dice seed from the date/time + battery percent + battery voltage + the chip's generator; Focus timer and Habits (Home > Plugins); Excalidraw viewer (.excalidraw and .excalidraw.md, uncompressed); Bluetooth keyboard typing (off by default, untested with a keyboard); companion 0.5.0 built, not released (LiveSync status, Keep Takeout importer). Open: sync from the phone and typing from the phone (the web server cannot run next to a sync or an editor), compressed Excalidraw, a real keyboard test.
 ✅ 0.62.0: VaultEUC (lib/Euc protocols for Begode, Veteran, KingSong, InMotion V1/V2, Ninebot S/E/Z, VESC with a fake wheel for each; src/euc Bluetooth client; VaultEucActivity; docs/vaulteuc.md); kos25k #24 gear on the keyboard screen, Search range in the gear, fuller result lines. Open: everything needs a real wheel (protocol points marked UNVERIFIED, InMotion V13/V14 handshake); after 0.62.0 the GitHub page and site get a refactor with new screenshots.
 ✅ 0.61.0: Dice roller (lib/Dice engine, DiceActivity, second built-in row of Home > Plugins: polyhedral with advantage/keep/explode, oWoD, V5 with Willpower reroll and Rouse, CoD, Fate, PbtA, Blades, CoC, Shadowrun, Savage Worlds, Year Zero, Cyberpunk Red); Library tab order (Settings > Library > Tab order); Random page! also for CBZ, XTC and PDF; percent in the Author tab; HomeRows saved only 32 bits; upload end with a hung-up client. Still open: the XTCH refresh choice (needs the device); the contrast slider stays a separate screen.
 ✅ 0.60.0: kos25k #15 Recent tab ↑%/↓% sorts and percent beside the author, "Random page!" home item (off by default); #1 paper contrast slider with a preview of every background; after-update home showing the CrossPoint home (the companion QR skipped the home set-up); #9 the What's New note is no longer put in the recents or on the home card; #18 Settings > Library > Open on tab (the default tab; reordering the tabs is not done); #24 the gear at the right edge and result lines that fill the row; Search in Book starts at the current chapter, shows the last result again for the same words, and has an opt-in per-book trigram index (Settings > Reader > Search word > Index books).
@@ -513,11 +514,19 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   written with no reader, into a vault the app saw before. Tested on a phone against the
   simulator (a note kept offline, sent after connecting; a comic shared from the Files app with no reader, kept as "1 item waiting" and sent after connecting, same size on the card).
 * 💤 Type into the device from the phone (live keyboard).
-* 💤 Bring notes in: convert to Markdown into a vault folder (e.g. `Imported/Keep/`). Order:
-  Google Keep (Takeout) -> Samsung Notes (`.sdocx` export) -> contacts (one note per contact plus a
+* 🚧 `companion-0.5.0` (in progress): **Bring notes in** for Google Keep (Takeout `.zip` or the
+  unzipped `Takeout/Keep` folder, through the document picker): each note becomes Markdown with
+  front matter (created, updated, tags from labels, source: keep), `# Title`, text, checklists as
+  `- [ ]`/`- [x]`; bin skipped, archived kept, attachments left out; count shown before sending,
+  progress, outbox when the reader is away. Pure Kotlin converter with JUnit tests. Plus a
+  **LiveSync card** on the Device tab reading the new `GET /api/livesync/status` (firmware 0.63.0);
+  Sync now is shown only when the firmware reports `canSync`, which it doesn't yet (a sync runs on
+  the reader's LiveSync screen; leaving File Transfer restarts the device). Not yet tested on a phone.
+* 💤 Bring notes in, the rest: Samsung Notes (`.sdocx` export) -> contacts (one note per contact plus a
   `.vcf` backup) -> formats Obsidian's Importer handles. Other apps' private databases can't be read
   without root, so only exports and sharing.
-* 💤 Show LiveSync status and start a sync from the phone.
+* 💤 Start a LiveSync sync from the phone (`POST /api/livesync/sync`): needs a sync that runs next
+  to the web server, or a File Transfer exit that hands over to the LiveSync screen without the restart.
 
 ## 💤 Phase 7 - PDF trial
 

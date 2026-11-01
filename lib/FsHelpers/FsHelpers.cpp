@@ -186,6 +186,10 @@ bool hasPdfExtension(std::string_view fileName) { return checkFileExtension(file
 
 bool hasCanvasExtension(std::string_view fileName) { return checkFileExtension(fileName, ".canvas"); }
 
+bool hasExcalidrawExtension(std::string_view fileName) {
+  return checkFileExtension(fileName, ".excalidraw") || checkFileExtension(fileName, ".excalidraw.md");
+}
+
 bool hasReflowableBookExtension(std::string_view fileName) {
   return hasEpubExtension(fileName) || hasTxtExtension(fileName) || hasMarkdownExtension(fileName);
 }

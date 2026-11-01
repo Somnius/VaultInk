@@ -2,6 +2,19 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.63.0 (2026-11-01)
+
+A Focus timer, Habits, Excalidraw drawings, Bluetooth keyboard typing, a better dice seed, and companion 0.5.0.
+
+- **Dice seed**: every roll now starts from the chip's random generator mixed with the date and time, the battery percentage and the battery voltage, the clock's jitter and a counter. Sudoku puzzles and Random page! use it too.
+- **Focus timer** (Home > Plugins): a Pomodoro timer. Focus, short break, long break, a long break after a set number of focuses. It follows the clock, so a sleeping reader still knows when the phase ended. Finished phases are logged to /.vaultink/focus.tsv. Keep-awake and vibrate-at-the-end are options.
+- **Habits** (Home > Plugins): up to 16 daily habits, each with its last seven days as boxes, a streak and a total. Saved as a plain text file in /.vaultink/habits.txt.
+- **Excalidraw viewer**: .excalidraw files and the Obsidian plugin's .excalidraw.md open in a viewer like the canvas one (fit, pan, zoom). Rectangles, ellipses, diamonds, lines, arrows, free drawing and text. Compressed drawings cannot be read yet.
+- **Bluetooth keyboard typing** (Settings > Connectivity > Bluetooth Page Turner, off by default): a paired Bluetooth keyboard types into the on-screen keyboard's line, US and Greek. Not tried with a real keyboard.
+- **Companion 0.5.0** (not released yet): a LiveSync status card and Bring notes in, a Google Keep Takeout importer. The reader has a new GET /api/livesync/status.
+
+Not done: starting a LiveSync sync from the phone and typing from the phone into the reader. Both need the web server and a sync or an editor at the same time, which the reader cannot do safely. Tested in the simulator and on the computer; not on a device.
+
 ## 0.62.0 (2026-11-01)
 
 VaultEUC, an electric unicycle companion, and three more Search in Book changes (kos25k #24).

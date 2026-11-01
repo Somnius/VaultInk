@@ -41,6 +41,7 @@
 #include "util/VaultNavigation.h"
 #include "util/WelcomeGuideActivity.h"
 #include "vault/CanvasActivity.h"
+#include "vault/ExcalidrawActivity.h"
 #include "vault/LiveSyncActivity.h"
 #include "vault/VaultPickerActivity.h"
 #include "vault/VaultSearchActivity.h"
@@ -374,6 +375,16 @@ void ActivityManager::goToReader(std::string path, const bool allowFastInitialRe
 
   // A note saved on the device may have been cut off mid-save: put its complete temp file back.
   if (FsHelpers::hasMarkdownExtension(path)) vaultedit::recoverTmp(path);
+
+  if (FsHelpers::hasExcalidrawExtension(path)) {
+    auto activity = makeUniqueNoThrow<ExcalidrawActivity>(renderer, mappedInput, std::move(path));
+    if (!activity) {
+      LOG_ERR("ACT", "OOM: excalidraw activity");
+      return;
+    }
+    replaceActivity(std::move(activity));
+    return;
+  }
 
   if (FsHelpers::hasCanvasExtension(path)) {
     auto activity = makeUniqueNoThrow<CanvasActivity>(renderer, mappedInput, std::move(path));

@@ -29,6 +29,7 @@ add_library(bleturner_test_flags INTERFACE)
 target_include_directories(bleturner_test_flags INTERFACE
   ${BLETURNER_ROOT}/include ${BLETURNER_ROOT}/src
   ${BLETURNER_ROOT}/../../freeink-sdk/libs/network/BleKeyboardHost/include
+  ${BLETURNER_ROOT}/../TextInput
 )
 target_compile_options(bleturner_test_flags INTERFACE -Wall -Wextra -Werror)
 
@@ -46,19 +47,22 @@ target_link_libraries(BlePageTurnerPolicyTest PRIVATE bleturner_test_flags GTest
 gtest_discover_tests(BlePageTurnerPolicyTest)
 
 # The runtime against a fake radio and a fake host.
-add_executable(BlePageTurnerRuntimeTest RuntimeTest.cpp TickTest.cpp LinkNoteTest.cpp RequestConnectTest.cpp Fakes.cpp ${BLETURNER_ROOT}/src/Runtime.cpp)
+# The typed-input ring and translator as the runtime tests see them (FakeTextInput.cpp): a US map of a few keys,
+# so the routing is tested without lib/TextInput's own implementation.
+set(BLETURNER_RUNTIME_FAKES Fakes.cpp FakeTextInput.cpp)
+add_executable(BlePageTurnerRuntimeTest RuntimeTest.cpp TickTest.cpp LinkNoteTest.cpp RequestConnectTest.cpp ${BLETURNER_RUNTIME_FAKES} ${BLETURNER_ROOT}/src/Runtime.cpp)
 target_compile_definitions(BlePageTurnerRuntimeTest PRIVATE BLETURNER_TESTING)
 target_link_libraries(BlePageTurnerRuntimeTest PRIVATE bleturner_test_flags GTest::gtest_main)
 gtest_discover_tests(BlePageTurnerRuntimeTest)
 
 # The S3 profile of the runtime: NimBLE's host in PSRAM, the radio starting at Home.
-add_executable(BlePageTurnerHomeStartTest HomeStartTest.cpp Fakes.cpp ${BLETURNER_ROOT}/src/Runtime.cpp)
+add_executable(BlePageTurnerHomeStartTest HomeStartTest.cpp TextEntryTest.cpp ${BLETURNER_RUNTIME_FAKES} ${BLETURNER_ROOT}/src/Runtime.cpp)
 target_compile_definitions(BlePageTurnerHomeStartTest PRIVATE BLETURNER_TESTING FREEINK_BLE_STACK_IN_PSRAM=1)
 target_link_libraries(BlePageTurnerHomeStartTest PRIVATE bleturner_test_flags GTest::gtest_main)
 gtest_discover_tests(BlePageTurnerHomeStartTest)
 
 # A build without BLE.
-add_executable(BlePageTurnerNoRadioTest NoRadioTest.cpp ${BLETURNER_ROOT}/src/Runtime.cpp ${BLETURNER_ROOT}/src/NoRadio.cpp)
+add_executable(BlePageTurnerNoRadioTest NoRadioTest.cpp FakeTextInput.cpp ${BLETURNER_ROOT}/src/Runtime.cpp ${BLETURNER_ROOT}/src/NoRadio.cpp)
 target_compile_definitions(BlePageTurnerNoRadioTest PRIVATE BLETURNER_TESTING)
 target_link_libraries(BlePageTurnerNoRadioTest PRIVATE bleturner_test_flags GTest::gtest_main)
 gtest_discover_tests(BlePageTurnerNoRadioTest)

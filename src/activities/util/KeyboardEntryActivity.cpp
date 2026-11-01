@@ -1,6 +1,7 @@
 #include "KeyboardEntryActivity.h"
 
 #include <BidiUtils.h>
+#include <BlePageTurner.h>
 #include <HalGPIO.h>
 #include <I18n.h>
 
@@ -156,6 +157,10 @@ void KeyboardEntryActivity::onEnter() {
   rightLongHandled = false;
   savedCursorPos = 0;
   rightStartCursorPos = 0;
+  textinput::global().clear();    // keys typed before this screen opened are not for it
+  bleturner::setTextEntry(true);  // a Bluetooth keyboard may type here (Settings > Connectivity), off by default
+  bleturner::setKeyboardLayout(layoutId == fui::KeyboardLayoutId::GreekEl ? bleturner::KeyboardLayout::Greek
+                                                                          : bleturner::KeyboardLayout::Us);
   touchRouter.reset();
   touchRouter.holdMs = TOUCH_LONG_PRESS_MS;
   touchRouter.overrideHoldMs = TOUCH_DEL_LONG_PRESS_MS;
@@ -163,7 +168,10 @@ void KeyboardEntryActivity::onEnter() {
   requestUpdate();
 }
 
-void KeyboardEntryActivity::onExit() { Activity::onExit(); }
+void KeyboardEntryActivity::onExit() {
+  bleturner::setTextEntry(false);
+  Activity::onExit();
+}
 
 const fui::KeyboardLayout& KeyboardEntryActivity::currentLayout() const {
   if (symbols) return fui::builtinKeyboardLayout(layoutId, shifted, true);
@@ -300,6 +308,8 @@ bool KeyboardEntryActivity::activateValue(const int16_t value, const bool longPr
       // full-screen e-ink repaint for an unchanged keyboard costs a second.
       if (nextId == layoutId) return false;
       layoutId = nextId;
+      bleturner::setKeyboardLayout(layoutId == fui::KeyboardLayoutId::GreekEl ? bleturner::KeyboardLayout::Greek
+                                                                              : bleturner::KeyboardLayout::Us);
       // Shift is per-layer: carrying it across would strand the new layout in
       // upper case. Row widths differ between scripts (Cyrillic runs 12/11/11
       // against Latin's 10/9/9), so the selection has to be re-clamped.
@@ -540,7 +550,38 @@ fui::Rect KeyboardEntryActivity::keyboardRect() const {
                    static_cast<int16_t>(hasTouch ? pageHeight - y : height)};
 }
 
+// Typed input from a Bluetooth keyboard (or any other source that pushes to textinput::global()): applied to the line
+// like the on-screen keys. Enter finishes the line, Escape cancels. True when the screen was left.
+bool KeyboardEntryActivity::drainTypedInput() {
+  textinput::Event event;
+  bool changed = false;
+  for (int guard = 0; guard < 32 && textinput::global().pop(event); ++guard) {
+    switch (textinput::apply(text, cursorPos, maxLength != 0 ? maxLength : kTypedMaxBytes, event)) {
+      case textinput::Applied::Finished:
+        textinput::global().clear();  // what came after Enter is not for the next field
+        onComplete(text);
+        return true;
+      case textinput::Applied::Cancelled:
+        textinput::global().clear();
+        onCancel();
+        return true;
+      case textinput::Applied::Changed:
+        changed = true;
+        break;
+      case textinput::Applied::Nothing:
+        break;
+    }
+  }
+  if (changed) {
+    cursorMode = false;
+    hintVisible = false;
+    requestUpdate();
+  }
+  return false;
+}
+
 void KeyboardEntryActivity::loop() {
+  if (drainTypedInput()) return;
   int tx = 0;
   int ty = 0;
 

@@ -24,6 +24,35 @@ TEST(BleConfigJsonTest, PickRoundTripsBothPolicies) {
   }
 }
 
+TEST(BleConfigJsonTest, KeyboardTypingRoundTripsAndDefaultsOff) {
+  EXPECT_EQ(Config{}.keyboardTyping, 0) << "off until the user turns it on";
+  for (const uint8_t on : {uint8_t{0}, uint8_t{1}}) {
+    Config original;
+    original.keyboardTyping = on;
+    JsonDocument file;
+    writeJson(original, file);
+    EXPECT_EQ(file["bleKeyboardTyping"].as<uint8_t>(), on);
+    Config loaded;
+    loaded.keyboardTyping = 1 - on;
+    readJson(loaded, file.as<JsonVariantConst>());
+    EXPECT_EQ(loaded.keyboardTyping, on);
+  }
+  // A file from before the option, and a file that says something odd: off.
+  for (const char* json : {"{\"blePageTurnerEnabled\":1}", "{\"bleKeyboardTyping\":\"yes\"}"}) {
+    JsonDocument file;
+    ASSERT_FALSE(deserializeJson(file, json));
+    Config loaded;
+    loaded.keyboardTyping = 1;
+    readJson(loaded, file.as<JsonVariantConst>());
+    EXPECT_EQ(loaded.keyboardTyping, 0) << json;
+  }
+  JsonDocument file;
+  ASSERT_FALSE(deserializeJson(file, "{\"bleKeyboardTyping\":2}"));
+  Config loaded;
+  readJson(loaded, file.as<JsonVariantConst>());
+  EXPECT_EQ(loaded.keyboardTyping, 1) << "any non-zero is on";
+}
+
 TEST(BleConfigJsonTest, MissingOrInvalidPickResetsToFirst) {
   for (const char* json : {"{}", "{\"blePick\":7}", "{\"blePick\":-1}", "{\"blePick\":257}", "{\"blePick\":\"1\"}",
                            "{\"blePick\":true}", "{\"blePick\":1.5}"}) {
@@ -70,7 +99,8 @@ TEST(BleConfigJsonTest, ADeviceFileLoadsAsItIsAndWritesBackTheSameKeys) {
   EXPECT_EQ(out["blePrevKeyUsage"].as<int>(), 1);
   EXPECT_EQ(out["bleNextKeyUsage"].as<int>(), 2);
   EXPECT_TRUE(out["bleRemotes"].isNull()) << "no table, no key";
-  EXPECT_EQ(out.size(), 6u);
+  EXPECT_EQ(out["bleKeyboardTyping"].as<int>(), 0) << "the option from 0.63.0 is written, off";
+  EXPECT_EQ(out.size(), 7u);
 }
 
 TEST(BleConfigJsonTest, AFileFromBeforeThePageTurnerKeepsTheDefaultsAndAsksForASave) {

@@ -130,6 +130,37 @@ points to the maintainer's keystore). Without it, `assembleDebug` still builds a
 
 Kotlin + Jetpack Compose, OkHttp; minSdk 26, targetSdk 36. Package `com.lefteros.vaultink`.
 
+### Bring notes in: Google Keep (0.5.0)
+
+On the Note tab, under **Send**, **Bring notes in** imports a Google Keep export. Export Keep with
+Google Takeout (tick Keep only), then in the dialog pick either the Takeout `.zip` or the unzipped
+`Takeout/Keep` folder (Android's document picker; nothing else on the phone is read). The app
+reads every Keep note JSON and shows a count first ("42 notes ready", "Skipped: 3 in the bin, 2
+files that aren't Keep notes"); **Send** uploads them one by one with a progress bar into
+`Imported/Keep` of the vault chosen above.
+
+Each note becomes a Markdown file: YAML front matter (`created`, `updated`, `tags` from the Keep
+labels, `pinned`/`archived` when set, `source: keep`), a `# Title` heading (the first line of the
+text when there's no title, else "Untitled"), the text, and checklists as `- [ ]` / `- [x]`. Notes
+in Keep's bin are skipped, archived ones are kept. File names are `yyyy-MM-dd HHmm Title.md` (date
+prefix from the note's creation time, title stripped of characters FAT and Obsidian refuse, 60
+characters at most; two with the same name get `-2`, `-3`). Attachments (pictures, drawings,
+recordings) are not imported. If the reader can't be reached, or goes away halfway, the remaining
+notes wait in the outbox like a quick note and are sent the next time the reader is found.
+
+The conversion is in `KeepImport.kt` with JUnit tests (`app/src/test`): run them with
+`./gradlew testDebugUnitTest`.
+
+### LiveSync card (0.5.0)
+
+The Device tab has a LiveSync card read from the reader (`GET /api/livesync/status`, firmware
+0.63.0 or newer; older firmware shows "doesn't report LiveSync yet"). It says whether LiveSync is
+set up, whether a pasted Setup URI still waits for its passphrase on the reader, the vault, the
+last sync's result text as the reader's own LiveSync screen shows it, and the automatic-sync
+interval with the last automatic try. **Sync now** appears only when the reader says it can take a
+sync request from there (`canSync`); today's firmware can't, because a sync runs on the reader's
+LiveSync screen and leaving File Transfer restarts the reader, so the card says to start it there.
+
 ## Releases
 
 Tag `companion-x.y.z`, asset `vaultink-companion-x.y.z.apk`. A companion release is never marked

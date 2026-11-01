@@ -22,6 +22,23 @@ import java.util.concurrent.TimeUnit
 /** What /api/status says about the device. */
 data class DeviceStatus(val version: String, val ip: String, val hotspot: Boolean)
 
+/**
+ * What /api/livesync/status says (firmware 0.63.0+). `lastResult` is the LiveSync screen's own text;
+ * `lastAttempt` is the epoch second of the last automatic try (0 when there was none); `canSync`
+ * says whether the device would accept a sync request from here (it doesn't, so far).
+ */
+data class LiveSyncStatus(
+    val configured: Boolean,
+    val pendingSetup: Boolean,
+    val unlocked: Boolean,
+    val running: Boolean,
+    val canSync: Boolean,
+    val vault: String,
+    val lastResult: String,
+    val lastAttempt: Long,
+    val autoHours: Int,
+)
+
 /** One entry of /api/files. */
 data class Entry(val name: String, val isDirectory: Boolean, val size: Long = 0)
 
@@ -64,6 +81,31 @@ class DeviceClient(host: String) {
         if (code != 200) throw IOException("HTTP $code")
         val json = JSONObject(body)
         return DeviceStatus(json.optString("version"), json.optString("ip"), json.optString("mode") == "AP")
+    }
+
+    /** Null when the firmware has no LiveSync status endpoint (older than 0.63.0). */
+    fun liveSyncStatus(): LiveSyncStatus? {
+        val (code, body) = call(Request.Builder().url(url("api/livesync/status")).build())
+        if (code == 404) return null
+        if (code != 200) throw IOException("HTTP $code")
+        val o = JSONObject(body)
+        return LiveSyncStatus(
+            configured = o.optBoolean("configured"),
+            pendingSetup = o.optBoolean("pendingSetup"),
+            unlocked = o.optBoolean("unlocked"),
+            running = o.optBoolean("running"),
+            canSync = o.optBoolean("canSync"),
+            vault = o.optString("vault"),
+            lastResult = o.optString("lastResult"),
+            lastAttempt = o.optLong("lastAttempt"),
+            autoHours = o.optInt("autoHours"),
+        )
+    }
+
+    /** Asks the device to sync now; only offered when `canSync` is true. */
+    fun liveSyncNow() {
+        val (code, text) = call(Request.Builder().url(url("api/livesync/sync")).post(ByteArray(0).toRequestBody()).build())
+        if (code != 200) throw IOException(text.ifBlank { "HTTP $code" })
     }
 
     fun list(path: String): List<Entry> {

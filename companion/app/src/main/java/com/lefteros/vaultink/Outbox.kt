@@ -42,6 +42,14 @@ object Outbox {
         File(dir, "item.json").writeText(JSONObject().put("type", "file").put("folder", folder).put("name", file.name).toString())
     }
 
+    /** A finished Markdown file (an imported note) for `/Vaults/<vault>/<folder>/<name>`. */
+    fun addMarkdown(context: Context, vault: String, folder: String, name: String, markdown: String) {
+        val dir = newItem(context)
+        File(dir, "note.md").writeText(markdown)
+        File(dir, "item.json").writeText(
+            JSONObject().put("type", "markdown").put("vault", vault).put("folder", folder).put("name", name).toString())
+    }
+
     private fun items(context: Context): List<File> =
         root(context).listFiles()?.filter { File(it, "item.json").isFile }?.sortedBy { it.name }.orEmpty()
 
@@ -55,6 +63,13 @@ object Outbox {
                 val json = JSONObject(File(dir, "item.json").readText())
                 when (json.optString("type")) {
                     "note" -> sendNote(client, dir, json)
+                    "markdown" -> {
+                        val folder = "/Vaults/" + json.getString("vault") + "/" + json.getString("folder").trim('/')
+                        val file = File(dir, "note.md")
+                        if (!file.isFile) throw org.json.JSONException("file missing")
+                        client.ensureFolder(folder)
+                        client.upload(folder, json.getString("name"), file, "text/markdown")
+                    }
                     "file" -> {
                         val folder = json.getString("folder")
                         val file = File(dir, json.getString("name"))

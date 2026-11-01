@@ -7,6 +7,7 @@
 #include "BlePageTurner.h"
 #include "RadioPolicy.h"
 #include "RadioPort.h"
+#include "TextInput.h"
 
 namespace bleturner {
 namespace {
@@ -47,8 +48,12 @@ std::atomic<bool> rearmRequested{false};
 std::atomic<bool> heldForBuild{false};
 bool connectRequested = false;
 std::atomic<Why> startRefusal{Why::Ok};
-// The start in flight was asked for at Home (S3 profile): its heap rules differ. Set by the starter.
-std::atomic<bool> startFromHome{false};
+// Where the start in flight was asked for: Home and TextEntry (S3 profile) have their own heap rules. Set by the
+// starter.
+std::atomic<Where> startWhere{Where::Elsewhere};
+// A text-entry screen is in front (setTextEntry), and the layout its keyboard is read with. Main loop only.
+bool textEntryFront = false;
+textinput::HidTranslator typing;
 // Written by the start (one at a time), read by the main loop once no start is in flight.
 Tracker heapTracker{port::restartMemo()};
 
@@ -101,14 +106,22 @@ RadioInputs inputsFor(const Phase phase, const Scene& s) {
   in.heldForBuild = heldForBuild.load(std::memory_order_relaxed);
   in.idleStopped = radioIdleStopped.load(std::memory_order_relaxed);
   in.hasBond = config->peerAddr[0] != '\0';
+  in.keyboardTyping = config->keyboardTyping != 0;
+  in.anyBond = port::bondCount() > 0;
   in.linked = true;
   return in;
+}
+
+// The scene as the rules see it: a text-entry screen in front turns Elsewhere into TextEntry.
+Scene resolved(Scene s) {
+  if (textEntryFront && s.where == Where::Elsewhere) s.where = Where::TextEntry;
+  return s;
 }
 
 RadioInputs heapInputs(const Phase phase, const Heap heap, const bool storageBusy) {
   RadioInputs in{};
   in.phase = phase;
-  in.where = startFromHome.load(std::memory_order_relaxed) ? Where::Home : Where::Elsewhere;
+  in.where = startWhere.load(std::memory_order_relaxed);
   in.storageBusy = storageBusy;
   in.heap = heap;
   return in;
@@ -197,7 +210,7 @@ void finishAttempt(const bool started, const bool reportReaderFailure) {
 }
 
 bool startSync() {
-  startFromHome.store(false, std::memory_order_relaxed);
+  startWhere.store(Where::Elsewhere, std::memory_order_relaxed);
   radioIdleStopped.store(false, std::memory_order_relaxed);
   readerStartDeferred.store(false, std::memory_order_relaxed);
   bool expected = false;
@@ -289,6 +302,23 @@ bool serveReader() {
   return acted;
 }
 
+// A text-entry screen in front with the radio up: every key press is typed into textinput::global(); nothing
+// turns a page, whatever the remote's table or the learned keys say. Releases carry nothing to type.
+void serveTextEntry() {
+  armReconnectOnce();
+  port::poll();
+  port::RawEdge raw;
+  while (port::popRaw(raw)) {
+  }
+  port::KeyPress key;
+  while (port::popKey(key)) {
+    if (!key.pressed) continue;
+    textinput::Event events[2];
+    const size_t n = typing.translate(key.keycode, key.mods, events, 2);
+    for (size_t i = 0; i < n; ++i) textinput::global().push(events[i]);
+  }
+}
+
 void stepLinkNote(const bool entered, const bool acknowledged) {
   NoteInputs in{};
   in.entered = entered;
@@ -372,7 +402,9 @@ void resetForTests() {
   heldForBuild.store(false);
   connectRequested = false;
   startRefusal.store(Why::Ok);
-  startFromHome.store(false);
+  startWhere.store(Where::Elsewhere);
+  textEntryFront = false;
+  typing = textinput::HidTranslator();
   heapTracker.fragmentedInRow = 0;
   heapTracker.wanted.store(false);
   visit = Visit{};
@@ -398,7 +430,22 @@ void begin(const Host& h, Config& c) {
 
 void requestConnect() { connectRequested = true; }
 
-bool tick(const Scene& s) {
+void setTextEntry(const bool inFront) {
+  textEntryFront = inFront;
+  // A dead accent armed on the last screen must not land on the next one's first vowel.
+  if (!inFront) typing.setLayout(typing.layout());
+}
+bool textEntry() { return textEntryFront; }
+
+void setKeyboardLayout(const KeyboardLayout layout) {
+  typing.setLayout(layout == KeyboardLayout::Greek ? textinput::Layout::Greek : textinput::Layout::Us);
+}
+KeyboardLayout keyboardLayout() {
+  return typing.layout() == textinput::Layout::Greek ? KeyboardLayout::Greek : KeyboardLayout::Us;
+}
+
+bool tick(const Scene& scene) {
+  const Scene s = resolved(scene);
   bool acted = false;
   // A book visit starts: the book comes in front, or another visit of it does.
   const bool entered = s.where == Where::Reader && (lastScene.where != Where::Reader || s.visit != lastScene.visit);
@@ -418,7 +465,9 @@ bool tick(const Scene& s) {
   const bool reader = s.where == Where::Reader;
   // S3 profile: Home may start the radio too, once its first frame is up and a remote is chosen.
   const bool home = s.where == Where::Home && activeProfile().homeStartLargest != 0;
-  if (!(reader || home) || !config->enabled || s.visit != visit.id) {
+  // A text-entry screen with keyboard typing on: the same start rules as Home (radioVerdict).
+  const bool text = s.where == Where::TextEntry && config->keyboardTyping != 0 && activeProfile().homeStartLargest != 0;
+  if (!(reader || home || text) || !config->enabled || s.visit != visit.id) {
     // A build hold belongs to one book visit; the next visit may start the radio again.
     if (s.visit != visit.id) heldForBuild.store(false, std::memory_order_relaxed);
     visit.attempted = false;
@@ -486,7 +535,7 @@ bool tick(const Scene& s) {
         (port::running() || host->yieldForRadio())) {
       visit.attempted = true;
       if (!port::running()) {
-        startFromHome.store(home, std::memory_order_relaxed);
+        startWhere.store(home || text ? s.where : Where::Elsewhere, std::memory_order_relaxed);
         const bool started = detail::startAsync();
         if (!started) readerStartDeferred.store(true, std::memory_order_relaxed);
         if (started) {
@@ -528,6 +577,7 @@ bool tick(const Scene& s) {
       port::poll();
       drainRemote();
     }
+    if (text && !attemptInFlight.load(std::memory_order_acquire) && port::running()) serveTextEntry();
   }
 
   const bool up = reader && port::running() && !attemptInFlight.load(std::memory_order_acquire);

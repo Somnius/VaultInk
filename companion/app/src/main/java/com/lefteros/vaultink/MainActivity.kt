@@ -333,10 +333,70 @@ fun DeviceSearch(host: String, onConnect: (String) -> Unit, onSearch: () -> Unit
 fun DeviceScreen(host: String, status: DeviceStatus, onSearch: () -> Unit, onIntro: () -> Unit) {
     Text(stringResource(R.string.found, host, status.version))
     if (status.hotspot) Text(stringResource(R.string.hotspot_warning), color = MaterialTheme.colorScheme.error)
+    LiveSyncCard(remember(host) { DeviceClient(host) })
     OutlinedButton(onClick = onSearch) { Text(stringResource(R.string.search_again)) }
     UpdateCheck()
     TextButton(onClick = onIntro) { Text(stringResource(R.string.intro_show_again)) }
     Text(stringResource(R.string.credit), style = MaterialTheme.typography.bodySmall)
+}
+
+/**
+ * LiveSync as the reader reports it (0.5.0, firmware 0.63.0+). Sync now appears only when the
+ * firmware says it can take a sync request from here; today's firmware can't (a sync runs on the
+ * LiveSync screen, and leaving File Transfer restarts the reader), so the card explains that.
+ */
+@Composable
+fun LiveSyncCard(client: DeviceClient) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var status by remember { mutableStateOf<LiveSyncStatus?>(null) }
+    var supported by remember { mutableStateOf(true) }
+    var message by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    suspend fun refresh() {
+        withContext(Dispatchers.IO) { runCatching { client.liveSyncStatus() } }
+            .onSuccess { status = it; supported = it != null }
+            .onFailure { message = context.getString(R.string.livesync_failed, it.message ?: "") }
+    }
+    LaunchedEffect(client) { refresh() }
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(R.string.livesync_title), style = MaterialTheme.typography.titleMedium)
+            val s = status
+            when {
+                !supported -> Text(stringResource(R.string.livesync_unsupported), style = MaterialTheme.typography.bodySmall)
+                s == null -> Text(if (message.isEmpty()) stringResource(R.string.loading) else message)
+                s.pendingSetup && !s.configured -> Text(stringResource(R.string.livesync_pending))
+                !s.configured -> Text(stringResource(R.string.livesync_not_set_up))
+                else -> {
+                    if (s.vault.isNotEmpty()) Text(stringResource(R.string.livesync_vault, s.vault))
+                    Text(if (s.running) stringResource(R.string.livesync_running)
+                         else if (s.lastResult.isEmpty()) stringResource(R.string.livesync_never)
+                         else stringResource(R.string.livesync_last, s.lastResult))
+                    if (s.autoHours > 0) {
+                        val tried = if (s.lastAttempt > 0) java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT,
+                            java.text.DateFormat.SHORT).format(java.util.Date(s.lastAttempt * 1000)) else "–"
+                        Text(stringResource(R.string.livesync_auto, s.autoHours, tried), style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (s.canSync) {
+                        OutlinedButton(enabled = !busy && !s.running, onClick = {
+                            busy = true
+                            scope.launch {
+                                withContext(Dispatchers.IO) { runCatching { client.liveSyncNow() } }
+                                    .onFailure { message = context.getString(R.string.action_failed, it.message ?: "") }
+                                refresh()
+                                busy = false
+                            }
+                        }) { Text(stringResource(R.string.livesync_sync_now)) }
+                    } else {
+                        Text(stringResource(R.string.livesync_no_remote), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (message.isNotEmpty()) Text(message)
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -417,6 +477,10 @@ fun NoteScreen(client: DeviceClient?, draft: Draft, onDraft: (Draft) -> Unit, on
         }
     }) { Text(stringResource(R.string.send)) }
     if (message.isNotEmpty()) Text(message)
+    // Bring notes in (0.5.0): a Google Keep Takeout into Imported/Keep of this vault.
+    var importing by remember { mutableStateOf(false) }
+    OutlinedButton(onClick = { importing = true }) { Text(stringResource(R.string.import_title)) }
+    if (importing) KeepImportDialog(client, vault, onOutbox = onOutbox) { importing = false }
 }
 
 @Composable

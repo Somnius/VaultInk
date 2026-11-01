@@ -91,6 +91,7 @@ Each line links to its guide where there is one. The full list is in [SPECS.md](
 **Tools** (Home → Plugins)
 - **Sudoku**: three levels, pencil notes, undo, hints, saves where you left off.
 - **Dice**: polyhedral dice with advantage, keep-highest and exploding dice; old World of Darkness; Vampire V5 with Hunger dice, Willpower reroll and Rouse checks; Chronicles of Darkness; Fate; Powered by the Apocalypse; Blades in the Dark; Call of Cthulhu; Shadowrun; Savage Worlds; Year Zero; Cyberpunk Red. [docs/reading-and-files.md](docs/reading-and-files.md#dice-0610)
+- **Focus timer, Habits, Excalidraw, Bluetooth keyboard** (0.63.0): a Pomodoro timer and a daily habit tracker in Home → Plugins ([docs/tools.md](docs/tools.md)); `.excalidraw` drawings open in a viewer; a Bluetooth keyboard can type into the on-screen keyboard's line (off by default, untried with a real keyboard). The dice seed mixes the date and time, battery percent and voltage with the chip's generator.
 - **VaultEUC**: an electric unicycle companion over Bluetooth (Begode, Veteran/Leaperkim, KingSong, InMotion, Ninebot, VESC): live numbers every 5 to 30 seconds, alarms, ride logs on the SD card, your wheels remembered, km/h or mph. **Not for use while riding, and not tried on a real wheel yet.** [docs/vaulteuc.md](docs/vaulteuc.md)
 - **Plugins** from the SD card and the Plugin Hub: [docs/sd-plugins.md](docs/sd-plugins.md).
 

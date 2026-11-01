@@ -129,4 +129,33 @@
         <item quantity="one">Δεν βρέθηκε συσκευή: %d αρχείο κρατιέται στο κινητό και στέλνεται μόλις βρεθεί.</item>
         <item quantity="other">Δεν βρέθηκε συσκευή: %d αρχεία κρατιούνται στο κινητό και στέλνονται μόλις βρεθεί.</item>
     </plurals>
+    <!-- LiveSync card (0.5.0) -->
+    <string name="livesync_title">LiveSync</string>
+    <string name="livesync_unsupported">Το firmware της συσκευής δεν αναφέρει ακόμη το LiveSync (χρειάζεται 0.63.0 ή νεότερο).</string>
+    <string name="livesync_not_set_up">Δεν έχει ρυθμιστεί στη συσκευή.</string>
+    <string name="livesync_pending">Ένα Setup URI περιμένει στη συσκευή: άνοιξε εκεί το LiveSync και πληκτρολόγησε τη φράση πρόσβασης.</string>
+    <string name="livesync_vault">Vault: %1$s</string>
+    <string name="livesync_last">Τελευταίος συγχρονισμός: %1$s</string>
+    <string name="livesync_never">Κανένας συγχρονισμός ακόμη.</string>
+    <string name="livesync_running">Συγχρονισμός…</string>
+    <string name="livesync_auto">Αυτόματος συγχρονισμός κάθε %1$d ώρες στο ξύπνημα· τελευταία αυτόματη προσπάθεια %2$s.</string>
+    <string name="livesync_sync_now">Συγχρονισμός τώρα</string>
+    <string name="livesync_no_remote">Ο συγχρονισμός ξεκινά από τη συσκευή (οθόνη LiveSync)· δεν γίνεται όσο είναι ανοιχτή η Μεταφορά αρχείων.</string>
+    <string name="livesync_failed">Δεν διαβάστηκε η κατάσταση του LiveSync: %1$s</string>
+    <!-- Bring notes in (0.5.0) -->
+    <string name="import_title">Φέρε σημειώσεις</string>
+    <string name="import_keep_intro">Google Keep: κάνε εξαγωγή με το Google Takeout (μόνο Keep) και διάλεξε το .zip ή τον αποσυμπιεσμένο φάκελο Takeout/Keep. Οι σημειώσεις πάνε στο Imported/Keep του vault %1$s ως Markdown· όσες είναι στον κάδο και τα συνημμένα παραλείπονται.</string>
+    <string name="import_pick_zip">Διάλεξε το .zip του Takeout</string>
+    <string name="import_pick_folder">Διάλεξε τον φάκελο Keep</string>
+    <string name="import_reading">Ανάγνωση…</string>
+    <plurals name="import_ready">
+        <item quantity="one">%1$d σημείωση έτοιμη</item>
+        <item quantity="other">%1$d σημειώσεις έτοιμες</item>
+    </plurals>
+    <string name="import_skipped">Παραλείφθηκαν: %1$d στον κάδο, %2$d αρχεία που δεν είναι σημειώσεις Keep.</string>
+    <string name="import_send">Στείλε %1$d</string>
+    <string name="import_done">%1$d σημειώσεις στάλθηκαν στο %2$s.</string>
+    <string name="import_kept">Η συσκευή δεν βρέθηκε: %1$d σημειώσεις κρατιούνται στο κινητό και στέλνονται μόλις βρεθεί.</string>
+    <string name="import_nothing">Δεν βρέθηκαν σημειώσεις Keep εκεί.</string>
+    <string name="import_failed">Δεν διαβάστηκε: %1$s</string>
 </resources>

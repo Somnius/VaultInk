@@ -130,4 +130,33 @@
         <item quantity="one">No reader found: %d file is kept on the phone and sent when it\'s found.</item>
         <item quantity="other">No reader found: %d files are kept on the phone and sent when it\'s found.</item>
     </plurals>
+    <!-- LiveSync card (0.5.0) -->
+    <string name="livesync_title">LiveSync</string>
+    <string name="livesync_unsupported">The reader\'s firmware doesn\'t report LiveSync yet (needs 0.63.0 or newer).</string>
+    <string name="livesync_not_set_up">Not set up on the reader.</string>
+    <string name="livesync_pending">A Setup URI is waiting on the reader: open LiveSync there and type the passphrase.</string>
+    <string name="livesync_vault">Vault: %1$s</string>
+    <string name="livesync_last">Last sync: %1$s</string>
+    <string name="livesync_never">No sync yet.</string>
+    <string name="livesync_running">Syncing…</string>
+    <string name="livesync_auto">Automatic sync every %1$d h on wake; last automatic try %2$s.</string>
+    <string name="livesync_sync_now">Sync now</string>
+    <string name="livesync_no_remote">A sync starts on the reader (its LiveSync screen); it can\'t run while File Transfer is open.</string>
+    <string name="livesync_failed">Couldn\'t read the LiveSync status: %1$s</string>
+    <!-- Bring notes in (0.5.0) -->
+    <string name="import_title">Bring notes in</string>
+    <string name="import_keep_intro">Google Keep: export it with Google Takeout (Keep only), then pick the .zip or the unzipped Takeout/Keep folder. The notes go to Imported/Keep in the vault %1$s as Markdown; notes in the bin and attachments are left out.</string>
+    <string name="import_pick_zip">Pick the Takeout .zip</string>
+    <string name="import_pick_folder">Pick the Keep folder</string>
+    <string name="import_reading">Reading…</string>
+    <plurals name="import_ready">
+        <item quantity="one">%1$d note ready</item>
+        <item quantity="other">%1$d notes ready</item>
+    </plurals>
+    <string name="import_skipped">Skipped: %1$d in the bin, %2$d files that aren\'t Keep notes.</string>
+    <string name="import_send">Send %1$d</string>
+    <string name="import_done">%1$d notes sent to %2$s.</string>
+    <string name="import_kept">The reader can\'t be reached: %1$d notes are kept on the phone and sent when it\'s found.</string>
+    <string name="import_nothing">No Keep notes found there.</string>
+    <string name="import_failed">Couldn\'t read that: %1$s</string>
 </resources>

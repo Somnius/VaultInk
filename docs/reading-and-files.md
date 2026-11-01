@@ -446,6 +446,16 @@ Home → Plugins → **Dice**. The top row picks the system (tap < or >, or Left
 
 SD plugins cannot run code on the reader, so the roller is built into the firmware like Sudoku.
 
+## Excalidraw drawings (0.63.0)
+
+<p><img src="images/vaultink/excalidraw.png" width="190" alt="An Excalidraw drawing in the viewer, with the zoom panel"></p>
+
+A `.excalidraw` file (or the Obsidian Excalidraw plugin's `.excalidraw.md`) opens in a viewer like the canvas one: the whole drawing fitted to the screen, pan with swipes or the buttons, zoom with the **« + − Fit** panel at the bottom right (or Confirm), Back returns. Rectangles, ellipses, diamonds, lines, arrows (with arrowheads), free drawing and text are drawn, dashed and dotted lines as such, a rotated shape rotated; colours are not shown (a filled shape is drawn plain), pictures are skipped and counted. Text is shown in the nearest of the reader's sizes and left out when it would be too small to read. A drawing the plugin saved **compressed** (`compressed-json`) cannot be read: the screen says so (turn compression off in the plugin's settings). Large drawings are cut at 1,500 shapes, 12,000 points and 24 KB of text. Read only. Not yet tried on a drawing exported from the real plugin: only on hand-written samples.
+
+## Bluetooth keyboard typing (0.63.0)
+
+*Settings → Connectivity → Bluetooth Page Turner* has **Bluetooth keyboard typing** (off by default, and only while the page turner switch is on). With it on, a paired Bluetooth keyboard types into the on-screen keyboard's line (a note line in the editor, a search): letters, digits and punctuation of a US keyboard, Backspace, Delete, the arrows, Home, End, Enter (finishes the line) and Escape (cancels). With the Greek layout selected on the on-screen keyboard the same keys type Greek (the key at the US `;` position is the tonos dead key: it accents the next vowel). Keys with Ctrl, Alt or Gui held type nothing. While a text screen is open the keyboard does not turn pages. **Not tried with a real keyboard yet:** pairing, the passkey, reconnecting and how it behaves next to a page-turner remote are untested.
+
 ## Library: sort by progress, tab order (0.60.0, 0.61.0)
 
 <p>

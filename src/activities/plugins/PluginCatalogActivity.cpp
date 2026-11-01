@@ -28,6 +28,8 @@
 #include "PluginCatalogPaging.h"
 #include "activities/euc/VaultEucActivity.h"
 #include "activities/games/DiceActivity.h"
+#include "activities/games/FocusActivity.h"
+#include "activities/games/HabitsActivity.h"
 #include "activities/games/SudokuActivity.h"
 #include "activities/reader/DictionaryDefinitionActivity.h"  // plain-text README viewer
 #include "activities/settings/PluginHubInstallActivity.h"
@@ -1361,6 +1363,22 @@ void PluginCatalogActivity::activateIndex(const int index) {
       startActivityForResult(std::move(euc), [this](const ActivityResult&) { enterPluginPicker(); });
       return;
     }
+    if (index == 3 || index == 4) {
+      // The Focus timer and Habits (0.63.0), built in as well.
+      app.clearTapFlash();
+      std::unique_ptr<Activity> tool;
+      if (index == 3) {
+        tool = makeUniqueNoThrow<FocusActivity>(renderer, mappedInput);
+      } else {
+        tool = makeUniqueNoThrow<HabitsActivity>(renderer, mappedInput);
+      }
+      if (!tool) {
+        LOG_ERR("PCAT", "OOM: tool");
+        return;
+      }
+      startActivityForResult(std::move(tool), [this](const ActivityResult&) { enterPluginPicker(); });
+      return;
+    }
     const int row = index - BUILTIN_ROWS;  // the rows below, as before the game was added
     if (showOpds && row == 0) {
       app.clearTapFlash();            // the row leaves this screen
@@ -1732,6 +1750,8 @@ void PluginCatalogActivity::rebuildRowItems() {
     addRow(tr(STR_SUDOKU), tr(STR_SUDOKU_DESC), ">");
     addRow(tr(STR_DICE), tr(STR_DICE_DESC), ">");
     addRow(tr(STR_EUC_TITLE), tr(STR_EUC_DESC), ">");
+    addRow(tr(STR_FOCUS_TITLE), tr(STR_FOCUS_DESC), ">");
+    addRow(tr(STR_HABITS_TITLE), tr(STR_HABITS_DESC), ">");
     if (showOpds) addRow(tr(STR_OPDS_BROWSER), tr(STR_OPDS_SERVERS));
     if (showPluginHubInstallRow) addRow(tr(STR_PLUGIN_HUB), tr(STR_PLUGIN_HUB_DESCRIPTION), ">");
     for (const auto& plugin : installedPlugins) {

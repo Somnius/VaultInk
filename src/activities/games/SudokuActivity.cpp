@@ -10,21 +10,12 @@
 #include "MappedInputManager.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
-
-#if defined(ESP_PLATFORM)
-#include <esp_random.h>
-#endif
+#include "util/Entropy.h"
 
 namespace {
 constexpr char SAVE_PATH[] = "/.vaultink/sudoku.sav";
 
-uint32_t randomSeed() {
-#if defined(ESP_PLATFORM)
-  return esp_random();
-#else
-  return static_cast<uint32_t>(millis()) * 2654435761u ^ static_cast<uint32_t>(micros());
-#endif
-}
+uint32_t randomSeed() { return entropy::seed(); }
 
 const char* levelName(const sudoku::Difficulty d) {
   switch (d) {

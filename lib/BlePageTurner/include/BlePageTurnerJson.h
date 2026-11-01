@@ -7,7 +7,7 @@
 #include "BlePageTurner.h"
 
 // The page turner's settings in the host's settings.json, under the keys blePageTurnerEnabled,
-// blePick, blePeerAddr, blePeerName, blePrevKeyUsage, bleNextKeyUsage and bleRemotes (an array of at
+// bleKeyboardTyping, blePick, blePeerAddr, blePeerName, blePrevKeyUsage, bleNextKeyUsage and bleRemotes (an array of at
 // most 4 {addr, binds[<= 8]}). Files written before these keys load unchanged. Inline: the
 // host's own settings code is the one caller, and compiled there the JSON helpers inline as
 // they did before this moved into the module.
@@ -21,6 +21,7 @@ inline void copyField(char* dest, const char* src, const size_t maxLen) {
 
 inline void writeJson(const Config& config, JsonDocument& doc) {
   doc["blePageTurnerEnabled"] = config.enabled;
+  doc["bleKeyboardTyping"] = config.keyboardTyping;
   doc["blePick"] = config.pick == 0 ? 0 : 1;
   doc["blePeerAddr"] = config.peerAddr;
   doc["blePeerName"] = config.peerName;
@@ -46,6 +47,7 @@ inline bool readJson(Config& config, JsonVariantConst doc) {
   // A file without the keys means nobody used the page turner: the defaults stay (off, no
   // remote, nothing learned).
   config.enabled = (doc["blePageTurnerEnabled"] | uint8_t{0}) ? 1 : 0;
+  config.keyboardTyping = (doc["bleKeyboardTyping"] | uint8_t{0}) ? 1 : 0;
   config.pick = doc["blePick"].is<uint8_t>() && doc["blePick"].as<uint8_t>() == 0 ? 0 : 1;
   detail::copyField(config.peerAddr, doc["blePeerAddr"] | "", sizeof(config.peerAddr));
   detail::copyField(config.peerName, doc["blePeerName"] | "", sizeof(config.peerName));

@@ -40,6 +40,21 @@ TEST(RadioVerdictTest, Table) {
       {"idle: card busy", with(Phase::Idle, [](RadioInputs& i) { i.storageBusy = true; }), Why::StorageBusy},
       {"idle: home", with(Phase::Idle, [](RadioInputs& i) { i.where = Where::Elsewhere; }), Why::NotReading},
       {"idle: no remote chosen", with(Phase::Idle, [](RadioInputs& i) { i.hasBond = false; }), Why::NoBond},
+      // The X3 profile never starts the radio on a text-entry screen, whatever the option says.
+      {"idle: text entry, typing on, X3 profile",
+       with(Phase::Idle,
+            [](RadioInputs& i) {
+              i.where = Where::TextEntry;
+              i.keyboardTyping = i.anyBond = true;
+            }),
+       Why::NotReading},
+      {"idle: elsewhere with typing on",
+       with(Phase::Idle,
+            [](RadioInputs& i) {
+              i.where = Where::Elsewhere;
+              i.keyboardTyping = i.anyBond = true;
+            }),
+       Why::NotReading},
       {"idle: page not painted", with(Phase::Idle, [](RadioInputs& i) { i.pageShown = false; }), Why::PageNotShown},
       {"idle: build holds it", with(Phase::Idle, [](RadioInputs& i) { i.heldForBuild = i.idleStopped = true; }),
        Why::BuildNeedsHeap},
