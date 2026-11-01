@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <utility>
 
@@ -27,6 +28,9 @@ class KeyboardEntryActivity : public Activity {
         maxLength(maxLength),
         inputType(inputType) {}
 
+  // A gear at the right of the header (Search in Book uses it for its settings); the action runs on a tap.
+  void setGearAction(std::function<void()> action) { gearAction = std::move(action); }
+
   void onEnter() override;
   void onExit() override;
   void loop() override;
@@ -39,6 +43,7 @@ class KeyboardEntryActivity : public Activity {
   size_t maxLength;
   InputType inputType;
   bool passwordVisible = false;
+  std::function<void()> gearAction;
 
   ButtonNavigator buttonNavigator;
 

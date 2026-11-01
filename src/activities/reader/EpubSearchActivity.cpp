@@ -24,6 +24,10 @@
 
 namespace fui = freeink::ui;
 
+namespace {
+constexpr int16_t kSidePadding = 6;
+}
+
 EpubSearchActivity::EpubSearchActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
                                        std::shared_ptr<Epub> epub, const ReaderRenderSpec& spec, SearchSession* session,
                                        const int limitSpine, const uint32_t limitOffset, const int startSpine)
@@ -88,6 +92,7 @@ void EpubSearchActivity::askForQuery() {
     onBackButton();
     return;
   }
+  keyboard->setGearAction([this] { openTypeSettings(false); });  // the type and range, before typing (kos25k #24)
   startActivityForResult(std::move(keyboard), [this](const ActivityResult& result) {
     if (result.isCancelled) {
       if (query.empty()) onBackButton();  // nothing searched yet: back to the reader menu
@@ -153,19 +158,19 @@ bool EpubSearchActivity::skippedByIndex(const int spineIndex) {
 // A search over the book, spine by spine from the reader's chapter: the chapters after it, then the ones before.
 int EpubSearchActivity::spineAt(const int searchStep) const {
   const int bookTotal = epub->getSpineItemsCount();
-  if (limitSpine >= 0 || bookTotal <= 0) return searchStep;  // up to the reading point: in book order
+  if (limit() >= 0 || bookTotal <= 0) return searchStep;  // up to the reading point: in book order
   return (std::clamp(startSpine, 0, bookTotal - 1) + searchStep) % bookTotal;
 }
 
 int EpubSearchActivity::stepTotal() const {
   const int bookTotal = epub->getSpineItemsCount();
-  return limitSpine >= 0 ? std::min(bookTotal, limitSpine + 1) : bookTotal;
+  return limit() >= 0 ? std::min(bookTotal, limit() + 1) : bookTotal;
 }
 
 // What makes two searches of this book the same: the words, whole words or not, and how far it reads.
 std::string EpubSearchActivity::cacheKey() const {
-  return prepared + "|" + std::to_string(SETTINGS.searchType) + "|" + std::to_string(limitSpine) + "|" +
-         std::to_string(limitOffset);
+  return prepared + "|" + std::to_string(SETTINGS.searchType) + "|" + std::to_string(limit()) + "|" +
+         std::to_string(limitOff());
 }
 
 // Only a search that read every chapter is worth keeping; one that was stopped is not the whole answer.
@@ -292,7 +297,7 @@ void EpubSearchActivity::finishChapter() {
     auto section = makeUniqueNoThrow<Section>(epub, spineIndex, renderer);
     const bool laidOut = section && section->loadSectionFile(spec) && !section->isPartial();
     for (const auto& found : searcher->hits()) {
-      if (spineIndex == limitSpine && found.offset > limitOffset) continue;  // past the reading point
+      if (spineIndex == limit() && found.offset > limitOff()) continue;  // past the reading point
       Hit hit;
       hit.spine = spineIndex;
       hit.offset = found.offset;
@@ -356,14 +361,19 @@ void EpubSearchActivity::typeActionTrampoline(const fui::ActionEvent&, void* use
 }
 
 // The gear next to the title: part of a word or whole words. A search already on screen runs again with it.
-void EpubSearchActivity::openTypeSettings() {
+void EpubSearchActivity::openTypeSettings(const bool restart) {
   app.clearTapFlash();
-  if (searching) finishSearch();
-  const uint8_t before = SETTINGS.searchType;
+  if (restart && searching) finishSearch();
+  const uint8_t beforeType = SETTINGS.searchType;
+  const uint8_t beforeScope = SETTINGS.searchScope;
   auto screen = makeUniqueNoThrow<SearchWordSettingsActivity>(renderer, mappedInput, true);
   if (!screen) return;
-  startActivityForResult(std::move(screen), [this, before](const ActivityResult&) {
-    if (SETTINGS.searchType != before && !query.empty()) startSearch(query);
+  startActivityForResult(std::move(screen), [this, restart, beforeType, beforeScope](const ActivityResult&) {
+    // The range reaches this screen only when the reader opens it again; the type applies at once.
+    const bool changed = SETTINGS.searchType != beforeType || SETTINGS.searchScope != beforeScope;
+    if (restart && changed && !query.empty()) {
+      startSearch(query);
+    }
     requestUpdate();
   });
 }
@@ -387,7 +397,7 @@ void EpubSearchActivity::buildScreen(UiScreen& screen) {
   // Each result line is cut to the row's width, with no dots at the end, so it fills the line.
   {
     const fui::TextStyle style = screen.theme().bodyText;
-    const int available = screen.frame().screen().width - 2 * (metrics.contentSidePadding + 8) - 28;
+    const int available = screen.frame().screen().width - 2 * kSidePadding - 22;
     fitted.resize(hits.size());
     for (size_t i = 0; i < hits.size() && i + 1 < rows.size(); ++i) {
       fitted[i] = hits[i].label;
@@ -406,6 +416,7 @@ void EpubSearchActivity::buildScreen(UiScreen& screen) {
   props.action = ACTION_ROW;
   props.inputMask = fui::InputTouch;  // physical buttons stay in loop()
   props.subtitleText = screen.theme().smallText;
+  props.sidePadding = kSidePadding;  // the result lines run close to the screen edges
   syncListViewport(screen, props);
   screen.list(props);
 }

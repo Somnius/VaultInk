@@ -11,6 +11,7 @@
 #include "KeyboardLayoutSet.h"
 #include "MappedInputManager.h"
 #include "components/UITheme.h"
+#include "components/icons/settings2.h"
 #include "fontIds.h"
 
 namespace fui = freeink::ui;
@@ -543,6 +544,16 @@ void KeyboardEntryActivity::loop() {
   int tx = 0;
   int ty = 0;
 
+  if (gearAction && mappedInput.wasScreenTapped(tx, ty)) {
+    const auto& headerMetrics = UITheme::getInstance().getMetrics();
+    if (tx >= renderer.getScreenWidth() - 72 && ty >= headerMetrics.topPadding + 8 &&
+        ty < headerMetrics.topPadding + headerMetrics.headerHeight + 8) {
+      haptic_feedback::touchAction();
+      gearAction();
+      return;
+    }
+  }
+
   size_t touchedCursorPos = 0;
   if (mappedInput.wasScreenTapped(tx, ty) && cursorPositionFromPoint(tx, ty, touchedCursorPos)) {
     haptic_feedback::touchAction();
@@ -745,6 +756,7 @@ void KeyboardEntryActivity::render(RenderLock&&) {
   const auto& metrics = UITheme::getInstance().getMetrics();
 
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, title.c_str());
+  if (gearAction) renderer.drawIcon(Settings2Icon, pageWidth - 52, metrics.topPadding + 22, 32);
 
   const int lineHeight = renderer.getLineHeight(UI_12_FONT_ID);
   const int inputStartY = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing +

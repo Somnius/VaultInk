@@ -1441,12 +1441,10 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
         }
         section.reset();
       }
-      const bool toHere = SETTINGS.searchScope == 1;
       startActivityForResult(
           std::make_unique<EpubSearchActivity>(
               renderer, mappedInput, epub, SETTINGS.readerRenderSpec(buildViewportWidth, buildViewportHeight), &search,
-              toHere ? search.originSpine : -1, toHere ? search.originOffset.value_or(UINT32_MAX) : UINT32_MAX,
-              currentSpineIndex),
+              search.originSpine, search.originOffset.value_or(UINT32_MAX), currentSpineIndex),
           [this](const ActivityResult& result) {
             loadCachedBookmarks();
             const auto* picked = std::get_if<ProgressChangeResult>(&result.data);

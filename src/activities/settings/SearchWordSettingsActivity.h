@@ -16,7 +16,7 @@ class SearchWordSettingsActivity final : public UiListActivity {
 
  private:
   static constexpr int MAX_ROWS = 4;
-  int listCount() const override { return typeOnly ? 2 : MAX_ROWS; }
+  int listCount() const override { return typeOnly ? 3 : MAX_ROWS; }
   void buildScreen(UiScreen& screen) override;
   void activateIndex(int index) override;
   const char* headerTitle() const override;

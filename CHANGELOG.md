@@ -2,6 +2,15 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.62.0 (2026-11-01)
+
+VaultEUC, an electric unicycle companion, and three more Search in Book changes (kos25k #24).
+
+- **VaultEUC**: third row of Home > Plugins. It connects over Bluetooth to a wheel (Begode, Veteran/Leaperkim, KingSong, InMotion V1 and V2, Ninebot S/E/Z, VESC), shows speed, battery, voltage, current, temperature, trip, power and more every 5, 10, 15 or 30 seconds (never faster), and checks your alarm limits on every update. Rides are logged to /VaultEUC on the SD card as CSV and listed in the ride history. Your wheels are remembered with their address. Units: km/h or mph (km/h by default), C or F (C by default). Keep-awake and vibration alerts are options, both off. A warning says not to use it while riding. Settings that change how the wheel rides are only sent when it is stopped, and there is no firmware update, calibration, lock or power-off. Wi-Fi is switched off while it is open, Bluetooth comes first. A demo wheel (Add a wheel > Demo ...) runs the whole thing without hardware. Not tried with a real wheel yet.
+- **Search in Book** (kos25k #24): the gear is also on the first screen next to the word you type, the gear has Search range as well as the type, and the result lines have less padding so they run closer to both edges.
+
+Tested in the simulator and on the computer (host tests, device build). Not tried on a device or with a real wheel.
+
 ## 0.61.0 (2026-11-01)
 
 A dice roller, the Library tab order, and the rest of the Random page! and percent requests (kos25k #15 and #18).

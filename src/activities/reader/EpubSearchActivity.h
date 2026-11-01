@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "BookTextSearch.h"
+#include "CrossPointSettings.h"
 #include "SearchSession.h"
 #include "activities/UiListActivity.h"
 #include "util/SearchIndex.h"
@@ -47,7 +48,10 @@ class EpubSearchActivity final : public UiListActivity {
 
   static constexpr freeink::ui::ActionId ACTION_TYPE = ACTION_USER;
   static void typeActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
-  void openTypeSettings();
+  void openTypeSettings(bool restart = true);
+  // The range setting applies to the next search: up to the reading point, or the whole book.
+  int limit() const { return SETTINGS.searchScope == 1 ? limitSpine : -1; }
+  uint32_t limitOff() const { return SETTINGS.searchScope == 1 ? limitOffset : UINT32_MAX; }
 
   void askForQuery();
   void startSearch(const std::string& text);
@@ -70,7 +74,7 @@ class EpubSearchActivity final : public UiListActivity {
   std::shared_ptr<Epub> epub;
   ReaderRenderSpec spec;
   SearchSession* session;  // gets the hits when one is picked (null in tests)
-  int limitSpine;          // -1 = the whole book; else the last chapter searched, up to limitOffset in it
+  int limitSpine;          // the reading point: the chapter (and offset in it) the reader was at
   uint32_t limitOffset;
   int startSpine;               // the chapter the reader is in: searched first, then the ones before it (wrapping)
   bool chapterSkipped = false;  // a chapter could not be opened, so the result is not the whole answer

@@ -7,16 +7,18 @@
 
 namespace fui = freeink::ui;
 
-const char* SearchWordSettingsActivity::headerTitle() const {
-  return typeOnly ? tr(STR_SEARCH_TYPE) : tr(STR_SEARCH_WORD);
-}
+const char* SearchWordSettingsActivity::headerTitle() const { return tr(STR_SEARCH_WORD); }
 
 void SearchWordSettingsActivity::activateIndex(const int index) {
   if (index < 0 || index >= listCount()) return;
   nav.selected = index;
   app.clearTapFlash();
   if (typeOnly) {
-    SETTINGS.searchType = static_cast<uint8_t>(index);
+    if (index == 2) {
+      SETTINGS.searchScope = SETTINGS.searchScope ? 0 : 1;
+    } else {
+      SETTINGS.searchType = static_cast<uint8_t>(index);
+    }
   } else if (index == 0) {
     SETTINGS.searchInMoreMenu = SETTINGS.searchInMoreMenu ? 0 : 1;
   } else if (index == 1) {
@@ -48,6 +50,8 @@ void SearchWordSettingsActivity::buildScreen(UiScreen& screen) {
       rowItems[i].toggle = true;
       rowItems[i].toggleChecked = SETTINGS.searchType == i;
     }
+    rowItems[2].label = tr(STR_SEARCH_SCOPE);
+    rowItems[2].value = SETTINGS.searchScope ? tr(STR_SEARCH_SCOPE_TO_HERE) : tr(STR_SEARCH_SCOPE_BOOK);
   } else {
     rowItems[0].label = tr(STR_SEARCH_IN_MORE_MENU);
     rowItems[0].toggle = true;
