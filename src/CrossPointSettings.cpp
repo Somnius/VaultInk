@@ -364,6 +364,10 @@ ReaderRenderSpec CrossPointSettings::readerRenderSpec(const uint16_t viewportWid
   spec.characterSpacing = getCharacterSpacing();
   spec.wordSpacingPercent = wordSpacing;
   spec.evenWordGaps = evenWordGaps;
+  spec.textFeatures = static_cast<uint8_t>(
+      (textLigatures ? textfeatures::LIGATURES : 0) | (textKerning ? textfeatures::KERNING : 0) |
+      (textWidowOrphan ? textfeatures::WIDOW_ORPHAN : 0) | (textKeepHeadings ? textfeatures::KEEP_HEADINGS : 0) |
+      (textHanging ? textfeatures::HANGING : 0));
   spec.extraParagraphSpacing = extraParagraphSpacing != 0;
   spec.paragraphIndentSpaces = paragraphIndentSpaces;
   spec.paragraphAlignment = paragraphAlignment;

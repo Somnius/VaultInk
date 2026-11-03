@@ -6,6 +6,7 @@
 #include <Logging.h>
 #include <Memory.h>
 #include <MemoryManager.h>
+#include <TextFeatures.h>
 #include <Utf8.h>
 #include <XmlParserUtils.h>
 #include <expat.h>
@@ -3024,7 +3025,7 @@ int ChapterHtmlSlimParser::prepareBlockFont(ParsedText& text, const float scale)
 
 size_t ChapterHtmlSlimParser::linesToCarry(size_t& paragraphLines) const {
   paragraphLines = 0;
-  if (layoutParagraph && !layoutParagraphHasDropCap) {
+  if (layoutParagraph && !layoutParagraphHasDropCap && textfeatures::has(textfeatures::WIDOW_ORPHAN)) {
     if (paragraphLinesOnPage == 1) {
       paragraphLines = 1;  // the paragraph's first line would sit alone at the page bottom
     } else if (paragraphLinesOnPage >= 2 && layoutParagraph->linesAfterCurrentLine() == 0) {
@@ -3214,7 +3215,7 @@ void ChapterHtmlSlimParser::makePages(const bool includeLastLine, const bool par
   if (includeLastLine) {
     // A heading's lines on this page wait to move with what follows it.
     keepWithNextLines =
-        blockStyle.keepWithNext
+        blockStyle.keepWithNext && textfeatures::has(textfeatures::KEEP_HEADINGS)
             ? static_cast<uint8_t>(std::min<size_t>(MAX_CARRIED_LINES, keepWithNextLines + paragraphLinesOnPage))
             : 0;
     paragraphLinesOnPage = 0;

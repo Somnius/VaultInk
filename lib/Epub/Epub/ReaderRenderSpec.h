@@ -1,4 +1,6 @@
 #pragma once
+#include "../../EpdFont/TextFeatures.h"
+
 #include <cstdint>
 
 // The resolved text-rendering configuration a reader hands to the layout
@@ -27,6 +29,9 @@ struct ReaderRenderSpec {
   // Justified lines stretch their word gaps by at most half a space; a line that needs more is
   // left ragged (kos25k #10). 0 = always justify.
   uint8_t evenWordGaps = 0;
+  // textfeatures:: bits (ligatures, kerning, widow/orphan control, headings with the next paragraph, hanging
+  // punctuation), Settings > Reader > Experimental (kos25k #30).
+  uint8_t textFeatures = textfeatures::DEFAULTS;
 };
 
 // Stable signature for clipping anchors. Page-local word ordinals are valid
@@ -50,5 +55,6 @@ inline uint32_t readerRenderSpecSignature(const ReaderRenderSpec& spec) {
   mix(spec.imageRendering);
   mix(spec.focusReadingEnabled);
   mix(spec.evenWordGaps);
+  mix(spec.textFeatures);
   return signature == 0 ? 1 : signature;
 }

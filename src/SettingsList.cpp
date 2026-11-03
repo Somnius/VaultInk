@@ -392,6 +392,16 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
       },
       "koSyncClippings", StrId::STR_KOREADER_SYNC));
   // --- Status Bar Settings (web-only, uses StatusBarSettingsActivity) ---
+  emit(SettingInfo::Toggle(StrId::STR_TEXT_LIGATURES, &CrossPointSettings::textLigatures, "textLigatures",
+                           StrId::STR_EXPERIMENTAL));
+  emit(SettingInfo::Toggle(StrId::STR_TEXT_KERNING, &CrossPointSettings::textKerning, "textKerning",
+                           StrId::STR_EXPERIMENTAL));
+  emit(SettingInfo::Toggle(StrId::STR_TEXT_WIDOW_ORPHAN, &CrossPointSettings::textWidowOrphan, "textWidowOrphan",
+                           StrId::STR_EXPERIMENTAL));
+  emit(SettingInfo::Toggle(StrId::STR_TEXT_KEEP_HEADINGS, &CrossPointSettings::textKeepHeadings, "textKeepHeadings",
+                           StrId::STR_EXPERIMENTAL));
+  emit(SettingInfo::Toggle(StrId::STR_TEXT_HANGING, &CrossPointSettings::textHanging, "textHanging",
+                           StrId::STR_EXPERIMENTAL));
   emit(SettingInfo::Toggle(StrId::STR_HIDE_STATUS_BAR, &CrossPointSettings::statusBarHidden, "statusBarHidden",
                            StrId::STR_CUSTOMISE_STATUS_BAR));
   emit(SettingInfo::Toggle(StrId::STR_BOOK_PAGE_NUMBER, &CrossPointSettings::statusBarBookPage, "statusBarBookPage",

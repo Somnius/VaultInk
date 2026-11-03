@@ -4,6 +4,8 @@
 
 #include <algorithm>
 
+#include "TextFeatures.h"
+
 void EpdFont::getTextBounds(const char* string, const int startX, const int startY, int* minX, int* minY, int* maxX,
                             int* maxY) const {
   *minX = startX;
@@ -115,6 +117,7 @@ static uint8_t lookupKernClass(const EpdKernClassEntry* entries, const uint16_t 
 }
 
 int8_t EpdFont::getKerning(const uint32_t leftCp, const uint32_t rightCp) const {
+  if (!textfeatures::has(textfeatures::KERNING)) return 0;
   if (utf8IsCjkBreakable(leftCp) || utf8IsCjkBreakable(rightCp)) {
     return 0;
   }
@@ -169,6 +172,7 @@ static inline bool isArabicPresentationForm(const uint32_t cp) {
 }
 
 uint32_t EpdFont::getLigature(const uint32_t leftCp, const uint32_t rightCp) const {
+  if (!textfeatures::has(textfeatures::LIGATURES)) return 0;
   const auto* pairs = data->ligaturePairs;
   const auto count = data->ligaturePairCount;
   if (!pairs || count == 0 || leftCp > 0xFFFF || rightCp > 0xFFFF) {
@@ -194,6 +198,7 @@ uint32_t EpdFont::getLigature(const uint32_t leftCp, const uint32_t rightCp) con
 }
 
 uint32_t EpdFont::applyLigatures(uint32_t cp, const char*& text) const {
+  if (!textfeatures::has(textfeatures::LIGATURES)) return cp;
   if (!data->ligaturePairs || data->ligaturePairCount == 0) {
     return cp;
   }
