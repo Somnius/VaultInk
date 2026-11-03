@@ -1,7 +1,7 @@
 #pragma once
-#include "../../EpdFont/TextFeatures.h"
-
 #include <cstdint>
+
+#include "../../EpdFont/TextFeatures.h"
 
 // The resolved text-rendering configuration a reader hands to the layout
 // engine. Section-cache validation keys on every field: a section file built

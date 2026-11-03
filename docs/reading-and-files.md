@@ -85,6 +85,18 @@ SD-card fonts and the built-in font have separate scales (SD fonts 0.70× to 1.2
 line height, built-in 0.65× to 1.05×), because they measure their line height differently. With
 some fonts, accents on capitals can touch the line above at levels 0 and 1.
 
+## Experimental text features (0.66.0)
+
+**Settings → Reader → Experimental** (the last row, after Clear Reading Cache), and in a book **Text → Experimental** (the last row), have five switches for how a book is laid out (kos25k #30). Changing one lays the book out again once.
+
+- **Ligatures (fi, fl)**: on by default. The font's ligatures for fi, fl, ff and so on. They come from SD-card and TTF fonts; the built-in fonts may not have them.
+- **Kerning**: on by default. The pair spacing from the font (the "AV" and "To" kind of fix).
+- **Widow/orphan control**: on by default. No single line of a paragraph is left alone at the bottom or the top of a page.
+- **Keep headings with text**: on by default. A heading is moved to the next page when none of the text after it would fit.
+- **Hanging punctuation**: off by default, new. An opening quote or bracket at the start of a line hangs into the left margin, and a closing mark at the end of a line (period, comma, closing quote, the hyphen of a split word and so on, also the Greek « » and ano teleia) hangs into the right margin, so the letters line up on both edges. The hang is at most 12 px, and it needs some page margin: with Screen Margin at 0 the hanging mark is cut at the screen edge.
+
+While a book is open the kerning and ligature switches also apply to the menus drawn over it; when you leave the book the menus are back to normal. Greek hyphenation, including polytonic, and the Greek letters in the built-in fonts are not switches, they are always on. Not tried on a device.
+
 ## Hide Status Bar and the book page number
 
 Since 0.65.0 this is the first row of **Settings → Reader → Customise Status Bar**, with the other status bar options. It hides the whole status bar at the bottom of a book or
@@ -92,6 +104,8 @@ note, and the text uses that room. Your choices under Customise Status Bar are k
 turn it back on.
 
 Two more rows there (0.65.0, kos25k #12): **Book page number (37)** shows the page in brackets next to the battery, counted from the first chapter (page 1 is the first page of the first chapter; a book that starts before its first chapter shows 1 there, and a comic shows its page number exactly). For books it is an **estimate**: pages of the other chapters are worked out from this chapter's pages and its share of the book, so it changes when you change the font or spacing. **Page number when bar is hidden** keeps just that number on a bar that is otherwise hidden.
+
+Since 0.66.0 there is also **Hide Status Bar** in the book menu under **More** (below Night Mode), so you can hide or show it without going to Settings; the book is laid out again, because the text takes the room.
 
 There is no tap to show and hide it inside a book. A different page height means the chapter
 has to be laid out again, which takes a few seconds each time. The bottom of the screen also

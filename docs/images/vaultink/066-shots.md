@@ -1,0 +1,1 @@
+0.66.0 screenshot (2026-11-04), simulator 480x800: experimental-066.png is Settings > Reader > Experimental with the five switches (ligatures, kerning, widow/orphan control, keep headings with text on; hanging punctuation off). For the blog and project page (kos25k #30).

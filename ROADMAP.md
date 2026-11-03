@@ -704,3 +704,7 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
 * ✅ (0.65.0) #28 Flashlight as a built-in tool (S.O.S., blink, steady; brightness, warmth, speed).
 * ❌ #26 MOBI/AZW/AZW3 (no parser, flash), #29 PDF reflow (text-only today), #30 Experimental typography (half exists; ligatures/variable fonts don't fit); widow/orphan and hanging punctuation stay as maybes.
 * ✅ closed with thanks: #16, #18, #24; #19 closed as not planned (word expansion stays on the list).
+
+## 0.66.0 plan (kos25k #30, #12; answered 2026-11-03)
+* ✅ (0.66.0, simulator only) #30 Experimental section (Settings > Reader and the book's Text panel) with switches for ligatures, kerning, widow/orphan control, keep headings with text, and new hanging punctuation. Declined: font weight, variable fonts, OpenType shaping beyond ligatures and kerning. Asked kos25k what he means by Advanced Greek Typography (Greek hyphenation, polytonic and Greek fonts already exist).
+* ✅ (0.66.0) #12 Hide Status Bar toggle in the book menu under More.

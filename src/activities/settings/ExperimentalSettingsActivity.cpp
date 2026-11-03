@@ -56,7 +56,10 @@ void ExperimentalSettingsActivity::buildScreen(UiScreen& screen) {
   screen.setContentMarginFromScreen(fui::Insets{static_cast<int16_t>(metrics.topPadding + metrics.headerHeight), 0,
                                                 static_cast<int16_t>(metrics.buttonHintsHeight), 0});
   screen.spacer(static_cast<int16_t>(metrics.verticalSpacing));
-  for (int i = 0; i < ITEM_COUNT; i++) GUI.setCheckboxRow(rowItems_[i], *fieldFor(i));
+  for (int i = 0; i < ITEM_COUNT; i++) {
+    const uint8_t* field = fieldFor(i);
+    GUI.setCheckboxRow(rowItems_[i], field != nullptr && *field != 0);
+  }
   fui::ListProps props;
   props.items = rowItems_;
   props.count = ITEM_COUNT;

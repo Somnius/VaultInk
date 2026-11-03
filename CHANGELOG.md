@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.66.0 (2026-11-04)
+
+An Experimental section for text features, hanging punctuation, and Hide Status Bar in the book menu (kos25k #30, #12).
+
+- **Experimental** (kos25k #30): Settings > Reader > Experimental (last row) and, in a book, Text > Experimental (last row). Five switches: Ligatures (fi, fl), Kerning, Widow/orphan control and Keep headings with text (all on by default, they were always on before), and Hanging punctuation (off, new). A change lays the book out again once.
+- **Hanging punctuation**: an opening quote or bracket at the start of a line hangs into the left margin and a closing mark at the end of a justified line (period, comma, closing quote, the hyphen of a split word, Greek « » and ano teleia) into the right margin, up to 12 px. Needs some page margin.
+- **Hide Status Bar** (kos25k #12): a row in the book menu under More, below Night Mode.
+- While a book is open the kerning and ligature switches also apply to the menus; leaving the book puts them back.
+
+Tried in the simulator and on the computer (host tests, device build). Not on a device: the hanging look and the Experimental switches need a real reader.
+
 ## 0.65.0 (2026-11-03)
 
 Status bar options, a Battery page that splits the light, four more papyrus looks, and a Flashlight (kos25k #12, #20, #1, #28).
