@@ -21,6 +21,7 @@
 #include "ClearCacheActivity.h"
 #include "ClockSettingsActivity.h"
 #include "CrossPointSettings.h"
+#include "ExperimentalSettingsActivity.h"
 #include "FontDownloadActivity.h"
 #include "HomeButtonSettingsActivity.h"
 #include "HomeItemsActivity.h"
@@ -179,6 +180,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   }
   addAction(SettingsSection::Reader, StrId::STR_CUSTOMISE_STATUS_BAR, SettingAction::CustomiseStatusBar);
   addAction(SettingsSection::Reader, StrId::STR_CLEAR_READING_CACHE, SettingAction::ClearCache);
+  addAction(SettingsSection::Reader, StrId::STR_EXPERIMENTAL, SettingAction::Experimental);
   addAction(SettingsSection::Vaults, StrId::STR_REBUILD_SEARCH_INDEX, SettingAction::RebuildSearchIndex);
   addAction(SettingsSection::Vaults, StrId::STR_LIVESYNC, SettingAction::LiveSync);
 
@@ -360,6 +362,9 @@ void SettingsActivity::toggleSelectedSetting() {
       }
       case SettingAction::RemapFrontButtons:
         startActivityForResult(std::make_unique<ButtonRemapActivity>(renderer, mappedInput), resultHandler);
+        break;
+      case SettingAction::Experimental:
+        startActivityForResult(std::make_unique<ExperimentalSettingsActivity>(renderer, mappedInput), resultHandler);
         break;
       case SettingAction::CustomiseStatusBar:
         startActivityForResult(std::make_unique<StatusBarSettingsActivity>(renderer, mappedInput), resultHandler);

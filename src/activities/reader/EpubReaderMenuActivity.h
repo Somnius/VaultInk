@@ -17,6 +17,7 @@ class EpubReaderMenuActivity final : public UiListActivity {
     FOOTNOTES,
     TEXT_SETTINGS,
     NIGHT_MODE,
+    HIDE_STATUS_BAR,  // 0.66.0 (kos25k #12): hide or show the bottom status bar from the menu
     FRONTLIGHT,
     BLUETOOTH,
     GO_TO_PERCENT,
@@ -67,7 +68,7 @@ class EpubReaderMenuActivity final : public UiListActivity {
   // fixed-capacity array avoids any heap allocation for the row list. Labels
   // are set once in the constructor (buildMenuRowItems()); buildScreen()
   // only refreshes rows whose values reflect live state.
-  static constexpr size_t MAX_MENU_ITEMS = 28;  // every action at once (27) fits
+  static constexpr size_t MAX_MENU_ITEMS = 29;  // every action at once (28) fits
   freeink::ui::ListItem menuRowItems[MAX_MENU_ITEMS]{};
   void buildMenuRowItems();
 

@@ -17,6 +17,7 @@ enum class SettingAction {
   None,
   RemapFrontButtons,
   CustomiseStatusBar,
+  Experimental,
   ClockSettings,
   KOReaderSync,
   OPDSBrowser,

@@ -71,6 +71,7 @@ void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, const 
     if (!isVaultNote) items.push_back({MenuAction::EXPORT_CLIPPINGS, StrId::STR_EXPORT_CLIPPINGS});
   }
   items.push_back({MenuAction::NIGHT_MODE, StrId::STR_NIGHT_MODE});
+  items.push_back({MenuAction::HIDE_STATUS_BAR, StrId::STR_HIDE_STATUS_BAR});
   if (Frontlight.present() && !slideSwitchOwnsLight()) {
     items.push_back({MenuAction::FRONTLIGHT, StrId::STR_FRONTLIGHT});
   }
@@ -227,6 +228,8 @@ void EpubReaderMenuActivity::buildScreen(UiScreen& screen) {
       menuRowItems[i].value = pageTurnLabels[selectedPageTurnOption];
     } else if (action == MenuAction::NIGHT_MODE) {
       GUI.setCheckboxRow(menuRowItems[i], SETTINGS.screenInverted);
+    } else if (action == MenuAction::HIDE_STATUS_BAR) {
+      GUI.setCheckboxRow(menuRowItems[i], SETTINGS.statusBarHidden);
     } else if (action == MenuAction::BLUETOOTH) {
       GUI.setCheckboxRow(menuRowItems[i], SETTINGS.ble.enabled);
     } else if (action == MenuAction::FRONTLIGHT) {

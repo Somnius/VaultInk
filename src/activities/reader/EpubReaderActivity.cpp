@@ -1304,6 +1304,10 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
                              });
       break;
     }
+    case EpubReaderMenuActivity::MenuAction::HIDE_STATUS_BAR:
+      SETTINGS.statusBarHidden = SETTINGS.statusBarHidden == 0 ? 1 : 0;
+      applyTextSettingLive();
+      break;
     case EpubReaderMenuActivity::MenuAction::BLUETOOTH:
     case EpubReaderMenuActivity::MenuAction::NIGHT_MODE:
       // Handled in-place by EpubReaderMenuActivity so its On/Off value updates
@@ -2901,7 +2905,8 @@ bool EpubReaderActivity::handleSearchInput() {
 // ---------------------------------------------------------------------------
 
 namespace {
-// Rows 6-10 (kos25k #12): the rest of the layout settings, so they change while reading too.
+// Rows 6-10 (kos25k #12), row 11 Experimental (kos25k #30): the rest of the layout settings, so they change while
+// reading too.
 constexpr StrId kTextRowNames[] = {StrId::STR_FONT,
                                    StrId::STR_FONT_SIZE,
                                    StrId::STR_LINE_SPACING,
@@ -2912,7 +2917,8 @@ constexpr StrId kTextRowNames[] = {StrId::STR_FONT,
                                    StrId::STR_WORD_SPACING,
                                    StrId::STR_CHARACTER_SPACING,
                                    StrId::STR_SCREEN_MARGIN,
-                                   StrId::STR_PARAGRAPH_INDENTATION};
+                                   StrId::STR_PARAGRAPH_INDENTATION,
+                                   StrId::STR_EXPERIMENTAL};
 constexpr const StrId (&kSpacingIds)[CrossPointSettings::LINE_COMPRESSION_COUNT] = LINE_SPACING_IDS;
 constexpr StrId kGapIds[] = {StrId::STR_STATE_OFF, StrId::STR_GAPS_SLIGHT, StrId::STR_GAPS_MEDIUM};
 constexpr StrId kAlignIds[] = {StrId::STR_JUSTIFY, StrId::STR_ALIGN_LEFT, StrId::STR_CENTER, StrId::STR_ALIGN_RIGHT,
@@ -3061,6 +3067,27 @@ void EpubReaderActivity::showTextRowPopup(const int row) {
                           SETTINGS.paragraphIndentSpaces = static_cast<uint8_t>(idx);
                           applyTextSettingLive();
                         });
+      break;
+    }
+    case 11: {
+      // The switches of Settings > Reader > Experimental; picking one flips it and lays the book out again.
+      static constexpr StrId kNames[] = {StrId::STR_TEXT_LIGATURES, StrId::STR_TEXT_KERNING,
+                                         StrId::STR_TEXT_WIDOW_ORPHAN, StrId::STR_TEXT_KEEP_HEADINGS,
+                                         StrId::STR_TEXT_HANGING};
+      uint8_t* const fields[] = {&SETTINGS.textLigatures, &SETTINGS.textKerning, &SETTINGS.textWidowOrphan,
+                                 &SETTINGS.textKeepHeadings, &SETTINGS.textHanging};
+      std::vector<std::string> options;
+      for (size_t i = 0; i < std::size(kNames); ++i) {
+        options.push_back(std::string(I18N.get(kNames[i])) + ": " +
+                          (*fields[i] ? tr(STR_STATE_ON) : tr(STR_STATE_OFF)));
+      }
+      overlayPopup.show(StrId::STR_EXPERIMENTAL, options, 0, [this](int idx) {
+        uint8_t* const toggled[] = {&SETTINGS.textLigatures, &SETTINGS.textKerning, &SETTINGS.textWidowOrphan,
+                                    &SETTINGS.textKeepHeadings, &SETTINGS.textHanging};
+        if (idx < 0 || idx >= static_cast<int>(std::size(toggled))) return;
+        *toggled[idx] = *toggled[idx] ? 0 : 1;
+        applyTextSettingLive();
+      });
       break;
     }
     default:
@@ -3257,6 +3284,7 @@ void EpubReaderActivity::renderOverlay() {
       using MA = EpubReaderMenuActivity::MenuAction;
       const auto action = self->moreItems[i].action;
       if (action == MA::NIGHT_MODE) GUI.setCheckboxRow(item, SETTINGS.screenInverted);
+      if (action == MA::HIDE_STATUS_BAR) GUI.setCheckboxRow(item, SETTINGS.statusBarHidden);
       if (action == MA::BLUETOOTH) GUI.setCheckboxRow(item, SETTINGS.ble.enabled);
       if (action == MA::FRONTLIGHT) GUI.setCheckboxRow(item, Frontlight.isOn());
     };
@@ -3664,6 +3692,10 @@ void EpubReaderActivity::activateMoreRow(int row) {
         renderOverlay();
         pushOverlayRefresh();
       }
+      return;
+    case MA::HIDE_STATUS_BAR:
+      SETTINGS.statusBarHidden = SETTINGS.statusBarHidden == 0 ? 1 : 0;
+      applyTextSettingLive();  // the text takes (or gives back) the room, so the book is laid out again
       return;
     case MA::NIGHT_MODE:
       SETTINGS.screenInverted = SETTINGS.screenInverted == 0 ? 1 : 0;
