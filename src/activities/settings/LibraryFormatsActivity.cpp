@@ -15,6 +15,7 @@ struct Format {
 constexpr Format FORMATS[] = {
     {library::FMT_EPUB, "EPUB"},        {library::FMT_PDF, "PDF"},        {library::FMT_TXT, "TXT"},
     {library::FMT_MD, "Markdown (MD)"}, {library::FMT_XTC, "XTC / XTCH"}, {library::FMT_CBZ, "CBZ"},
+    {library::FMT_MOBI, "MOBI / PRC"},
 };
 }  // namespace
 

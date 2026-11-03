@@ -74,6 +74,8 @@ bool hasExcalidrawExtension(std::string_view fileName);
 // is not a book: anything under a dot-folder or /debug, crash logs, the changelog note, .log files.
 bool isRandomPageBook(std::string_view path);
 bool hasPdfExtension(std::string_view fileName);  // read as text (src/util/PdfConvert)
+// Plain Mobipocket books, .mobi and .prc (lib/Mobi, kos25k #26); AZW/KF8 and DRM are refused when opened.
+bool hasMobiExtension(std::string_view fileName);
 
 bool hasReflowableBookExtension(std::string_view fileName);
 

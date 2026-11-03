@@ -61,7 +61,9 @@ TEST(LibraryBookFileTest, AcceptsBookFilesTheWalkLists) {
 TEST(LibraryBookFileTest, RejectsOtherFilesAndHiddenNames) {
   EXPECT_FALSE(isLibraryBookFile(""));
   EXPECT_TRUE(isLibraryBookFile("/Books/book.pdf"));
-  EXPECT_FALSE(isLibraryBookFile("/Books/book.mobi"));
+  EXPECT_TRUE(isLibraryBookFile("/Books/book.mobi"));  // kos25k #26
+  EXPECT_TRUE(isLibraryBookFile("/Books/book.prc"));
+  EXPECT_FALSE(isLibraryBookFile("/Books/book.azw3"));
   EXPECT_FALSE(isLibraryBookFile("/Books/book.epub.part"));
   EXPECT_FALSE(isLibraryBookFile("/.crosspoint/library.dirty"));
   EXPECT_FALSE(isLibraryBookFile("/.crosspoint/plugins/foo/README.md"));

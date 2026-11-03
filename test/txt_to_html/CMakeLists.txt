@@ -11,6 +11,7 @@ add_executable(TxtToHtmlTest
 target_include_directories(TxtToHtmlTest PRIVATE
   ${REPO_ROOT}/lib/FsHelpers
   ${REPO_ROOT}/lib/Txt
+  ${REPO_ROOT}/lib/Mobi
   ${REPO_ROOT}/lib/Vault
   ${REPO_ROOT}/lib/Utf8
   ${REPO_ROOT}/lib/Memory

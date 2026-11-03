@@ -252,7 +252,8 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
     }
   }
 
-  const bool isZip = !FsHelpers::hasTxtExtension(epubPath) && !FsHelpers::hasMarkdownExtension(epubPath);
+  const bool isZip = !FsHelpers::hasTxtExtension(epubPath) && !FsHelpers::hasMarkdownExtension(epubPath) &&
+                     !FsHelpers::hasMobiExtension(epubPath);
   ZipFile zip(epubPath);
   std::optional<std::deque<uint32_t>> spineSizes;
   size_t rawSize = 0;

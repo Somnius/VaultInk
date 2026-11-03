@@ -8,6 +8,7 @@
 #include <JpegToBmpConverter.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <Mobi.h>
 #include <PngToBmpConverter.h>
 #include <Txt.h>
 #include <Utf8.h>
@@ -476,7 +477,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
 
   // Try to load existing cache first
   if (bookMetadataCache->load()) {
-    if (Txt::isTxtOrMd(filepath)) {
+    if (Txt::isPlainBook(filepath)) {
       if (!Txt::validateCache(filepath, cachePath, bookMetadataCache->getCumulativeSize(0))) {
         LOG_DBG("EBP", "TXT/MD cache invalid or outdated: %s", filepath.c_str());
         if (!buildIfMissing) {
@@ -547,7 +548,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
     return false;
   }
 
-  if (Txt::isTxtOrMd(filepath)) {
+  if (Txt::isPlainBook(filepath)) {
     return Txt::buildTxtCache(filepath, cachePath, bookMetadataCache);
   }
 
@@ -657,6 +658,14 @@ bool Epub::loadMetadata(std::string& title, std::string& author) {
 
   if (Txt::isTxtOrMd(filepath)) {
     title = utf8ComposeNfc(FsHelpers::getFileNameWithoutExtension(filepath));
+    return true;
+  }
+  if (Mobi::isMobi(filepath)) {
+    // Record 0 only: title and author from the EXTH header, no cache written.
+    mobi::Info info;
+    if (Mobi::probe(filepath, &info) != mobi::Status::Ok) return false;
+    title = utf8ComposeNfc(info.title.empty() ? FsHelpers::getFileNameWithoutExtension(filepath) : info.title);
+    author = utf8ComposeNfc(info.author);
     return true;
   }
 
@@ -866,7 +875,7 @@ bool Epub::generateCoverBmp(bool cropped, bool originalThresholds) const {
     return false;
   }
 
-  if (Txt::isTxtOrMd(filepath)) {
+  if (Txt::isPlainBook(filepath)) {
     return Txt::convertCoverImageToBmp(coverImageHref, getCoverBmpPath(cropped, originalThresholds), 0, cropped,
                                        originalThresholds);
   }
@@ -959,7 +968,7 @@ bool Epub::generateThumbBmp(int height) const {
 
 bool Epub::generateThumbBmpFromSource(int height) {
   if (Storage.exists(getThumbBmpPath(height).c_str())) return true;
-  if (Txt::isTxtOrMd(filepath)) {
+  if (Txt::isPlainBook(filepath)) {
     std::string companionCover = Txt::findCompanionCoverImage(filepath);
     if (companionCover.empty()) return false;
     setupCacheDir();
@@ -990,7 +999,7 @@ bool Epub::generateThumbBmpForCover(int height, const std::string& coverImageHre
     return false;
   }
 
-  if (Txt::isTxtOrMd(filepath)) {
+  if (Txt::isPlainBook(filepath)) {
     return Txt::convertCoverImageToBmp(coverImageHref, getThumbBmpPath(height), height);
   }
 
@@ -1118,7 +1127,7 @@ uint8_t* Epub::readItemContentsToBytes(const std::string& itemHref, size_t* size
 }
 
 std::unique_ptr<ZipEntryReader> Epub::openItemReader(const std::string& itemHref) const {
-  if (itemHref.empty() || Txt::isTxtOrMd(filepath)) return nullptr;
+  if (itemHref.empty() || Txt::isPlainBook(filepath)) return nullptr;
   const std::string path = FsHelpers::normalisePath(itemHref);
   if (decryptor && decryptor->isEncrypted(path)) return nullptr;
   auto reader = std::make_unique<ZipEntryReader>(filepath);
@@ -1133,7 +1142,7 @@ bool Epub::readItemContentsToStream(const std::string& itemHref, Print& out, con
     return false;
   }
 
-  if (Txt::isTxtOrMd(filepath)) {
+  if (Txt::isPlainBook(filepath)) {
     // A note's embedded images are files on the SD card (MarkdownToHtml wrote their full paths).
     const auto isImage = [](const std::string& href) {
       for (const char* ext : {".png", ".jpg", ".jpeg", ".gif", ".bmp"}) {
@@ -1191,7 +1200,7 @@ bool Epub::extractItemToFile(const std::string& itemHref, const std::string& des
 }
 
 bool Epub::getItemSize(const std::string& itemHref, size_t* size) const {
-  if (Txt::isTxtOrMd(filepath)) {
+  if (Txt::isPlainBook(filepath)) {
     HalFile f;
     if (Storage.openFileForRead("EBP", filepath, f)) {
       if (size) *size = f.size();

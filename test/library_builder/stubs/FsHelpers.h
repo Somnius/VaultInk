@@ -10,4 +10,7 @@ inline bool hasXtcExtension(std::string_view path) {
   return checkFileExtension(path, ".xtc") || checkFileExtension(path, ".xtch");
 }
 inline bool hasCbzExtension(std::string_view path) { return checkFileExtension(path, ".cbz"); }
+inline bool hasMobiExtension(std::string_view path) {
+  return checkFileExtension(path, ".mobi") || checkFileExtension(path, ".prc");
+}
 }  // namespace FsHelpers

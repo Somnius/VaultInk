@@ -1,6 +1,6 @@
 #pragma once
 
-// Which book types the Library lists (kos25k #18). One bit per type; 63 = all.
+// Which book types the Library lists (kos25k #18). One bit per type; 127 = all.
 // Platform-free so it is host-tested (test/library_index_file).
 
 #include <cstdint>
@@ -14,7 +14,8 @@ inline constexpr uint8_t FMT_TXT = 4;
 inline constexpr uint8_t FMT_MD = 8;
 inline constexpr uint8_t FMT_XTC = 16;  // .xtc and .xtch
 inline constexpr uint8_t FMT_CBZ = 32;
-inline constexpr uint8_t FMT_ALL = 63;
+inline constexpr uint8_t FMT_MOBI = 64;  // .mobi and .prc (kos25k #26)
+inline constexpr uint8_t FMT_ALL = 127;
 
 namespace detail {
 inline bool endsWithNoCase(std::string_view name, std::string_view ext) {
@@ -38,6 +39,7 @@ inline uint8_t formatBitOf(std::string_view name) {
   if (endsWithNoCase(name, ".md")) return FMT_MD;
   if (endsWithNoCase(name, ".xtc") || endsWithNoCase(name, ".xtch")) return FMT_XTC;
   if (endsWithNoCase(name, ".cbz")) return FMT_CBZ;
+  if (endsWithNoCase(name, ".mobi") || endsWithNoCase(name, ".prc")) return FMT_MOBI;
   return 0;
 }
 

@@ -123,7 +123,7 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   if (galleryFilter != 0) doc["galleryFilter"] = galleryFilter;
   if (lockMode != 0) doc["lockMode"] = lockMode;
   if (libraryBooksOnly != 0) doc["libraryBooksOnly"] = libraryBooksOnly;
-  if (libraryFormatMask != 63) doc["libraryFormatMask"] = libraryFormatMask;
+  if (libraryFormatMask != 127) doc["libraryFormatMask"] = libraryFormatMask;
   if (keyboardLayouts != 0) {
     doc["keyboardLayouts"] = keyboardLayouts;
   }
@@ -315,8 +315,8 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   if (doc["galleryFilter"].is<uint8_t>()) galleryFilter = doc["galleryFilter"].as<uint8_t>() % 4;
   if (doc["lockMode"].is<uint8_t>()) lockMode = doc["lockMode"].as<uint8_t>() % 3;
   if (doc["libraryBooksOnly"].is<uint8_t>()) libraryBooksOnly = doc["libraryBooksOnly"].as<uint8_t>() ? 1 : 0;
-  if (doc["libraryFormatMask"].is<uint8_t>()) libraryFormatMask = doc["libraryFormatMask"].as<uint8_t>() & 63;
-  if (libraryFormatMask == 0) libraryFormatMask = 63;  // nothing ticked would be an empty Library
+  if (doc["libraryFormatMask"].is<uint8_t>()) libraryFormatMask = doc["libraryFormatMask"].as<uint8_t>() & 127;
+  if (libraryFormatMask == 0) libraryFormatMask = 127;  // nothing ticked would be an empty Library
   if (doc["keyboardLayouts"].is<uint16_t>()) {
     keyboardLayouts = doc["keyboardLayouts"].as<uint16_t>();
   }

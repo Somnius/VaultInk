@@ -18,7 +18,7 @@ class LibraryFormatsActivity final : public UiListActivity {
   void onExit() override;
 
  private:
-  static constexpr int COUNT = 6;
+  static constexpr int COUNT = 7;
   int listCount() const override { return COUNT; }
   void buildScreen(UiScreen& screen) override;
   void activateIndex(int index) override;

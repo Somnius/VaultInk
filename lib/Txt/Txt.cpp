@@ -6,6 +6,7 @@
 #include <JpegToBmpConverter.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <Mobi.h>
 #include <PngToBmpConverter.h>
 #include <Serialization.h>
 #include <Utf8.h>
@@ -20,6 +21,8 @@
 bool Txt::isTxtOrMd(std::string_view path) {
   return FsHelpers::hasTxtExtension(path) || FsHelpers::hasMarkdownExtension(path);
 }
+
+bool Txt::isPlainBook(std::string_view path) { return isTxtOrMd(path) || Mobi::isMobi(path); }
 
 std::string Txt::findCompanionCoverImage(const std::string& filepath) {
   std::string folder = FsHelpers::extractFolderPath(filepath);
@@ -98,6 +101,7 @@ bool Txt::convertCoverImageToBmp(const std::string& imagePath, const std::string
 }
 
 bool Txt::streamTxtToHtml(const std::string& filepath, Print& out, const std::string& cachePath) {
+  if (Mobi::isMobi(filepath)) return Mobi::streamHtml(filepath, out, cachePath);
   const uint32_t t0 = millis();
   HalFile src;
   if (!Storage.openFileForRead("TXT", filepath, src)) {
@@ -248,6 +252,7 @@ bool Txt::validateCache(const std::string& filepath, const std::string& cachePat
 
 bool Txt::buildTxtCache(const std::string& filepath, const std::string& cachePath,
                         std::unique_ptr<BookMetadataCache>& bookMetadataCache) {
+  if (Mobi::isMobi(filepath)) return Mobi::buildCache(filepath, cachePath, bookMetadataCache);
   LOG_DBG("TXT", "Building metadata cache for TXT: %s", filepath.c_str());
 
   if (!Storage.exists(cachePath.c_str())) {

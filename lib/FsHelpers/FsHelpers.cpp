@@ -184,11 +184,15 @@ bool hasMarkdownExtension(std::string_view fileName) { return checkFileExtension
 
 bool hasPdfExtension(std::string_view fileName) { return checkFileExtension(fileName, ".pdf"); }
 
+bool hasMobiExtension(std::string_view fileName) {
+  return checkFileExtension(fileName, ".mobi") || checkFileExtension(fileName, ".prc");
+}
+
 bool hasCanvasExtension(std::string_view fileName) { return checkFileExtension(fileName, ".canvas"); }
 
 bool isRandomPageBook(const std::string_view path) {
   if (!(hasEpubExtension(path) || hasPdfExtension(path) || hasCbzExtension(path) || hasXtcExtension(path) ||
-        hasTxtExtension(path))) {
+        hasTxtExtension(path) || hasMobiExtension(path))) {
     return false;
   }
   if (path.find("/.") != std::string_view::npos || path.rfind("/debug/", 0) == 0) return false;
@@ -207,7 +211,8 @@ bool hasExcalidrawExtension(std::string_view fileName) {
 }
 
 bool hasReflowableBookExtension(std::string_view fileName) {
-  return hasEpubExtension(fileName) || hasTxtExtension(fileName) || hasMarkdownExtension(fileName);
+  return hasEpubExtension(fileName) || hasTxtExtension(fileName) || hasMarkdownExtension(fileName) ||
+         hasMobiExtension(fileName);
 }
 
 bool hasCssExtension(std::string_view fileName) { return checkFileExtension(fileName, ".css"); }

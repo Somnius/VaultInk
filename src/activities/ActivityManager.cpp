@@ -1,5 +1,6 @@
 #include "ActivityManager.h"
 
+#include <Arduino.h>
 #include <BlePageTurner.h>
 #include <BoardConfig.h>
 #include <FontCacheManager.h>
@@ -7,7 +8,9 @@
 #include <HalDisplay.h>
 #include <HalFrontlight.h>
 #include <HalPowerManager.h>
+#include <I18n.h>
 #include <Memory.h>
+#include <Mobi.h>
 #include <VectorFontSupport.h>
 
 #include <algorithm>
@@ -21,6 +24,7 @@
 #include "browser/OpdsBookBrowserActivity.h"
 #include "components/HeaderBackTapTarget.h"
 #include "components/HeaderHomeTapTarget.h"
+#include "components/UITheme.h"
 #include "home/CrashActivity.h"
 #include "home/FileBrowserActivity.h"
 #include "home/GalleryActivity.h"
@@ -410,6 +414,25 @@ void ActivityManager::goToReader(std::string path, const bool allowFastInitialRe
     }
     vaultnav::openingAs(path, textPath);
     path = std::move(textPath);
+  }
+
+  // A MOBI with DRM, HUFF/CDIC compression or a damaged header is refused here with a reason (kos25k #26).
+  if (FsHelpers::hasMobiExtension(path)) {
+    const mobi::Status status = Mobi::probe(path);
+    if (status != mobi::Status::Ok) {
+      const char* message = tr(STR_MOBI_UNREADABLE);
+      if (status == mobi::Status::Drm) message = tr(STR_MOBI_DRM);
+      if (status == mobi::Status::UnsupportedCompression) message = tr(STR_MOBI_UNSUPPORTED);
+      {
+        RenderLock lock;
+        GUI.drawPopup(renderer, message);
+      }
+      delay(2500);
+      randompage::take();
+      const size_t slash = path.find_last_of('/');
+      goToFileBrowser(slash == std::string::npos || slash == 0 ? "/" : path.substr(0, slash));
+      return;
+    }
   }
 
   if (FsHelpers::hasImageExtension(path)) {

@@ -462,9 +462,9 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t libraryBooksOnly = 0;
   // Library Author tab as folders (kos25k #18): 2+ books by one author fold into a folder.
   uint8_t libraryAuthorFolders = 0;
-  // Library format filter (kos25k #18): which book types the Library lists (bits of library::FMT_*, 63 = all),
+  // Library format filter (kos25k #18): which book types the Library lists (bits of library::FMT_*, 127 = all),
   // and whether the gear button shows in the Library header.
-  uint8_t libraryFormatMask = 63;
+  uint8_t libraryFormatMask = 127;
   uint8_t libraryFormatButton = 1;
   uint32_t libraryTabOrder = 0;  // the order of the Library tabs, util/LibraryTabOrder.h; 0 = default
   uint8_t libraryStartTab = 0;   // the tab the Library opens on: 0 Recent, 1 Title, 2 Author, 3 Favourites, 4 Folders

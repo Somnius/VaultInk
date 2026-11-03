@@ -4,11 +4,13 @@
 #include <Logging.h>
 #include <MarkdownToHtml.h>
 #include <Memory.h>
+#include <MobiFormat.h>
 
 #include <algorithm>
 #include <cstring>
 
 const char* TxtToHtml::cacheVersionTag(std::string_view filename) {
+  if (FsHelpers::hasMobiExtension(filename)) return mobi::CACHE_VERSION_TAG;
   if (!FsHelpers::hasMarkdownExtension(filename)) return "<!-- TXT_CACHE_VERSION: 1 -->";
   return taskBoxes ? "<!-- MD_CACHE_VERSION: 8 boxes -->" : "<!-- MD_CACHE_VERSION: 8 -->";
 }

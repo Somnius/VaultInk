@@ -155,7 +155,7 @@ UIIcon UITheme::getFileIcon(const std::string& filename) {
     return Folder;
   }
   if (FsHelpers::hasEpubExtension(filename) || FsHelpers::hasXtcExtension(filename) ||
-      FsHelpers::hasCbzExtension(filename)) {
+      FsHelpers::hasCbzExtension(filename) || FsHelpers::hasMobiExtension(filename)) {
     return Book;
   }
   if (FsHelpers::hasTxtExtension(filename) || FsHelpers::hasMarkdownExtension(filename)) {
