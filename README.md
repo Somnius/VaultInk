@@ -66,6 +66,8 @@ Home → Plugins holds the built-in tools: Sudoku, a dice roller, and VaultEUC f
   <img src="docs/images/vaultink/library-gear.png" width="190" alt="The Library header with the format filter gear">
   <img src="docs/images/vaultink/lock-owner.png" width="190" alt="The PIN lock screen with the owner's name and phone">
   <img src="docs/images/vaultink/file-search.png" width="190" alt="Search files in Browse Files: hits with their folders">
+  <img src="docs/images/vaultink/flashlight.png" width="190" alt="Flashlight: S.O.S., brightness, warmth and flash speed">
+  <img src="docs/images/vaultink/paper-contrast-065.png" width="190" alt="Paper contrast with a tile of all fourteen page backgrounds">
 </p>
 
 Page background contrast with a preview, Random page!, the Library's format filter, and the lock screen.
@@ -83,7 +85,7 @@ Each line links to its guide where there is one. The full list is in [SPECS.md](
 - **Random page!** (a Home item, off by default): a random page of a random book (book formats only), saving nothing, with a way back to where you were.
 - **Search in Browse Files** (0.64.0): a magnifier looks for files and folders by name through the whole card, with a way to show a hit in its folder. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-browse-files-0640)
 - **Page backgrounds** from plain to papyrus and bath towel, a set you choose for the quick button, and a 0 to 100 **contrast** slider with a preview. [Mostly for fun](#page-backgrounds).
-- **Reading stats**, streaks and the reading-stats sleep screen; **battery** page with drain per hour; **book info** on a long press, **Favourites**, **Gallery** for pictures.
+- **Reading stats**, streaks and the reading-stats sleep screen; **battery** page with drain per hour (asleep, awake with the light off and awake with it on); **book info** on a long press, **Favourites**, **Gallery** for pictures.
 
 **Obsidian vaults** [docs/editing.md](docs/editing.md), [docs/livesync.md](docs/livesync.md), [docs/flashcards.md](docs/flashcards.md)
 - Notes read like book pages: headings, lists, tasks, quotes, tables, code, callouts, highlights, embeds, links and backlinks, with Greek handled throughout. Canvas files open in a viewer.
@@ -95,6 +97,7 @@ Each line links to its guide where there is one. The full list is in [SPECS.md](
 - **Dice**: polyhedral dice with advantage, keep-highest and exploding dice; old World of Darkness; Vampire V5 with Hunger dice, Willpower reroll and Rouse checks; Chronicles of Darkness; Fate; Powered by the Apocalypse; Blades in the Dark; Call of Cthulhu; Shadowrun; Savage Worlds; Year Zero; Cyberpunk Red. [docs/reading-and-files.md](docs/reading-and-files.md#dice-0610)
 - **Focus timer, Habits, Excalidraw, Bluetooth keyboard** (0.63.0): a Pomodoro timer and a daily habit tracker in Home → Plugins ([docs/tools.md](docs/tools.md)); `.excalidraw` drawings open in a viewer; a Bluetooth keyboard can type into the on-screen keyboard's line (off by default, untried with a real keyboard). The dice seed mixes the date and time, battery percent and voltage with the chip's generator.
 - **VaultEUC**: an electric unicycle companion over Bluetooth (Begode, Veteran/Leaperkim, KingSong, InMotion, Ninebot, VESC): live numbers every 5 to 30 seconds, alarms, ride logs on the SD card, your wheels remembered, km/h or mph. **Not for use while riding, and not tried on a real wheel yet.** [docs/vaulteuc.md](docs/vaulteuc.md)
+- **Flashlight** (0.65.0): the front light as an S.O.S., blinking or steady, with brightness, warmth and flash speed ([docs/tools.md](docs/tools.md)).
 - **Plugins** from the SD card and the Plugin Hub: [docs/sd-plugins.md](docs/sd-plugins.md).
 
 **The device**
@@ -112,7 +115,7 @@ Each line links to its guide where there is one. The full list is in [SPECS.md](
 
 Swipe down from the top for quick settings, then tap the paper tile to change the page background
 under the text. It's also under **Settings → Reader → Page Background**. The choices are plain,
-paper, sandpaper, papyrus (soft, medium, hard and cloudy), toilet paper, kitchen paper and bath towel.
+paper, sandpaper, papyrus (soft, medium, hard, cloudy, aged, cracked, stained and crumpled), toilet paper, kitchen paper and bath towel.
 **Settings → Reader → Paper Button Cycle** sets which of them the tile steps through, and its first row,
 **Paper contrast**, opens a 0 to 100 slider with a tile of every background that changes as you move it (0.60.0).
 

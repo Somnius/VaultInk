@@ -273,6 +273,10 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t statusBarClock = STATUS_BAR_CLOCK_HIDE;
   // Hides the whole reader status bar (the items above keep their choices); the text takes the room.
   uint8_t statusBarHidden = 0;
+  // The book page number in brackets, "(37)", counted from the first chapter (kos25k #12), and whether it stays
+  // when the status bar is hidden.
+  uint8_t statusBarBookPage = 0;
+  uint8_t statusBarPageWhenHidden = 0;
   // LEGACY, kept for migration only: quarter-hour UTC offset biased by 48
   // (48 = UTC+0). Superseded by clockTimezone; read once by
   // timezones::activeIndex() when clockTimezone is unset.
@@ -503,6 +507,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     bool showBookProgressPercent = false;
     uint8_t titleMode = HIDE_TITLE;  // STATUS_BAR_TITLE
     bool showBattery = false;
+    bool showBookPage = false;
     bool showBatteryPercent = false;
     uint8_t clockMode = STATUS_BAR_CLOCK_HIDE;  // STATUS_BAR_CLOCK_MODE
     bool clock12h = false;
@@ -516,7 +521,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     // Visibility of the text lane. Clock hardware presence is the caller's
     // concern: pass halClock.isAvailable(), or true for layout reservation.
     bool textLaneVisible(bool clockAvailable) const {
-      return showChapterPageCount || showBookProgressPercent || showsTitle() || showBattery ||
+      return showChapterPageCount || showBookProgressPercent || showsTitle() || showBattery || showBookPage ||
              (showsClock() && clockAvailable);
     }
   };

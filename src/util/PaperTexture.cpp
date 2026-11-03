@@ -2,6 +2,7 @@
 
 #include <GfxRenderer.h>
 
+#include <algorithm>
 #include <cstdlib>
 
 namespace paper_texture {
@@ -57,7 +58,19 @@ bool cloudy(const int x, const int y) {
   return hash(x, y, 10) % 1000 < static_cast<uint32_t>(density);
 }
 
-bool inked(const int x, const int y, const uint8_t style) {
+// Where `smoothNoise` crosses a level, a thin wavy line: the contour lines of the noise are the creases and cracks.
+// `width` is how far from the level still counts (in noise units, 0..255); the line is broken up by `keep` percent.
+bool contour(const int x, const int y, const int cell, const uint32_t seed, const int level, const int width,
+             const uint32_t keep) {
+  return std::abs(smoothNoise(x, y, cell, seed) - level) < width && hash(x, y, seed + 40) % 100 < keep;
+}
+
+// The region the texture is drawn in, for looks that depend on the edges.
+struct Region {
+  int x0, y0, w, h;
+};
+
+bool inked(const int x, const int y, const uint8_t style, const Region& region) {
   switch (style) {
     case PAPER:
       return hash(x, y, 4) % 1000 < 14;
@@ -84,6 +97,31 @@ bool inked(const int x, const int y, const uint8_t style) {
     }
     case PAPYRUS_CLOUDY:
       return cloudy(x, y);
+    case PAPYRUS_AGED: {
+      // Old paper gone dark at the edges: dots that thicken towards each edge, over faint clouds.
+      const int edge = std::min(std::min(x - region.x0, region.x0 + region.w - 1 - x),
+                                std::min(y - region.y0, region.y0 + region.h - 1 - y));
+      constexpr int BAND = 70;
+      const int closeness = edge < BAND ? BAND - edge : 0;          // 0..70
+      const int rim = closeness * closeness * 240 / (BAND * BAND);  // per 1000, densest at the very edge
+      const int cloud = smoothNoise(x, y, 80, 31) > 150 ? (smoothNoise(x, y, 80, 31) - 150) / 6 : 0;
+      return hash(x, y, 41) % 1000 < static_cast<uint32_t>(rim + cloud);
+    }
+    case PAPYRUS_CRACKED:
+      // Fine cracks: faint broken wavy lines, and a light grain.
+      return contour(x, y, 70, 51, 128, 2, 45) || contour(x, y, 150, 52, 110, 1, 40) || hash(x, y, 53) % 1000 < 8;
+    case PAPYRUS_STAINED: {
+      // Blotches: dotted patches where the noise is high, thicker towards the middle of a patch, and a few dark spots.
+      const int patch = smoothNoise(x, y, 70, 61);
+      const int spot = smoothNoise(x, y, 18, 62);
+      uint32_t density = patch > 140 ? static_cast<uint32_t>((patch - 140) * 2) : 0;  // up to 230 per 1000
+      if (spot > 205) density += 260;
+      return hash(x, y, 63) % 1000 < density;
+    }
+    case PAPYRUS_CRUMPLED:
+      // Creases from a crushed sheet: faint wavy lines at two levels of a large noise, with a light grain.
+      return contour(x, y, 110, 71, 105, 1, 55) || contour(x, y, 110, 71, 165, 1, 55) ||
+             contour(x, y, 55, 72, 128, 1, 30) || hash(x, y, 73) % 1000 < 8;
     case BATH_TOWEL:
       // Terry loops: dense 2x2 tufts.
       return hash(x >> 1, y >> 1, 6) % 100 < 12 && hash(x, y, 7) % 4 != 0;
@@ -97,9 +135,10 @@ bool inked(const int x, const int y, const uint8_t style) {
 void drawIn(const GfxRenderer& renderer, const uint8_t style, const uint8_t contrast, const int x0, const int y0,
             const int width, const int height) {
   if (style == PLAIN || style >= STYLE_COUNT || contrast == 0) return;
+  const Region region{x0, y0, width, height};
   for (int y = y0; y < y0 + height; ++y) {
     for (int x = x0; x < x0 + width; ++x) {
-      if (!inked(x, y, style)) continue;
+      if (!inked(x, y, style, region)) continue;
       if (contrast < 100 && hash(x, y, 99) % 100 >= contrast) continue;
       renderer.drawPixel(x, y, true);
     }

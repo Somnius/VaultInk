@@ -15,6 +15,7 @@
 #include "XtcReaderChapterSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/BookPageNumber.h"
 #include "util/BookProgress.h"
 #include "util/RandomPage.h"
 
@@ -147,6 +148,7 @@ void XtcReaderActivity::renderStatusBarOverlay(GfxRenderer& renderer, const Stat
   const int displayPage = static_cast<int>(currentPage) + 1;
   const float progress = pageCount > 0 ? (static_cast<float>(displayPage) * 100.0f) / pageCount : 0.0f;
   const auto pageInfo = getStatusBarInfo();
+  bookpage::set(displayPage);  // a comic's pages are counted exactly
   GUI.drawStatusBar(renderer, progress, pageInfo.currentPage, pageInfo.pageCount, pageInfo.title, paddingBottom);
 }
 

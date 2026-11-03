@@ -26,6 +26,7 @@
 #include "components/icons/cover.h"
 #include "components/icons/headerIcons.h"
 #include "fontIds.h"
+#include "util/BookPageNumber.h"
 
 void BaseTheme::setCheckboxRow(freeink::ui::ListItem& item, const bool checked) {
   item.value = nullptr;
@@ -935,6 +936,15 @@ void BaseTheme::drawStatusBar(GfxRenderer& renderer, const float bookProgress, c
       }
       renderer.drawText(SMALL_FONT_ID, clockX, textY, timeBuf);
     }
+  }
+
+  // The book page number in brackets, next to the battery and clock on the left; the title keeps clear of it.
+  if (sb.showBookPage && bookpage::number() > 0) {
+    char pageStr[16];
+    snprintf(pageStr, sizeof(pageStr), "(%d)", bookpage::number());
+    const int pageGap = leftClusterWidth > 0 ? 10 : 0;
+    renderer.drawText(SMALL_FONT_ID, leftClusterX + leftClusterWidth + pageGap, textY, pageStr);
+    leftClusterWidth += pageGap + renderer.getTextWidth(SMALL_FONT_ID, pageStr);
   }
 
   // Draw Bookmark

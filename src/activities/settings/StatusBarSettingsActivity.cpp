@@ -19,7 +19,10 @@ namespace {
 // when the RTC probe found hardware; time, zone, and format live in Settings >
 // System > Clock.
 enum MenuItem {
-  ITEM_CHAPTER_PAGE_COUNT = 0,
+  ITEM_HIDE_STATUS_BAR = 0,
+  ITEM_BOOK_PAGE_NUMBER,
+  ITEM_PAGE_WHEN_HIDDEN,
+  ITEM_CHAPTER_PAGE_COUNT,
   ITEM_BOOK_PROGRESS_PERCENTAGE,
   ITEM_PROGRESS_BAR,
   ITEM_PROGRESS_BAR_THICKNESS,
@@ -36,6 +39,9 @@ static_assert(FULL_MENU_ITEMS == StatusBarSettingsActivity::MAX_STATUS_BAR_ITEMS
               "keep StatusBarSettingsActivity::MAX_STATUS_BAR_ITEMS in sync with ITEM_COUNT");
 
 const StrId menuNames[FULL_MENU_ITEMS] = {
+    StrId::STR_HIDE_STATUS_BAR,
+    StrId::STR_BOOK_PAGE_NUMBER,
+    StrId::STR_PAGE_WHEN_HIDDEN,
     StrId::STR_CHAPTER_PAGE_COUNT,
     StrId::STR_BOOK_PROGRESS_PERCENTAGE,
     StrId::STR_PROGRESS_BAR,
@@ -118,6 +124,15 @@ void StatusBarSettingsActivity::activateIndex(const int index) {
 
 void StatusBarSettingsActivity::handleSelection() {
   switch (nav.selected) {
+    case ITEM_HIDE_STATUS_BAR:
+      SETTINGS.statusBarHidden = (SETTINGS.statusBarHidden + 1) % 2;
+      break;
+    case ITEM_BOOK_PAGE_NUMBER:
+      SETTINGS.statusBarBookPage = (SETTINGS.statusBarBookPage + 1) % 2;
+      break;
+    case ITEM_PAGE_WHEN_HIDDEN:
+      SETTINGS.statusBarPageWhenHidden = (SETTINGS.statusBarPageWhenHidden + 1) % 2;
+      break;
     case ITEM_CHAPTER_PAGE_COUNT:
       SETTINGS.statusBarChapterPageCount = (SETTINGS.statusBarChapterPageCount + 1) % 2;
       break;
@@ -201,6 +216,9 @@ void StatusBarSettingsActivity::buildScreen(UiScreen& screen) {
     rowValues_[i] = rowValueText(i);
     rowItems_[i].value = rowValues_[i].empty() ? nullptr : rowValues_[i].c_str();
   }
+  GUI.setCheckboxRow(rowItems_[ITEM_HIDE_STATUS_BAR], SETTINGS.statusBarHidden);
+  GUI.setCheckboxRow(rowItems_[ITEM_BOOK_PAGE_NUMBER], SETTINGS.statusBarBookPage);
+  GUI.setCheckboxRow(rowItems_[ITEM_PAGE_WHEN_HIDDEN], SETTINGS.statusBarPageWhenHidden);
   GUI.setCheckboxRow(rowItems_[ITEM_CHAPTER_PAGE_COUNT], SETTINGS.statusBarChapterPageCount);
   GUI.setCheckboxRow(rowItems_[ITEM_BOOK_PROGRESS_PERCENTAGE], SETTINGS.statusBarBookProgressPercentage);
   GUI.setCheckboxRow(rowItems_[ITEM_BATTERY], SETTINGS.statusBarBattery);

@@ -97,3 +97,46 @@ TEST(BatteryLog, RingKeepsNewest) {
   EXPECT_EQ(v.size(), MAX_RECORDS);
   EXPECT_EQ(v.back().epoch, 1000 + 199);
 }
+
+TEST(BatteryLog, OldLinesHaveNoLightField) {
+  Record out;
+  ASSERT_TRUE(fromLine("100\tS\t50\t0", out));
+  EXPECT_FALSE(out.lightKnown);
+  ASSERT_TRUE(fromLine("100\tS\t50\t0\t1", out));
+  EXPECT_TRUE(out.lightKnown);
+  EXPECT_TRUE(out.light);
+  EXPECT_FALSE(fromLine("100\tS\t50\t0\t2", out));
+  ASSERT_TRUE(fromLine(toLine(rec(100, false, 50)), out));
+  EXPECT_TRUE(out.lightKnown);
+  EXPECT_FALSE(out.light);
+}
+
+TEST(BatteryLog, AwakeRateSplitsByLight) {
+  auto sleepLine = [](int64_t t, int pct, bool light) {
+    Record r = rec(t, true, pct);
+    r.lightKnown = true;
+    r.light = light;
+    return r;
+  };
+  std::vector<Record> v;
+  append(v, rec(1000, false, 90));
+  append(v, sleepLine(1000 + 2 * H, 88, false));  // 2 % in 2 h, light off
+  append(v, rec(1000 + 3 * H, false, 88));
+  append(v, sleepLine(1000 + 5 * H, 82, true));  // 6 % in 2 h, light on
+  const Stats s = compute(v);
+  ASSERT_TRUE(s.awakeLightOff.known);
+  ASSERT_TRUE(s.awakeLightOn.known);
+  EXPECT_EQ(s.awakeLightOff.hundredthsPerHour, 100u);
+  EXPECT_EQ(s.awakeLightOn.hundredthsPerHour, 300u);
+  EXPECT_EQ(s.awake.hundredthsPerHour, 200u);
+}
+
+TEST(BatteryLog, AwakePairsWithoutLightInfoStayOutOfTheSplit) {
+  std::vector<Record> v;
+  append(v, rec(1000, false, 90));
+  append(v, rec(1000 + 10 * H, true, 80));  // an old line: no light field
+  const Stats s = compute(v);
+  EXPECT_TRUE(s.awake.known);
+  EXPECT_FALSE(s.awakeLightOff.known);
+  EXPECT_FALSE(s.awakeLightOn.known);
+}

@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.65.0 (2026-11-03)
+
+Status bar options, a Battery page that splits the light, four more papyrus looks, and a Flashlight (kos25k #12, #20, #1, #28).
+
+- **Status bar** (kos25k #12): Hide Status Bar moved into Settings > Reader > Customise Status Bar. New there: Book page number, shown in brackets like (37) next to the battery and counted from the first chapter (an estimate for books, it changes with the font), and Page number when bar is hidden.
+- **Battery** (kos25k #20): Drain awake is two lines now, light off and light on, one below the other. The log didn't save the light before, so they need a few days of new data and they are approximate (the light is noted at each sleep). Asleep is the same as before.
+- **Papyrus** (kos25k #1): four more page backgrounds drawn in code and inspired by the pictures: aged (dark edges), cracked, stained and crumpled. They are in Paper Button Cycle, Page Background and the contrast preview (seven tiles per row now).
+- **Flashlight** (kos25k #28): Home > Plugins > Flashlight. The front light as an S.O.S., blinking or steady, with brightness, warmth and flash speed; it gives the light back as it was when you stop.
+
+Tried in the simulator and on the computer (host tests, device build). Not on a device: the light, the battery split and the estimate of the page number need a real reader.
+
 ## 0.64.0 (2026-11-01)
 
 Search in Browse Files, a safer Random page!, and typing and sync from the phone (kos25k #13, #15).

@@ -6,18 +6,18 @@
 namespace batterylog {
 
 std::string toLine(const Record& r) {
-  char buffer[48];
-  snprintf(buffer, sizeof(buffer), "%lld\t%c\t%u\t%u", static_cast<long long>(r.epoch), r.sleep ? 'S' : 'W',
-           static_cast<unsigned>(r.percent), r.usb ? 1u : 0u);
+  char buffer[56];
+  snprintf(buffer, sizeof(buffer), "%lld\t%c\t%u\t%u\t%u", static_cast<long long>(r.epoch), r.sleep ? 'S' : 'W',
+           static_cast<unsigned>(r.percent), r.usb ? 1u : 0u, r.light ? 1u : 0u);
   return buffer;
 }
 
 bool fromLine(std::string_view line, Record& out) {
   while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.remove_suffix(1);
-  std::string_view fields[4];
+  std::string_view fields[5];
   size_t count = 0;
   size_t start = 0;
-  while (count < 4) {
+  while (count < 5) {
     const size_t tab = line.find('\t', start);
     if (tab == std::string_view::npos) {
       fields[count++] = line.substr(start);
@@ -26,7 +26,7 @@ bool fromLine(std::string_view line, Record& out) {
     fields[count++] = line.substr(start, tab - start);
     start = tab + 1;
   }
-  if (count != 4 || fields[0].empty() || fields[1].size() != 1) return false;
+  if ((count != 4 && count != 5) || fields[0].empty() || fields[1].size() != 1) return false;
   if (fields[1][0] != 'S' && fields[1][0] != 'W') return false;
   const std::string epoch(fields[0]);
   char* end = nullptr;
@@ -36,10 +36,13 @@ bool fromLine(std::string_view line, Record& out) {
   const long p = strtol(percent.c_str(), &end, 10);
   if (end == percent.c_str() || *end != '\0' || p < 0 || p > 100) return false;
   if (fields[3] != "0" && fields[3] != "1") return false;
+  if (count == 5 && fields[4] != "0" && fields[4] != "1") return false;
   out.epoch = value;
   out.sleep = fields[1][0] == 'S';
   out.percent = static_cast<uint8_t>(p);
   out.usb = fields[3] == "1";
+  out.lightKnown = count == 5;
+  out.light = count == 5 && fields[4] == "1";
   return true;
 }
 
@@ -71,6 +74,8 @@ Rate rateOf(const Sum& sum) {
 Stats compute(const std::vector<Record>& records) {
   Sum asleep;
   Sum awake;
+  Sum awakeOff;
+  Sum awakeOn;
   for (size_t i = 1; i < records.size(); ++i) {
     const Record& a = records[i - 1];
     const Record& b = records[i];
@@ -78,10 +83,17 @@ Stats compute(const std::vector<Record>& records) {
     if (a.epoch <= 0 || b.epoch <= a.epoch || b.epoch - a.epoch > MAX_PAIR_SECONDS) continue;
     if (a.usb || b.usb || b.percent > a.percent) continue;
     Sum& sum = a.sleep ? asleep : awake;
-    sum.drop += static_cast<uint32_t>(a.percent - b.percent);
-    sum.seconds += static_cast<uint64_t>(b.epoch - a.epoch);
+    const uint32_t drop = static_cast<uint32_t>(a.percent - b.percent);
+    const uint64_t seconds = static_cast<uint64_t>(b.epoch - a.epoch);
+    sum.drop += drop;
+    sum.seconds += seconds;
+    if (!a.sleep && b.lightKnown) {  // an awake pair ends at the S line that says if the light was on
+      Sum& bySum = b.light ? awakeOn : awakeOff;
+      bySum.drop += drop;
+      bySum.seconds += seconds;
+    }
   }
-  return Stats{rateOf(asleep), rateOf(awake)};
+  return Stats{rateOf(asleep), rateOf(awake), rateOf(awakeOff), rateOf(awakeOn)};
 }
 
 }  // namespace batterylog

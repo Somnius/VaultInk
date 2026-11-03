@@ -1,6 +1,10 @@
-# Tools in Home → Plugins (0.59.0 to 0.63.0)
+# Tools in Home → Plugins (0.59.0 to 0.65.0)
 
-Home → Plugins starts with the tools that are built into the firmware (SD-card plugins cannot run code on the reader): **Sudoku**, **Dice**, **VaultEUC**, **Focus timer** and **Habits**. Their guides: Sudoku and Dice in [reading-and-files.md](reading-and-files.md), VaultEUC in [vaulteuc.md](vaulteuc.md). This page covers the Focus timer and Habits and what the dice roll uses for randomness.
+Home → Plugins starts with the tools that are built into the firmware (SD-card plugins cannot run code on the reader): **Sudoku**, **Dice**, **VaultEUC**, **Focus timer**, **Habits** and (0.65.0) **Flashlight**. Their guides: Sudoku and Dice in [reading-and-files.md](reading-and-files.md), VaultEUC in [vaulteuc.md](vaulteuc.md). This page covers the Focus timer, Habits, the Flashlight and what the dice roll uses for randomness.
+
+## Flashlight (0.65.0)
+
+The front light at full brightness and a warmth you choose, as an S.O.S., blinking, or steady (kos25k #28). Home → Plugins → Flashlight. Rows: **Mode** (S.O.S., Blink, Steady), **Brightness** (20 to 100%), **Warmth** (0 to 100%, only on a reader whose light has warmth) and **Flash speed** (how long a short flash and a gap last, 0.1 to 1.0 s; a long flash in the S.O.S. is three times that). Tap the big button, or press Left, to start and stop; tap a row, or move with Up and Down and press Confirm, to change it (a change takes effect at once while it flashes). The reader stays awake while it runs, and the light goes back to how it was when you stop it or leave. The screen is drawn once, not while flashing. Your choices are kept in /.vaultink/flashlight.txt. A front light at full brightness is a modest light for signalling in daylight. Tried in the simulator, whose light is a stub: not seen on a real reader.
 
 ## Focus timer (0.63.0)
 

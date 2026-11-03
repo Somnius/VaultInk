@@ -6,10 +6,12 @@ This page covers the reading and file features from kos25k's issues: #1 to #6 (0
 ## Page backgrounds: Paper Button Cycle
 
 The paper tile in quick settings (swipe down from the top) changes the page background. By
-default it steps through all ten: plain, paper, sandpaper, papyrus soft, medium and hard, toilet
+default it steps through all fourteen: plain, paper, sandpaper, papyrus soft, medium and hard, toilet
 paper, kitchen paper, bath towel, and (from 0.30.0) papyrus cloudy: soft blotches of dots with no
-strips or lines, like a cloudy sky. A cycle you set up before 0.30.0 doesn't include the new one;
-tick it in the checklist below.
+strips or lines, like a cloudy sky. From 0.65.0 there are four more papyrus looks, drawn in code and
+inspired by pictures kos25k sent (they look like them, not the same): aged (dots that thicken
+towards the edges), cracked, stained and crumpled (creases). A cycle you set up earlier doesn't
+include the newer ones; tick them in the checklist below.
 
 **Settings → Reader → Paper Button Cycle** has a checklist of them. Untick the ones you don't
 want, and the tile skips them. At least one always stays ticked. If the background in use isn't
@@ -83,11 +85,13 @@ SD-card fonts and the built-in font have separate scales (SD fonts 0.70× to 1.2
 line height, built-in 0.65× to 1.05×), because they measure their line height differently. With
 some fonts, accents on capitals can touch the line above at levels 0 and 1.
 
-## Hide Status Bar
+## Hide Status Bar and the book page number
 
-**Settings → Reader → Hide Status Bar** hides the whole status bar at the bottom of a book or
+Since 0.65.0 this is the first row of **Settings → Reader → Customise Status Bar**, with the other status bar options. It hides the whole status bar at the bottom of a book or
 note, and the text uses that room. Your choices under Customise Status Bar are kept for when you
 turn it back on.
+
+Two more rows there (0.65.0, kos25k #12): **Book page number (37)** shows the page in brackets next to the battery, counted from the first chapter (page 1 is the first page of the first chapter; a book that starts before its first chapter shows 1 there, and a comic shows its page number exactly). For books it is an **estimate**: pages of the other chapters are worked out from this chapter's pages and its share of the book, so it changes when you change the font or spacing. **Page number when bar is hidden** keeps just that number on a bar that is otherwise hidden.
 
 There is no tap to show and hide it inside a book. A different page height means the chapter
 has to be laid out again, which takes a few seconds each time. The bottom of the screen also

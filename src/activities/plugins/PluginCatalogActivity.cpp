@@ -28,6 +28,7 @@
 #include "PluginCatalogPaging.h"
 #include "activities/euc/VaultEucActivity.h"
 #include "activities/games/DiceActivity.h"
+#include "activities/games/FlashlightActivity.h"
 #include "activities/games/FocusActivity.h"
 #include "activities/games/HabitsActivity.h"
 #include "activities/games/SudokuActivity.h"
@@ -1363,14 +1364,16 @@ void PluginCatalogActivity::activateIndex(const int index) {
       startActivityForResult(std::move(euc), [this](const ActivityResult&) { enterPluginPicker(); });
       return;
     }
-    if (index == 3 || index == 4) {
-      // The Focus timer and Habits (0.63.0), built in as well.
+    if (index == 3 || index == 4 || index == 5) {
+      // The Focus timer and Habits (0.63.0) and the Flashlight (0.65.0), built in as well.
       app.clearTapFlash();
       std::unique_ptr<Activity> tool;
       if (index == 3) {
         tool = makeUniqueNoThrow<FocusActivity>(renderer, mappedInput);
-      } else {
+      } else if (index == 4) {
         tool = makeUniqueNoThrow<HabitsActivity>(renderer, mappedInput);
+      } else {
+        tool = makeUniqueNoThrow<FlashlightActivity>(renderer, mappedInput);
       }
       if (!tool) {
         LOG_ERR("PCAT", "OOM: tool");
@@ -1752,6 +1755,7 @@ void PluginCatalogActivity::rebuildRowItems() {
     addRow(tr(STR_EUC_TITLE), tr(STR_EUC_DESC), ">");
     addRow(tr(STR_FOCUS_TITLE), tr(STR_FOCUS_DESC), ">");
     addRow(tr(STR_HABITS_TITLE), tr(STR_HABITS_DESC), ">");
+    addRow(tr(STR_FLASH_TITLE), tr(STR_FLASH_DESC), ">");
     if (showOpds) addRow(tr(STR_OPDS_BROWSER), tr(STR_OPDS_SERVERS));
     if (showPluginHubInstallRow) addRow(tr(STR_PLUGIN_HUB), tr(STR_PLUGIN_HUB_DESCRIPTION), ">");
     for (const auto& plugin : installedPlugins) {

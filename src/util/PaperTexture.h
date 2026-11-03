@@ -22,22 +22,28 @@ enum Style : uint8_t {
   KITCHEN_PAPER,
   BATH_TOWEL,
   PAPYRUS_CLOUDY,  // 0.30.0; last, so stored styles and cycle masks keep their numbers
+  PAPYRUS_AGED,    // 0.65.0 (kos25k #1): four looks inspired by his pictures, drawn in code
+  PAPYRUS_CRACKED,
+  PAPYRUS_STAINED,
+  PAPYRUS_CRUMPLED,
   STYLE_COUNT
 };
 
 // Setting values in order, for the settings list and the quick-settings tile.
-inline constexpr StrId NAMES[STYLE_COUNT] = {StrId::STR_PAPER_PLAIN,          StrId::STR_PAPER_PAPER,
-                                             StrId::STR_PAPER_SANDPAPER,      StrId::STR_PAPER_PAPYRUS_SOFT,
-                                             StrId::STR_PAPER_PAPYRUS_MEDIUM, StrId::STR_PAPER_PAPYRUS_HARD,
-                                             StrId::STR_PAPER_TOILET,         StrId::STR_PAPER_KITCHEN,
-                                             StrId::STR_PAPER_TOWEL,          StrId::STR_PAPER_PAPYRUS_CLOUDY};
+inline constexpr StrId NAMES[STYLE_COUNT] = {
+    StrId::STR_PAPER_PLAIN,           StrId::STR_PAPER_PAPER,           StrId::STR_PAPER_SANDPAPER,
+    StrId::STR_PAPER_PAPYRUS_SOFT,    StrId::STR_PAPER_PAPYRUS_MEDIUM,  StrId::STR_PAPER_PAPYRUS_HARD,
+    StrId::STR_PAPER_TOILET,          StrId::STR_PAPER_KITCHEN,         StrId::STR_PAPER_TOWEL,
+    StrId::STR_PAPER_PAPYRUS_CLOUDY,  StrId::STR_PAPER_PAPYRUS_AGED,    StrId::STR_PAPER_PAPYRUS_CRACKED,
+    StrId::STR_PAPER_PAPYRUS_STAINED, StrId::STR_PAPER_PAPYRUS_CRUMPLED};
 
 // Short forms for the quick-settings tile label, which fits about ten characters.
-inline constexpr StrId SHORT_NAMES[STYLE_COUNT] = {StrId::STR_PAPER_PLAIN,          StrId::STR_PAPER_PAPER,
-                                                   StrId::STR_PAPER_SANDPAPER,      StrId::STR_PAPER_SHORT_PAPYRUS1,
-                                                   StrId::STR_PAPER_SHORT_PAPYRUS2, StrId::STR_PAPER_SHORT_PAPYRUS3,
-                                                   StrId::STR_PAPER_SHORT_TOILET,   StrId::STR_PAPER_SHORT_KITCHEN,
-                                                   StrId::STR_PAPER_SHORT_TOWEL,    StrId::STR_PAPER_SHORT_PAPYRUS4};
+inline constexpr StrId SHORT_NAMES[STYLE_COUNT] = {
+    StrId::STR_PAPER_PLAIN,          StrId::STR_PAPER_PAPER,          StrId::STR_PAPER_SANDPAPER,
+    StrId::STR_PAPER_SHORT_PAPYRUS1, StrId::STR_PAPER_SHORT_PAPYRUS2, StrId::STR_PAPER_SHORT_PAPYRUS3,
+    StrId::STR_PAPER_SHORT_TOILET,   StrId::STR_PAPER_SHORT_KITCHEN,  StrId::STR_PAPER_SHORT_TOWEL,
+    StrId::STR_PAPER_SHORT_PAPYRUS4, StrId::STR_PAPER_SHORT_AGED,     StrId::STR_PAPER_SHORT_CRACKED,
+    StrId::STR_PAPER_SHORT_STAINED,  StrId::STR_PAPER_SHORT_CRUMPLED};
 
 inline constexpr uint16_t ALL_STYLES = (1u << STYLE_COUNT) - 1;
 

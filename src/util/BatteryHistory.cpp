@@ -1,5 +1,6 @@
 #include "BatteryHistory.h"
 
+#include <HalFrontlight.h>
 #include <HalGPIO.h>
 #include <HalPowerManager.h>
 #include <HalStorage.h>
@@ -49,6 +50,10 @@ void add(const bool sleep) {
   record.percent =
       static_cast<uint8_t>(std::min<unsigned>(powerManager.getBatteryPercentage(), 100));  // fromLine refuses above 100
   record.usb = gpio.isUsbConnected();
+  record.lightKnown = true;
+#ifndef SIMULATOR  // the simulator's light is a stub without the flag
+  record.light = sleep && Frontlight.usedSinceBoot();
+#endif
 
   auto records = readAll();
   if (!sleep && (records.empty() || !records.back().sleep)) return;

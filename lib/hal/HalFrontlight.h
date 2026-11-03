@@ -20,6 +20,9 @@ class HalFrontlight {
   uint8_t brightness() const { return lastBrightness; }
   uint8_t warmth() const { return manager.colorTemperature(); }
   bool isOn() const { return lit; }
+  // The light was on at some point since boot (a deep sleep reboots, so this is "this awake period"); the
+  // battery page splits the drain by it (kos25k #20).
+  bool usedSinceBoot() const { return everLit; }
 
  private:
   HalFrontlight() = default;
@@ -29,6 +32,7 @@ class HalFrontlight {
   // toggling back on restores it.
   uint8_t lastBrightness = 60;
   bool lit = false;
+  bool everLit = false;
 
   static HalFrontlight instance;
 };

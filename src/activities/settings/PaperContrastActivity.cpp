@@ -24,9 +24,9 @@ constexpr int kSmallStep = 1;
 constexpr int kLargeStep = 10;
 
 // The preview: two rows of five tiles above the dialog.
-constexpr int kTileColumns = 5;
+constexpr int kTileColumns = 7;
 constexpr int kTileGap = 6;
-constexpr int kTileHeight = 70;
+constexpr int kTileHeight = 62;
 constexpr int kLabelGap = 3;
 }  // namespace
 
@@ -172,9 +172,10 @@ void PaperContrastActivity::drawPreview() const {
     paper_texture::drawIn(renderer, static_cast<uint8_t>(i), static_cast<uint8_t>(contrast), x, y, tileWidth,
                           kTileHeight);
     renderer.drawRect(x, y, tileWidth, kTileHeight);
-    const char* name = I18N.get(paper_texture::SHORT_NAMES[i]);
-    const int nameWidth = renderer.getTextWidth(SMALL_FONT_ID, name);
-    renderer.drawText(SMALL_FONT_ID, x + std::max(0, (tileWidth - nameWidth) / 2), y + kTileHeight + kLabelGap, name);
+    const std::string name = renderer.truncatedText(SMALL_FONT_ID, I18N.get(paper_texture::SHORT_NAMES[i]), tileWidth);
+    const int nameWidth = renderer.getTextWidth(SMALL_FONT_ID, name.c_str());
+    renderer.drawText(SMALL_FONT_ID, x + std::max(0, (tileWidth - nameWidth) / 2), y + kTileHeight + kLabelGap,
+                      name.c_str());
   }
 }
 

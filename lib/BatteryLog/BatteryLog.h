@@ -7,7 +7,9 @@
 
 // Battery drain per hour for Settings > System > Battery (kos25k #20). Each deep sleep and each wake
 // leaves one line in /.vaultink/battery-log.tsv:
-//   <epoch>\t<S or W>\t<percent>\t<usb 0/1>
+//   <epoch>\t<S or W>\t<percent>\t<usb 0/1>[\t<light 0/1>]
+// The light field (0.65.0) says the front light was on at some point in the awake period that ends at an S line;
+// lines from before have none, and their awake pairs stay out of the light-off and light-on rates.
 // The gauge only reports whole percent and nothing in the firmware measures current per task, so the
 // page shows two rates, asleep (sleep to wake) and awake (wake to sleep), summed over many pairs.
 namespace batterylog {
@@ -21,6 +23,8 @@ struct Record {
   bool sleep = false;  // true = going to sleep, false = woke up
   uint8_t percent = 0;
   bool usb = false;
+  bool lightKnown = false;  // the line had a light field
+  bool light = false;       // on an S line: the light was on during the awake period before it
 };
 
 struct Rate {
@@ -31,7 +35,9 @@ struct Rate {
 
 struct Stats {
   Rate asleep;
-  Rate awake;
+  Rate awake;          // every awake pair, light known or not
+  Rate awakeLightOff;  // awake pairs whose light state is known
+  Rate awakeLightOn;
 };
 
 std::string toLine(const Record& r);

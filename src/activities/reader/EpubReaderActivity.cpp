@@ -64,6 +64,7 @@
 #include "clippings/ClippingsManager.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/BookPageNumber.h"
 #include "util/BookProgress.h"
 #include "util/BookmarkUtil.h"
 #include "util/ButtonNavigator.h"
@@ -2693,8 +2694,27 @@ void EpubReaderActivity::renderStatusBar() const {
     title = epub ? epub->getTitle() : "";
   }
 
+  bookpage::set(sb.showBookPage ? bookPageNumber(bookProgress / 100.0f, pageCount) : 0);
   GUI.drawStatusBar(renderer, bookProgress, currentPage, pageCount, title, 0, textYOffset, true, currentPageBookmarked,
                     section ? section->isBuilding() : false);
+}
+
+// An estimate of the page number counted from the first chapter (kos25k #12): the book is laid out one chapter at a
+// time, so the pages of the other chapters are worked out from this chapter's pages per share of the book. It
+// changes with the font and spacing, and a book that starts before its first chapter shows 1 there.
+int EpubReaderActivity::bookPageNumber(const float bookFraction, const float chapterPages) const {
+  if (!epub || !section || chapterPages <= 0) return 0;
+  const float chapterStart = epub->calculateProgress(currentSpineIndex, 0.0f);
+  const float chapterEnd = epub->calculateProgress(currentSpineIndex + 1, 0.0f);
+  const float share = chapterEnd - chapterStart;
+  if (share <= 0.0f) return 0;
+  float first = 0.0f;  // where chapter 1 starts; when it can't be found, the start of the book
+  if (epub->getTocItemsCount() > 0) {
+    const int firstSpine = epub->getSpineIndexForTocIndex(0);
+    if (firstSpine >= 0) first = epub->calculateProgress(firstSpine, 0.0f);
+  }
+  const float pages = (bookFraction - first) * (chapterPages / share);
+  return std::max(1, static_cast<int>(pages + 0.5f));  // the fraction already counts the page you are on
 }
 
 // ---- Search in a book (kos25k #24) ----

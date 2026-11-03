@@ -15,6 +15,7 @@ void HalFrontlight::begin(const uint8_t brightness, const uint8_t warmth, const 
   lastBrightness = brightness > 100 ? 100 : brightness;
   manager.setColorTemperature(warmth > 100 ? 100 : warmth);
   lit = on;
+  everLit = everLit || lit;
   manager.setBrightness(lit ? lastBrightness : 0);
   LOG_INF("LIGHT", "Frontlight up: %u%% warm=%u%% %s", lastBrightness, manager.colorTemperature(), lit ? "on" : "off");
 }
@@ -31,5 +32,6 @@ void HalFrontlight::setWarmth(const uint8_t warmPercent) {
 void HalFrontlight::setOn(const bool on) {
   if (on == lit) return;
   lit = on;
+  everLit = everLit || lit;
   manager.setBrightness(lit ? lastBrightness : 0);
 }

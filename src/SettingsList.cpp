@@ -139,8 +139,6 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Enum(StrId::STR_EVEN_WORD_GAPS, &CrossPointSettings::evenWordGaps,
                          {StrId::STR_STATE_OFF, StrId::STR_GAPS_SLIGHT, StrId::STR_GAPS_MEDIUM}, "evenWordGaps",
                          StrId::STR_CAT_READER));
-  emit(SettingInfo::Toggle(StrId::STR_HIDE_STATUS_BAR, &CrossPointSettings::statusBarHidden, "statusBarHidden",
-                           StrId::STR_CAT_READER));
   emit(SettingInfo::Enum(StrId::STR_READING_PAPER, &CrossPointSettings::readingPaper,
                          {std::begin(paper_texture::NAMES), std::end(paper_texture::NAMES)}, "readingPaper",
                          StrId::STR_CAT_READER));
@@ -394,6 +392,12 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
       },
       "koSyncClippings", StrId::STR_KOREADER_SYNC));
   // --- Status Bar Settings (web-only, uses StatusBarSettingsActivity) ---
+  emit(SettingInfo::Toggle(StrId::STR_HIDE_STATUS_BAR, &CrossPointSettings::statusBarHidden, "statusBarHidden",
+                           StrId::STR_CUSTOMISE_STATUS_BAR));
+  emit(SettingInfo::Toggle(StrId::STR_BOOK_PAGE_NUMBER, &CrossPointSettings::statusBarBookPage, "statusBarBookPage",
+                           StrId::STR_CUSTOMISE_STATUS_BAR));
+  emit(SettingInfo::Toggle(StrId::STR_PAGE_WHEN_HIDDEN, &CrossPointSettings::statusBarPageWhenHidden,
+                           "statusBarPageWhenHidden", StrId::STR_CUSTOMISE_STATUS_BAR));
   emit(SettingInfo::Toggle(StrId::STR_CHAPTER_PAGE_COUNT, &CrossPointSettings::statusBarChapterPageCount,
                            "statusBarChapterPageCount", StrId::STR_CUSTOMISE_STATUS_BAR));
   emit(SettingInfo::Toggle(StrId::STR_BOOK_PROGRESS_PERCENTAGE, &CrossPointSettings::statusBarBookProgressPercentage,

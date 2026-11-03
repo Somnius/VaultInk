@@ -97,7 +97,8 @@ void BatteryActivity::readBattery() {
     return buffer;
   };
   add(StrId::STR_BATTERY_DRAIN_ASLEEP, rate(stats.asleep));
-  add(StrId::STR_BATTERY_DRAIN_AWAKE, rate(stats.awake));
+  add(StrId::STR_BATTERY_DRAIN_AWAKE_OFF, rate(stats.awakeLightOff));
+  add(StrId::STR_BATTERY_DRAIN_AWAKE_ON, rate(stats.awakeLightOn));
   add(StrId::STR_BATTERY_DRAIN_BY_APP, tr(STR_BATTERY_NOT_MEASURED));
 }
 

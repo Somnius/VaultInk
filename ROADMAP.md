@@ -697,10 +697,10 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
 - 0.64.0 status: Grok review fixes applied (Random page recents, book-info name check, LzString first code, search "may be more", phone text outbox on refusal). Host tests, x4pro build, companion tests and cppcheck vs HEAD clean. README, SPECS and site text updated (site not deployed). Waiting for hardware checks and Lef's go.
 
 ## 0.65.0 plan (from kos25k's issues of 2026-11-01, answered 2026-11-03)
-* ⏳ #12 move "Hide status bar" into Customise status bar; book page number in brackets (needs a whole-book page index; unsure), shown with the bar hidden.
-* ⏳ #20 Battery: drain awake with the light off and on (needs the light state in the battery log; approximate).
-* ⏳ #1 four new procedural papyrus looks inspired by his pictures; system-wide contrast slider waits for his answer on what it should change.
+* ✅ (0.65.0, simulator only) #12 Hide Status Bar moved into Customise Status Bar; Book page number "(37)" (an estimate for books) and Page number when bar is hidden.
+* ✅ (0.65.0) #20 Battery: drain awake with the light off and on (needs new data; approximate).
+* ✅ (0.65.0) #1 four new procedural papyrus looks (aged, cracked, stained, crumpled). ⏳ the system-wide contrast slider waits for his answer on what it should change.
 * ⏳ #27 Bluetooth shutter: waiting for his test (the page turner may already work).
-* ⏳ #28 S.O.S flashlight as a built-in tool (after the above).
+* ✅ (0.65.0) #28 Flashlight as a built-in tool (S.O.S., blink, steady; brightness, warmth, speed).
 * ❌ #26 MOBI/AZW/AZW3 (no parser, flash), #29 PDF reflow (text-only today), #30 Experimental typography (half exists; ligatures/variable fonts don't fit); widow/orphan and hanging punctuation stay as maybes.
 * ✅ closed with thanks: #16, #18, #24; #19 closed as not planned (word expansion stays on the list).

@@ -337,7 +337,11 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
 
 CrossPointSettings::StatusBarSpec CrossPointSettings::statusBarSpec() const {
   StatusBarSpec spec;
-  if (statusBarHidden) return spec;  // every item off: no bar, no reserved height
+  if (statusBarHidden) {
+    spec.showBookPage = statusBarBookPage != 0 && statusBarPageWhenHidden != 0;  // only the page number stays
+    return spec;
+  }
+  spec.showBookPage = statusBarBookPage != 0;
   spec.showChapterPageCount = statusBarChapterPageCount != 0;
   spec.showBookProgressPercent = statusBarBookProgressPercentage != 0;
   spec.titleMode = statusBarTitle;
