@@ -4,6 +4,7 @@
 #include <GfxRenderer.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <TextFeatures.h>
 #include <Utf8.h>
 
 #include <algorithm>
@@ -64,6 +65,73 @@ uint32_t lastCodepoint(const std::string_view word) {
   }
   const auto* ptr = reinterpret_cast<const unsigned char*>(word.data() + i);
   return utf8NextCodepoint(&ptr);
+}
+
+// Hanging punctuation (textfeatures::HANGING): an opening quote or bracket that starts a line hangs into the left
+// margin so the first letter sits on the text edge, and a closing mark that ends a line hangs into the right margin
+// so justified lines look straight. The hang is the glyph's advance, capped so it never leaves the page margin.
+constexpr int MAX_HANG_PX = 12;
+
+bool isHangingOpener(const uint32_t cp) {
+  switch (cp) {
+    case '"':
+    case '\'':
+    case '(':
+    case '[':
+    case '{':
+    case 0x2018:  // ‘
+    case 0x201B:  // ‛
+    case 0x201C:  // “
+    case 0x201F:  // ‟
+    case 0x201E:  // „
+    case 0x201A:  // ‚
+    case 0x00AB:  // «
+    case 0x2039:  // ‹
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool isHangingCloser(const uint32_t cp) {
+  switch (cp) {
+    case '.':
+    case ',':
+    case ';':
+    case ':':
+    case '!':
+    case '?':
+    case '-':  // also the hyphen added by hyphenation
+    case ')':
+    case ']':
+    case '}':
+    case '"':
+    case '\'':
+    case 0x2010:  // hyphen
+    case 0x2011:  // non-breaking hyphen
+    case 0x2012:  // figure dash
+    case 0x2013:  // en dash
+    case 0x2014:  // em dash
+    case 0x2019:  // ’
+    case 0x201D:  // ”
+    case 0x00BB:  // »
+    case 0x203A:  // ›
+    case 0x0387:  // Greek ano teleia
+    case 0x037E:  // Greek question mark
+    case 0x00B7:  // middle dot
+    case 0x2026:  // …
+      return true;
+    default:
+      return false;
+  }
+}
+
+// Advance of one glyph in the line's font, capped to MAX_HANG_PX.
+int hangWidth(const GfxRenderer& renderer, const int fontId, const uint32_t cp, const EpdFontFamily::Style style) {
+  char buf[8] = {};
+  utf8AppendCodepoint(buf, cp);
+  const int width = renderer.getTextWidth(fontId, buf, style);
+  return std::max(0, std::min(width, MAX_HANG_PX));
 }
 
 bool containsSoftHyphen(const std::string_view word) { return word.find(SOFT_HYPHEN_UTF8) != std::string_view::npos; }
@@ -1537,9 +1605,27 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
           ? CssTextAlign::Right
           : blockStyle.alignment;
 
+  // Hanging punctuation. LTR, left-aligned or justified lines only: a centered or right-aligned line has no fixed
+  // left text edge to align to, and RTL/bidi lines mirror the margins (left as is). Line breaking is unchanged;
+  // the hang moves the line left by hangLeft and, when justifying, stretches it to end hangRight past the right
+  // edge. The hang lands in the cached word positions, so the draw path needs no change. On a left-aligned line a
+  // trailing hang would move nothing, so only the left hang applies there.
+  int hangLeft = 0;
+  int hangRight = 0;
+  if (textfeatures::has(textfeatures::HANGING) && lineWordCount > 0 && !blockStyle.isRtl && !hasRtlWord &&
+      (effectiveAlignment == CssTextAlign::Left || effectiveAlignment == CssTextAlign::Justify)) {
+    const uint32_t firstCp = firstCodepoint(lineWords.front());
+    if (isHangingOpener(firstCp)) hangLeft = hangWidth(renderer, fontId, firstCp, lineWordStyles.front());
+    const uint32_t lastCp = lastCodepoint(lineWords.back());
+    if (effectiveAlignment == CssTextAlign::Justify && !isLastLine && isHangingCloser(lastCp)) {
+      hangRight = hangWidth(renderer, fontId, lastCp, lineWordStyles.back());
+    }
+  }
+
   // For justified text, compute per-gap extra to distribute remaining space evenly.
   // extraEndOffset reserves space for any ruby group at the right edge of the line.
-  const int spareSpace = effectivePageWidth - extraStartOffset - extraEndOffset - lineWordWidthSum - totalNaturalGaps;
+  const int spareSpace = effectivePageWidth + hangLeft + hangRight - extraStartOffset - extraEndOffset -
+                         lineWordWidthSum - totalNaturalGaps;
   int justifyExtra = (effectiveAlignment == CssTextAlign::Justify && !isLastLine)
                          ? computeJustifyExtra(spareSpace, actualGapCount)
                          : 0;
@@ -1743,7 +1829,7 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
       }
     } else {
       // LTR: position words from left to right
-      int xpos = firstLineIndent + extraStartOffset;
+      int xpos = firstLineIndent + extraStartOffset - hangLeft;
       if (effectiveAlignment == CssTextAlign::Right) {
         xpos = effectivePageWidth - lineWordWidthSum - totalNaturalGaps;
       } else if (effectiveAlignment == CssTextAlign::Center) {

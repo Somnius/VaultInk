@@ -84,6 +84,7 @@ class GfxRenderer {
   bool sdFont = false;
   mutable size_t coldMeasurements = 0;
   mutable std::set<std::tuple<int, uint8_t, uint32_t>> preparedAdvances;
+  int glyphAdvance = 8;  // a test may widen the fixture glyphs
   int getTextAdvanceX(int fontId, const char* text, EpdFontFamily::Style style, int8_t tracking = 0,
                       BidiUtils::BidiBaseDir = BidiUtils::BidiBaseDir::AUTO,
                       TextMeasureMode = TextMeasureMode::Layout) const {
@@ -93,7 +94,7 @@ class GfxRenderer {
       if (utf8IsCombiningMark(cp)) continue;
       const uint32_t measured = (style & EpdFontFamily::SMALL_CAPS) ? utf8SmallCapsUpper(cp) : cp;
       if (sdFont && !preparedAdvances.count({fontId, static_cast<uint8_t>(style) & 3, measured})) ++coldMeasurements;
-      width += 8 + trackingBetween(previous, cp, tracking);
+      width += glyphAdvance + trackingBetween(previous, cp, tracking);
       previous = cp;
     }
     return width;
