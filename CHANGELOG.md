@@ -2,6 +2,12 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.66.1 (2026-11-04)
+
+Experimental is now called Advanced Typography, and moved (kos25k #30).
+
+- **Advanced Typography**: the row in Settings > Reader sits right after Search word, and in a book it is Text > Advanced Typography (last row). The five switches are the same.
+
 ## 0.66.0 (2026-11-04)
 
 An Experimental section for text features, hanging punctuation, and Hide Status Bar in the book menu (kos25k #30, #12).
