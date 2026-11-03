@@ -146,7 +146,7 @@ void HtmlFilter::openTag(uint8_t id, std::string_view attrs) {
       const int ul = find(TAG_UL), ol = find(TAG_OL);
       const int list = ul > ol ? ul : ol;
       if (li >= 0 && li > list) closeTo(static_cast<size_t>(li));
-    } else if (id != TAG_UL && id != TAG_OL && id != TAG_LI) {
+    } else if (id != TAG_UL && id != TAG_OL) {
       const int p = find(TAG_P);
       if (p >= 0) {
         // A block inside a paragraph is only legal for inline-ish content; Mobipocket books nest
@@ -231,7 +231,7 @@ void HtmlFilter::handleTag() {
     if (id == skipId_) {
       if (closing) {
         if (--skipNest_ == 0) skipId_ = 0;
-      } else if (!(raw.size() > 0 && raw.back() == '/')) {
+      } else if (raw.back() != '/') {
         skipNest_++;
       }
     }

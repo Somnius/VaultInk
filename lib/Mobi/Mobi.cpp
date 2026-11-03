@@ -91,7 +91,6 @@ mobi::Status Mobi::probe(const std::string& filepath, mobi::Info* info) {
 }
 
 bool Mobi::streamHtml(const std::string& filepath, Print& out, const std::string& cachePath) {
-  const uint32_t t0 = millis();
   HalFile file;
   if (!Storage.openFileForRead("MOBI", filepath, file)) return false;
   const mobi::Reader reader = readerFor(file);
@@ -113,8 +112,8 @@ bool Mobi::streamHtml(const std::string& filepath, Print& out, const std::string
   images.resolve = extractImage;
   status = mobi::streamHtml(reader, info, info.title, sink, cachePath.empty() ? nullptr : &images);
   file.close();
-  LOG_DBG("MOBI", "Streamed %s in %lu ms: %s (%u text records)", filepath.c_str(), millis() - t0,
-          mobi::statusText(status), info.textRecordCount);
+  LOG_DBG("MOBI", "Streamed %s: %s (%u text records)", filepath.c_str(), mobi::statusText(status),
+          info.textRecordCount);
   return status == mobi::Status::Ok;
 }
 

@@ -197,10 +197,20 @@ holds books, with its book count. Tap a folder to see its books, Back to return.
 shows the Title order; Search from it jumps to the Title tab. In Greek the tab names are
 shortened (Πρόσφ., Συγγρ., Αγαπ.) so all five fit.
 
+## MOBI books (0.67.0)
+
+`.mobi` and `.prc` books open like a text book (kos25k #26): the text is read from the file a record at a
+time, so a big book doesn't fill the memory. Title, author and language come from the book. Bold, italic,
+headings, lists, tables and the pictures inside the book show; links don't, and there are no chapters yet,
+the whole book is one chapter (like a .txt). A cover next to the file as `<name>.jpg` works as for .txt.
+A MOBI with DRM is refused with a message, and so are the few MOBI files that use Huffman compression.
+`.azw` and `.azw3` are not opened. Tick or untick **MOBI / PRC** in Book formats. Tried
+with a Project Gutenberg MOBI in the simulator, not on a device.
+
 ## Format filter (0.58.0)
 
 A **gear** button in the Library header (left of search and refresh, on touch screens) opens a short
-list of formats: EPUB, PDF, TXT, Markdown, XTC / XTCH and CBZ (kos25k #18). Untick the ones you
+list of formats: EPUB, PDF, TXT, Markdown, XTC / XTCH, CBZ and (0.67.0) MOBI / PRC (kos25k #18). Untick the ones you
 don't want in the Recent, Title and Author lists; at least one stays on. The Folders tab still
 shows everything. The same list is under **Settings → Library → Book formats**, and
 **Format filter button** there hides the gear. PDFs are listed in the Library from 0.58.0 (the

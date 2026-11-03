@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.67.0 (2026-11-04)
+
+MOBI books (kos25k #26).
+
+- **MOBI / PRC**: `.mobi` and `.prc` books open in the reader and show in the Library and the file browser, with a MOBI / PRC row in Book formats (Settings > Library and the Library gear). The text comes from the file a record at a time; bold, italic, headings, lists, tables and pictures show. No chapters yet, the book is one chapter, like a .txt.
+- A MOBI with DRM, or with Huffman compression, is refused with a message. `.azw` and `.azw3` are not supported.
+- A Book formats choice saved before this update gets MOBI ticked.
+
+Tried with a Project Gutenberg MOBI in the simulator and the host tests, not on a device.
+
 ## 0.66.1 (2026-11-04)
 
 Experimental is now called Advanced Typography, and moved (kos25k #30).

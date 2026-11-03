@@ -708,3 +708,6 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
 ## 0.66.0 plan (kos25k #30, #12; answered 2026-11-03)
 * ✅ (0.66.0, simulator only) #30 Experimental section (Settings > Reader and the book's Text panel) with switches for ligatures, kerning, widow/orphan control, keep headings with text, and new hanging punctuation. Declined: font weight, variable fonts, OpenType shaping beyond ligatures and kerning. Asked kos25k what he means by Advanced Greek Typography (Greek hyphenation, polytonic and Greek fonts already exist).
 * ✅ (0.66.0) #12 Hide Status Bar toggle in the book menu under More.
+
+## 0.67.0 plan (kos25k #26; reopened 2026-11-04)
+* ✅ (0.67.0, simulator only) #26 MOBI / PRC: read a record at a time through the text-book path, about 12 KB of flash (the earlier "doesn't fit" answer was wrong, the program partition is 79.6% full with 1.69 MB free). DRM and Huffman MOBI refused with a message; AZW/AZW3 stay out. Later: chapters from page breaks and the guide, EXTH cover, Huffman/CDIC.

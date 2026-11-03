@@ -51,12 +51,12 @@ class HtmlFilter {
   void* imageCtx_ = nullptr;
   bool ok_ = true;
   Mode mode_ = Mode::Text;
-  char tag_[MAX_TAG];
+  char tag_[MAX_TAG] = {};
   size_t tagLen_ = 0;
   bool tagOverflow_ = false;
-  char entity_[MAX_ENTITY];
+  char entity_[MAX_ENTITY] = {};
   size_t entityLen_ = 0;
-  uint8_t stack_[MAX_DEPTH];
+  uint8_t stack_[MAX_DEPTH] = {};
   size_t depth_ = 0;
   uint8_t skipId_ = 0;  // inside <head>/<style>/<script>/<title>: text dropped until it closes
   int skipNest_ = 0;
