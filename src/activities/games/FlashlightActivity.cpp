@@ -52,10 +52,9 @@ const char* modeName(const FlashlightActivity::Mode mode) {
 }
 }  // namespace
 
-bool FlashlightActivity::hasWarmth() { return Frontlight.present() && Frontlight.hasColorTemperature(); }
-
 void FlashlightActivity::onEnter() {
   Activity::onEnter();
+  warmthPresent = Frontlight.present() && Frontlight.hasColorTemperature();
   load();
   requestUpdate();
 }

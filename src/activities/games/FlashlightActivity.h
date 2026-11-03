@@ -35,13 +35,14 @@ class FlashlightActivity final : public Activity {
   void cycleRow(int row);
   bool handleTap(int x, int y);
   void tick();
-  static bool hasWarmth();
+  bool hasWarmth() const { return warmthPresent; }
 
   Mode mode = Mode::Sos;
   uint8_t brightness = 100;
   uint8_t warmth = 50;
   uint16_t unitMs = 300;  // one short flash (and one gap) in S.O.S. and Blink
   int focusRow = 0;
+  bool warmthPresent = false;  // the light has a warmth control (decided in onEnter)
 
   bool running = false;
   bool lampOn = false;
