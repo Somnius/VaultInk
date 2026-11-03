@@ -153,6 +153,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   addAction(SettingsSection::Reader, StrId::STR_MANAGE_FONTS, SettingAction::DownloadFonts);
   addAction(SettingsSection::Reader, StrId::STR_PAPER_CYCLE, SettingAction::PaperCycle);
   addAction(SettingsSection::Reader, StrId::STR_SEARCH_WORD, SettingAction::SearchWord);
+  addAction(SettingsSection::Reader, StrId::STR_EXPERIMENTAL, SettingAction::Experimental);
   addAction(SettingsSection::Display, StrId::STR_HOME_ROWS, SettingAction::HomeRows);
   addAction(SettingsSection::Display, StrId::STR_HOME_ITEMS, SettingAction::HomeItems);
   addAction(SettingsSection::Library, StrId::STR_LIBRARY_FORMATS, SettingAction::LibraryFormats);
@@ -180,7 +181,6 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   }
   addAction(SettingsSection::Reader, StrId::STR_CUSTOMISE_STATUS_BAR, SettingAction::CustomiseStatusBar);
   addAction(SettingsSection::Reader, StrId::STR_CLEAR_READING_CACHE, SettingAction::ClearCache);
-  addAction(SettingsSection::Reader, StrId::STR_EXPERIMENTAL, SettingAction::Experimental);
   addAction(SettingsSection::Vaults, StrId::STR_REBUILD_SEARCH_INDEX, SettingAction::RebuildSearchIndex);
   addAction(SettingsSection::Vaults, StrId::STR_LIVESYNC, SettingAction::LiveSync);
 

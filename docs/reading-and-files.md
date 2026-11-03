@@ -85,9 +85,9 @@ SD-card fonts and the built-in font have separate scales (SD fonts 0.70× to 1.2
 line height, built-in 0.65× to 1.05×), because they measure their line height differently. With
 some fonts, accents on capitals can touch the line above at levels 0 and 1.
 
-## Experimental text features (0.66.0)
+## Advanced Typography (0.66.0, renamed from Experimental in 0.66.1)
 
-**Settings → Reader → Experimental** (the last row, after Clear Reading Cache), and in a book **Text → Experimental** (the last row), have five switches for how a book is laid out (kos25k #30). Changing one lays the book out again once.
+**Settings → Reader → Advanced Typography** (right after Search word), and in a book **Text → Advanced Typography** (the last row), have five switches for how a book is laid out (kos25k #30). Changing one lays the book out again once.
 
 - **Ligatures (fi, fl)**: on by default. The font's ligatures for fi, fl, ff and so on. They come from SD-card and TTF fonts; the built-in fonts may not have them.
 - **Kerning**: on by default. The pair spacing from the font (the "AV" and "To" kind of fix).
