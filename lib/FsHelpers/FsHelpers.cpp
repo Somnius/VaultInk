@@ -185,7 +185,8 @@ bool hasMarkdownExtension(std::string_view fileName) { return checkFileExtension
 bool hasPdfExtension(std::string_view fileName) { return checkFileExtension(fileName, ".pdf"); }
 
 bool hasMobiExtension(std::string_view fileName) {
-  return checkFileExtension(fileName, ".mobi") || checkFileExtension(fileName, ".prc");
+  return checkFileExtension(fileName, ".mobi") || checkFileExtension(fileName, ".prc") ||
+         checkFileExtension(fileName, ".azw") || checkFileExtension(fileName, ".azw3");
 }
 
 bool hasCanvasExtension(std::string_view fileName) { return checkFileExtension(fileName, ".canvas"); }

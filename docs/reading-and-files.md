@@ -197,14 +197,14 @@ holds books, with its book count. Tap a folder to see its books, Back to return.
 shows the Title order; Search from it jumps to the Title tab. In Greek the tab names are
 shortened (Πρόσφ., Συγγρ., Αγαπ.) so all five fit.
 
-## MOBI books (0.67.0)
+## MOBI, AZW and AZW3 books (0.67.0, 0.67.1)
 
 `.mobi` and `.prc` books open like a text book (kos25k #26): the text is read from the file a record at a
 time, so a big book doesn't fill the memory. Title, author and language come from the book. Bold, italic,
 headings, lists, tables and the pictures inside the book show; links don't, and there are no chapters yet,
 the whole book is one chapter (like a .txt). A cover next to the file as `<name>.jpg` works as for .txt.
 A MOBI with DRM is refused with a message. MOBI files with Huffman compression (the kind many Kindle-store downloads use) open too since 0.67.1.
-`.azw` and `.azw3` are not opened. Tick or untick **MOBI / PRC** in Book formats. Tried
+`.azw` and `.azw3` (since 0.67.1) open the same way, only when they have no DRM. For the newer AZW3/KF8 files the text reads in order, but pictures, links and chapters don't work yet, and a heading can sit apart from its paragraph. Tick or untick **MOBI / AZW** in Book formats. Tried
 with a Project Gutenberg MOBI in the simulator, not on a device.
 
 ## Format filter (0.58.0)

@@ -4,10 +4,11 @@ Every release, newest first. The device shows the new entries once after an upda
 
 ## 0.67.1 (2026-11-04)
 
-MOBI books with Huffman compression now open (kos25k #26).
+MOBI books with Huffman compression now open, and .azw and .azw3 files open too (kos25k #26).
 
 - **Huffman/CDIC MOBI**: many MOBI files, including most Kindle-store downloads without DRM, use this compression, and 0.67.0 refused them with "can't be read". They open now. Tried with such a book (a poetry MOBI, 166 text records, 553 pages) in the simulator, not on a device.
-- The message for a MOBI that still can't be read no longer mentions Huffman.
+- **.azw and .azw3**: they open like a MOBI, the Book formats row is now MOBI / AZW. Without DRM the text reads in order; pictures, links and chapters of the newer format (KF8) don't work yet, and a heading can sit apart from its paragraphs. Books with DRM are refused.
+- The refusal messages now say "book", not "MOBI".
 
 ## 0.67.0 (2026-11-04)
 

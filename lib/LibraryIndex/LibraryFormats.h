@@ -14,7 +14,7 @@ inline constexpr uint8_t FMT_TXT = 4;
 inline constexpr uint8_t FMT_MD = 8;
 inline constexpr uint8_t FMT_XTC = 16;  // .xtc and .xtch
 inline constexpr uint8_t FMT_CBZ = 32;
-inline constexpr uint8_t FMT_MOBI = 64;  // .mobi and .prc (kos25k #26)
+inline constexpr uint8_t FMT_MOBI = 64;  // .mobi, .prc, .azw and .azw3 (kos25k #26)
 inline constexpr uint8_t FMT_ALL = 127;
 
 namespace detail {
@@ -39,7 +39,10 @@ inline uint8_t formatBitOf(std::string_view name) {
   if (endsWithNoCase(name, ".md")) return FMT_MD;
   if (endsWithNoCase(name, ".xtc") || endsWithNoCase(name, ".xtch")) return FMT_XTC;
   if (endsWithNoCase(name, ".cbz")) return FMT_CBZ;
-  if (endsWithNoCase(name, ".mobi") || endsWithNoCase(name, ".prc")) return FMT_MOBI;
+  if (endsWithNoCase(name, ".mobi") || endsWithNoCase(name, ".prc") || endsWithNoCase(name, ".azw") ||
+      endsWithNoCase(name, ".azw3")) {
+    return FMT_MOBI;
+  }
   return 0;
 }
 
