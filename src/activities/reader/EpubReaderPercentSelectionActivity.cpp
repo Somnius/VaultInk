@@ -28,6 +28,16 @@ EpubReaderPercentSelectionActivity::EpubReaderPercentSelectionActivity(GfxRender
                                                                        const int initialPercent)
     : Activity("EpubReaderPercentSelection", renderer, mappedInput), UiAppHost(renderer), percent(initialPercent) {}
 
+EpubReaderPercentSelectionActivity::EpubReaderPercentSelectionActivity(GfxRenderer& renderer,
+                                                                       MappedInputManager& mappedInput,
+                                                                       const int initialPage, const int totalPages)
+    : Activity("EpubReaderPageSelection", renderer, mappedInput),
+      UiAppHost(renderer),
+      percent(std::clamp(initialPage, 1, std::max(1, totalPages))),
+      pageMode(true),
+      totalPages(std::max(1, totalPages)),
+      largeStep(std::max(kLargeStep, totalPages / 20)) {}
+
 void EpubReaderPercentSelectionActivity::onEnter() {
   Activity::onEnter();
   resetUi();
@@ -42,6 +52,11 @@ void EpubReaderPercentSelectionActivity::onEnter() {
 void EpubReaderPercentSelectionActivity::onExit() { Activity::onExit(); }
 
 void EpubReaderPercentSelectionActivity::adjustPercent(const int delta) {
+  if (pageMode) {
+    percent = ((percent - 1 + delta) % totalPages + totalPages) % totalPages + 1;
+    requestUpdate();
+    return;
+  }
   // Wrap using a 100-value ring (0% and 100% are the same wrap point), but keep 100 as the
   // natural landing value when reached without crossing the boundary (e.g. 90 + 10 = 100).
   const int raw = percent + delta;
@@ -54,7 +69,7 @@ void EpubReaderPercentSelectionActivity::adjustPercent(const int delta) {
 }
 
 void EpubReaderPercentSelectionActivity::setPercent(const int value) {
-  const int clamped = std::clamp(value, 0, 100);
+  const int clamped = pageMode ? std::clamp(value, 1, totalPages) : std::clamp(value, 0, 100);
   if (clamped == percent) return;
   percent = clamped;
   requestUpdate();
@@ -63,6 +78,10 @@ void EpubReaderPercentSelectionActivity::setPercent(const int value) {
 void EpubReaderPercentSelectionActivity::onSliderEvent(const fui::ActionEvent& event, void* user) {
   auto* self = static_cast<EpubReaderPercentSelectionActivity*>(user);
   if (event.dragPermille < 0) return;
+  if (self->pageMode) {
+    self->setPercent(1 + (static_cast<int>(event.dragPermille) * (self->totalPages - 1) + 500) / 1000);
+    return;
+  }
   self->setPercent((static_cast<int>(event.dragPermille) * 100 + 500) / 1000);
 }
 
@@ -121,11 +140,11 @@ void EpubReaderPercentSelectionActivity::loop() {
 
   const auto swipe = mappedInput.wasSwipe();
   if (swipe == MappedInputManager::SwipeDir::Right) {
-    adjustPercent(kLargeStep);
+    adjustPercent(largeStep);
     return;
   }
   if (swipe == MappedInputManager::SwipeDir::Left) {
-    adjustPercent(-kLargeStep);
+    adjustPercent(-largeStep);
     return;
   }
 
@@ -140,8 +159,8 @@ void EpubReaderPercentSelectionActivity::loop() {
   // On edge-button boards (X3, X4 Pro) the side buttons sit on the left/right edges of the screen rather
   // than as a vertical up/down rocker (X4), so BTN_UP is physically the left button and BTN_DOWN the right
   // one. Flip the large-step direction there so the left button decreases and the right button increases.
-  const int upDelta = gpio.hasEdgeSideButtons() ? -kLargeStep : kLargeStep;
-  const int downDelta = gpio.hasEdgeSideButtons() ? kLargeStep : -kLargeStep;
+  const int upDelta = gpio.hasEdgeSideButtons() ? -largeStep : largeStep;
+  const int downDelta = gpio.hasEdgeSideButtons() ? largeStep : -largeStep;
   buttonNavigator.onPressAndContinuous({MappedInputManager::Button::Up}, [this, upDelta] { adjustPercent(upDelta); });
   buttonNavigator.onPressAndContinuous({MappedInputManager::Button::Down},
                                        [this, downDelta] { adjustPercent(downDelta); });
@@ -152,20 +171,29 @@ void EpubReaderPercentSelectionActivity::percentScreen(UiScreen& screen, void* u
 }
 
 void EpubReaderPercentSelectionActivity::buildPercentScreen(UiScreen& screen) {
-  char readout[16];
-  snprintf(readout, sizeof(readout), "%d%%", percent);
+  char readout[24];
   char hint1[64];
-  snprintf(hint1, sizeof(hint1), "%s %d%%", I18N.get(StrId::STR_STEP_HINT_FRONT), kSmallStep);
   char hint2[64];
-  snprintf(hint2, sizeof(hint2), "%s %d%%", I18N.get(StrId::STR_STEP_HINT_SIDE), kLargeStep);
+  char maxLabel[16];
+  if (pageMode) {
+    snprintf(readout, sizeof(readout), "%d / %d", percent, totalPages);
+    snprintf(hint1, sizeof(hint1), "%s %d", I18N.get(StrId::STR_STEP_HINT_FRONT), kSmallStep);
+    snprintf(hint2, sizeof(hint2), "%s %d", I18N.get(StrId::STR_STEP_HINT_SIDE), largeStep);
+    snprintf(maxLabel, sizeof(maxLabel), "%d", totalPages);
+  } else {
+    snprintf(readout, sizeof(readout), "%d%%", percent);
+    snprintf(hint1, sizeof(hint1), "%s %d%%", I18N.get(StrId::STR_STEP_HINT_FRONT), kSmallStep);
+    snprintf(hint2, sizeof(hint2), "%s %d%%", I18N.get(StrId::STR_STEP_HINT_SIDE), kLargeStep);
+    snprintf(maxLabel, sizeof(maxLabel), "100%%");
+  }
 
   UiSliderDialogSpec spec;
-  spec.title = tr(STR_GO_TO_PERCENT);
+  spec.title = pageMode ? tr(STR_GO_TO_PAGE) : tr(STR_GO_TO_PERCENT);
   spec.readout = readout;
-  spec.value = percent;
-  spec.max = 100;
-  spec.minLabel = "0%";
-  spec.maxLabel = "100%";
+  spec.value = pageMode ? percent - 1 : percent;
+  spec.max = pageMode ? std::max(1, totalPages - 1) : 100;
+  spec.minLabel = pageMode ? "1" : "0%";
+  spec.maxLabel = maxLabel;
   spec.sliderAction = ACTION_SLIDER;
   spec.stepAction = ACTION_STEP;
   spec.okAction = ACTION_OK;

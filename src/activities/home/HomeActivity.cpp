@@ -8,6 +8,7 @@
 #include <HalStorage.h>
 #include <I18n.h>
 #include <LibraryBuilder.h>
+#include <LibraryFormats.h>
 #include <LibraryIndexFile.h>
 #include <Memory.h>
 #include <Utf8.h>
@@ -31,6 +32,35 @@
 #include "util/CbzCover.h"
 #include "util/RandomPage.h"
 #include "util/VaultFiles.h"
+
+namespace {
+// The Books tile counts books only (kos25k #14): not notes or text files, and only the formats ticked in Book
+// formats. Counting reads every record's name, so the answer is kept until the index or the choice changes.
+int booksOnlyCount(library::LibraryIndexFile& index) {
+  static uint32_t cachedKey = 0;
+  static int cachedCount = -1;
+  const library::ClixHeader& head = index.header();
+  const uint32_t key = (static_cast<uint32_t>(head.bookCount) << 16) ^
+                       (static_cast<uint32_t>(head.nextFirstSeen) << 8) ^ head.selfSize ^
+                       (static_cast<uint32_t>(SETTINGS.libraryFormatMask) << 24) ^ 0x80000000u;
+  if (key == cachedKey) return cachedCount;
+  int books = 0;
+  library::ClixRecord record;
+  std::string name;
+  const uint16_t total = index.bookCount();
+  for (uint16_t ordinal = 0; ordinal < total; ++ordinal) {
+    name.clear();
+    if (index.readRecord(ordinal, record) && index.readName(record, name) &&
+        library::countsAsBook(SETTINGS.libraryFormatMask, name)) {
+      ++books;
+    }
+  }
+  if (books == 0) books = -1;  // setCounts shows the plain row text for none
+  cachedKey = key;
+  cachedCount = books;
+  return books;
+}
+}  // namespace
 
 // The companion app's guide, which links its newest release (a fixed URL for the QR code).
 static constexpr char COMPANION_URL[] = "https://github.com/Somnius/VaultInk/blob/main/docs/companion.md";
@@ -300,7 +330,8 @@ void HomeActivity::setupHome() {
     {
       // Only an index that already exists: home never waits for a library rebuild.
       auto index = makeUniqueNoThrow<library::LibraryIndexFile>();
-      const int books = index && index->open(library::libraryIndexPath()) ? index->bookCount() : -1;
+      int books = -1;
+      if (index && index->open(library::libraryIndexPath())) books = booksOnlyCount(*index);
       vaultInkUi->setCounts(books, static_cast<int>(vaultfiles::findVaults().size()));
     }
     selectorIndex = vaultInkUi->indexFor(initialMenuItem);

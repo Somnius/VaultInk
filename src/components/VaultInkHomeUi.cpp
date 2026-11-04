@@ -24,6 +24,8 @@ constexpr fui::ActionId SELECT = 1;
 constexpr fui::ActionId CARD_INFO = 2;  // long press on the Continue card: book info (kos25k #15)
 constexpr int16_t CARD_COVER_HEIGHT = 132;
 constexpr int16_t ROW_ICON_SIZE = 32;
+constexpr int16_t BOOKS_ICON_SIZE = 48;  // the Books tile's icon, bigger than the others (kos25k #14)
+constexpr int ROW_HEIGHT = 68;           // every home tile has this height
 // Focus outline for button navigation: thick enough to find at a glance, white inside so a
 // move repaints only the two rows involved and leaves no large black area to ghost.
 constexpr uint8_t FOCUS_BORDER = 4;
@@ -287,7 +289,8 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
       case Row::Books:
         item.label = tr(STR_HOME_BOOKS);
         item.subtitle = booksText[0] ? booksText : tr(STR_HOME_BOOKS_DESC);
-        item.icon = fui::bitmapFromIcon(icon_book_open_32);
+        item.icon = i == 0 ? fui::bitmapFromIcon(icon_book_open_48)
+                           : fui::bitmapFromIcon(icon_book_open_32);  // the first list is Books alone, at 48
         break;
       case Row::Vaults:
         item.label = tr(STR_VAULTS);
@@ -336,16 +339,14 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
         break;
     }
   }
-  // Books and Vaults (always rows 0 and 1) are the main destinations: a taller list with a
-  // black outline. The rest share a lighter list below it. Same focus outline in both.
+  // Books and Vaults (always rows 0 and 1) are the main destinations: a black outline. The rest share a
+  // lighter list below. Every tile is the same height with the same gap (kos25k #14); Books has a bigger icon.
   const int primaryCount = std::min(rowCount, 2);
-  // All ten rows (Random page! switched on) only fit with the first two no taller than the rest and a thin gap.
   const bool compact = rowCount > 9;
-  const int primaryHeight = compact ? 68 : 88;
   const int rowGap = compact ? 3 : 8;
-  const int full = primaryCount * (primaryHeight + rowGap) + (rowCount - primaryCount) * (68 + rowGap);
+  const int full = rowCount * (ROW_HEIGHT + rowGap);
   const int scale = std::min(100, std::max<int>(1, screen.body().height) * 100 / std::max(1, full));
-  const auto drawList = [&](const int first, const int count, const bool primary) {
+  const auto drawList = [&](const int first, const int count, const bool primary, const int16_t iconSize) {
     fui::ListProps props;
     props.items = items.data() + first;
     props.count = static_cast<uint16_t>(count);
@@ -355,10 +356,10 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
     props.labelText = primary ? theme.titleText : theme.bodyText;
     props.labelText.bold = true;
     props.subtitleText = theme.smallText;
-    props.iconSize = ROW_ICON_SIZE;
+    props.iconSize = iconSize;
     // Full size in portrait; on a short (landscape) screen the rows shrink to fit, down to the
     // touch minimum the list enforces itself.
-    props.rowHeight = static_cast<int16_t>((primary ? primaryHeight : 68) * scale / 100);
+    props.rowHeight = static_cast<int16_t>(ROW_HEIGHT * scale / 100);
     props.rowGap = static_cast<int16_t>(rowGap);
     props.rowRadius = 10;
     props.rowInset = 0;
@@ -377,6 +378,7 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
     const int16_t height = static_cast<int16_t>(count * (props.rowHeight + props.rowGap));
     screen.list(props, height);
   };
-  drawList(0, primaryCount, true);
-  drawList(primaryCount, rowCount - primaryCount, false);
+  if (primaryCount > 0) drawList(0, 1, true, BOOKS_ICON_SIZE);
+  if (primaryCount > 1) drawList(1, 1, true, ROW_ICON_SIZE);
+  drawList(primaryCount, rowCount - primaryCount, false, ROW_ICON_SIZE);
 }

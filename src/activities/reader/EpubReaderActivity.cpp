@@ -1172,6 +1172,28 @@ void EpubReaderActivity::jumpToPercent(int percent) {
   requestUpdate();
 }
 
+void EpubReaderActivity::jumpToBookFraction(const float fraction) {
+  if (!epub) return;
+  const size_t bookSize = epub->getBookSize();
+  if (bookSize == 0) return;
+  const double clamped = std::clamp(static_cast<double>(fraction), 0.0, 1.0);
+  size_t targetSize = static_cast<size_t>(static_cast<double>(bookSize) * clamped);
+  if (clamped >= 1.0) targetSize = bookSize - 1;
+
+  int targetSpineIndex = 0;
+  if (!locateBookSize(targetSize, targetSpineIndex)) return;
+
+  {
+    RenderLock lock;
+    clearDeferredReposition();
+    currentSpineIndex = targetSpineIndex;
+    nextPageNumber = 0;
+    pendingPercentJump = true;
+    section.reset();
+  }
+  requestUpdate();
+}
+
 void EpubReaderActivity::applyProgressChange(const ProgressChangeResult& sync) {
   if (sync.hasVisibleTextOffset && sync.spineIndex >= 0 && sync.spineIndex < epub->getSpineItemsCount()) {
     RenderLock lock;
@@ -1329,6 +1351,9 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
           });
       break;
     }
+    case EpubReaderMenuActivity::MenuAction::GO_TO_PAGE:
+      openGoToPage();
+      break;
     case EpubReaderMenuActivity::MenuAction::BACK: {
       if (!vaultnav::goBack()) activityManager.goToFileBrowser(bookPath);
       return;
@@ -2706,19 +2731,52 @@ void EpubReaderActivity::renderStatusBar() const {
 // An estimate of the page number counted from the first chapter (kos25k #12): the book is laid out one chapter at a
 // time, so the pages of the other chapters are worked out from this chapter's pages per share of the book. It
 // changes with the font and spacing, and a book that starts before its first chapter shows 1 there.
-int EpubReaderActivity::bookPageNumber(const float bookFraction, const float chapterPages) const {
-  if (!epub || !section || chapterPages <= 0) return 0;
+bool EpubReaderActivity::bookPageScale(const float chapterPages, float& first, float& scale) const {
+  if (!epub || !section || chapterPages <= 0) return false;
   const float chapterStart = epub->calculateProgress(currentSpineIndex, 0.0f);
   const float chapterEnd = epub->calculateProgress(currentSpineIndex + 1, 0.0f);
   const float share = chapterEnd - chapterStart;
-  if (share <= 0.0f) return 0;
-  float first = 0.0f;  // where chapter 1 starts; when it can't be found, the start of the book
+  if (share <= 0.0f) return false;
+  first = 0.0f;  // where chapter 1 starts; when it can't be found, the start of the book
   if (epub->getTocItemsCount() > 0) {
     const int firstSpine = epub->getSpineIndexForTocIndex(0);
     if (firstSpine >= 0) first = epub->calculateProgress(firstSpine, 0.0f);
   }
-  const float pages = (bookFraction - first) * (chapterPages / share);
+  scale = chapterPages / share;  // pages of the whole book per unit of book progress
+  return true;
+}
+
+int EpubReaderActivity::bookPageNumber(const float bookFraction, const float chapterPages) const {
+  float first = 0.0f, scale = 0.0f;
+  if (!bookPageScale(chapterPages, first, scale)) return 0;
+  const float pages = (bookFraction - first) * scale;
   return std::max(1, static_cast<int>(pages + 0.5f));  // the fraction already counts the page you are on
+}
+
+// Go to page (kos25k #29): the number is the estimate the status bar shows, so the jump goes the other way,
+// from the page to the share of the book.
+void EpubReaderActivity::openGoToPage() {
+  if (!epub || !section) return;
+  // The same numbers the status bar uses, so the dialog opens on the page the bar shows.
+  const float pagesHere = section->estimatedTotalPages();
+  if (pagesHere <= 0) return;
+  const float chapterProgress = static_cast<float>(section->currentPage + 1) / pagesHere;
+  const float fraction = epub->calculateProgress(currentSpineIndex, chapterProgress);
+  float first = 0.0f, scale = 0.0f;
+  if (!bookPageScale(pagesHere, first, scale)) return;
+  const int total = std::max(1, bookPageNumber(1.0f, pagesHere));
+  const int current = std::clamp(bookPageNumber(fraction, pagesHere), 1, total);
+  startActivityForResult(
+      std::make_unique<EpubReaderPercentSelectionActivity>(renderer, mappedInput, current, total),
+      [this, first, scale, total](const ActivityResult& result) {
+        if (result.isCancelled) {
+          openReaderMenu();
+          return;
+        }
+        const int page = std::clamp(std::get<PercentResult>(result.data).percent, 1, total);
+        // The middle of the page, so the estimate maps back to the same number.
+        jumpToBookFraction(std::clamp(first + (static_cast<float>(page) - 0.5f) / scale, 0.0f, 1.0f));
+      });
 }
 
 // ---- Search in a book (kos25k #24) ----
@@ -3720,7 +3778,7 @@ void EpubReaderActivity::activateMoreRow(int row) {
   }
   // Leaf actions open their own screen / perform the action; close the overlay first.
   overlay = Overlay::None;
-  if (action == MA::GO_TO_PERCENT && overlayPageStored) {
+  if ((action == MA::GO_TO_PERCENT || action == MA::GO_TO_PAGE) && overlayPageStored) {
     // The percent dialog is a popup over the current frame: wipe the toolbar
     // chrome back to the clean page first so the dialog draws over the page,
     // not the sheet. No refresh push — the dialog's first frame carries it.

@@ -177,6 +177,8 @@ class EpubReaderActivity final : public ReaderActivity {
   void askUpdateLinks(const std::shared_ptr<linkupdate::Plan>& links, const std::string& oldPath,
                       const std::string& newPath);
   void jumpToPercent(int percent);
+  void jumpToBookFraction(float fraction);  // like jumpToPercent, to a share of the book
+  void openGoToPage();
   bool locateBookSize(size_t targetSize, int& targetSpineIndex);
   void beginRandomPeek();
   void onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action);
@@ -247,6 +249,7 @@ class EpubReaderActivity final : public ReaderActivity {
                       int orientedMarginBottom, int orientedMarginLeft);
   void drawClippingHighlights(const Page& page, int fontId, int orientedMarginTop, int orientedMarginLeft) const;
   void renderStatusBar() const;
+  bool bookPageScale(float chapterPages, float& first, float& scale) const;
   int bookPageNumber(float bookFraction, float chapterPages) const;
   void applyOrientation(uint8_t orientation);
   void applyInitialOrientation() override;

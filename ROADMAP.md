@@ -700,6 +700,7 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
 * ✅ (0.65.0, simulator only) #12 Hide Status Bar moved into Customise Status Bar; Book page number "(37)" (an estimate for books) and Page number when bar is hidden.
 * ✅ (0.65.0) #20 Battery: drain awake with the light off and on (needs new data; approximate).
 * ✅ (0.65.0) #1 four new procedural papyrus looks (aged, cracked, stained, crumpled). ⏳ the system-wide contrast slider waits for his answer on what it should change.
+* ✅ (0.68.0, simulator only) #29 Go to page in the book menu under More (estimate by the bracket page number); #14 equal home tiles, bigger Books icon, Books count of books only.
 * ⏳ #27 Bluetooth shutter: waiting for his test (the page turner may already work).
 * ✅ (0.65.0) #28 Flashlight as a built-in tool (S.O.S., blink, steady; brightness, warmth, speed).
 * ❌ #26 MOBI/AZW/AZW3 (no parser, flash), #29 PDF reflow (text-only today), #30 Experimental typography (half exists; ligatures/variable fonts don't fit); widow/orphan and hanging punctuation stay as maybes.

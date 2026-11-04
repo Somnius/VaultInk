@@ -35,7 +35,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Still early.** VaultInk is at 0.67.1. Releases from 0.8.2 on have been tested on a real X4 Pro by one
+> **Still early.** VaultInk is at 0.68.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
 > tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Much of the
 > newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
 > the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
@@ -45,7 +45,7 @@ It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or C
 ## At a glance
 
 <p>
-  <img src="docs/images/vaultink/home-067.png" width="190" alt="Home screen with the current book, Books, Vaults, Favourites, Search, Browse Files, Gallery, File Transfer, Plugins, Random page and Settings">
+  <img src="docs/images/vaultink/home-068.png" width="190" alt="Home screen with the current book, Books, Vaults, Favourites, Search, Browse Files, Gallery, File Transfer, Plugins, Random page and Settings">
   <img src="docs/images/vaultink/library-sort.png" width="190" alt="Library with the Recent, up-percent and down-percent bar and the percent read next to each author">
   <img src="docs/images/vaultink/note.png" width="190" alt="An Obsidian note with links, a callout, tasks and a table">
   <img src="docs/images/vaultink/search-results-wide.png" width="190" alt="Search in Book results that fill the row, with the gear at the right of the header">
@@ -117,7 +117,7 @@ Each line links to its guide where there is one; all the guides are listed in [d
 - **Text panel** in the book with every layout setting: font, size, line spacing 0 to 10, alignment, hyphenation (on by default, Greek and polytonic too), Even Word Gaps, word and character spacing, screen margin down to 0, paragraph indent. Changes show at once. [docs/reading-and-files.md](docs/reading-and-files.md#in-the-book-the-text-panel-0270)
 - **Advanced Typography** (0.66.0): switches for ligatures, kerning, widow and orphan control, headings kept with their text, and hanging punctuation. Not tried on a device yet. [docs/reading-and-files.md](docs/reading-and-files.md#advanced-typography-0660-renamed-from-experimental-in-0661)
 - **Page backgrounds**: fourteen of them, from plain to papyrus and bath towel, a set you choose for the quick-settings paper tile, and a 0 to 100 contrast slider with a preview. [Mostly for fun](#page-backgrounds).
-- **Status bar**: choose what it shows, hide it from Settings or the book menu, and show the page number counted from the start of the book in brackets, even with the bar hidden (the number is an estimate for books). [docs/reading-and-files.md](docs/reading-and-files.md#hide-status-bar-and-the-book-page-number)
+- **Status bar**: choose what it shows, hide it from Settings or the book menu, and show the page number counted from the start of the book in brackets, even with the bar hidden (the number is an estimate for books). **Go to page** in the book menu under More (0.68.0) jumps by that number. [docs/reading-and-files.md](docs/reading-and-files.md#hide-status-bar-and-the-book-page-number)
 - **Tap Zones**: turn pages from the whole page or the corners only, so a stray finger does nothing. [docs/reading-and-files.md](docs/reading-and-files.md#tap-zones-corners-only-0250)
 - **Quick settings** on a swipe down: light and warmth, night mode, refresh, sleep, Wi-Fi, Sync, Library, the paper tile, and a book card that opens the Library or goes Home. One menu at a time, so menus never stack.
 
@@ -216,7 +216,6 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 The [roadmap](ROADMAP.md) has the details and the order. Open items right now:
 
 - Real-device testing of the newest features: MOBI and AZW books, Advanced Typography, Dice, VaultEUC with a real wheel and the Bluetooth client and keyboard.
-- Next from kos25k's list: a "Go to page" row in the book menu, equal launcher tiles on the home screen with a Books count of books only, and PDFs checked in the Library and in Search word.
 - Chapters and the cover for MOBI books, and pictures and links for AZW3.
 - The XTCH refresh choice and a few share-to-reader edge cases wait for device tests.
 

@@ -21,6 +21,7 @@ class EpubReaderMenuActivity final : public UiListActivity {
     FRONTLIGHT,
     BLUETOOTH,
     GO_TO_PERCENT,
+    GO_TO_PAGE,  // 0.68.0 (kos25k #29): by the page number in brackets in the status bar
     AUTO_PAGE_TURN,
     ROTATE_SCREEN,
     BOOKMARKS,
@@ -68,7 +69,7 @@ class EpubReaderMenuActivity final : public UiListActivity {
   // fixed-capacity array avoids any heap allocation for the row list. Labels
   // are set once in the constructor (buildMenuRowItems()); buildScreen()
   // only refreshes rows whose values reflect live state.
-  static constexpr size_t MAX_MENU_ITEMS = 29;  // every action at once (28) fits
+  static constexpr size_t MAX_MENU_ITEMS = 30;  // every action at once (29) fits
   freeink::ui::ListItem menuRowItems[MAX_MENU_ITEMS]{};
   void buildMenuRowItems();
 

@@ -10,6 +10,10 @@ class EpubReaderPercentSelectionActivity final : public Activity, private UiAppH
   // Slider-style percent selector for jumping within a book.
   explicit EpubReaderPercentSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
                                               int initialPercent);
+  // Page mode (0.68.0, "Go to page", kos25k #29): the same slider counts pages 1..totalPages, and the result
+  // (a PercentResult) carries the page number.
+  EpubReaderPercentSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, int initialPage,
+                                     int totalPages);
 
   void onEnter() override;
   void onExit() override;
@@ -27,8 +31,11 @@ class EpubReaderPercentSelectionActivity final : public Activity, private UiAppH
   void cancel();
   void confirm();
 
-  // Current percent value (0-100) shown on the slider.
+  // Current value shown on the slider: a percent (0-100), or a page (1..totalPages) in page mode.
   int percent = 0;
+  bool pageMode = false;
+  int totalPages = 100;
+  int largeStep = 10;
 
   ButtonNavigator buttonNavigator;
 

@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.68.0 (2026-11-04)
+
+Go to page, and an even home screen (kos25k #29, #14).
+
+- **Go to page** (kos25k #29): book menu > More > Go to page, under Go to %. A slider counts the pages the way the number in brackets in the status bar does, so it opens on the page you are on and ends on the estimated last page. The side buttons jump by a twentieth of the book. It is an estimate: it changes with the font and spacing. Not for notes.
+- **Home screen** (kos25k #14): every launcher tile is the same height with the same gap, and the Books icon is bigger.
+- **Books count** (kos25k #14): the Books tile counts books only, not notes, text files or canvases, and only the formats ticked in Book formats.
+
+Tried in the simulator, not on a device.
+
 ## 0.67.1 (2026-11-04)
 
 MOBI books with Huffman compression now open, and .azw and .azw3 files open too (kos25k #26).

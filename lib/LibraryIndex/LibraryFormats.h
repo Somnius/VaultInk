@@ -51,4 +51,11 @@ inline bool formatAllowed(uint8_t mask, std::string_view name) {
   return bit == 0 || (mask & bit) != 0;
 }
 
+// The Books tile on the home screen counts books only (kos25k #14): not .txt and .md notes, not canvases, and
+// only the formats ticked in Book formats.
+inline bool countsAsBook(uint8_t mask, std::string_view name) {
+  const uint8_t bit = formatBitOf(name);
+  return bit != 0 && bit != FMT_TXT && bit != FMT_MD && (mask & bit) != 0;
+}
+
 }  // namespace library

@@ -10,6 +10,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Paper contrast (0.60.0)](#paper-contrast-0600)
 - [Line spacing, 0 to 10](#line-spacing-0-to-10)
 - [Advanced Typography (0.66.0, renamed from Experimental in 0.66.1)](#advanced-typography-0660-renamed-from-experimental-in-0661)
+- [Go to page](#go-to-page-0680)
 - [Hide Status Bar and the book page number](#hide-status-bar-and-the-book-page-number)
 - [The book card in quick settings (0.26.0)](#the-book-card-in-quick-settings-0260)
 - [Tap Zones: corners only (0.25.0)](#tap-zones-corners-only-0250)
@@ -147,6 +148,12 @@ some fonts, accents on capitals can touch the line above at levels 0 and 1.
 - **Hanging punctuation**: off by default, new. An opening quote or bracket at the start of a line hangs into the left margin, and a closing mark at the end of a line (period, comma, closing quote, the hyphen of a split word and so on, also the Greek « » and ano teleia) hangs into the right margin, so the letters line up on both edges. The hang is at most 12 px, and it needs some page margin: with Screen Margin at 0 the hanging mark is cut at the screen edge.
 
 While a book is open the kerning and ligature switches also apply to the menus drawn over it; when you leave the book the menus are back to normal. Greek hyphenation, including polytonic, and the Greek letters in the built-in fonts are not switches, they are always on. Not tried on a device.
+
+## Go to page (0.68.0)
+
+Book menu → **More → Go to page** (under Go to %) opens a slider that counts pages the way the number in brackets in the status bar does (kos25k #29). It opens on the page the bar shows and ends on the estimated last page; the **-** and **+** step one page, the side buttons jump by a twentieth of the book, and dragging the slider goes anywhere. It's an estimate, like the bracket number: the pages of the other chapters are worked out from the chapter you're in, so it changes with the font and spacing. It isn't in vault notes.
+
+![Go to page: 1216 of an estimated 8108](images/vaultink/go-to-page-068.png)
 
 ## Hide Status Bar and the book page number
 
@@ -294,6 +301,8 @@ again. It doesn't search other files on the card: there's no index of them, and 
 card on every search would be far too slow.
 
 ## Home screen rows (0.32.0)
+
+Since 0.68.0 (kos25k #14) every launcher tile on the VaultInk home is the same height with the same gap, the Books icon is a little bigger than the rest, and the Books tile counts books only: not notes, text files or canvases, and only the formats ticked in Book formats.
 
 **Settings → Display → Home Screen Rows** sets the order of the rows on the VaultInk home (Books,
 Vaults, Search, Files, Gallery, Transfer, Plugins, Settings). Tap a row to pick it up, then tap

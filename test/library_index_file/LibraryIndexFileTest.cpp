@@ -327,4 +327,12 @@ TEST(LibraryFormats, BitsAndMask) {
   EXPECT_TRUE(formatAllowed(FMT_ALL, "x.cbz"));
   EXPECT_FALSE(formatAllowed(FMT_EPUB | FMT_PDF, "x.txt"));
   EXPECT_TRUE(formatAllowed(FMT_EPUB, "x.canvas"));  // not covered by the filter
+  // The home Books count: books only, and only the ticked formats.
+  EXPECT_TRUE(countsAsBook(FMT_ALL, "a.epub"));
+  EXPECT_TRUE(countsAsBook(FMT_ALL, "a.PDF"));
+  EXPECT_TRUE(countsAsBook(FMT_ALL, "a.azw3"));
+  EXPECT_FALSE(countsAsBook(FMT_ALL, "notes.md"));
+  EXPECT_FALSE(countsAsBook(FMT_ALL, "readme.txt"));
+  EXPECT_FALSE(countsAsBook(FMT_ALL, "board.canvas"));
+  EXPECT_FALSE(countsAsBook(FMT_ALL & ~FMT_PDF, "a.pdf"));
 }
