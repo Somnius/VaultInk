@@ -1,7 +1,58 @@
 # Reading settings and file actions
 
-This page covers the reading and file features from kos25k's issues: #1 to #6 (0.20.0) and #2, #7,
-#8, #9, #10 (0.24.0).
+The guide to how VaultInk reads books and handles files: page backgrounds, text settings, Advanced Typography, the status bar, the Library, search, the file browser, the lock screen, the Battery page and the small tools. Most of it started as requests from kos25k, the tester, and the version where each part arrived is in its title. For the formats a book can have, see [book-formats.md](book-formats.md).
+
+## Contents
+
+**Reading and text**
+
+- [Page backgrounds: Paper Button Cycle](#page-backgrounds-paper-button-cycle)
+- [Paper contrast (0.60.0)](#paper-contrast-0600)
+- [Line spacing, 0 to 10](#line-spacing-0-to-10)
+- [Advanced Typography (0.66.0, renamed from Experimental in 0.66.1)](#advanced-typography-0660-renamed-from-experimental-in-0661)
+- [Hide Status Bar and the book page number](#hide-status-bar-and-the-book-page-number)
+- [The book card in quick settings (0.26.0)](#the-book-card-in-quick-settings-0260)
+- [Tap Zones: corners only (0.25.0)](#tap-zones-corners-only-0250)
+- [Even Word Gaps (0.24.0, levels in 0.27.0)](#even-word-gaps-0240-levels-in-0270)
+- [In the book: the Text panel (0.27.0)](#in-the-book-the-text-panel-0270)
+- [Word gaps and hyphenation](#word-gaps-and-hyphenation)
+- [Search in a book](#search-in-a-book)
+- [Search settings (0.33.0)](#search-settings-0330)
+- [Highlights to a vault note](#highlights-to-a-vault-note)
+- [Random page! (0.60.0, 0.61.0, 0.64.0)](#random-page-0600-0610-0640)
+
+**Library, books and files**
+
+- [Favourites (0.31.0)](#favourites-0310)
+- [Book info (0.35.0)](#book-info-0350)
+- [Books only in the Library (0.35.0)](#books-only-in-the-library-0350)
+- [Folders tab (0.56.0)](#folders-tab-0560)
+- [MOBI, AZW and AZW3 books (0.67.0, 0.67.1)](#mobi-azw-and-azw3-books-0670-0671)
+- [Format filter (0.58.0)](#format-filter-0580)
+- [Long-press in the Library, Authors as folders (0.36.0)](#long-press-in-the-library-authors-as-folders-0360)
+- [Library in quick settings (0.27.0)](#library-in-quick-settings-0270)
+- [Library: sort by progress, tab order (0.60.0, 0.61.0)](#library-sort-by-progress-tab-order-0600-0610)
+- [Home screen rows (0.32.0)](#home-screen-rows-0320)
+- [File browser: Move, Copy, New folder, Rename](#file-browser-move-copy-new-folder-rename)
+- [Search in Browse Files (0.64.0)](#search-in-browse-files-0640)
+- [Gallery (0.24.0)](#gallery-0240)
+- [PDF as text](#pdf-as-text)
+- [Going back from a note (0.33.1)](#going-back-from-a-note-0331)
+
+**Device, screens and tools**
+
+- [Your own sleep picture (PNG too, 0.41.0)](#your-own-sleep-picture-png-too-0410)
+- [Home button at the top (0.41.0)](#home-button-at-the-top-0410)
+- [Reading statistics on the sleep screen (0.51.0)](#reading-statistics-on-the-sleep-screen-0510)
+- [Battery percent on the sleep screen](#battery-percent-on-the-sleep-screen)
+- [Battery page (0.44.0)](#battery-page-0440)
+- [Lock screen (0.49.0)](#lock-screen-0490)
+- [What's New after an update (0.24.0)](#whats-new-after-an-update-0240)
+- [Dice (0.61.0)](#dice-0610)
+- [Excalidraw drawings (0.63.0)](#excalidraw-drawings-0630)
+- [Bluetooth keyboard typing (0.63.0)](#bluetooth-keyboard-typing-0630)
+- [Sudoku (0.59.0)](#sudoku-0590)
+
 
 ## Page backgrounds: Paper Button Cycle
 
@@ -202,7 +253,7 @@ shortened (Πρόσφ., Συγγρ., Αγαπ.) so all five fit.
 `.mobi` and `.prc` books open like a text book (kos25k #26): the text is read from the file a record at a
 time, so a big book doesn't fill the memory. Title, author and language come from the book. Bold, italic,
 headings, lists, tables and the pictures inside the book show; links don't, and there are no chapters yet,
-the whole book is one chapter (like a .txt). A cover next to the file as `<name>.jpg` works as for .txt.
+the whole book is one chapter (like a .txt). A picture next to the file with the same name, or called `cover`, works as its cover, as for .txt.
 A MOBI with DRM is refused with a message. MOBI files with Huffman compression (the kind many Kindle-store downloads use) open too since 0.67.1.
 `.azw` and `.azw3` (since 0.67.1) open the same way, only when they have no DRM. For the newer AZW3/KF8 files the text reads in order, but pictures, links and chapters don't work yet, and a heading can sit apart from its paragraph. Tick or untick **MOBI / AZW** in Book formats. Tried
 with a Project Gutenberg MOBI in the simulator, not on a device.
@@ -405,8 +456,7 @@ the word count matched the desktop tool `pdftotext` within a few percent on 28 o
 
 What it doesn't: pictures, tables as tables, more than four columns, page numbers as pages, and
 scans without a text layer. Two, three or four columns (0.56.0) are read column by column when the page has clear gutters (a title across all of them is kept in place). A file whose fonts carry no text map (so the letters can't be told) says the text can't be read, instead of showing garbage (0.56.0). A scan says "This PDF has no text to read". A PDF locked with a password you need to open it says so (PDFs that are only locked against copying or printing, with no password to open, are read: RC4, AES-128 and, from 0.56.0, AES-256). A PDF you have read
-shows in Recent and on the Continue card (opening it from there goes straight to the text), but it isn't a Library book;
-find it again in Browse Files or by its link.
+shows in Recent and on the Continue card (opening it from there goes straight to the text). Since 0.58.0 PDFs are also listed in the Library (the PDF row in Book formats), and you can still find one in Browse Files or by its link.
 
 ## Highlights to a vault note
 

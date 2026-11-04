@@ -35,15 +35,17 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Still early.** VaultInk is at 0.62.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
-> tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Most of the
-> newest features (Dice, VaultEUC, the Library sort bar) have only run in the simulator. Back up your SD
-> card. The screenshots below come from the simulator.
+> **Still early.** VaultInk is at 0.67.1. Releases from 0.8.2 on have been tested on a real X4 Pro by one
+> tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Much of the
+> newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
+> the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
+> books, Advanced Typography, Dice, VaultEUC and the Bluetooth keyboard. Back up your SD card. The screenshots
+> below come from the simulator.
 
 ## At a glance
 
 <p>
-  <img src="docs/images/vaultink/home-062.png" width="190" alt="Home screen with the current book, Books, Vaults, Favourites, Search, Files, Gallery, File Transfer, Plugins, Random page and Settings">
+  <img src="docs/images/vaultink/home-067.png" width="190" alt="Home screen with the current book, Books, Vaults, Favourites, Search, Browse Files, Gallery, File Transfer, Plugins, Random page and Settings">
   <img src="docs/images/vaultink/library-sort.png" width="190" alt="Library with the Recent, up-percent and down-percent bar and the percent read next to each author">
   <img src="docs/images/vaultink/note.png" width="190" alt="An Obsidian note with links, a callout, tasks and a table">
   <img src="docs/images/vaultink/search-results-wide.png" width="190" alt="Search in Book results that fill the row, with the gear at the right of the header">
@@ -70,15 +72,24 @@ Home → Plugins holds the built-in tools: Sudoku, a dice roller, and VaultEUC f
   <img src="docs/images/vaultink/paper-contrast-065.png" width="190" alt="Paper contrast with a tile of all fourteen page backgrounds">
 </p>
 
-Page background contrast with a preview, Random page!, the Library's format filter, and the lock screen.
+Page background contrast with a preview, Random page!, the Library's format filter, the lock screen, search in Browse Files, the flashlight and all fourteen page backgrounds.
+
+<p>
+  <img src="docs/images/vaultink/mobi-0671-huffman-bukowski.png" width="190" alt="A MOBI book with Huffman compression open in the reader">
+  <img src="docs/images/vaultink/mobi-067-page61.png" width="190" alt="A MOBI book page with italics, quotes and hyphenation">
+  <img src="docs/images/vaultink/status-bar-settings-065.png" width="190" alt="Customise Status Bar with Hide Status Bar, the book page number and the page number when the bar is hidden">
+  <img src="docs/images/vaultink/experimental-066.png" width="190" alt="Advanced Typography: switches for ligatures, kerning, widow and orphan control, keeping headings with text and hanging punctuation">
+</p>
+
+MOBI and AZW books, the status bar options with the book page number, and Advanced Typography.
 
 More screenshots are in the sections below and in [docs/](docs/).
 
 ## What it does
 
-Each line links to its guide where there is one. The full list is in [SPECS.md](SPECS.md).
+Each line links to its guide where there is one; all the guides are listed in [docs/](docs/README.md). The full list is in [SPECS.md](SPECS.md), what changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
-**Books**
+**Books** (what opens, and what doesn't: [docs/book-formats.md](docs/book-formats.md))
 - Everything CrossPoint Reader offers: EPUB, TXT, MOBI and XTC books, PDFs read as text, comics (CBZ and XTC/XTCH), SD-card fonts, hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS catalogs, Calibre wireless transfer and SD-card plugins. [docs/reading-and-files.md](docs/reading-and-files.md)
 - **Library**: tabs for Recent, Title, Author, Favourites and Folders, in an order you choose (Settings → Library → Tab order) with a tab it opens on. With Recent open, a bar sorts by how far you have read (**↑%** most read first, **↓%** least read first), and every book shows its percent. A gear picks the formats listed; **All | Books only** hides vault notes; Authors can be folders.
 - **Search in Book**: a word or phrase, partial or whole words (accents and capitals never matter), starting at your chapter and wrapping, with the words shaded on the page and a bar to step through the hits or return to your place. The gear sets the type and the range; Settings → Reader → Search word has the rest, including an opt-in index that makes repeat searches faster.
@@ -87,6 +98,7 @@ Each line links to its guide where there is one. The full list is in [SPECS.md](
 - **Advanced Typography** (0.66.0): switches for ligatures, kerning, widow/orphan control, headings kept with text and hanging punctuation, in Settings → Reader and the book's Text panel ([docs/reading-and-files.md](docs/reading-and-files.md#advanced-typography-0660-renamed-from-experimental-in-0661)).
 - **Search in Browse Files** (0.64.0): a magnifier looks for files and folders by name through the whole card, with a way to show a hit in its folder. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-browse-files-0640)
 - **Page backgrounds** from plain to papyrus and bath towel, a set you choose for the quick button, and a 0 to 100 **contrast** slider with a preview. [Mostly for fun](#page-backgrounds).
+- **Status bar** (0.65.0, 0.66.0): choose what it shows, hide it from Settings or the book menu under More, and show the page number counted from the start of the book in brackets, even with the bar hidden. [docs/reading-and-files.md](docs/reading-and-files.md#hide-status-bar-and-the-book-page-number)
 - **Reading stats**, streaks and the reading-stats sleep screen; **battery** page with drain per hour (asleep, awake with the light off and awake with it on); **book info** on a long press, **Favourites**, **Gallery** for pictures.
 
 **Obsidian vaults** [docs/editing.md](docs/editing.md), [docs/livesync.md](docs/livesync.md), [docs/flashcards.md](docs/flashcards.md)
@@ -177,9 +189,10 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 
 The [roadmap](ROADMAP.md) has the details and the order. Open items right now:
 
-- Real-device testing of the newest features, above all VaultEUC with a real wheel and the Bluetooth client.
-- Library tab order was added in 0.61.0; the XTCH refresh choice and a few share-to-reader edge cases wait for device tests.
-- A Bluetooth keyboard for editing, and typing into the device from the companion app.
+- Real-device testing of the newest features: MOBI and AZW books, Advanced Typography, Dice, VaultEUC with a real wheel and the Bluetooth client and keyboard.
+- Next from kos25k's list: a "Go to page" row in the book menu, equal launcher tiles on the home screen with a Books count of books only, and PDFs checked in the Library and in Search word.
+- Chapters and the cover for MOBI books, and pictures and links for AZW3.
+- The XTCH refresh choice and a few share-to-reader edge cases wait for device tests.
 
 The companion app lives in `companion/` in this repo and is released separately (guide: [docs/companion.md](docs/companion.md)).
 
