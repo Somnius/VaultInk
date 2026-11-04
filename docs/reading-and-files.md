@@ -203,7 +203,7 @@ shortened (Πρόσφ., Συγγρ., Αγαπ.) so all five fit.
 time, so a big book doesn't fill the memory. Title, author and language come from the book. Bold, italic,
 headings, lists, tables and the pictures inside the book show; links don't, and there are no chapters yet,
 the whole book is one chapter (like a .txt). A cover next to the file as `<name>.jpg` works as for .txt.
-A MOBI with DRM is refused with a message, and so are the few MOBI files that use Huffman compression.
+A MOBI with DRM is refused with a message. MOBI files with Huffman compression (the kind many Kindle-store downloads use) open too since 0.67.1.
 `.azw` and `.azw3` are not opened. Tick or untick **MOBI / PRC** in Book formats. Tried
 with a Project Gutenberg MOBI in the simulator, not on a device.
 
