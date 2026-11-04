@@ -477,35 +477,44 @@
 
       <div class="features">
         <figure class="feature">
+          <a href="shot-library.png" class="shot"><img src="shot-library.png" width="480" height="800" loading="lazy" alt="The Library with the Recent, up-percent and down-percent bar and the percent read on every book"></a>
+          <figcaption>
+            <h3>Books</h3>
+            <p>EPUB, TXT, MOBI and AZW, PDF as text, XTC, XTCH and CBZ comics. A Library you can sort by how far you have read
+              (↑% and ↓%), with the percent on every book, tabs in the order you choose, Favourites, Folders and a format filter.
+              Fonts from the SD card, hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS and Calibre transfer.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-search-hl.png" class="shot"><img src="shot-search-hl.png" width="480" height="800" loading="lazy" alt="A page with the searched word shaded and the search bar"></a>
+          <figcaption>
+            <h3>Search in a book</h3>
+            <p>A word or phrase, partial or whole words, accents and capitals never matter. It starts at your chapter, shades the
+              words on the page and steps through the hits, with a way back to your place.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
           <a href="shot-vaults.png" class="shot"><img src="shot-vaults.png" width="480" height="800" loading="lazy" alt="A vault's folders and notes"></a>
           <figcaption>
             <h3>Vaults as folders</h3>
-            <p>Every vault on the card opens like a folder of notes. Each one remembers where you left off.</p>
+            <p>Every Obsidian vault on the card opens like a folder of notes. Each one remembers where you left off, and your
+              recent notes are one tap away.</p>
           </figcaption>
         </figure>
         <figure class="feature">
           <a href="shot-note.png" class="shot"><img src="shot-note.png" width="480" height="800" loading="lazy" alt="A note with links, a callout, tasks and a table"></a>
           <figcaption>
             <h3>Notes that read like pages</h3>
-            <p>Headings, lists, tasks, callouts, tables, code, footnotes, embeds and images. Tap a
-              <code>[[link]]</code> to follow it, Back to return.</p>
+            <p>Headings, lists, tasks as real boxes, callouts, tables, code, footnotes, embeds and images. Tap a
+              <code>[[link]]</code> to follow it, Back to return. Backlinks for every note.</p>
           </figcaption>
         </figure>
         <figure class="feature">
           <a href="shot-search.png" class="shot"><img src="shot-search.png" width="480" height="800" loading="lazy" alt="Search results across vaults"></a>
           <figcaption>
             <h3>Search across vaults</h3>
-            <p>By title, alias, tag and text, in every vault at once. Accents don't matter: <code>καλημερα</code>
+            <p>By title, alias, tag, heading, text and block id, in every vault at once. Accents don't matter: <code>καλημερα</code>
               finds <code>Καλημέρα</code>.</p>
-          </figcaption>
-        </figure>
-        <figure class="feature">
-          <a href="shot-library.png" class="shot"><img src="shot-library.png" width="480" height="800" loading="lazy" alt="The Library with the Recent, up-percent and down-percent bar and the percent read on every book"></a>
-          <figcaption>
-            <h3>Books</h3>
-            <p>EPUB, TXT, MOBI and AZW, PDF as text, XTC, XTCH and CBZ. A Library you can sort by how far you have read
-              (↑% and ↓%), with the percent on every book, tabs in the order you choose, and a format filter. Fonts from the
-              SD card, hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS and Calibre transfer.</p>
           </figcaption>
         </figure>
         <figure class="feature">
@@ -520,33 +529,70 @@
           <a href="shot-home.png" class="shot"><img src="shot-home.png" width="480" height="800" loading="lazy" alt="The VaultInk home screen"></a>
           <figcaption>
             <h3>A calm home screen</h3>
-            <p>The book you're reading on top, then Books, Vaults, Favourites, Search, Files, Gallery,
-              Transfer, Plugins and Settings, and an optional Random page! row. Interface in English and Greek, with more languages on the way.</p>
+            <p>The book you're reading on top, then Books, Vaults, Favourites, Search, Browse Files, Gallery, File Transfer, Plugins, Settings and an optional Random page! row, in the order you choose, with counts on Books and Vaults. Interface in English and Greek, with more languages on the way.</p>
           </figcaption>
         </figure>
       </div>
 
+      <h3 style="margin-top:2.4rem">Books and the Library</h3>
       <ul class="list">
-        <li>Focus timer (Pomodoro) and Habits (daily habits with a streak) in Home → Plugins. Excalidraw drawings open in a viewer. A Bluetooth keyboard can type into the on-screen keyboard line (off by default, not yet tried with a real keyboard).</li>
-        <li>Tools in Home → Plugins: Sudoku, a dice roller (D&amp;D, World of Darkness, Vampire V5, Fate, Call of Cthulhu and more) and VaultEUC for electric unicycles.</li>
+        <li>MOBI, PRC, AZW and AZW3 books open (Huffman compression too); books with DRM are refused. Text, bold, italic, headings, lists, tables and pictures show; chapters and links don't yet. Not tried on a device yet.</li>
+        <li>PDFs open as reflowing text, Greek and form fields included, up to four columns. No pictures, tables or scans.</li>
+        <li>CBZ comics straight from the card: chapters from folders, covers, landscape spreads as two pages, manga right to left, a page cache for faster turns. XTC and XTCH from the Banana Comic Converter, with a QR code in Settings that opens the converter on your phone.</li>
+        <li>Random page!: a random page of a random book, saving nothing, with a way back.</li>
+        <li>Book info on a long press, Favourites, Authors as folders, and All | Books only to hide the notes.</li>
+        <li>A book's highlights written to a note in your vault, sent on by LiveSync.</li>
+        <li>Reading stats on the sleep screen: today, week, month and total, your last three books, a calendar, streaks and finished books.</li>
+      </ul>
+
+      <h3 style="margin-top:2.4rem">Notes and vaults</h3>
+      <ul class="list">
+        <li>Flashcards from your notes: tag a note, write <code>Front::Back</code>, review with spaced repetition. Nothing is written into your notes.</li>
+        <li>Renaming a note updates the links to it. Deleted notes go to <code>.trash</code>, like Obsidian.</li>
+        <li>LiveSync: certificate checks, a Sync tile in quick settings, sync on wake every 6 or 24 hours, conflicts kept as a copy and never overwritten. Not tried against a real Obsidian install yet.</li>
+        <li>Canvas files: pan, zoom, pictures in cards, tap a card to open its note. Excalidraw drawings open the same way, compressed ones too.</li>
+        <li>Import a vault from a ZIP over the device's web page. Pictures in your vaults show in the Gallery.</li>
+        <li>Three highlight styles, callouts in a frame, embeds of a heading or a block, frontmatter and tags.</li>
+      </ul>
+
+      <h3 style="margin-top:2.4rem">Reading comfort</h3>
+      <ul class="list">
+        <li>Every layout setting in the book's Text panel: font, size, line spacing 0 to 10, hyphenation (Greek too), Even Word Gaps, word and character spacing, margins down to 0, indent.</li>
+        <li>Advanced Typography: ligatures, kerning, widow and orphan control, headings kept with their text, hanging punctuation. Not tried on a device yet.</li>
+        <li>Fourteen page backgrounds, from plain to papyrus and bath towel, with a contrast slider and a live preview.</li>
+        <li>Status bar options: choose what it shows, hide it, or show the page number counted from the start of the book (an estimate) in brackets, even with the bar hidden.</li>
+        <li>Tap Zones: turn pages from the whole page or only the corners.</li>
+        <li>Quick settings on a swipe down: light, warmth, night mode, refresh, sleep, Sync and the Library.</li>
+      </ul>
+
+      <h3 style="margin-top:2.4rem">Tools in Home → Plugins</h3>
+      <ul class="list">
+        <li>Sudoku: three levels, pencil notes, undo, hints, and it saves where you left off.</li>
+        <li>Dice: D&amp;D and polyhedral dice, World of Darkness, Vampire V5 with Hunger dice and Rouse checks, Chronicles of Darkness, Fate, Powered by the Apocalypse, Blades in the Dark, Call of Cthulhu, Shadowrun, Savage Worlds, Year Zero and Cyberpunk Red. Not tried on a device yet.</li>
+        <li>Focus timer (Pomodoro) and Habits (daily habits with a streak and a total).</li>
+        <li>Flashlight: the front light as an S.O.S., blinking or steady.</li>
         <li>VaultEUC connects over Bluetooth to Begode, Veteran, KingSong, InMotion, Ninebot and VESC wheels, with live numbers, alarms and ride logs. Not for use while riding, and not tried on a real wheel yet.</li>
-        <li>MOBI, PRC, AZW and AZW3 books open (with Huffman compression too); books with DRM are refused. Text, bold, italic, headings, lists, tables and pictures show; chapters and links don't yet.</li>
-        <li>Advanced Typography: switches for ligatures, kerning, widow/orphan control, headings kept with text and hanging punctuation, in Settings and the book's Text panel.</li>
-        <li>Status bar options (book page number in brackets), a Battery page that splits the light, four more papyrus backgrounds and a Flashlight with S.O.S.</li>
-        <li>Search in Browse Files: a magnifier finds files and folders by name across the whole card.</li>
-        <li>Random page!: a random page of a random book, saving nothing. Page backgrounds with a contrast slider and a live preview.</li>
-        <li>Flashcards from your notes: tag a note, write <code>Front::Back</code>, review with spaced repetition.</li>
-        <li>A Folders tab in the Library, and reading streaks on the sleep screen.</li>
-        <li>Search in a book: a word or phrase, partial or whole words, starting at your chapter, with the page of every hit and the words shaded on the page.</li>
-        <li>PDFs open as reflowing text, Greek included. No pictures, tables or scans.</li>
+        <li>Plugins from the SD card and the Plugin Hub.</li>
+      </ul>
+
+      <h3 style="margin-top:2.4rem">The device</h3>
+      <ul class="list">
+        <li>A home screen with the book you're reading on top, then Books, Vaults, Favourites, Search, Files, Gallery, Transfer, Plugins and Settings, in any order, any of them hidden, and a home button in the top bar.</li>
+        <li>Settings grouped by task, with a search that finds a setting by name.</li>
+        <li>Browse Files with Move, Copy, Rename, Delete, New folder, Extract here and Info on every file, and a search of the whole card by name.</li>
+        <li>A Gallery for the pictures on the card, with filters and phone photos up to 50 MP; any picture can be the sleep picture.</li>
         <li>A PIN or corner lock, with your name and phone on the lock and sleep screens.</li>
-        <li>A book's highlights written to a note in your vault.</li>
-        <li>Canvas files: pan, zoom, tap a card to open its note.</li>
-        <li>Backlinks and recent notes for every vault.</li>
-        <li>Quick settings on a swipe down: light, warmth, night mode, refresh, sleep.</li>
-        <li>Greek and English on-screen keyboard, switched with the globe key.</li>
-        <li>Import a vault from a ZIP over the device's web page.</li>
-        <li>Updates over Wi-Fi from the device itself, with the release notes first.</li>
+        <li>A Battery page with the drain per hour asleep and awake.</li>
+        <li>Updates over Wi-Fi from the device itself, with the release notes first, What's New after an update, and a welcome guide on the first start.</li>
+        <li>No telemetry, no accounts, no payments. Free and open source (MIT).</li>
+      </ul>
+
+      <h3 style="margin-top:2.4rem">Phone, Bluetooth and languages</h3>
+      <ul class="list">
+        <li>File Transfer over Wi-Fi, USB or Calibre, and a web page for files, notes, settings and LiveSync setup.</li>
+        <li>An Android companion app: quick notes, share books, comics, text and pictures from other apps, the SD card, the reader's settings, the comic converter inside the app, a Google Keep importer, typing into the reader from the phone, and the docs offline. Tested against the simulator, not a real X4 Pro yet.</li>
+        <li>A Bluetooth page turner, and a Bluetooth keyboard can type into the on-screen keyboard line (off by default, not yet tried with a real keyboard).</li>
+        <li>Interface in English and Greek, a Greek and English on-screen keyboard switched with the globe key, Greek hyphenation and fonts built in. Menus in many more languages from CrossPoint.</li>
       </ul>
 
       <h3 style="margin-top:2.4rem">More screens</h3>
@@ -554,6 +600,10 @@
       <button class="car-btn prev" type="button" aria-label="Previous screens">‹</button>
       <button class="car-btn next" type="button" aria-label="More screens">›</button>
       <div class="strip" tabindex="0" aria-label="More screenshots, scroll sideways">
+        <figure><a href="shot-mobi.png"><img src="shot-mobi.png" width="480" height="800" loading="lazy" alt="A MOBI book with Huffman compression open in the reader"></a><figcaption class="sans">A MOBI book</figcaption></figure>
+        <figure><a href="shot-mobi-page.png"><img src="shot-mobi-page.png" width="480" height="800" loading="lazy" alt="A MOBI page with italics, quotes and hyphenation"></a><figcaption class="sans">MOBI page</figcaption></figure>
+        <figure><a href="shot-status-bar.png"><img src="shot-status-bar.png" width="480" height="800" loading="lazy" alt="Customise Status Bar: Hide Status Bar, the book page number and the page number when the bar is hidden"></a><figcaption class="sans">Status bar options</figcaption></figure>
+        <figure><a href="shot-typography.png"><img src="shot-typography.png" width="480" height="800" loading="lazy" alt="Advanced Typography: ligatures, kerning, widow and orphan control, headings kept with text, hanging punctuation"></a><figcaption class="sans">Advanced Typography</figcaption></figure>
         <figure><a href="shot-plugins.png"><img src="shot-plugins.png" width="480" height="800" loading="lazy" alt="Home, Plugins: Sudoku, Dice and VaultEUC"></a><figcaption class="sans">Plugins</figcaption></figure>
         <figure><a href="shot-focus.png"><img src="shot-focus.png" width="480" height="800" loading="lazy" alt="Focus timer: a Pomodoro timer with Start, Skip, Stop and Settings"></a><figcaption class="sans">Focus timer</figcaption></figure>
         <figure><a href="shot-habits.png"><img src="shot-habits.png" width="480" height="800" loading="lazy" alt="Habits: each habit with its last seven days, a streak and a total"></a><figcaption class="sans">Habits</figcaption></figure>

@@ -90,35 +90,61 @@ More screenshots are in the sections below and in [docs/](docs/).
 Each line links to its guide where there is one; all the guides are listed in [docs/](docs/README.md). The full list is in [SPECS.md](SPECS.md), what changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 **Books** (what opens, and what doesn't: [docs/book-formats.md](docs/book-formats.md))
-- Everything CrossPoint Reader offers: EPUB, TXT, MOBI and XTC books, PDFs read as text, comics (CBZ and XTC/XTCH), SD-card fonts, hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS catalogs, Calibre wireless transfer and SD-card plugins. [docs/reading-and-files.md](docs/reading-and-files.md)
-- **Library**: tabs for Recent, Title, Author, Favourites and Folders, in an order you choose (Settings → Library → Tab order) with a tab it opens on. With Recent open, a bar sorts by how far you have read (**↑%** most read first, **↓%** least read first), and every book shows its percent. A gear picks the formats listed; **All | Books only** hides vault notes; Authors can be folders.
-- **Search in Book**: a word or phrase, partial or whole words (accents and capitals never matter), starting at your chapter and wrapping, with the words shaded on the page and a bar to step through the hits or return to your place. The gear sets the type and the range; Settings → Reader → Search word has the rest, including an opt-in index that makes repeat searches faster.
-- **Random page!** (a Home item, off by default): a random page of a random book (book formats only), saving nothing, with a way back to where you were.
-- **MOBI, AZW and AZW3 books** (0.67.0, 0.67.1): `.mobi`, `.prc`, `.azw` and `.azw3` open like text books, read a record at a time; DRM books are refused ([docs/reading-and-files.md](docs/reading-and-files.md#mobi-azw-and-azw3-books-0670-0671)).
-- **Advanced Typography** (0.66.0): switches for ligatures, kerning, widow/orphan control, headings kept with text and hanging punctuation, in Settings → Reader and the book's Text panel ([docs/reading-and-files.md](docs/reading-and-files.md#advanced-typography-0660-renamed-from-experimental-in-0661)).
-- **Search in Browse Files** (0.64.0): a magnifier looks for files and folders by name through the whole card, with a way to show a hit in its folder. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-browse-files-0640)
-- **Page backgrounds** from plain to papyrus and bath towel, a set you choose for the quick button, and a 0 to 100 **contrast** slider with a preview. [Mostly for fun](#page-backgrounds).
-- **Status bar** (0.65.0, 0.66.0): choose what it shows, hide it from Settings or the book menu under More, and show the page number counted from the start of the book in brackets, even with the bar hidden. [docs/reading-and-files.md](docs/reading-and-files.md#hide-status-bar-and-the-book-page-number)
-- **Reading stats**, streaks and the reading-stats sleep screen; **battery** page with drain per hour (asleep, awake with the light off and awake with it on); **book info** on a long press, **Favourites**, **Gallery** for pictures.
+- Everything CrossPoint Reader offers: EPUB, TXT and XTC/XTCH books, SD-card fonts, hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS catalogs, Calibre wireless transfer and SD-card plugins. [docs/reading-and-files.md](docs/reading-and-files.md)
+- **MOBI, PRC, AZW and AZW3** (0.67.0, 0.67.1): they open like a text book, read a record at a time, with bold, italic, headings, lists, tables and pictures; Huffman-compressed files too. No chapters yet, and AZW3 shows text only. DRM books are refused. Not tried on a device yet. [docs/reading-and-files.md](docs/reading-and-files.md#mobi-azw-and-azw3-books-0670-0671)
+- **PDF as text**: a PDF opens as reflowing text, Greek and filled-in form fields included, up to four columns; no pictures, tables or scans. PDFs are listed in the Library. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text)
+- **Comics**: CBZ files open straight from the card (JPEG and PNG pages, chapters from folders, covers, landscape spreads as two pages, manga right to left, a page cache for faster turns). XTC/XTCH files from the Banana Comic Converter open with their chapters; a QR code in Settings opens the converter on your phone. [docs/comics.md](docs/comics.md)
+- **Highlights to a vault note**: a book's clippings written to `Highlights/<title>.md` in your vault, and sent on by LiveSync. [docs/reading-and-files.md](docs/reading-and-files.md#highlights-to-a-vault-note)
 
-**Obsidian vaults** [docs/editing.md](docs/editing.md), [docs/livesync.md](docs/livesync.md), [docs/flashcards.md](docs/flashcards.md)
-- Notes read like book pages: headings, lists, tasks, quotes, tables, code, callouts, highlights, embeds, links and backlinks, with Greek handled throughout. Canvas files open in a viewer.
-- Search across every vault by title, alias, tag, heading, text and block id. Edit a note line by line, tick tasks, make, rename and delete notes.
-- **LiveSync** both ways with Obsidian Self-hosted LiveSync over Wi-Fi, including end-to-end encryption. **Flashcards** written in your notes with spaced repetition. Highlights from a book go to a vault note. Import a vault from a ZIP.
+**Library and finding your place**
+- **Library**: tabs for Recent, Title, Author, Favourites and Folders, in an order you choose and with a tab it opens on. Sort Recent by how far you have read (↑% and ↓%), with the percent on every book. A gear filters the formats; **All | Books only** hides vault notes; Authors can be folders; a long press on any book gives Open, Delete, Favourites and Info. [docs/reading-and-files.md](docs/reading-and-files.md#library-sort-by-progress-tab-order-0600-0610)
+- **Favourites** and **Book info** on a long press (title, author, size, percent read), in the Library, Browse Files and the home card. [docs/reading-and-files.md](docs/reading-and-files.md#favourites-0310)
+- **Random page!** (a Home item, off by default): a random page of a random book, saving nothing, with a way back to where you were. [docs/reading-and-files.md](docs/reading-and-files.md#random-page-0600-0610-0640)
+- **Reading stats** on a sleep screen: today, this week, this month and total, your last three books, a month calendar, streaks and finished books. [docs/reading-and-files.md](docs/reading-and-files.md#reading-statistics-on-the-sleep-screen-0510)
 
-**Tools** (Home → Plugins)
-- **Sudoku**: three levels, pencil notes, undo, hints, saves where you left off.
-- **Dice**: polyhedral dice with advantage, keep-highest and exploding dice; old World of Darkness; Vampire V5 with Hunger dice, Willpower reroll and Rouse checks; Chronicles of Darkness; Fate; Powered by the Apocalypse; Blades in the Dark; Call of Cthulhu; Shadowrun; Savage Worlds; Year Zero; Cyberpunk Red. [docs/reading-and-files.md](docs/reading-and-files.md#dice-0610)
-- **Focus timer, Habits, Excalidraw, Bluetooth keyboard** (0.63.0): a Pomodoro timer and a daily habit tracker in Home → Plugins ([docs/tools.md](docs/tools.md)); `.excalidraw` drawings open in a viewer; a Bluetooth keyboard can type into the on-screen keyboard's line (off by default, untried with a real keyboard). The dice seed mixes the date and time, battery percent and voltage with the chip's generator.
-- **VaultEUC**: an electric unicycle companion over Bluetooth (Begode, Veteran/Leaperkim, KingSong, InMotion, Ninebot, VESC): live numbers every 5 to 30 seconds, alarms, ride logs on the SD card, your wheels remembered, km/h or mph. **Not for use while riding, and not tried on a real wheel yet.** [docs/vaulteuc.md](docs/vaulteuc.md)
-- **Flashlight** (0.65.0): the front light as an S.O.S., blinking or steady, with brightness, warmth and flash speed ([docs/tools.md](docs/tools.md)).
+**Obsidian vaults** ([docs/editing.md](docs/editing.md), [docs/livesync.md](docs/livesync.md), [docs/flashcards.md](docs/flashcards.md))
+- Every vault on the card opens like a folder of notes, and remembers the note you read last. The Vaults screen lists your recent notes.
+- Notes read like book pages: headings, lists, tasks as real boxes, quotes, callouts in a frame, tables, code, footnotes, highlights (three styles), pictures with their sizes, note embeds (whole note, a heading or a block), frontmatter and tags, with Greek throughout. Links resolve the way Obsidian does, with aliases and partial paths; a note's menu has Backlinks and a « Back row.
+- **Search** across every vault by title, alias, tag, heading, text and block id; a hit in a heading or block opens the note right there. Accents and capitals never matter.
+- **Edit on the device**: tick tasks, edit a note line by line with undo, join lines, make, rename and delete notes (to `.trash`). Renaming a note updates the links to it. Untouched lines keep their exact bytes, and every save goes through a temp file.
+- **LiveSync** both ways with Obsidian Self-hosted LiveSync over Wi-Fi: end-to-end encryption, certificate checks, a Sync tile in quick settings, sync on wake every 6 or 24 hours, and conflicts kept as a copy, never overwritten. Not tried against a real Obsidian install yet.
+- **Flashcards** written in your notes (`Front::Back`, `?` cards, `{{gaps}}`), reviewed with spaced repetition, per deck or per note. Nothing is written into your notes.
+- **Canvas** files open in a viewer: pan, zoom, pictures in cards, tap a card to open its note. **Excalidraw** drawings (`.excalidraw`, the plugin's `.excalidraw.md`, compressed too) open the same way, read only.
+- **Import a vault from a ZIP** on the device's web page. Pictures in your vaults show in the Gallery.
+
+**Reading comfort, search and typography**
+- **Search in Book**: a word or phrase, partial or whole words (accents and capitals never matter), starting at your chapter and wrapping, with the words shaded on the page and a bar to step through the hits or go back to your place. A gear sets the type and the range; an opt-in index makes repeat searches faster. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-a-book)
+- **Text panel** in the book with every layout setting: font, size, line spacing 0 to 10, alignment, hyphenation (on by default, Greek and polytonic too), Even Word Gaps, word and character spacing, screen margin down to 0, paragraph indent. Changes show at once. [docs/reading-and-files.md](docs/reading-and-files.md#in-the-book-the-text-panel-0270)
+- **Advanced Typography** (0.66.0): switches for ligatures, kerning, widow and orphan control, headings kept with their text, and hanging punctuation. Not tried on a device yet. [docs/reading-and-files.md](docs/reading-and-files.md#advanced-typography-0660-renamed-from-experimental-in-0661)
+- **Page backgrounds**: fourteen of them, from plain to papyrus and bath towel, a set you choose for the quick-settings paper tile, and a 0 to 100 contrast slider with a preview. [Mostly for fun](#page-backgrounds).
+- **Status bar**: choose what it shows, hide it from Settings or the book menu, and show the page number counted from the start of the book in brackets, even with the bar hidden (the number is an estimate for books). [docs/reading-and-files.md](docs/reading-and-files.md#hide-status-bar-and-the-book-page-number)
+- **Tap Zones**: turn pages from the whole page or the corners only, so a stray finger does nothing. [docs/reading-and-files.md](docs/reading-and-files.md#tap-zones-corners-only-0250)
+- **Quick settings** on a swipe down: light and warmth, night mode, refresh, sleep, Wi-Fi, Sync, Library, the paper tile, and a book card that opens the Library or goes Home. One menu at a time, so menus never stack.
+
+**Tools** (Home → Plugins, built into the firmware: [docs/tools.md](docs/tools.md))
+- **Sudoku**: three levels, pencil notes, undo, hints, a timer, and it saves where you left off.
+- **Dice**: polyhedral dice with advantage, keep-highest and exploding dice; old World of Darkness; Vampire V5 with Hunger dice, Willpower reroll and Rouse checks; Chronicles of Darkness; Fate; Powered by the Apocalypse; Blades in the Dark; Call of Cthulhu; Shadowrun; Savage Worlds; Year Zero; Cyberpunk Red. The seed mixes the chip's generator with the time and the battery. Not tried on a device yet. [docs/reading-and-files.md](docs/reading-and-files.md#dice-0610)
+- **Focus timer**: a Pomodoro timer that follows the clock, so a sleeping reader still knows when a phase ended; finished phases are logged. **Habits**: up to 16 daily habits with the last seven days, a streak and a total.
+- **Flashlight** (0.65.0): the front light as an S.O.S., blinking or steady, with brightness, warmth and flash speed.
+- **VaultEUC**: an electric unicycle companion over Bluetooth (Begode, Veteran/Leaperkim, KingSong, InMotion, Ninebot, VESC): live numbers every 5 to 30 seconds, alarm limits, ride logs as CSV on the card, your wheels remembered, km/h or mph, a demo wheel to try it. **Not for use while riding, and not tried on a real wheel yet.** [docs/vaulteuc.md](docs/vaulteuc.md)
 - **Plugins** from the SD card and the Plugin Hub: [docs/sd-plugins.md](docs/sd-plugins.md).
 
 **The device**
-- A home screen with the book you are reading, rows in any order and any of them hidden; quick settings with a swipe down; settings grouped by task; touch or buttons.
-- **Lock screen** with a 4-digit PIN or a corner long-press, with the owner's name and phone; sleep screens; **What's New** after an update.
-- Full **Greek** interface, Greek and English keyboards, Greek hyphenation and reading font. Menus in many more languages. [docs/translating.md](docs/translating.md)
-- File browser with Move, Copy, Rename, Delete, Extract and Info on every file; web page and **Android companion app** for files, notes and settings: [docs/companion.md](docs/companion.md).
+- **Home screen** with the book or note you were reading on top, counts on the Books and Vaults rows, rows in any order and any of them hidden, a home button in the top bar, and a Favourites row. CrossPoint's home styles stay as a choice. [docs/reading-and-files.md](docs/reading-and-files.md#home-screen-rows-0320)
+- **Settings** grouped by task, with a search that finds a setting by name, and rows that show their current value.
+- **Browse Files** with Open, Delete, Rename, Move, Copy, New folder, Extract here for zips, Open as gallery and Info on every file. Books keep their place when they or their folder move. A magnifier searches the whole card by name (0.64.0). [docs/reading-and-files.md](docs/reading-and-files.md#search-in-browse-files-0640)
+- **Gallery** for the pictures on the card, nine to a page, with filters, chosen folders, phone photos up to 50 MP, and Set as sleep picture. [docs/reading-and-files.md](docs/reading-and-files.md#gallery-0240)
+- **Sleep screens**: your own picture (JPEG, PNG or BMP, cropped or fitted), the battery percent, the owner's name and phone, or the reading stats.
+- **Lock screen** with a 4-digit PIN or a corner long-press, how long after sleeping it locks, and the owner's name and phone on it. [docs/reading-and-files.md](docs/reading-and-files.md#lock-screen-0490)
+- **Battery** page: charge, voltage, charging, temperature, and the drain per hour asleep and awake (light off and on). [docs/reading-and-files.md](docs/reading-and-files.md#battery-page-0440)
+- **Updates over Wi-Fi** from the reader, with the release notes shown first, **What's New** after an update, and a five-page **welcome guide** on the first start. Debug logs to the card on request. [docs/debug-logs.md](docs/debug-logs.md)
+- No telemetry, accounts or payments; the update check is the only network call you don't start yourself.
+
+**Phone, Bluetooth and languages**
+- **File Transfer** over Wi-Fi (as `vaultink.local`), USB and Calibre; a web page for files, notes, settings, LiveSync setup and vault import. [docs/webserver.md](docs/webserver.md)
+- **Android companion app** ([docs/companion.md](docs/companion.md)): quick notes into a vault, share text, pictures, books and comics from other apps, the SD card with uploads and downloads, the reader's settings, a comic converter inside the app, an outbox for when the reader is away, a Google Keep importer, LiveSync status with a sync request, typing into the reader from the phone, and the documentation offline. English and Greek. Tested against the simulator, not a real X4 Pro yet.
+- **Bluetooth**: a page-turner remote, and a Bluetooth keyboard can type into the on-screen keyboard's line (off by default, not tried with a real keyboard). [docs/reading-and-files.md](docs/reading-and-files.md#bluetooth-keyboard-typing-0630)
+- Full **Greek** interface, a Greek and English on-screen keyboard, Greek (monotonic and polytonic) in the built-in fonts and hyphenation. Menus in many more languages from CrossPoint. [docs/translating.md](docs/translating.md)
 
 ### Page backgrounds
 
