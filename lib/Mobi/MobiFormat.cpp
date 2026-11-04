@@ -151,6 +151,8 @@ Status open(const Reader& reader, Info& info) {
     const uint32_t fullNameOffset = field(0x44);
     const uint32_t fullNameLength = field(0x48);
     info.firstImageIndex = field(0x5C);
+    info.huffRecordIndex = field(0x60);
+    info.huffRecordCount = field(0x64);
     const uint32_t exthFlags = field(0x70);
     if (info.mobiHeaderLength >= 0xE4 && info.fileVersion >= 5) info.extraFlags = be16(m + 0xE2);
     if (info.textEncoding != ENCODING_UTF8) info.textEncoding = ENCODING_CP1252;
@@ -193,10 +195,201 @@ Status open(const Reader& reader, Info& info) {
 
   // Record 0 can carry an encryption type even for TEXtREAd files; refuse both before any text read.
   if (info.encryption != 0) return Status::Drm;
-  if (info.compression != COMPRESSION_NONE && info.compression != COMPRESSION_PALMDOC) {
+  if (info.compression == COMPRESSION_HUFF) {
+    // One HUFF record and 1..MAX_CDIC_RECORDS CDIC records, all inside the record table.
+    if (!info.hasMobiHeader || info.huffRecordCount < 2 || info.huffRecordCount > HuffCdic::MAX_CDIC_RECORDS + 1 ||
+        info.huffRecordIndex <= info.textRecordCount || info.huffRecordIndex + info.huffRecordCount > info.numRecords) {
+      return Status::BadHeader;
+    }
+  } else if (info.compression != COMPRESSION_NONE && info.compression != COMPRESSION_PALMDOC) {
     return Status::UnsupportedCompression;
   }
   return Status::Ok;
+}
+
+// --- HUFF/CDIC ---
+//
+// Layout (as read by KindleUnpack's mobi_huffcdic.py and libmobi):
+//   HUFF: "HUFF", header length, offset of dict1, offset of dict2. dict1 is 256 big-endian uint32,
+//   indexed by the top 8 bits of the next 32 bits of input: bits 0-4 the code length, bit 7 set when
+//   the code is at most 8 bits long ("terminal"), bits 8-31 the maxcode of that length. dict2 is 32
+//   (mincode, maxcode) pairs for code lengths 1..32. Codes are assigned from the top down, so a longer
+//   code is numerically smaller than any shorter one: a non-terminal entry's length grows while the
+//   input is below mincode[length].
+//   The phrase index is maxcode[length] - code (both as length-bit values).
+//   CDIC: "CDIC", header length (16), total phrase count, code bits (phrases per record = 1 << bits),
+//   then uint16 offsets (relative to byte 16) to each phrase: uint16 length (bit 15 set = literal,
+//   clear = the phrase is itself HUFF-coded) followed by the bytes.
+
+namespace {
+constexpr uint32_t HUFF_HEADER = 24;
+constexpr uint32_t CDIC_HEADER = 16;
+constexpr int MAX_PHRASE_DEPTH = 8;
+constexpr size_t PHRASE_SCRATCH = 256;  // stack bytes for a HUFF-coded phrase read from the file (uncached mode)
+
+uint64_t be64Padded(const uint8_t* in, size_t inLen, size_t pos) {
+  uint64_t x = 0;
+  for (size_t k = 0; k < 8; k++) x = (x << 8) | (pos + k < inLen ? in[pos + k] : 0);
+  return x;
+}
+}  // namespace
+
+Status HuffCdic::load(const Reader& reader, const Info& info, size_t cacheLimit) {
+  reader_ = &reader;
+  cache_.reset();
+  cacheSize_ = 0;
+  if (info.huffRecordCount < 2 || info.huffRecordCount > MAX_CDIC_RECORDS + 1 || info.huffRecordIndex > 0xFFFF) {
+    return Status::BadHeader;
+  }
+  uint32_t huffOffset, huffLength;
+  if (!recordSpan(reader, static_cast<uint16_t>(info.huffRecordIndex), huffOffset, huffLength))
+    return Status::BadHeader;
+  uint8_t head[HUFF_HEADER];
+  if (huffLength < HUFF_HEADER || !readExact(reader, huffOffset, head, sizeof(head))) return Status::IoError;
+  if (memcmp(head, "HUFF", 4) != 0) return Status::BadHeader;
+  const uint32_t off1 = be32(head + 8), off2 = be32(head + 12);
+  if (off1 + sizeof(dict1_) > huffLength || off2 + 64 * 4 > huffLength) return Status::BadHeader;
+  uint8_t* raw = reinterpret_cast<uint8_t*>(dict1_);
+  if (!readExact(reader, huffOffset + off1, raw, sizeof(dict1_))) return Status::IoError;
+  for (int i = 0; i < 256; i++) dict1_[i] = be32(raw + i * 4);
+  uint8_t dict2[64 * 4];
+  if (!readExact(reader, huffOffset + off2, dict2, sizeof(dict2))) return Status::IoError;
+  mincode_[0] = maxcode_[0] = 0;
+  for (int len = 1; len <= 32; len++) {
+    const uint64_t mincode = be32(dict2 + (len - 1) * 8), maxcode = be32(dict2 + (len - 1) * 8 + 4);
+    mincode_[len] = static_cast<uint32_t>(mincode << (32 - len));
+    maxcode_[len] = static_cast<uint32_t>(((maxcode + 1) << (32 - len)) - 1);
+  }
+
+  cdicCount_ = info.huffRecordCount - 1;
+  cdicSpans_.reset(new (std::nothrow) uint32_t[cdicCount_ * 2]);
+  if (!cdicSpans_) return Status::Oom;
+  size_t total = 0;
+  phraseCount_ = 0;
+  for (uint32_t i = 0; i < cdicCount_; i++) {
+    uint32_t offset, length;
+    const uint32_t index = info.huffRecordIndex + 1 + i;
+    if (index > 0xFFFF || !recordSpan(reader, static_cast<uint16_t>(index), offset, length)) return Status::BadHeader;
+    uint8_t ch[CDIC_HEADER];
+    if (length < CDIC_HEADER || !readExact(reader, offset, ch, sizeof(ch))) return Status::IoError;
+    if (memcmp(ch, "CDIC", 4) != 0 || be32(ch + 4) != CDIC_HEADER) return Status::BadHeader;
+    const uint32_t phrases = be32(ch + 8), bits = be32(ch + 12);
+    if (i == 0) {
+      phraseCount_ = phrases;
+      codeBits_ = bits;
+      if (bits == 0 || bits > 16 || phrases == 0) return Status::BadHeader;
+      // Every phrase index must land in a record we have.
+      if ((static_cast<uint64_t>(phrases) + (1u << bits) - 1) >> bits > cdicCount_) return Status::BadHeader;
+    } else if (phrases != phraseCount_ || bits != codeBits_) {
+      return Status::BadHeader;
+    }
+    cdicSpans_[i * 2] = offset;
+    cdicSpans_[i * 2 + 1] = length;
+    total += length;
+  }
+  if (total <= cacheLimit) {
+    cache_.reset(new (std::nothrow) uint8_t[total]);
+    if (!cache_) return Status::Oom;
+    size_t at = 0;
+    for (uint32_t i = 0; i < cdicCount_; i++) {
+      if (!readExact(reader, cdicSpans_[i * 2], cache_.get() + at, cdicSpans_[i * 2 + 1])) {
+        cache_.reset();
+        return Status::IoError;
+      }
+      at += cdicSpans_[i * 2 + 1];
+    }
+    cacheSize_ = total;
+  }
+  return Status::Ok;
+}
+
+bool HuffCdic::phrase(uint32_t index, Phrase& out) const {
+  if (index >= phraseCount_) return false;
+  const uint32_t rec = index >> codeBits_;
+  const uint32_t slot = index & ((1u << codeBits_) - 1);
+  if (rec >= cdicCount_) return false;
+  const uint32_t recLength = cdicSpans_[rec * 2 + 1];
+  const uint32_t slotAt = CDIC_HEADER + slot * 2;
+  if (slotAt + 2 > recLength) return false;
+  uint16_t blen;
+  uint32_t off;
+  if (cache_) {
+    size_t base = 0;
+    for (uint32_t i = 0; i < rec; i++) base += cdicSpans_[i * 2 + 1];
+    const uint8_t* r = cache_.get() + base;
+    off = CDIC_HEADER + be16(r + slotAt);
+    if (off + 2 > recLength) return false;
+    blen = be16(r + off);
+    out.data = r + off + 2;
+  } else {
+    const uint32_t fileAt = cdicSpans_[rec * 2];
+    uint8_t tmp[2];
+    if (!readExact(*reader_, fileAt + slotAt, tmp, 2)) return false;
+    off = CDIC_HEADER + be16(tmp);
+    if (off + 2 > recLength || !readExact(*reader_, fileAt + off, tmp, 2)) return false;
+    blen = be16(tmp);
+    out.data = nullptr;
+    out.fileOffset = fileAt + off + 2;
+  }
+  out.len = blen & 0x7FFF;
+  out.literal = blen & 0x8000;
+  return off + 2 + out.len <= recLength;
+}
+
+size_t HuffCdic::decode(const uint8_t* in, size_t inLen, uint8_t* out, size_t outCap, int depth) const {
+  if (depth > MAX_PHRASE_DEPTH) return 0;
+  size_t pos = 0, o = 0;
+  uint64_t x = be64Padded(in, inLen, 0);
+  int n = 32;
+  int64_t bitsLeft = static_cast<int64_t>(inLen) * 8;
+  while (true) {
+    if (n <= 0) {
+      pos += 4;
+      x = be64Padded(in, inLen, pos);
+      n += 32;
+    }
+    const uint32_t code = static_cast<uint32_t>(x >> n);
+    const uint32_t v = dict1_[code >> 24];
+    uint32_t codeLen = v & 0x1F;
+    uint32_t maxcode;
+    if (v & 0x80) {
+      maxcode = static_cast<uint32_t>(((static_cast<uint64_t>(v >> 8) + 1) << (32 - codeLen)) - 1);
+    } else {
+      while (codeLen < 32 && code < mincode_[codeLen]) codeLen++;
+      maxcode = maxcode_[codeLen];
+    }
+    if (codeLen == 0) return 0;
+    n -= static_cast<int>(codeLen);
+    bitsLeft -= codeLen;
+    if (bitsLeft < 0) break;
+    if (maxcode < code) return 0;
+    const uint32_t index = (maxcode - code) >> (32 - codeLen);
+    Phrase p;
+    if (!phrase(index, p)) return 0;
+    if (p.literal) {
+      if (o + p.len > outCap) return 0;
+      if (p.data)
+        memcpy(out + o, p.data, p.len);
+      else if (!readExact(*reader_, p.fileOffset, out + o, p.len))
+        return 0;
+      o += p.len;
+    } else {
+      uint8_t scratch[PHRASE_SCRATCH];
+      const uint8_t* data = p.data;
+      if (!data) {
+        if (p.len > sizeof(scratch) || !readExact(*reader_, p.fileOffset, scratch, p.len)) return 0;
+        data = scratch;
+      }
+      const size_t n2 = decode(data, p.len, out + o, outCap - o, depth + 1);
+      if (n2 == 0 && p.len != 0) return 0;
+      o += n2;
+    }
+  }
+  return o;
+}
+
+size_t HuffCdic::decompress(const uint8_t* in, size_t inLen, uint8_t* out, size_t outCap) const {
+  return decode(in, inLen, out, outCap, 0);
 }
 
 size_t palmdocDecompress(const uint8_t* in, size_t inLen, uint8_t* out, size_t outCap) {
@@ -283,6 +476,13 @@ Status streamHtml(const Reader& reader, const Info& info, std::string_view title
   std::unique_ptr<HtmlFilter> filter(new (std::nothrow) HtmlFilter(emit, &ctx));
   if (!raw || !text || !filter || (info.textEncoding != ENCODING_UTF8 && !utf8)) return Status::Oom;
   if (images && images->resolve) filter->setImageResolver(images->resolve, images->ctx);
+  std::unique_ptr<HuffCdic> huff;
+  if (info.compression == COMPRESSION_HUFF) {
+    huff.reset(new (std::nothrow) HuffCdic);
+    if (!huff) return Status::Oom;
+    const Status s = huff->load(reader, info);
+    if (s != Status::Ok) return s;
+  }
 
   write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
   write(CACHE_VERSION_TAG);
@@ -308,8 +508,9 @@ Status streamHtml(const Reader& reader, const Info& info, std::string_view title
     const size_t trailing = trailingSize(raw.get(), rawLen, info.extraFlags);
     rawLen -= trailing;
     size_t textLen;
-    if (info.compression == COMPRESSION_PALMDOC) {
-      textLen = palmdocDecompress(raw.get(), rawLen, text.get(), MAX_RECORD_SIZE);
+    if (info.compression == COMPRESSION_PALMDOC || huff) {
+      textLen = huff ? huff->decompress(raw.get(), rawLen, text.get(), MAX_RECORD_SIZE)
+                     : palmdocDecompress(raw.get(), rawLen, text.get(), MAX_RECORD_SIZE);
       if (textLen == 0 && rawLen != 0) continue;  // one damaged record: skip it, keep the book readable
     } else {
       textLen = rawLen > MAX_RECORD_SIZE ? MAX_RECORD_SIZE : rawLen;

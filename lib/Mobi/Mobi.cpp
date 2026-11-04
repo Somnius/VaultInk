@@ -120,7 +120,7 @@ bool Mobi::streamHtml(const std::string& filepath, Print& out, const std::string
 bool Mobi::buildCache(const std::string& filepath, const std::string& cachePath,
                       std::unique_ptr<BookMetadataCache>& bookMetadataCache) {
   mobi::Info info;
-  if (probe(filepath, &info) != mobi::Status::Ok) return false;  // DRM, HUFF/CDIC or damaged: refused
+  if (probe(filepath, &info) != mobi::Status::Ok) return false;  // DRM, unknown compression or damaged: refused
 
   if (!Storage.exists(cachePath.c_str())) {
     Storage.mkdir(cachePath.c_str());

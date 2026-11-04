@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -91,6 +94,10 @@ struct Fixture {
   bool kf8Boundary = false;
   uint16_t extraFlags = 0;  // when set, bit 1 appends a 2-byte trailing entry and bit 0 a multibyte byte
   size_t recordSize = 4096;
+  std::vector<Bytes> huffRecords;  // HUFF then CDIC records, appended after the text (compression HUFF)
+  bool huffHeaderFields = true;    // write their index/count into the MOBI header
+  Bytes (*huffEncode)(const std::string&) = nullptr;
+  uint32_t textLength = 0;  // record 0 text length; 0 = html.size()
 };
 
 Bytes buildMobi(const Fixture& f) {
@@ -98,7 +105,9 @@ Bytes buildMobi(const Fixture& f) {
   // Text records.
   for (size_t at = 0; at < f.html.size(); at += f.recordSize) {
     const std::string chunk = f.html.substr(at, f.recordSize);
-    Bytes rec = f.compression == mobi::COMPRESSION_PALMDOC ? palmdocCompress(chunk) : Bytes(chunk.begin(), chunk.end());
+    Bytes rec = f.compression == mobi::COMPRESSION_PALMDOC ? palmdocCompress(chunk)
+                : f.compression == mobi::COMPRESSION_HUFF  ? f.huffEncode(chunk)
+                                                           : Bytes(chunk.begin(), chunk.end());
     if (f.extraFlags & 1) rec.push_back(0x00);  // multibyte overlap entry: 1 byte, 0 chars
     if (f.extraFlags & 2) {
       rec.push_back(0x55);  // some TBS payload
@@ -107,11 +116,14 @@ Bytes buildMobi(const Fixture& f) {
     records.push_back(std::move(rec));
   }
   if (records.empty()) records.push_back({});
+  const uint16_t textRecords = static_cast<uint16_t>(records.size());
+  const uint32_t huffIndex = textRecords + 1;  // after record 0
+  for (const Bytes& r : f.huffRecords) records.push_back(r);
   // Record 0.
   Bytes r0(16, 0);
   put16(r0, 0, f.compression);
-  put32(r0, 4, static_cast<uint32_t>(f.html.size()));
-  put16(r0, 8, static_cast<uint16_t>(records.size()));
+  put32(r0, 4, f.textLength ? f.textLength : static_cast<uint32_t>(f.html.size()));
+  put16(r0, 8, textRecords);
   put16(r0, 10, static_cast<uint16_t>(f.recordSize));
   put16(r0, 12, f.encryption);
   if (f.mobiHeader) {
@@ -123,6 +135,10 @@ Bytes buildMobi(const Fixture& f) {
     put32(m, 12, f.encoding);
     put32(m, 20, 6);  // file version
     put32(m, 0x5C, 0xFFFFFFFF);
+    if (!f.huffRecords.empty() && f.huffHeaderFields) {
+      put32(m, 0x60, huffIndex);
+      put32(m, 0x64, static_cast<uint32_t>(f.huffRecords.size()));
+    }
     put32(m, 0x70, 0x40);  // EXTH present
     put16(m, 0xE2, f.extraFlags);
     Bytes exth;
@@ -308,14 +324,6 @@ TEST(MobiOpen, RefusesDrm) {
   EXPECT_STREQ(mobi::statusText(mobi::Status::Drm), "DRM-protected");
 }
 
-TEST(MobiOpen, RefusesHuffCdic) {
-  Fixture f;
-  f.html = "<p>x</p>";
-  f.compression = mobi::COMPRESSION_HUFF;
-  mobi::Info info;
-  EXPECT_EQ(mobi::open(readerFor(buildMobi(f)), info), mobi::Status::UnsupportedCompression);
-}
-
 TEST(MobiOpen, RejectsNonMobiAndBadHeaders) {
   mobi::Info info;
   Bytes empty;
@@ -428,6 +436,293 @@ TEST(MobiStream, ImagesThroughResolver) {
   EXPECT_EQ(body(doc), "<p>Before</p><img src=\"/.crosspoint/epub_1/img_3.jpg\" /><p>After</p>");
   // Without a resolver the images are dropped.
   EXPECT_EQ(body(streamOf(buildMobi(f), &status)), "<p>Before</p><p>After</p>");
+}
+
+// --- HUFF/CDIC ---
+//
+// Synthetic code with three lengths, assigned top-down as Mobipocket does:
+//   '1'            -> phrase 0 ("A")
+//   '01'           -> phrase 1 (HUFF-coded phrase: "A" + phrase 5 + "A")
+//   '00xxxxxxxx'   -> phrases 2..257 ("p<N> "), index = 0x101 - code
+// 258 phrases with 8 code bits span two CDIC records (256 + 2).
+namespace huff {
+
+constexpr uint32_t PHRASES = 258;
+
+// Phrase texts; the text to encode is space-separated tokens "A" (phrase 0), "B" (phrase 1, itself
+// HUFF-coded as "A p5 A") and "p<N>" (phrase N).
+std::string phraseText(uint32_t i) {
+  if (i == 0) return "A ";
+  if (i == 1) return "A p5 A ";  // what the coded phrase expands to
+  return "p" + std::to_string(i) + " ";
+}
+
+struct BitWriter {
+  Bytes out;
+  uint32_t acc = 0;
+  int bits = 0;
+  void put(uint32_t code, int len) {
+    for (int i = len - 1; i >= 0; i--) {
+      acc = (acc << 1) | ((code >> i) & 1);
+      if (++bits == 8) {
+        out.push_back(static_cast<uint8_t>(acc));
+        acc = 0;
+        bits = 0;
+      }
+    }
+  }
+  Bytes finish() {
+    if (bits) out.push_back(static_cast<uint8_t>(acc << (8 - bits)));
+    return out;
+  }
+};
+
+std::vector<uint32_t> tokens(const std::string& text) {
+  std::vector<uint32_t> out;
+  size_t i = 0;
+  while (i < text.size()) {
+    if (text[i] == ' ') {
+      i++;
+      continue;
+    }
+    size_t end = text.find(' ', i);
+    if (end == std::string::npos) end = text.size();
+    const std::string tok = text.substr(i, end - i);
+    if (tok == "A")
+      out.push_back(0);
+    else if (tok == "B")
+      out.push_back(1);
+    else
+      out.push_back(static_cast<uint32_t>(std::stoul(tok.substr(1))));
+    i = end;
+  }
+  return out;
+}
+
+Bytes encode(const std::string& text) {
+  BitWriter w;
+  for (const uint32_t i : tokens(text)) {
+    if (i == 0)
+      w.put(1, 1);
+    else if (i == 1)
+      w.put(1, 2);
+    else
+      w.put(0x101 - i, 10);
+  }
+  return w.finish();
+}
+
+// The decoded text for `text`.
+std::string expanded(const std::string& text) {
+  std::string out;
+  for (const uint32_t i : tokens(text)) out += phraseText(i);
+  return out;
+}
+
+Bytes huffRecord() {
+  Bytes r(24 + 1024 + 256, 0);
+  memcpy(r.data(), "HUFF", 4);
+  put32(r, 4, 24);
+  put32(r, 8, 24);
+  put32(r, 12, 24 + 1024);
+  for (uint32_t b = 0; b < 256; b++) {
+    uint32_t v;
+    if (b & 0x80)
+      v = (1u << 8) | 0x80 | 1;  // '1': maxcode 1, len 1
+    else if (b & 0x40)
+      v = (2u << 8) | 0x80 | 2;  // '01': maxcode 2, len 2
+    else
+      v = 3;  // '00...': non-terminal, start at length 3 and grow via mincode
+    put32(r, 24 + b * 4, v);
+  }
+  const size_t d2 = 24 + 1024;
+  const auto pair = [&](int len, uint32_t mincode, uint32_t maxcode) {
+    put32(r, d2 + (len - 1) * 8, mincode);
+    put32(r, d2 + (len - 1) * 8 + 4, maxcode);
+  };
+  pair(1, 1, 1);
+  pair(2, 1, 2);
+  for (int len = 3; len <= 9; len++) pair(len, 1u << (len - 2), 0);  // '01000..' > any '00' prefix
+  pair(10, 0, 0x101);
+  return r;
+}
+
+std::vector<Bytes> cdicRecords(int bits = 8) {
+  std::vector<Bytes> recs;
+  const uint32_t per = 1u << bits;
+  for (uint32_t first = 0; first < PHRASES; first += per) {
+    const uint32_t n = std::min(per, PHRASES - first);
+    Bytes r(16 + n * 2, 0);
+    memcpy(r.data(), "CDIC", 4);
+    put32(r, 4, 16);
+    put32(r, 8, PHRASES);
+    put32(r, 12, static_cast<uint32_t>(bits));
+    for (uint32_t k = 0; k < n; k++) {
+      const uint32_t i = first + k;
+      Bytes payload;
+      uint16_t flag = 0x8000;
+      if (i == 1) {
+        payload = encode("A p5 A");
+        flag = 0;
+      } else {
+        const std::string t = phraseText(i);
+        payload.assign(t.begin(), t.end());
+      }
+      put16(r, 16 + k * 2, static_cast<uint16_t>(r.size() - 16));
+      const uint16_t lenField = static_cast<uint16_t>(flag | payload.size());
+      r.push_back(lenField >> 8);
+      r.push_back(lenField & 0xFF);
+      r.insert(r.end(), payload.begin(), payload.end());
+    }
+    recs.push_back(std::move(r));
+  }
+  return recs;
+}
+
+Fixture fixture(const std::string& text) {
+  Fixture f;
+  f.compression = mobi::COMPRESSION_HUFF;
+  f.html = text;
+  f.huffEncode = encode;
+  f.textLength = static_cast<uint32_t>(expanded(text).size());
+  f.huffRecords.push_back(huffRecord());
+  for (Bytes& c : cdicRecords()) f.huffRecords.push_back(std::move(c));
+  return f;
+}
+
+}  // namespace huff
+
+TEST(HuffCdic, DecodesSyntheticDictionary) {
+  const std::string text = "p2 A B p257 p100 A A p3 ";
+  const Fixture f = huff::fixture(text);
+  const Bytes file = buildMobi(f);
+  mobi::Info info;
+  ASSERT_EQ(mobi::open(readerFor(file), info), mobi::Status::Ok);
+  EXPECT_EQ(info.compression, mobi::COMPRESSION_HUFF);
+  EXPECT_EQ(info.huffRecordCount, 3u);
+
+  for (size_t cacheLimit : {size_t(1) << 20, size_t(0)}) {
+    const mobi::Reader r = readerFor(file);
+    mobi::HuffCdic h;
+    ASSERT_EQ(h.load(r, info, cacheLimit), mobi::Status::Ok) << "cache " << cacheLimit;
+    EXPECT_EQ(h.cached(), cacheLimit != 0);
+    EXPECT_EQ(h.phraseCount(), huff::PHRASES);
+    const Bytes packed = huff::encode(text);
+    uint8_t out[256];
+    const size_t n = h.decompress(packed.data(), packed.size(), out, sizeof(out));
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(out), n), huff::expanded(text)) << "cache " << cacheLimit;
+    // Output too small: 0.
+    EXPECT_EQ(h.decompress(packed.data(), packed.size(), out, 4), 0u);
+  }
+
+  mobi::Status status;
+  const std::string doc = streamOf(file, &status);
+  ASSERT_EQ(status, mobi::Status::Ok);
+  EXPECT_EQ(body(doc), huff::expanded(text));
+}
+
+TEST(HuffCdic, RejectsDamagedTables) {
+  const std::string text = "A";
+  // No HUFF records at all although compression says HUFF: bad header, not a crash.
+  Fixture none = huff::fixture(text);
+  none.huffRecords.clear();
+  mobi::Info info;
+  EXPECT_EQ(mobi::open(readerFor(buildMobi(none)), info), mobi::Status::BadHeader);
+  // Header fields left zero.
+  Fixture noFields = huff::fixture(text);
+  noFields.huffHeaderFields = false;
+  EXPECT_EQ(mobi::open(readerFor(buildMobi(noFields)), info), mobi::Status::BadHeader);
+  // Wrong magic in the CDIC record.
+  Fixture badMagic = huff::fixture(text);
+  memcpy(badMagic.huffRecords[1].data(), "XXXX", 4);
+  Bytes file = buildMobi(badMagic);
+  ASSERT_EQ(mobi::open(readerFor(file), info), mobi::Status::Ok);
+  mobi::HuffCdic h;
+  EXPECT_EQ(h.load(readerFor(file), info), mobi::Status::BadHeader);
+  mobi::Status status;
+  streamOf(file, &status);
+  EXPECT_EQ(status, mobi::Status::BadHeader);
+  // Phrase index past the dictionary: maxcode for the 10-bit codes far above the phrase count.
+  Fixture badIndex = huff::fixture(text);
+  put32(badIndex.huffRecords[0], 24 + 1024 + 9 * 8 + 4, 0x5000);
+  file = buildMobi(badIndex);
+  ASSERT_EQ(mobi::open(readerFor(file), info), mobi::Status::Ok);
+  const mobi::Reader r1 = readerFor(file);
+  ASSERT_EQ(h.load(r1, info), mobi::Status::Ok);
+  const Bytes packed = huff::encode("p2");
+  uint8_t out[16];
+  EXPECT_EQ(h.decompress(packed.data(), packed.size(), out, sizeof(out)), 0u);
+  // A phrase that codes itself must not recurse forever.
+  Fixture loop = huff::fixture(text);
+  {
+    Bytes& c = loop.huffRecords[1];
+    const uint16_t off = static_cast<uint16_t>((c[16 + 2] << 8) | c[16 + 3]);  // phrase 1
+    const Bytes self = huff::encode("B");
+    c[16 + off] = 0;
+    c[16 + off + 1] = static_cast<uint8_t>(self.size());
+    for (size_t k = 0; k < self.size(); k++) c[16 + off + 2 + k] = self[k];
+  }
+  file = buildMobi(loop);
+  const mobi::Reader r2 = readerFor(file);
+  ASSERT_EQ(h.load(r2, info), mobi::Status::Ok);
+  const Bytes b = huff::encode("B");
+  EXPECT_EQ(h.decompress(b.data(), b.size(), out, sizeof(out)), 0u);
+}
+
+TEST(MobiOpen, RefusesUnknownCompression) {
+  Fixture f;
+  f.html = "<p>x</p>";
+  f.compression = 3;
+  mobi::Info info;
+  EXPECT_EQ(mobi::open(readerFor(buildMobi(f)), info), mobi::Status::UnsupportedCompression);
+  EXPECT_STREQ(mobi::statusText(mobi::Status::UnsupportedCompression), "unsupported compression");
+}
+
+// A real HUFF/CDIC book, when VAULTINK_MOBI_HUFF_FILE names one (not checked in). With
+// VAULTINK_MOBI_HUFF_OUT set, the streamed XHTML is written there for a look.
+TEST(HuffCdic, RealBookWhenAvailable) {
+  const char* path = std::getenv("VAULTINK_MOBI_HUFF_FILE");
+  if (!path || !*path) GTEST_SKIP() << "VAULTINK_MOBI_HUFF_FILE not set";
+  std::ifstream in(path, std::ios::binary);
+  if (!in) GTEST_SKIP() << "cannot open " << path;
+  const Bytes file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  const mobi::Reader r = readerFor(file);
+  mobi::Info info;
+  ASSERT_EQ(mobi::open(r, info), mobi::Status::Ok);
+  ASSERT_EQ(info.compression, mobi::COMPRESSION_HUFF);
+
+  // Raw decompressed length must match the PalmDOC header's text length.
+  mobi::HuffCdic h;
+  ASSERT_EQ(h.load(r, info), mobi::Status::Ok);
+  std::vector<uint8_t> raw(mobi::MAX_RECORD_SIZE + 64), text(mobi::MAX_RECORD_SIZE);
+  size_t total = 0;
+  std::string first;
+  for (uint16_t i = 1; i <= info.textRecordCount; i++) {
+    uint32_t offset, length;
+    ASSERT_TRUE(mobi::recordSpan(r, i, offset, length));
+    ASSERT_LE(length, raw.size());
+    ASSERT_GT(r.readAt(r.ctx, offset, raw.data(), length), 0);
+    length -= static_cast<uint32_t>(mobi::trailingSize(raw.data(), length, info.extraFlags));
+    const size_t n = h.decompress(raw.data(), length, text.data(), text.size());
+    ASSERT_GT(n, 0u) << "record " << i;
+    if (first.size() < 2048) first.append(reinterpret_cast<char*>(text.data()), n);
+    total += n;
+  }
+  EXPECT_EQ(total, info.textLength);
+  EXPECT_NE(first.find("<html>"), std::string::npos);
+  EXPECT_NE(first.find("<body"), std::string::npos);
+  printf("HUFF/CDIC real book: %u phrases, cache %s (%zu B heap), %zu bytes of text\n", h.phraseCount(),
+         h.cached() ? "yes" : "no", h.heapBytes(), total);
+  printf("--- first 2 KB ---\n%.*s\n--- end ---\n", 2048, first.c_str());
+
+  mobi::Status status;
+  const std::string doc = streamOf(file, &status);
+  EXPECT_EQ(status, mobi::Status::Ok);
+  EXPECT_GT(body(doc).size(), total / 2);
+  if (const char* outPath = std::getenv("VAULTINK_MOBI_HUFF_OUT")) {
+    std::ofstream o(outPath, std::ios::binary);
+    o << doc;
+  }
 }
 
 // --- HTML filter ---

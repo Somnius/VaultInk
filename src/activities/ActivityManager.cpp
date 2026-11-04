@@ -416,7 +416,7 @@ void ActivityManager::goToReader(std::string path, const bool allowFastInitialRe
     path = std::move(textPath);
   }
 
-  // A MOBI with DRM, HUFF/CDIC compression or a damaged header is refused here with a reason (kos25k #26).
+  // A MOBI with DRM, an unknown compression or a damaged header is refused here with a reason (kos25k #26).
   if (FsHelpers::hasMobiExtension(path)) {
     const mobi::Status status = Mobi::probe(path);
     if (status != mobi::Status::Ok) {

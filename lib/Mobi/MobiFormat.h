@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <string_view>
 
@@ -23,7 +24,7 @@ enum class Status : uint8_t {
   NotMobi,                 // not a PDB file of type BOOKMOBI / TEXtREAd
   BadHeader,               // record table or headers inconsistent
   Drm,                     // encryption type != 0: refused
-  UnsupportedCompression,  // HUFF/CDIC (17480) or unknown
+  UnsupportedCompression,  // compression type other than none / PalmDOC / HUFF-CDIC
   IoError,
   Oom,
 };
@@ -51,7 +52,9 @@ struct Info {
   uint32_t textEncoding = ENCODING_CP1252;
   uint32_t firstImageIndex = 0;  // 0 or 0xFFFFFFFF when none
   uint16_t extraFlags = 0;       // trailing-entry flags per text record
-  bool hasKf8Boundary = false;   // hybrid file: EXTH 121 present
+  uint32_t huffRecordIndex = 0;  // HUFF/CDIC books: the HUFF record, followed by huffRecordCount-1 CDIC records
+  uint32_t huffRecordCount = 0;
+  bool hasKf8Boundary = false;  // hybrid file: EXTH 121 present
   std::string title;
   std::string author;
   std::string language;
@@ -66,6 +69,46 @@ Status open(const Reader& reader, Info& info);
 // PalmDOC LZ77 decompression. Returns bytes written, or 0 when the input is malformed or `out` is
 // too small (the format caps a record at 4096 bytes).
 size_t palmdocDecompress(const uint8_t* in, size_t inLen, uint8_t* out, size_t outCap);
+
+// HUFF/CDIC (compression 17480) decoder: Huffman codes from the HUFF record, phrases from the CDIC
+// records. Tables take 1.3 KB; the CDIC records are cached in RAM when they total at most
+// `cacheLimit` bytes, otherwise every phrase is read from the file as it is used (slower, no RAM).
+class HuffCdic {
+ public:
+  static constexpr size_t DEFAULT_CACHE_LIMIT = 48 * 1024;
+  static constexpr size_t MAX_CDIC_RECORDS = 64;
+
+  // Reads and validates the tables. `reader` must outlive this object.
+  Status load(const Reader& reader, const Info& info, size_t cacheLimit = DEFAULT_CACHE_LIMIT);
+  // Decompresses one text record. Returns bytes written, or 0 when the input is malformed or `out`
+  // is too small.
+  size_t decompress(const uint8_t* in, size_t inLen, uint8_t* out, size_t outCap) const;
+
+  bool cached() const { return cache_ != nullptr; }
+  size_t heapBytes() const { return cacheSize_ + cdicCount_ * sizeof(uint32_t) * 2; }
+  uint32_t phraseCount() const { return phraseCount_; }
+
+ private:
+  struct Phrase {
+    const uint8_t* data;  // into the cache, or null: the bytes are at `fileOffset`
+    uint32_t fileOffset;
+    size_t len;
+    bool literal;  // false: the phrase is itself HUFF-coded
+  };
+  bool phrase(uint32_t index, Phrase& out) const;
+  size_t decode(const uint8_t* in, size_t inLen, uint8_t* out, size_t outCap, int depth) const;
+
+  const Reader* reader_ = nullptr;
+  uint32_t dict1_[256] = {};
+  uint32_t mincode_[33] = {};
+  uint32_t maxcode_[33] = {};
+  uint32_t phraseCount_ = 0;
+  uint32_t codeBits_ = 0;  // phrases per CDIC record = 1 << codeBits_
+  uint32_t cdicCount_ = 0;
+  std::unique_ptr<uint32_t[]> cdicSpans_;  // file offset, length per CDIC record
+  std::unique_ptr<uint8_t[]> cache_;       // CDIC records back to back, or null
+  size_t cacheSize_ = 0;
+};
 
 // Bytes of trailing entries (multibyte overlap + TBS/index data) at the end of a raw text record.
 size_t trailingSize(const uint8_t* record, size_t length, uint16_t extraFlags);
@@ -86,7 +129,8 @@ struct ImageResolver {
 };
 
 // Streams the book as well-formed XHTML for the reader's expat layout parser, one text record
-// (<= 4096 bytes decompressed) at a time. Needs about 2x MAX_RECORD_SIZE + 1 KB of heap.
+// (<= 4096 bytes decompressed) at a time. Needs about 2x MAX_RECORD_SIZE + 1 KB of heap (cp1252
+// books 3x more for the transcoding buffer; HUFF/CDIC books 1.3 KB of tables plus the CDIC cache).
 Status streamHtml(const Reader& reader, const Info& info, std::string_view title, const Sink& out,
                   const ImageResolver* images = nullptr);
 
