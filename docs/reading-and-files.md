@@ -151,7 +151,7 @@ some fonts, accents on capitals can touch the line above at levels 0 and 1.
 - **Keep headings with text**: on by default. A heading is moved to the next page when none of the text after it would fit.
 - **Hanging punctuation**: off by default, new. An opening quote or bracket at the start of a line hangs into the left margin, and a closing mark at the end of a line (period, comma, closing quote, the hyphen of a split word and so on, also the Greek « » and ano teleia) hangs into the right margin, so the letters line up on both edges. The hang is at most 12 px, and it needs some page margin: with Screen Margin at 0 the hanging mark is cut at the screen edge.
 
-While a book is open the kerning and ligature switches also apply to the menus drawn over it; when you leave the book the menus are back to normal. Greek hyphenation, including polytonic, and the Greek letters in the built-in fonts are not switches, they are always on. Not tried on a device.
+While a book is open the kerning and ligature switches also apply to the menus drawn over it; when you leave the book the menus are back to normal. Greek hyphenation, including polytonic, and the Greek letters in the built-in fonts are not switches, they are always on. Advanced Typography has been confirmed on a real X4 Pro.
 
 ## Reading presets (0.70.0)
 
@@ -275,7 +275,7 @@ headings, lists, tables and the pictures inside the book show; links don't, and 
 the whole book is one chapter (like a .txt). A picture next to the file with the same name, or called `cover`, works as its cover, as for .txt.
 A MOBI with DRM is refused with a message. MOBI files with Huffman compression (the kind many Kindle-store downloads use) open too since 0.67.1.
 `.azw` and `.azw3` (since 0.67.1) open the same way, only when they have no DRM. For the newer AZW3/KF8 files the text reads in order, but pictures, links and chapters don't work yet, and a heading can sit apart from its paragraph. Tick or untick **MOBI / AZW** in Book formats. Tried
-with a Project Gutenberg MOBI in the simulator, not on a device.
+with a Project Gutenberg MOBI in the simulator, and kos25k opened a MOBI, an AZW3 and an AZW on his X4 Pro.
 
 ## Format filter (0.58.0)
 

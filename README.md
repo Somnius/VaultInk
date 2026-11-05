@@ -85,13 +85,106 @@ MOBI and AZW books, the status bar options with the book page number, and Advanc
 
 More screenshots are in the sections below and in [docs/](docs/).
 
+## New since 0.62 (up to 0.70.0)
+
+Eleven releases in four days, most of it from kos25k's issues. The screenshots are from the simulator, except the companion ones, which come from a phone.
+
+### MOBI, AZW and AZW3 (0.67.0, 0.67.1)
+
+<p>
+  <img src="docs/images/vaultink/mobi-0671-huffman-bukowski.png" width="190" alt="A Huffman-compressed MOBI open on VaultInk">
+  <img src="docs/images/vaultink/mobi-0671-azw3.png" width="190" alt="An AZW3 book open on VaultInk">
+</p>
+
+`.mobi` and `.prc` books open and show in the Library and in Browse Files, with a MOBI / AZW row in Book formats. Bold, italic, headings, lists, tables and pictures show. There are no chapters yet: the whole book is one chapter, like a `.txt`. Many MOBI files, most Kindle-store downloads without DRM among them, use Huffman compression, and 0.67.0 refused those; 0.67.1 reads them, and opens `.azw` and `.azw3` too. For the newer AZW3 files the text reads in order, but pictures, links and chapters don't work yet, and a heading can sit apart from its paragraph. Books with DRM are refused with a message. [docs/book-formats.md](docs/book-formats.md)
+
+### Advanced Typography (0.66.0)
+
+<p>
+  <img src="docs/images/vaultink/experimental-066.png" width="190" alt="The five Advanced Typography switches, still called Experimental in 0.66.0">
+</p>
+
+Settings → Reader → Advanced Typography, and in a book Text → Advanced Typography. Five switches: ligatures (fi, fl), kerning, widow and orphan control, keeping headings with their text, and hanging punctuation. The first four were always on and still are by default; now you can turn them off. Hanging punctuation is new and off by default: an opening quote or bracket at the start of a line hangs into the left margin, and a closing mark at the end of a justified line into the right one, Greek « » and ano teleia included, up to 12 px. It needs a little page margin. [docs/reading-and-files.md](docs/reading-and-files.md#advanced-typography-0660-renamed-from-experimental-in-0661)
+
+### Reading presets and the More menu (0.70.0)
+
+<p>
+  <img src="docs/images/vaultink/reading-presets-070.png" width="190" alt="Reading presets in Settings">
+  <img src="docs/images/vaultink/reading-presets-more-070.png" width="190" alt="Reading presets from the book menu">
+  <img src="docs/images/vaultink/more-order-070.png" width="190" alt="The end of the More menu">
+</p>
+
+Ten slots, in Settings → Reader → Reading presets and as the last row of the book menu → More. **Save preset** keeps your current Text settings in a slot with a name you give it: font, size, line spacing, alignment, hyphenation, Focus Reading, Even Word Gaps, word and character spacing, margin, paragraph indent and the five Advanced Typography switches. Inside a book one press on a slot applies it and the page is laid out again. In the More menu, Search, Go to % and Go to page come first; the favourite toggle, Take screenshot, Show page as QR, Delete Book Cache, Go Home and Reading presets come last. Frontlight and Night Mode left More, and are still in the quick settings. [docs/reading-and-files.md](docs/reading-and-files.md#reading-presets-0700)
+
+### Page numbers and the status bar (0.65.0 to 0.68.0)
+
+<p>
+  <img src="docs/images/vaultink/status-bar-settings-065.png" width="190" alt="Customise Status Bar">
+  <img src="docs/images/vaultink/go-to-page-068.png" width="190" alt="Go to page">
+</p>
+
+A book page number in brackets, like (37), next to the battery, counted from the first chapter, with a second switch to keep it when the bar is hidden. It's an estimate and changes with the font. Hide Status Bar sits in Customise Status Bar and in the book menu under More. **Go to page** (More, under Go to %) is a slider that counts pages the same way, so it's an estimate too; the side buttons jump by a twentieth of the book. It isn't for notes.
+
+### The home screen, the home button and the stars (0.68.0 to 0.70.0)
+
+<p>
+  <img src="docs/images/vaultink/home-068.png" width="190" alt="The home screen with even tiles">
+  <img src="docs/images/vaultink/home-069.png" width="190" alt="The home screen with the favourites star">
+</p>
+
+Every home tile is the same height with the same gap, the Books icon is bigger, and the Books count counts only books in the formats ticked in Book formats, not notes, text files or canvases. A ★ marks a favourite on the Continue Reading card, in Browse Files before the file type, and on the quick settings book card. A long press on the house at the top puts the reader to sleep, a tap still goes home, and the house has a small crescent moon on its roof. A Wi-Fi mark and a Bluetooth mark appear next to the battery as soon as the radio is on, with a ! until it's connected, and are gone when it's off.
+
+### Browse Files (0.64.0, 0.69.0, 0.70.0)
+
+<p>
+  <img src="docs/images/vaultink/browse-files-069.png" width="190" alt="Browse Files with the sort gear, file-type icons and stars">
+  <img src="docs/images/vaultink/file-search.png" width="190" alt="Search in Browse Files">
+</p>
+
+Search finds files and folders by name across the whole card, up to 200 hits and 12 folders deep. The sort gear next to it (name, newest, oldest, largest, smallest, folders first) stays the same in every folder until you change it. Icons are bigger with the file type written inside a book's icon, and in a folder's the type it holds most. Info and the date sort use the time the file was last added or changed on the card. [docs/reading-and-files.md](docs/reading-and-files.md#sorting-icons-and-stars-in-browse-files-0690)
+
+### Papyrus, Battery and a Flashlight (0.65.0)
+
+<p>
+  <img src="docs/images/vaultink/paper-cracked.png" width="190" alt="A page on the cracked papyrus">
+  <img src="docs/images/vaultink/flashlight.png" width="190" alt="Flashlight">
+</p>
+
+Four more papyrus looks (aged, cracked, stained, crumpled), drawn in code. The Battery page splits awake drain into light off and light on (it needs a few days of new data and is approximate). **Flashlight** (Home → Plugins) is the front light as S.O.S., blinking or steady, with brightness, warmth and speed, and it puts the light back as it was when you stop.
+
+### Focus timer, Habits and Excalidraw (0.63.0)
+
+<p>
+  <img src="docs/images/vaultink/focus-timer.png" width="190" alt="The Focus timer">
+  <img src="docs/images/vaultink/habits.png" width="190" alt="Habits">
+  <img src="docs/images/vaultink/excalidraw.png" width="190" alt="An Excalidraw drawing">
+</p>
+
+A Pomodoro **Focus timer** that follows the clock even while the reader sleeps, and **Habits**, up to 16 daily habits with the last seven days, a streak and a total. `.excalidraw` files and the Obsidian plugin's `.excalidraw.md` open in a viewer with fit, pan and zoom, compressed drawings included. [docs/tools.md](docs/tools.md)
+
+### Typing, the phone and LiveSync (0.63.0 to 0.68.1)
+
+<p>
+  <img src="docs/images/vaultink/keyboard-el.png" width="190" alt="The Greek on-screen keyboard">
+  <img src="docs/images/vaultink/companion-0.5.0-help.png" width="190" alt="Companion Help: the VaultInk documentation on the phone">
+  <img src="docs/images/vaultink/companion-0.5.0-about.png" width="190" alt="Companion About">
+</p>
+
+A paired Bluetooth keyboard types into the on-screen keyboard's line (US and Greek, off by default). The keyboard has a From phone button for text the companion app left on the card, and the companion app can ask for a LiveSync sync that runs at the reader's next wake. **LiveSync Setup URI (0.68.1):** the reader said "Turn on end-to-end encryption (V2)" for a vault that already used V2, because the plugin leaves its default settings out of the Setup URI. A missing algorithm now counts as V2, and the message says what's really wrong. Companion 0.5.0 adds an intro, About, the whole VaultInk documentation as Help, each file's type in the list, and Bring notes in (a Google Keep Takeout as Markdown notes). [docs/companion.md](docs/companion.md)
+
+### What's tested on a real device, and what isn't
+
+kos25k confirmed on his X4 Pro: the four papyrus looks, the Battery split, the Flashlight, the book page number, Hide Status Bar in the book menu, Advanced Typography, and MOBI, AZW and AZW3 (all three of his files opened). A cheap Bluetooth camera shutter turns pages with the Bluetooth Page Turner that was already there.
+
+Everything else hasn't been on a device yet. Go to page, the home screen and the Books count, the stars, the Continue Reading fix, the Wi-Fi and Bluetooth marks, the sort gear and icons, reading presets, the More order and the sleep long press have only run in the simulator. Search in Browse Files, From phone, sync from the phone, the Focus timer, Habits, Excalidraw and the dice seed ran in the simulator and in tests on a computer. The LiveSync fix was checked against the plugin's source and with tests, not with a real vault. The Bluetooth keyboard hasn't met a real keyboard, and the companion app hasn't been tried against a real reader. **VaultEUC has never talked to a real wheel: don't use it while riding, and rely on the wheel's own alarms.** Back up your SD card before updating.
+
 ## What it does
 
 Each line links to its guide where there is one; all the guides are listed in [docs/](docs/README.md). The full list is in [SPECS.md](SPECS.md), what changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 **Books** (what opens, and what doesn't: [docs/book-formats.md](docs/book-formats.md))
 - Everything CrossPoint Reader offers: EPUB, TXT and XTC/XTCH books, SD-card fonts, hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS catalogs, Calibre wireless transfer and SD-card plugins. [docs/reading-and-files.md](docs/reading-and-files.md)
-- **MOBI, PRC, AZW and AZW3** (0.67.0, 0.67.1): they open like a text book, read a record at a time, with bold, italic, headings, lists, tables and pictures; Huffman-compressed files too. No chapters yet, and AZW3 shows text only. DRM books are refused. Not tried on a device yet. [docs/reading-and-files.md](docs/reading-and-files.md#mobi-azw-and-azw3-books-0670-0671)
+- **MOBI, PRC, AZW and AZW3** (0.67.0, 0.67.1): they open like a text book, read a record at a time, with bold, italic, headings, lists, tables and pictures; Huffman-compressed files too. No chapters yet, and AZW3 shows text only. DRM books are refused. Opened on a real X4 Pro (a MOBI, an AZW3 and an AZW). [docs/reading-and-files.md](docs/reading-and-files.md#mobi-azw-and-azw3-books-0670-0671)
 - **PDF as text**: a PDF opens as reflowing text, Greek and filled-in form fields included, up to four columns; no pictures, tables or scans. PDFs are listed in the Library. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text)
 - **Comics**: CBZ files open straight from the card (JPEG and PNG pages, chapters from folders, covers, landscape spreads as two pages, manga right to left, a page cache for faster turns). XTC/XTCH files from the Banana Comic Converter open with their chapters; a QR code in Settings opens the converter on your phone. [docs/comics.md](docs/comics.md)
 - **Highlights to a vault note**: a book's clippings written to `Highlights/<title>.md` in your vault, and sent on by LiveSync. [docs/reading-and-files.md](docs/reading-and-files.md#highlights-to-a-vault-note)
@@ -115,7 +208,7 @@ Each line links to its guide where there is one; all the guides are listed in [d
 **Reading comfort, search and typography**
 - **Search in Book**: a word or phrase, partial or whole words (accents and capitals never matter), starting at your chapter and wrapping, with the words shaded on the page and a bar to step through the hits or go back to your place. A gear sets the type and the range; an opt-in index makes repeat searches faster. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-a-book)
 - **Text panel** in the book with every layout setting: font, size, line spacing 0 to 10, alignment, hyphenation (on by default, Greek and polytonic too), Even Word Gaps, word and character spacing, screen margin down to 0, paragraph indent. Changes show at once. [docs/reading-and-files.md](docs/reading-and-files.md#in-the-book-the-text-panel-0270)
-- **Advanced Typography** (0.66.0): switches for ligatures, kerning, widow and orphan control, headings kept with their text, and hanging punctuation. Not tried on a device yet. [docs/reading-and-files.md](docs/reading-and-files.md#advanced-typography-0660-renamed-from-experimental-in-0661)
+- **Advanced Typography** (0.66.0): switches for ligatures, kerning, widow and orphan control, headings kept with their text, and hanging punctuation. [docs/reading-and-files.md](docs/reading-and-files.md#advanced-typography-0660-renamed-from-experimental-in-0661)
 - **Reading presets** (0.70.0): ten named sets of your Text settings, saved and applied from Settings → Reader or the last row of the book menu's More, so one press applies one while you read. [docs/reading-and-files.md](docs/reading-and-files.md#reading-presets-0700)
 - **Page backgrounds**: fourteen of them, from plain to papyrus and bath towel, a set you choose for the quick-settings paper tile, and a 0 to 100 contrast slider with a preview. [Mostly for fun](#page-backgrounds).
 - **Status bar**: choose what it shows, hide it from Settings or the book menu, and show the page number counted from the start of the book in brackets, even with the bar hidden (the number is an estimate for books). **Go to page** in the book menu under More (0.68.0) jumps by that number. [docs/reading-and-files.md](docs/reading-and-files.md#hide-status-bar-and-the-book-page-number)
@@ -133,7 +226,7 @@ Each line links to its guide where there is one; all the guides are listed in [d
 **The device**
 - **Home screen** with the book or note you were reading on top, counts on the Books and Vaults rows, rows in any order and any of them hidden, a home button in the top bar, and a Favourites row. CrossPoint's home styles stay as a choice. [docs/reading-and-files.md](docs/reading-and-files.md#home-screen-rows-0320)
 - **Settings** grouped by task, with a search that finds a setting by name, and rows that show their current value.
-- **Browse Files** with Open, Delete, Rename, Move, Copy, New folder, Extract here for zips, Open as gallery and Info on every file. Books keep their place when they or their folder move. A magnifier searches the whole card by name (0.64.0). [docs/reading-and-files.md](docs/reading-and-files.md#search-in-browse-files-0640) A sort gear (name, date, size, recently opened) is kept in every folder, list icons are bigger with the file type written inside (a folder shows its most common type), and favourite books have a ★ ([guide](docs/reading-and-files.md#sorting-icons-and-stars-in-browse-files-0690)).
+- **Browse Files** with Open, Delete, Rename, Move, Copy, New folder, Extract here for zips, Open as gallery and Info on every file. Books keep their place when they or their folder move. A magnifier searches the whole card by name (0.64.0). [docs/reading-and-files.md](docs/reading-and-files.md#search-in-browse-files-0640) A sort gear (name, date, size) is kept in every folder, list icons are bigger with the file type written inside (a folder shows its most common type), and favourite books have a ★ ([guide](docs/reading-and-files.md#sorting-icons-and-stars-in-browse-files-0690)).
 - **Gallery** for the pictures on the card, nine to a page, with filters, chosen folders, phone photos up to 50 MP, and Set as sleep picture. [docs/reading-and-files.md](docs/reading-and-files.md#gallery-0240)
 - **Sleep screens**: your own picture (JPEG, PNG or BMP, cropped or fitted), the battery percent, the owner's name and phone, or the reading stats.
 - **Lock screen** with a 4-digit PIN or a corner long-press, how long after sleeping it locks, and the owner's name and phone on it. [docs/reading-and-files.md](docs/reading-and-files.md#lock-screen-0490)

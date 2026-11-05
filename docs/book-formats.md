@@ -20,7 +20,7 @@ They open like a text book: the file is read one record at a time, so a big book
 - **Compression**: both ways Kindle books are packed (the simple one and the Huffman one) are read.
 - **AZW3 / KF8**: this is the newer Amazon format. VaultInk reads its text in the order it is stored, which is the reading order in the books tried so far. Because the table that places the pieces isn't used, pictures (`kindle:embed` links), links and chapters don't work, and a heading can end up apart from its paragraph.
 - **Library**: the formats row is called **MOBI / AZW**; it covers `.mobi`, `.prc`, `.azw` and `.azw3`. A Book formats choice saved before 0.67.0 gets it ticked.
-- **Tried with**: a Project Gutenberg MOBI, and three non-DRM books (a MOBI, an AZW3 and an AZW with Huffman compression), all in the simulator, not on a device yet.
+- **Tried with**: a Project Gutenberg MOBI, and three non-DRM books (a MOBI, an AZW3 and an AZW with Huffman compression), in the simulator, and the three non-DRM ones also opened on kos25k's real X4 Pro.
 
 If a book doesn't open, converting it to EPUB with [Calibre](https://calibre-ebook.com) always works (remove DRM only from books you own, where the law allows it).
 
