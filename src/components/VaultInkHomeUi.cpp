@@ -24,6 +24,7 @@ constexpr fui::ActionId SELECT = 1;
 constexpr fui::ActionId CARD_INFO = 2;  // long press on the Continue card: book info (kos25k #15)
 constexpr int16_t CARD_COVER_HEIGHT = 132;
 constexpr int16_t ROW_ICON_SIZE = 32;
+constexpr int16_t STAR_STRIP = 30;       // the favourites star at the right of the Continue Reading card
 constexpr int16_t BOOKS_ICON_SIZE = 48;  // the Books tile's icon, bigger than the others (kos25k #14)
 constexpr int ROW_HEIGHT = 68;           // every home tile has this height
 // Focus outline for button navigation: thick enough to find at a glance, white inside so a
@@ -248,7 +249,9 @@ void VaultInkHomeUi::drawCard(UiScreen& screen, fui::Rect rect) {
   card.progressText = theme.smallText;
   card.progressHeight = 8;
   const int16_t footerH = cardFooterHeight(screen.frame().target().lineHeight(theme.smallText.font));
-  card.padding = fui::Insets{CARD_PAD, CARD_PAD, CARD_PAD, CARD_PAD};
+  // A favourite leaves room at the right for the star, so the title never runs under it.
+  card.padding =
+      fui::Insets{CARD_PAD, static_cast<int16_t>(CARD_PAD + (favourite ? STAR_STRIP : 0)), CARD_PAD, CARD_PAD};
   card.gap = theme.spaceLg;
   card.coverSize.height = CARD_COVER_HEIGHT;
   card.coverSize.width = CARD_COVER_HEIGHT * 2 / 3;
@@ -264,6 +267,14 @@ void VaultInkHomeUi::drawCard(UiScreen& screen, fui::Rect rect) {
     return !self.coverPath.empty() && self.coverCache.paint(cover, 0, self.coverPath);
   };
   fui::bookCard(screen.frame(), rect, card);
+  if (favourite) {
+    auto star = theme.titleText;
+    star.align = fui::TextAlign::Right;
+    const int16_t line = screen.target().lineHeight(star.font);
+    screen.target().text(fui::Rect{static_cast<int16_t>(rect.right() - CARD_PAD - STAR_STRIP),
+                                   static_cast<int16_t>(rect.y + CARD_PAD), STAR_STRIP, line},
+                         "\xE2\x98\x85", star);  // U+2605
+  }
   drawCardFooter(screen, rect, footerH);
   // The card itself only takes taps; a long press over it asks for the book info.
   screen.frame().hit(rect, CARD_INFO, 0, fui::InputLongPress, fui::StateNormal);

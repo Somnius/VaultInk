@@ -35,6 +35,7 @@
 #include "util/BookCacheUtils.h"
 #include "util/BookInfo.h"
 #include "util/BookProgress.h"
+#include "util/FileTypeIcons.h"
 #include "util/LibraryTabOrder.h"
 
 namespace fui = freeink::ui;
@@ -1393,6 +1394,7 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
   // Breathing room between rows; the dense theme default packs the two-line
   // rows edge-to-edge.
   props.rowGap = std::max<int16_t>(screen.theme().listRowGap, 6);
+  props.iconSize = 44;  // the type-in-icon bitmaps (kos25k #15)
   props.headerUnderline = false;
   syncTabListViewport(screen, props);
 
@@ -1488,7 +1490,10 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
 
     item.label = title.c_str();
     // Group headings stay bare; every book row gets its file-type icon.
-    if (!rowFile.empty()) item.icon = listIconFor(UITheme::getFileIcon(rowFile), 32);
+    if (!rowFile.empty()) {
+      item.icon = listIconFor(UITheme::getFileIcon(rowFile), 32);
+      filetypeicon::forFile(rowFile, item.icon);  // the type is written inside the icon (kos25k #15)
+    }
     item.actionValue = static_cast<int16_t>(entry);
     winItems.push_back(item);
     rows++;
@@ -1572,6 +1577,7 @@ void LibraryListActivity::buildHeader(UiScreen& screen) {
                                                          frameRect.width, static_cast<int16_t>(metrics.headerHeight)},
                                                header);
   fui::header(screen.frame(), band, header);
+  BaseTheme::drawConnectivity(screen.frame().target(), band, header);
   if (!degraded && mappedInput.hasTouch() && SETTINGS.libraryFormatButton != 0) {
     // A third header button, left of search and refresh: the header control only has two slots.
     const int16_t size = header.trailingSize > 0 ? header.trailingSize : static_cast<int16_t>(band.height - 8);

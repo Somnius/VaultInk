@@ -9,12 +9,14 @@
 
 #include <algorithm>
 #include <functional>
+#include <iterator>
 
 #include "ClippingStore.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "FavouritesStore.h"
 #include "FileSearchActivity.h"
+#include "FileSort.h"
 #include "MappedInputManager.h"
 #include "RecentBooksStore.h"
 #include "activities/ActivityManager.h"
@@ -22,12 +24,14 @@
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
+#include "components/icons/listIcons.h"
 #include "components/icons/search32.h"
 #include "fontIds.h"
 #include "util/BookCacheUtils.h"
 #include "util/BookInfo.h"
 #include "util/BookmarkUtil.h"
 #include "util/FileOps.h"
+#include "util/FileTypeIcons.h"
 #include "util/TaskWatchdog.h"
 #include "util/ZipExtract.h"
 
@@ -71,7 +75,8 @@ FileBrowserActivity::FileBrowserActivity(GfxRenderer& renderer, MappedInputManag
 
 void FileBrowserActivity::loadFiles() {
   files.clear();
-  prewarmedStart = -1;  // new folder contents: re-prewarm the visible window
+  filetypeicon::forget();  // files may have moved, so the folders' types are counted again
+  prewarmedStart = -1;     // new folder contents: re-prewarm the visible window
 
   auto root = Storage.open(basepath.c_str());
   if (!root || !root.isDirectory()) {
@@ -94,6 +99,16 @@ void FileBrowserActivity::loadFiles() {
   for (auto file = root.openNextFile(); file; file = root.openNextFile()) ++entryCount;
   root.rewindDirectory();
   files.reserve(entryCount);
+  // Size and date are read here, in the same pass, for the sort the gear picks (kos25k #6).
+  std::vector<filesort::Entry> entries;
+  entries.reserve(entryCount);
+  const auto addEntry = [&](std::string name, HalFile& file) {
+    filesort::Entry entry;
+    entry.size = file.isDirectory() ? 0 : static_cast<uint32_t>(file.fileSize());
+    entry.modified = file.modificationTime();
+    entry.name = std::move(name);
+    entries.push_back(std::move(entry));
+  };
 
   for (auto file = root.openNextFile(); file; file = root.openNextFile()) {
     file.getName(fileNameBuffer.get(), NAME_BUFFER_SIZE);
@@ -104,7 +119,7 @@ void FileBrowserActivity::loadFiles() {
     }
 
     if (isDirectory) {
-      files.emplace_back(std::string(fileNameBuffer.get()) + "/");
+      addEntry(std::string(fileNameBuffer.get()) + "/", file);
     } else if (mode == Mode::PickFolder) {
       continue;
     } else {
@@ -112,19 +127,34 @@ void FileBrowserActivity::loadFiles() {
       if (mode == Mode::PickFirmware) {
         // Firmware picker: only show .bin files.
         if (FsHelpers::checkFileExtension(filename, ".bin")) {
-          files.emplace_back(filename);
+          addEntry(std::string(filename), file);
         }
       } else if (FsHelpers::hasReflowableBookExtension(filename) || FsHelpers::hasXtcExtension(filename) ||
                  FsHelpers::hasCbzExtension(filename) || FsHelpers::hasImageExtension(filename) ||
                  FsHelpers::hasCanvasExtension(filename) || FsHelpers::hasExcalidrawExtension(filename) ||
                  FsHelpers::hasPdfExtension(filename) || FsHelpers::checkFileExtension(filename, ".zip") ||
                  (!revealName.empty() && filename == revealName)) {
-        files.emplace_back(filename);  // the browser lists known types; a search hit of any type is shown too
+        addEntry(std::string(filename), file);  // the browser lists known types; a search hit of any type is shown too
       }
     }
   }
   root.close();
-  FsHelpers::sortFileList(files);
+  const auto order =
+      this->mode == Mode::Books ? static_cast<filesort::Mode>(SETTINGS.fileSort % filesort::COUNT) : filesort::NAME_AZ;
+  if (order == filesort::RECENTLY_OPENED) {
+    const auto& recent = RECENT_BOOKS.getBooks();
+    const std::string prefix = basepath.back() == '/' ? basepath : basepath + "/";
+    for (auto& entry : entries) {
+      const std::string full = prefix + entry.name;
+      const auto hit =
+          std::find_if(recent.begin(), recent.end(), [&full](const RecentBook& b) { return b.path == full; });
+      if (hit != recent.end()) entry.recentRank = static_cast<int>(hit - recent.begin());
+    }
+  }
+  std::sort(entries.begin(), entries.end(),
+            [order](const filesort::Entry& a, const filesort::Entry& b) { return filesort::before(order, a, b); });
+  std::transform(entries.begin(), entries.end(), std::back_inserter(files),
+                 [](filesort::Entry& entry) { return std::move(entry.name); });
   if (mode == Mode::PickFolder) files.insert(files.begin(), HERE_ENTRY);
 }
 
@@ -149,10 +179,23 @@ void FileBrowserActivity::provideRow(void* ctx, const uint16_t index, fui::ListI
   formatFileName(entry, self->rowNameBuf, sizeof(self->rowNameBuf));
   item.label = self->rowNameBuf;
   formatFileExtension(entry, self->rowExtBuf, sizeof(self->rowExtBuf));
+  // A favourite book shows a star before its file type (kos25k #14).
+  if (!entry.empty() && entry.back() != '/' &&
+      FAVOURITES.contains(self->basepath + (self->basepath.back() == '/' ? "" : "/") + entry)) {
+    char kind[16];
+    snprintf(kind, sizeof(kind), "%s", self->rowExtBuf);
+    snprintf(self->rowExtBuf, sizeof(self->rowExtBuf), "\xE2\x98\x85 %s", kind);
+  }
   if (self->rowExtBuf[0] != '\0') {
     item.value = self->rowExtBuf;
   }
-  item.icon = listIconFor(UITheme::getFileIcon(entry));
+  // The file type is written inside the icon: a page for a book, a folder for a folder (kos25k #15).
+  item.icon = listIconFor(UITheme::getFileIcon(entry), 32);
+  if (entry.back() == '/') {
+    filetypeicon::forFolder(self->basepath + (self->basepath.back() == '/' ? "" : "/") + entry, item.icon);
+  } else {
+    filetypeicon::forFile(entry, item.icon);
+  }
   item.actionValue = static_cast<int16_t>(index);
 }
 
@@ -217,11 +260,42 @@ void FileBrowserActivity::onEnter() {
   } else {
     loadFiles();
   }
-  if (mode == Mode::Books) app.on(ACTION_SEARCH, &FileBrowserActivity::searchActionTrampoline, this);
+  if (mode == Mode::Books) {
+    app.on(ACTION_SEARCH, &FileBrowserActivity::searchActionTrampoline, this);
+    app.on(ACTION_SORT, &FileBrowserActivity::sortActionTrampoline, this);
+  }
 }
 
 void FileBrowserActivity::searchActionTrampoline(const fui::ActionEvent&, void* user) {
   static_cast<FileBrowserActivity*>(user)->openSearch();
+}
+
+void FileBrowserActivity::sortActionTrampoline(const fui::ActionEvent&, void* user) {
+  static_cast<FileBrowserActivity*>(user)->openSortMenu();
+}
+
+// The gear: how this folder, and every other, is ordered (kos25k #6). Kept until the user changes it.
+void FileBrowserActivity::openSortMenu() {
+  app.clearTapFlash();
+  static constexpr StrId SORT_OPTIONS[filesort::COUNT] = {
+      StrId::STR_SORT_NAME_AZ, StrId::STR_SORT_NAME_ZA,  StrId::STR_SORT_NEWEST,         StrId::STR_SORT_OLDEST,
+      StrId::STR_SORT_LARGEST, StrId::STR_SORT_SMALLEST, StrId::STR_SORT_RECENTLY_OPENED};
+  optionPopup.show(StrId::STR_SORT_FILES, SORT_OPTIONS, filesort::COUNT, SETTINGS.fileSort % filesort::COUNT,
+                   [this](const int index) {
+                     if (index < 0 || index >= filesort::COUNT || index == SETTINGS.fileSort) {
+                       requestUpdate();
+                       return;
+                     }
+                     SETTINGS.fileSort = static_cast<uint8_t>(index);
+                     SETTINGS.saveToFile();
+                     const std::string keep = nav.selected >= 0 && nav.selected < static_cast<int>(files.size())
+                                                  ? files[nav.selected]
+                                                  : std::string();
+                     loadFiles();
+                     nav.top = 0;
+                     nav.selected = keep.empty() ? 0 : static_cast<int>(findEntry(keep));
+                     requestUpdate();
+                   });
 }
 
 void FileBrowserActivity::openSearch() {
@@ -746,6 +820,15 @@ void FileBrowserActivity::buildScreen(UiScreen& screen) {
     // GUI.drawHeader has no slot for it, so it is drawn by hand like Search in Book's gear.
     const int16_t size = static_cast<int16_t>(metrics.headerHeight - 24);
     const int16_t x = static_cast<int16_t>(renderer.getScreenWidth() - metrics.contentSidePadding - 8 - size);
+    // The sort gear a little left of the magnifier, not touching it.
+    fui::ButtonProps gear;
+    gear.icon = fui::bitmapFromIcon(icon_settings_32);
+    gear.action = ACTION_SORT;
+    gear.minTouchSize = 44;
+    fui::button(
+        screen.frame(),
+        fui::Rect{static_cast<int16_t>(x - size - 22), static_cast<int16_t>(metrics.topPadding + 22), size, size},
+        gear);
     fui::ButtonProps search;
     search.icon = fui::bitmapFromIcon(icon_search_32);
     search.action = ACTION_SEARCH;
@@ -800,6 +883,7 @@ void FileBrowserActivity::buildScreen(UiScreen& screen) {
   // Tap opens/navigates; long-press shows entry actions (physical buttons stay in loop()).
   props.inputMask = fui::InputTouch | fui::InputLongPress;
   props.valueInset = 8;  // air between the extension and the row edge
+  props.iconSize = 44;   // the type-in-icon bitmaps (kos25k #15); the plain 32 px ones sit centred in it
   // Names use up to two small-font lines; shared list layout sizes each row.
   fui::TextStyle label = screen.theme().smallText;
   label.maxLines = 2;

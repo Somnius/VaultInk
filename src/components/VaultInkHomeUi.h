@@ -40,6 +40,8 @@ class VaultInkHomeUi final : public UiAppHost {
   void setSelection(int selection) { selected = selection; }
   // Counts shown on the Books and Vaults rows; 0 or less keeps the plain description.
   void setCounts(int books, int vaults);
+  // The Continue Reading book is in the favourites: a star at the right of the card (kos25k #14).
+  void setFavourite(bool value) { favourite = value; }
   int itemCount() const { return cardCount() + rowCount; }
   // Flat index of the row for a home menu item (returning from that screen), else 0.
   int indexFor(HomeMenuItem item) const;
@@ -73,6 +75,7 @@ class VaultInkHomeUi final : public UiAppHost {
   int progress = -1;
   bool hasContinueReading = false;
   char progressText[12]{};
+  bool favourite = false;
   char booksText[64]{};
   char vaultsText[64]{};
   std::array<Row, MAX_ROWS> rows{};

@@ -1,5 +1,6 @@
 #include "BaseTheme.h"
 
+#include <BlePageTurner.h>
 #include <BoardConfig.h>
 #include <FreeInkUIGfxRenderer.h>
 #include <GfxRenderer.h>
@@ -8,6 +9,7 @@
 #include <HalPowerManager.h>
 #include <HalStorage.h>
 #include <Logging.h>
+#include <WiFi.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -25,6 +27,7 @@
 #include "components/icons/bookmark.h"
 #include "components/icons/cover.h"
 #include "components/icons/headerIcons.h"
+#include "components/icons/statusIcons.h"
 #include "fontIds.h"
 #include "util/BookPageNumber.h"
 
@@ -389,6 +392,57 @@ void BaseTheme::applyHeaderStatus(const GfxRenderer& renderer, freeink::ui::Head
   }
 }
 
+void BaseTheme::drawConnectivity(freeink::ui::DrawTarget& target, const freeink::ui::Rect band,
+                                 const freeink::ui::HeaderProps& props) {
+  const auto& metrics = UITheme::getInstance().getMetrics();
+  const auto& status = props.status;
+  if (!status.showBattery || status.stripHeight < 16) return;
+  struct Mark {
+    const freeink::Icon* icon;
+    bool pending;  // switched on but not connected yet
+  };
+  Mark marks[2];
+  int count = 0;
+  if (WiFi.getMode() != WIFI_MODE_NULL) {
+    // A hotspot that is up counts as connected: nobody has to join it for it to work.
+    const bool hotspot = (WiFi.getMode() & WIFI_MODE_AP) != 0;
+    marks[count++] = {&icon_wifi_16, !hotspot && WiFi.status() != WL_CONNECTED};
+  }
+  const bleturner::Status ble = bleturner::status();
+  if (ble.running || ble.starting || ble.connecting || ble.connected) {
+    marks[count++] = {&icon_bluetooth_16, !ble.connected};
+  }
+  if (count == 0) return;
+
+  namespace fui = freeink::ui;
+  const int16_t inset = status.edgeInset >= 0 ? status.edgeInset : props.sidePadding;
+  int16_t right = static_cast<int16_t>(band.right() - inset);
+  if (!status.batteryLeft) {
+    int16_t labelW = 0;
+    if (status.battery.label)
+      labelW = target.measureText(status.battery.text.font, status.battery.label, status.battery.text).width;
+    right =
+        static_cast<int16_t>(right - status.battery.glyphWidth - (labelW > 0 ? status.battery.gap + labelW : 0) - 8);
+  }
+  constexpr int16_t ICON = 16;
+  constexpr int16_t BANG = 6;
+  const int16_t y = static_cast<int16_t>(band.y + (status.stripHeight - ICON) / 2);
+  const int16_t line = target.lineHeight(status.battery.text.font);
+  for (int i = 0; i < count; ++i) {
+    if (marks[i].pending) {
+      right = static_cast<int16_t>(right - BANG);
+      fui::TextStyle bang = status.battery.text;
+      bang.align = fui::TextAlign::Left;
+      target.text(fui::Rect{right, static_cast<int16_t>(band.y + (status.stripHeight - line) / 2), BANG, line}, "!",
+                  bang);
+    }
+    right = static_cast<int16_t>(right - ICON);
+    target.bitmap(fui::Rect{right, y, ICON, ICON}, fui::bitmapFromIcon(*marks[i].icon), fui::BitmapMode::Center);
+    right = static_cast<int16_t>(right - 6);
+  }
+  (void)metrics;
+}
+
 bool BaseTheme::headerHomeRect(const freeink::ui::Rect band, freeink::ui::Rect& icon) {
   const auto& metrics = UITheme::getInstance().getMetrics();
   if (!gpio.hasTouch() || !SETTINGS.headerHomeButton || HeaderHomeTapTarget::hidden ||
@@ -485,6 +539,7 @@ void BaseTheme::drawHeader(const GfxRenderer& renderer, Rect rect, const char* t
     props.styles.normal.borderWidth = tokens.headerUnderline;
   }
   fui::header(ui.frame, band, props);
+  drawConnectivity(ui.frame.target(), band, props);
   fui::Rect home;
   if (headerHomeRect(band, home)) {
     ui.frame.target().bitmap(home, fui::bitmapFromIcon(icon_house_24), fui::BitmapMode::Center);

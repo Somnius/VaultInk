@@ -21,6 +21,7 @@
 #include "BookInfoActivity.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
+#include "FavouritesStore.h"
 #include "HapticFeedback.h"
 #include "MappedInputManager.h"
 #include "OpdsServerStore.h"
@@ -327,6 +328,7 @@ void HomeActivity::setupHome() {
     loadRecentBooks(1);
     hasContinueReading = !recentBooks.empty();
     vaultInkUi->begin(recentBooks, hasContinueReading, hasLibrarySlot(), hasPlugins);
+    vaultInkUi->setFavourite(hasContinueReading && FAVOURITES.contains(recentBooks.front().path));
     {
       // Only an index that already exists: home never waits for a library rebuild.
       auto index = makeUniqueNoThrow<library::LibraryIndexFile>();

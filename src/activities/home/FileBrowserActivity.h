@@ -36,6 +36,9 @@ class FileBrowserActivity final : public UiListActivity {
   // button boards, the last entry of the file menu. A pick comes back as a path to show here.
   static constexpr freeink::ui::ActionId ACTION_SEARCH = ACTION_USER;
   static void searchActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
+  static constexpr freeink::ui::ActionId ACTION_SORT = ACTION_USER + 1;
+  static void sortActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
+  void openSortMenu();
   void openSearch();
   void showInFolder(const std::string& path);
   std::string revealName;      // a search hit to list although the browser would not (any extension, kos25k #13)
@@ -59,7 +62,7 @@ class FileBrowserActivity final : public UiListActivity {
   // contract only needs them valid until the next provideRow() call.
   static constexpr size_t ROW_NAME_BUF_SIZE = 512;  // NAME_BUFFER_SIZE + "[]" + terminator slack
   char rowNameBuf[ROW_NAME_BUF_SIZE]{};
-  char rowExtBuf[16]{};
+  char rowExtBuf[24]{};
   static void provideRow(void* ctx, uint16_t index, freeink::ui::ListItem& item);
 
   // CJK fallback glyphs are prewarmed for a bounded window of rows around the

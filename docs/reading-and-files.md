@@ -34,6 +34,8 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Library in quick settings (0.27.0)](#library-in-quick-settings-0270)
 - [Library: sort by progress, tab order (0.60.0, 0.61.0)](#library-sort-by-progress-tab-order-0600-0610)
 - [Home screen rows (0.32.0)](#home-screen-rows-0320)
+- [Sorting, icons and stars in Browse Files (0.69.0)](#sorting-icons-and-stars-in-browse-files-0690)
+- [Wi-Fi and Bluetooth marks (0.69.0)](#wi-fi-and-bluetooth-marks-0690)
 - [File browser: Move, Copy, New folder, Rename](#file-browser-move-copy-new-folder-rename)
 - [Search in Browse Files (0.64.0)](#search-in-browse-files-0640)
 - [Gallery (0.24.0)](#gallery-0240)
@@ -371,6 +373,18 @@ are split at real syllables.
 A setting you saved before stays as it was. Turn hyphenation on inside the reader (Text panel →
 Hyphenation) or under Settings → Reader → Text Settings. Left alignment has no stretched gaps at
 all, if you prefer a ragged right edge.
+
+## Sorting, icons and stars in Browse Files (0.69.0)
+
+Three changes to the file browser and the lists (kos25k #6, #14, #15):
+
+- **Sort gear**: a gear left of the magnifier opens **Sort files**: name A to Z or Z to A, newest or oldest first, largest or smallest first, and recently opened (the books you opened lately come first, the others follow by name). Folders always come first. It applies in every folder, and it is kept until you change it. Folders have no size, so for size they stay in name order.
+- **File type inside the icon**: books show a page icon with their type written in it (EPUB, PDF, MOBI, AZW, TXT, MD, XTC, CBZ), and a folder shows a folder icon with the type that most of its files have (counted the first time you see it, up to 300 files). The icons are bigger than before, in Browse Files and in the Library lists.
+- **Favourites star**: a book that is in your favourites has a ★ before its file type in Browse Files, at the right of the Continue Reading card on the home screen, and at the right of the book card in the quick settings (swipe down in a book).
+
+## Wi-Fi and Bluetooth marks (0.69.0)
+
+A small Wi-Fi mark appears in the top strip, left of the battery, as soon as Wi-Fi is switched on, with a **!** next to it until it is connected to a network (a hotspot you started counts as connected). The same for the Bluetooth page turner. Both are gone when the radio is off (kos25k #17).
 
 ## File browser: Move, Copy, New folder, Rename
 

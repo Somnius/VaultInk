@@ -61,6 +61,7 @@ void catalogScreenHeader(UiAppHost::UiScreen& screen, const GfxRenderer& rendere
   header.sidePadding = theme.headerSidePadding;
   header.minTouchSize = theme.minTouchSize;
   fui::header(screen.frame(), band, header);
+  BaseTheme::drawConnectivity(screen.frame().target(), band, header);
   fui::Rect home;
   if (BaseTheme::headerHomeRect(band, home)) {
     screen.frame().target().bitmap(home, fui::bitmapFromIcon(icon_house_24), fui::BitmapMode::Center);

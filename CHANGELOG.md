@@ -2,6 +2,18 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.69.0 (2026-11-05)
+
+Favourites stars, a Wi-Fi and Bluetooth mark, a sort gear for Browse Files, and bigger icons with the file type inside (kos25k #14, #17, #6, #15).
+
+- **Favourites star** (kos25k #14): a ★ at the right of the Continue Reading card when that book is a favourite, before the file type in Browse Files, and at the right of the book card in the quick settings.
+- **Wi-Fi and Bluetooth marks** (kos25k #17): a mark left of the battery as soon as the radio is on, with a ! until it is connected, gone when it is off. A hotspot that is up counts as connected.
+- **Sort gear** (kos25k #6): in Browse Files, left of the magnifier. Name, newest, oldest, largest, smallest or recently opened, folders first, kept in every folder until you change it.
+- **File type in the icon** (kos25k #15): bigger icons in Browse Files and the Library lists, with the type written in a book's icon and the most common type in a folder's.
+- The ★ comes from the built-in UI fonts, which now carry it.
+
+Tried in the simulator, not on a device. "Most used" sorting isn't there: the device doesn't count how often a book is opened, "recently opened" is the nearest it has. Book info's time (kos25k #6) and the Quick Resume sleep screen (kos25k #21) wait for his answers.
+
 ## 0.68.1 (2026-11-05)
 
 A LiveSync fix.

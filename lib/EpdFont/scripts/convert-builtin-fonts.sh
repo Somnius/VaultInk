@@ -7,6 +7,8 @@ cd "$(dirname "$0")"
 READER_FONT_STYLES=("Regular" "Italic" "Bold" "BoldItalic")
 # Arrows and ballot boxes, for every built-in font (see the font stacks below).
 SYMBOL_INTERVALS=(--additional-intervals 0x2190,0x2193 --additional-intervals 0x2610,0x2612)
+# The black star U+2605 (Noto Sans Symbols 2), for the UI fonts only: the favourites mark (kos25k #14).
+UI_STAR_INTERVALS=(--additional-intervals 0x2605,0x2605)
 NOTOSANS_FONT_SIZES=(12 14 16 18)
 
 for size in ${NOTOSANS_FONT_SIZES[@]}; do
@@ -82,7 +84,7 @@ for size in ${UI_FONT_SIZES[@]}; do
     python fontconvert.py $font_name $size $font_path $latin_fallback_path $hebrew_path $arabic_path $viet_path \
       $symbols_path $symbols2_path \
       --additional-intervals 0x05D0,0x05EA "${ARABIC_INTERVALS[@]}" "${GREEK_INTERVALS[@]}" \
-      "${SYMBOL_INTERVALS[@]}" > $output_path
+      "${SYMBOL_INTERVALS[@]}" "${UI_STAR_INTERVALS[@]}" > $output_path
     echo "Generated $output_path"
   done
 done
@@ -97,7 +99,7 @@ python fontconvert.py ubuntu_8_regular 8 \
   ../builtinFonts/source/NotoSansSymbols/NotoSansSymbols-Regular.ttf \
   ../builtinFonts/source/NotoSansSymbols2/NotoSansSymbols2-Regular.ttf \
   --additional-intervals 0x05D0,0x05EA "${ARABIC_INTERVALS[@]}" "${GREEK_INTERVALS[@]}" \
-  "${SYMBOL_INTERVALS[@]}" > ../builtinFonts/ubuntu_8_regular.h
+  "${SYMBOL_INTERVALS[@]}" "${UI_STAR_INTERVALS[@]}" > ../builtinFonts/ubuntu_8_regular.h
 
 echo ""
 echo "Running compression verification..."

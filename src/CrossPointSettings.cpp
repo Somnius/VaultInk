@@ -123,6 +123,7 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   if (galleryFilter != 0) doc["galleryFilter"] = galleryFilter;
   if (lockMode != 0) doc["lockMode"] = lockMode;
   if (libraryBooksOnly != 0) doc["libraryBooksOnly"] = libraryBooksOnly;
+  if (fileSort != 0) doc["fileSort"] = fileSort;
   if (libraryFormatMask != 127) {
     doc["libraryFormatMask"] = libraryFormatMask;
     doc["libraryFormatMaskV"] = 2;  // 2 = has the MOBI bit (0.67.0)
@@ -318,6 +319,7 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   if (doc["galleryFilter"].is<uint8_t>()) galleryFilter = doc["galleryFilter"].as<uint8_t>() % 4;
   if (doc["lockMode"].is<uint8_t>()) lockMode = doc["lockMode"].as<uint8_t>() % 3;
   if (doc["libraryBooksOnly"].is<uint8_t>()) libraryBooksOnly = doc["libraryBooksOnly"].as<uint8_t>() ? 1 : 0;
+  if (doc["fileSort"].is<uint8_t>()) fileSort = doc["fileSort"].as<uint8_t>() % 7;
   if (doc["libraryFormatMask"].is<uint8_t>()) libraryFormatMask = doc["libraryFormatMask"].as<uint8_t>() & 127;
   if (libraryFormatMask == 0) libraryFormatMask = 127;  // nothing ticked would be an empty Library
   // A mask saved before 0.67.0 knows nothing of MOBI: list it, the user can untick it.

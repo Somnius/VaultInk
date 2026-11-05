@@ -465,6 +465,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Library format filter (kos25k #18): which book types the Library lists (bits of library::FMT_*, 127 = all),
   // and whether the gear button shows in the Library header.
   uint8_t libraryFormatMask = 127;
+  // Browse Files order (0.69.0, kos25k #6): FileSort in FileSort.h. Kept until changed, in every folder.
+  uint8_t fileSort = 0;
   uint8_t libraryFormatButton = 1;
   uint32_t libraryTabOrder = 0;  // the order of the Library tabs, util/LibraryTabOrder.h; 0 = default
   uint8_t libraryStartTab = 0;   // the tab the Library opens on: 0 Recent, 1 Title, 2 Author, 3 Favourites, 4 Folders

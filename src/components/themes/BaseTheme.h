@@ -12,6 +12,7 @@ struct RecentBook;
 namespace freeink {
 namespace ui {
 struct HeaderProps;
+class DrawTarget;
 struct Rect;
 struct BitmapRef;
 struct ListItem;
@@ -271,6 +272,10 @@ class BaseTheme {
   // rect recorded in HeaderHomeTapTarget; false when it isn't shown (setting off, no touch, the
   // home screen, or a centred clock in that spot).
   static bool headerHomeRect(freeink::ui::Rect band, freeink::ui::Rect& icon);
+  // The Wi-Fi and Bluetooth marks in the status strip beside the battery (kos25k #17): a mark as soon as the
+  // radio is switched on, with a "!" until it is connected, none when it is off. Call after fui::header.
+  static void drawConnectivity(freeink::ui::DrawTarget& target, freeink::ui::Rect band,
+                               const freeink::ui::HeaderProps& props);
   // The header band every screen draws in: the caller's full-width rect inset
   // by the board's side insets, its top edge lowered by the board's
   // headerOffsetY (bottom edge fixed, so content below keeps its boundary).

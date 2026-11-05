@@ -12,6 +12,7 @@
 #include <iterator>
 
 #include "CrossPointSettings.h"
+#include "FavouritesStore.h"
 #include "MappedInputManager.h"
 #include "RecentBooksStore.h"
 #include "activities/ActivityManager.h"
@@ -506,9 +507,20 @@ void FrontlightPanelActivity::addBookCard(UiScreen& screen) {
   auto title = theme.bodyText;
   title.bold = true;
   title.maxLines = 1;
+  // A favourite book has a star at the right of its card (kos25k #14).
+  const bool favourite = !bookPath.empty() && FAVOURITES.contains(bookPath);
+  const int16_t starW = favourite ? 30 : 0;
   screen.target().text(fui::Rect{static_cast<int16_t>(rect.x + pad), static_cast<int16_t>(rect.y + pad / 2),
-                                 static_cast<int16_t>(rect.width - 2 * pad), line},
+                                 static_cast<int16_t>(rect.width - 2 * pad - starW), line},
                        bookTitle.c_str(), title);
+  if (favourite) {
+    auto star = theme.bodyText;
+    star.bold = true;
+    star.align = fui::TextAlign::Right;
+    screen.target().text(fui::Rect{static_cast<int16_t>(rect.right() - pad - starW),
+                                   static_cast<int16_t>(rect.y + pad / 2), starW, line},
+                         "\xE2\x98\x85", star);  // U+2605
+  }
   if (bookProgress >= 0) {
     char percent[8];
     snprintf(percent, sizeof(percent), "%d%%", bookProgress);

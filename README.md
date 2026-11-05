@@ -35,7 +35,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Still early.** VaultInk is at 0.68.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
+> **Still early.** VaultInk is at 0.69.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
 > tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Much of the
 > newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
 > the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
@@ -45,7 +45,7 @@ It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or C
 ## At a glance
 
 <p>
-  <img src="docs/images/vaultink/home-068.png" width="190" alt="Home screen with the current book, Books, Vaults, Favourites, Search, Browse Files, Gallery, File Transfer, Plugins, Random page and Settings">
+  <img src="docs/images/vaultink/home-069.png" width="190" alt="Home screen with the current book, Books, Vaults, Favourites, Search, Browse Files, Gallery, File Transfer, Plugins, Random page and Settings">
   <img src="docs/images/vaultink/library-sort.png" width="190" alt="Library with the Recent, up-percent and down-percent bar and the percent read next to each author">
   <img src="docs/images/vaultink/note.png" width="190" alt="An Obsidian note with links, a callout, tasks and a table">
   <img src="docs/images/vaultink/search-results-wide.png" width="190" alt="Search in Book results that fill the row, with the gear at the right of the header">
@@ -132,7 +132,7 @@ Each line links to its guide where there is one; all the guides are listed in [d
 **The device**
 - **Home screen** with the book or note you were reading on top, counts on the Books and Vaults rows, rows in any order and any of them hidden, a home button in the top bar, and a Favourites row. CrossPoint's home styles stay as a choice. [docs/reading-and-files.md](docs/reading-and-files.md#home-screen-rows-0320)
 - **Settings** grouped by task, with a search that finds a setting by name, and rows that show their current value.
-- **Browse Files** with Open, Delete, Rename, Move, Copy, New folder, Extract here for zips, Open as gallery and Info on every file. Books keep their place when they or their folder move. A magnifier searches the whole card by name (0.64.0). [docs/reading-and-files.md](docs/reading-and-files.md#search-in-browse-files-0640)
+- **Browse Files** with Open, Delete, Rename, Move, Copy, New folder, Extract here for zips, Open as gallery and Info on every file. Books keep their place when they or their folder move. A magnifier searches the whole card by name (0.64.0). [docs/reading-and-files.md](docs/reading-and-files.md#search-in-browse-files-0640) A sort gear (name, date, size, recently opened) is kept in every folder, list icons are bigger with the file type written inside (a folder shows its most common type), and favourite books have a ★ ([guide](docs/reading-and-files.md#sorting-icons-and-stars-in-browse-files-0690)).
 - **Gallery** for the pictures on the card, nine to a page, with filters, chosen folders, phone photos up to 50 MP, and Set as sleep picture. [docs/reading-and-files.md](docs/reading-and-files.md#gallery-0240)
 - **Sleep screens**: your own picture (JPEG, PNG or BMP, cropped or fitted), the battery percent, the owner's name and phone, or the reading stats.
 - **Lock screen** with a 4-digit PIN or a corner long-press, how long after sleeping it locks, and the owner's name and phone on it. [docs/reading-and-files.md](docs/reading-and-files.md#lock-screen-0490)
