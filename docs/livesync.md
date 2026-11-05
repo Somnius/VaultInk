@@ -7,7 +7,7 @@ changed on the device (ticked tasks, edits, new, renamed and deleted notes).
 ## What you need
 
 - A CouchDB remote (not object storage or peer-to-peer).
-- End-to-end encryption **on**, with the V2 algorithm. Path obfuscation can be on or off.
+- End-to-end encryption **on**, with the V2 algorithm (the plugin's default; the Setup URI it copies leaves the default out, and the device reads that as V2). Path obfuscation can be on or off.
 - Compression **off**.
 - A LiveSync **Setup URI** and its passphrase. Export the URI from LiveSync's settings in Obsidian.
 

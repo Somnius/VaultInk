@@ -4,6 +4,7 @@
 #include <HalStorage.h>
 #include <LiveSyncIds.h>
 #include <LiveSyncPush.h>
+#include <LiveSyncSetup.h>
 #include <Logging.h>
 #include <ObfuscationUtils.h>
 #include <SecureHttpClient.h>
@@ -15,6 +16,7 @@
 #include <cstring>
 #include <ctime>
 #include <memory>
+#include <string_view>
 
 #include "util/CaBundle.h"
 #include "util/TaskWatchdog.h"
@@ -188,9 +190,16 @@ bool profileFromSetup(const std::string& uri, const std::string& passphrase, Pro
     why = "Only CouchDB remotes are supported.";
     return false;
   }
-  if (!(s["encrypt"] | false) || std::string(s["E2EEAlgorithm"] | "") != "v2") {
-    why = "Turn on end-to-end encryption (V2) in LiveSync first.";
-    return false;
+  switch (livesync::checkSetupEncryption(s["encrypt"] | false, !s["E2EEAlgorithm"].isNull(),
+                                         std::string_view(s["E2EEAlgorithm"] | ""))) {
+    case livesync::SetupEncryption::Ok:
+      break;
+    case livesync::SetupEncryption::EncryptionOff:
+      why = "End-to-end encryption is off in this Setup URI. Turn it on (V2) in LiveSync, then copy a new Setup URI.";
+      return false;
+    case livesync::SetupEncryption::LegacyAlgorithm:
+      why = "This vault uses the old V1 encryption. Switch LiveSync to V2 first.";
+      return false;
   }
   if (s["enableCompression"] | false) {
     why = "Turn off compression in LiveSync first.";

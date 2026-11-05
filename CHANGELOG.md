@@ -2,6 +2,14 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.68.1 (2026-11-05)
+
+A LiveSync fix.
+
+- **LiveSync Setup URI**: the device said "Turn on end-to-end encryption (V2) in LiveSync first" for a vault that already used V2. The plugin leaves every setting that equals its default out of the Setup URI it copies, and V2 is the plugin's default, so the URI said nothing about the algorithm and the device took that for "not V2". A missing algorithm now counts as V2. The messages also say which part is wrong: encryption off, or the old V1 encryption.
+
+Checked against the plugin's source and with host tests; not tried with a real vault.
+
 ## 0.68.0 (2026-11-04)
 
 Go to page, and an even home screen (kos25k #29, #14).

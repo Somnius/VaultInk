@@ -75,3 +75,8 @@ add_executable(LiveSyncPushTest
 target_include_directories(LiveSyncPushTest PRIVATE ${REPO_ROOT}/lib/LiveSync ${REPO_ROOT}/lib/Utf8)
 target_link_libraries(LiveSyncPushTest PRIVATE livesync_mbedtls ArduinoJson GTest::gtest_main)
 gtest_discover_tests(LiveSyncPushTest)
+
+add_executable(LiveSyncSetupTest LiveSyncSetupTest.cpp)
+target_include_directories(LiveSyncSetupTest PRIVATE ${REPO_ROOT}/lib/LiveSync)
+target_link_libraries(LiveSyncSetupTest PRIVATE GTest::gtest_main)
+gtest_discover_tests(LiveSyncSetupTest)
