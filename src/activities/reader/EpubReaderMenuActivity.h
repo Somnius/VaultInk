@@ -42,7 +42,8 @@ class EpubReaderMenuActivity final : public UiListActivity {
     DELETE_NOTE,       // notes: to the vault's .trash
     FLASHCARDS,        // notes: review this note's cards
     EXPORT_CLIPPINGS,  // books with clippings: write them to a note in a vault
-    BACK               // a note: the note before it, else its folder (touch-only boards have no Back key)
+    BACK,              // a note: the note before it, else its folder (touch-only boards have no Back key)
+    READING_PRESETS    // 0.70.0 (kos25k #12): save / apply the Text panel's settings as one of ten presets; last
   };
 
   struct MenuItem {
@@ -69,7 +70,7 @@ class EpubReaderMenuActivity final : public UiListActivity {
   // fixed-capacity array avoids any heap allocation for the row list. Labels
   // are set once in the constructor (buildMenuRowItems()); buildScreen()
   // only refreshes rows whose values reflect live state.
-  static constexpr size_t MAX_MENU_ITEMS = 30;  // every action at once (29) fits
+  static constexpr size_t MAX_MENU_ITEMS = 32;  // every action at once (30) fits
   freeink::ui::ListItem menuRowItems[MAX_MENU_ITEMS]{};
   void buildMenuRowItems();
 

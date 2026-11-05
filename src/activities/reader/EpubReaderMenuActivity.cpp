@@ -97,6 +97,8 @@ void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, const 
   }
   items.push_back({MenuAction::DELETE_CACHE, StrId::STR_DELETE_CACHE});
   items.push_back({MenuAction::TEXT_SETTINGS, StrId::STR_TEXT_SETTINGS});
+  // Last in both menus: the classic list and the toolbar's More panel (which drops Text Settings).
+  items.push_back({MenuAction::READING_PRESETS, StrId::STR_READING_PRESETS});
 }
 
 void EpubReaderMenuActivity::toggleBluetooth() {

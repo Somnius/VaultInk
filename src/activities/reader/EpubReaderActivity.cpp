@@ -49,11 +49,13 @@
 #include "ReaderFontSizes.h"
 #include "ReaderToolbarUi.h"
 #include "ReaderUtils.h"
+#include "ReadingPresetsStore.h"
 #include "RecentBooksStore.h"
 #include "SdCardFont.h"
 #include "SdCardFontSystem.h"
 #include "SilentRestart.h"
 #include "activities/network/WifiSelectionActivity.h"
+#include "activities/settings/ReadingPresetsActivity.h"
 #include "activities/settings/TextSettingsActivity.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
@@ -1323,6 +1325,15 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
                                  section.reset();
                                }
                                openReaderMenu();
+                             });
+      break;
+    }
+    case EpubReaderMenuActivity::MenuAction::READING_PRESETS: {
+      // The classic list menu: the Settings screen. A cancelled result means no slot was applied.
+      startActivityForResult(std::make_unique<ReadingPresetsActivity>(renderer, mappedInput),
+                             [this](const ActivityResult& result) {
+                               if (!result.isCancelled) applyReaderTextSettings();
+                               requestUpdate();
                              });
       break;
     }
@@ -3771,6 +3782,9 @@ void EpubReaderActivity::activateMoreRow(int row) {
       paintOverlayPopup();
       return;
     }
+    case MA::READING_PRESETS:
+      showReadingPresetsPopup();
+      return;
     case MA::BLUETOOTH:
       EpubReaderMenuActivity::toggleBluetooth();
       {
@@ -3831,6 +3845,67 @@ void EpubReaderActivity::activateMoreRow(int row) {
   // reader entirely. In-place actions would otherwise leave the closed panel
   // on screen.
   if (action != MA::GO_HOME && action != MA::DELETE_CACHE) requestUpdate();
+}
+
+namespace {
+// The ten slot names for a picker; unused slots say so.
+std::vector<std::string> readingPresetSlotLabels(const int current) {
+  std::vector<std::string> labels;
+  labels.reserve(ReadingPresetsStore::SLOTS);
+  for (int i = 0; i < ReadingPresetsStore::SLOTS; ++i) {
+    const auto& preset = READING_PRESET_STORE.slot(i);
+    std::string label = preset.name;
+    if (!preset.saved) {
+      label += std::string(" (") + tr(STR_PRESET_EMPTY) + ")";
+    } else if (i == current) {
+      label += std::string(" (") + tr(STR_PRESET_IN_USE) + ")";
+    }
+    labels.push_back(std::move(label));
+  }
+  return labels;
+}
+}  // namespace
+
+void EpubReaderActivity::showReadingPresetsPopup() {
+  READING_PRESET_STORE.ensureLoaded();
+  const int current = READING_PRESET_STORE.currentSlot();
+  std::vector<std::string> options = readingPresetSlotLabels(current);
+  options.insert(options.begin(), tr(STR_SAVE_PRESET));
+  overlayPopup.show(StrId::STR_READING_PRESETS, options, current < 0 ? 0 : current + 1, [this](int idx) {
+    if (idx == 0) {
+      // Which slot to save into. handleInput moved the running callback out of the popup, so showing the
+      // next picker from here is safe; the panel loop paints it (the popup is active again).
+      const int cur = READING_PRESET_STORE.currentSlot();
+      overlayPopup.show(StrId::STR_SAVE_PRESET, readingPresetSlotLabels(cur), cur < 0 ? 0 : cur,
+                        [this](int slot) { saveReadingPresetFromReader(slot); });
+      return;
+    }
+    if (READING_PRESET_STORE.apply(idx - 1)) applyTextSettingLive();
+  });
+  paintOverlayPopup();
+}
+
+void EpubReaderActivity::saveReadingPresetFromReader(const int slot) {
+  if (slot < 0 || slot >= ReadingPresetsStore::SLOTS) return;
+  // The keyboard screen paints the whole framebuffer: close the panel first, as the font picker does.
+  overlay = Overlay::None;
+  overlayPopup.dismiss();
+  discardOverlayPage();
+  {
+    RenderLock lock;
+    settleOverlayRefresh();
+  }
+  auto keyboard = makeUniqueNoThrow<KeyboardEntryActivity>(renderer, mappedInput, tr(STR_PRESET_NAME),
+                                                           READING_PRESET_STORE.slot(slot).name,
+                                                           readingpresets::kNameCapacity - 1, InputType::Text);
+  if (!keyboard) {
+    requestUpdate();
+    return;
+  }
+  startActivityForResult(std::move(keyboard), [this, slot](const ActivityResult& result) {
+    if (!result.isCancelled) READING_PRESET_STORE.saveCurrent(slot, std::get<KeyboardResult>(result.data).text);
+    requestUpdate();
+  });
 }
 
 // Saves the place, drops this note's converted copy and page cache, and opens `path` again: after

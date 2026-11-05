@@ -36,6 +36,7 @@
 #include "OpdsServerListActivity.h"
 #include "OtaUpdateActivity.h"
 #include "PaperCycleActivity.h"
+#include "ReadingPresetsActivity.h"
 #include "SdCardFontSystem.h"
 #include "SdFirmwareUpdateActivity.h"
 #include "SearchWordSettingsActivity.h"
@@ -154,6 +155,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   addAction(SettingsSection::Reader, StrId::STR_PAPER_CYCLE, SettingAction::PaperCycle);
   addAction(SettingsSection::Reader, StrId::STR_SEARCH_WORD, SettingAction::SearchWord);
   addAction(SettingsSection::Reader, StrId::STR_EXPERIMENTAL, SettingAction::Experimental);
+  addAction(SettingsSection::Reader, StrId::STR_READING_PRESETS, SettingAction::ReadingPresets);
   addAction(SettingsSection::Display, StrId::STR_HOME_ROWS, SettingAction::HomeRows);
   addAction(SettingsSection::Display, StrId::STR_HOME_ITEMS, SettingAction::HomeItems);
   addAction(SettingsSection::Library, StrId::STR_LIBRARY_FORMATS, SettingAction::LibraryFormats);
@@ -365,6 +367,11 @@ void SettingsActivity::toggleSelectedSetting() {
         break;
       case SettingAction::Experimental:
         startActivityForResult(std::make_unique<ExperimentalSettingsActivity>(renderer, mappedInput), resultHandler);
+        break;
+      case SettingAction::ReadingPresets:
+        // Applies and saves settings itself; the rows of this list show the new values on return.
+        startActivityForResult(std::make_unique<ReadingPresetsActivity>(renderer, mappedInput),
+                               [this](const ActivityResult&) { rebuildSettings(); });
         break;
       case SettingAction::CustomiseStatusBar:
         startActivityForResult(std::make_unique<StatusBarSettingsActivity>(renderer, mappedInput), resultHandler);

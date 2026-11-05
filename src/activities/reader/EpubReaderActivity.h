@@ -211,6 +211,10 @@ class EpubReaderActivity final : public ReaderActivity {
   std::string moreRowName(int row) const;
   std::string moreRowValue(int row) const;
   void activateMoreRow(int row);
+  // Reading presets (kos25k #12) from the More panel: a popup with Save preset and the ten slots; picking a
+  // slot applies it live. Save asks for the slot, then the name on the keyboard screen.
+  void showReadingPresetsPopup();
+  void saveReadingPresetFromReader(int slot);
   void openFootnoteSelect(bool reopenMenuOnCancel);
   void openDictionaryWordSelect();
   void startClipSelection(int initialX = -1, int initialY = -1,

@@ -47,6 +47,7 @@ enum class SettingAction {
   RebuildSearchIndex,
   LiveSync,
   LockScreen,
+  ReadingPresets,
 };
 
 struct SettingInfo {

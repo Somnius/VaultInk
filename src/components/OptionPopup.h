@@ -91,7 +91,7 @@ class OptionPopup {
           // Tap released on an option: select it, fire, dismiss.
           selectedIndex = event.value;
           active = false;
-          if (onSelectCallback) onSelectCallback(selectedIndex);
+          fireSelect();
           haptic_feedback::touchAction();
           requestUpdate();
           return true;
@@ -144,7 +144,13 @@ class OptionPopup {
       return true;
     } else if (confirm) {
       active = false;
-      if (onSelectCallback) onSelectCallback(selectedIndex);
+      // Moved out first (as fireSelect() does): the callback may show() the next picker.
+      // Spelled out here because test_selection_buttons.py compiles this method on its own.
+      if (onSelectCallback) {
+        std::function<void(int)> callback = std::move(onSelectCallback);
+        onSelectCallback = nullptr;
+        callback(selectedIndex);
+      }
       requestUpdate();
       return true;
     } else if (back) {
@@ -289,6 +295,15 @@ class OptionPopup {
   void dismiss() {
     active = false;
     onSelectCallback = nullptr;
+  }
+
+ private:
+  // Fires the selection with the callback moved out first, so a callback that opens the next picker with
+  // show() (the reading presets' slot choice) does not destroy the closure it is running in.
+  void fireSelect() {
+    std::function<void(int)> callback = std::move(onSelectCallback);
+    onSelectCallback = nullptr;
+    if (callback) callback(selectedIndex);
   }
 
  private:
