@@ -3698,7 +3698,8 @@ void EpubReaderActivity::buildMoreActions() {
   // Search, Go to % and Go to page lead; the favourite toggle, screenshot, QR, delete cache and Go home close the
   // list; everything else keeps its order in between (kos25k #12).
   static constexpr MA FIRST[] = {MA::SEARCH_BOOK, MA::GO_TO_PERCENT, MA::GO_TO_PAGE};
-  static constexpr MA LAST[] = {MA::TOGGLE_FAVOURITE, MA::SCREENSHOT, MA::DISPLAY_QR, MA::DELETE_CACHE, MA::GO_HOME};
+  static constexpr MA LAST[] = {MA::TOGGLE_FAVOURITE, MA::SCREENSHOT, MA::DISPLAY_QR,
+                                MA::DELETE_CACHE,     MA::GO_HOME,    MA::READING_PRESETS};
   std::vector<EpubReaderMenuActivity::MenuItem> ordered;
   ordered.reserve(moreItems.size());
   const auto take = [&](const MA action) {

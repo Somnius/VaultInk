@@ -2,6 +2,18 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.70.0 (2026-11-05)
+
+Reading presets, a tidier More menu, a sleep long press on the house, and fixes (kos25k #12, #17, #14, #6).
+
+- **Reading presets** (kos25k #12): Settings > Reader > Reading presets, and the last row of the book menu > More. Ten slots, "Preset 1" to "Preset 10". **Save preset** picks a slot and asks for a name (it starts as the slot's name). A slot holds the Text settings: font, size, line spacing, alignment, hyphenation, Focus Reading, Even Word Gaps, word and character spacing, margin, paragraph indent and the five Advanced Typography switches. In a book, one press on a slot applies it and the page is laid out again. Kept in /.crosspoint/reading-presets.json.
+- **More menu order** (kos25k #12): Search, Go to % and Go to page first; the favourite toggle, Take screenshot, Show page as QR, Delete Book Cache, Go Home and Reading presets last. Frontlight and Night Mode are no longer in More (they stay in the quick settings and everywhere else).
+- **Home button** (kos25k #17): a long press on the house icon at the top puts the device to sleep; a tap still goes home. The icon has a small crescent moon in its roof.
+- **Continue Reading card** (kos25k #14): the star on a favourite made the title wrap while the author still showed, so Continue Reading ran into the author's name. Fixed, and the label sits closer to its progress bar.
+- **Browse Files** (kos25k #6): the sort list has no "Recently opened" any more. Info shows when the file was last added or changed on the card (the later of its created and modified time), and the date sort uses the same.
+
+Tried in the simulator, not on a device.
+
 ## 0.69.0 (2026-11-05)
 
 Favourites stars, a Wi-Fi and Bluetooth mark, a sort gear for Browse Files, and bigger icons with the file type inside (kos25k #14, #17, #6, #15).

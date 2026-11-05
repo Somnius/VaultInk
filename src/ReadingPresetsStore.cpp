@@ -93,7 +93,7 @@ bool ReadingPresetsStore::apply(const int index) {
                                   : l.characterSpacing;
   SETTINGS.screenMargin =
       l.screenMargin > CrossPointSettings::SCREEN_MARGIN_MAX ? CrossPointSettings::SCREEN_MARGIN_MAX : l.screenMargin;
-  SETTINGS.paragraphIndentSpaces = l.paragraphIndentSpaces;
+  SETTINGS.paragraphIndentSpaces = l.paragraphIndentSpaces > 5 ? 5 : l.paragraphIndentSpaces;
   SETTINGS.textLigatures = l.textLigatures ? 1 : 0;
   SETTINGS.textKerning = l.textKerning ? 1 : 0;
   SETTINGS.textWidowOrphan = l.textWidowOrphan ? 1 : 0;
@@ -115,7 +115,12 @@ bool ReadingPresetsStore::save() {
     return false;
   }
   Storage.mkdir("/.crosspoint");
-  if (!Storage.writeFile(TMP_PATH, String(buf.get()))) {
+  const String content(buf.get());
+  if (content.isEmpty()) {  // the copy failed for memory: never rename an empty file over the presets
+    LOG_ERR("RPS", "no memory to save reading presets");
+    return false;
+  }
+  if (!Storage.writeFile(TMP_PATH, content)) {
     LOG_ERR("RPS", "cannot write reading presets");
     return false;
   }

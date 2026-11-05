@@ -10,6 +10,8 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Paper contrast (0.60.0)](#paper-contrast-0600)
 - [Line spacing, 0 to 10](#line-spacing-0-to-10)
 - [Advanced Typography (0.66.0, renamed from Experimental in 0.66.1)](#advanced-typography-0660-renamed-from-experimental-in-0661)
+- [Reading presets](#reading-presets-0700)
+- [The More menu in a book](#the-more-menu-in-a-book-0700)
 - [Go to page](#go-to-page-0680)
 - [Hide Status Bar and the book page number](#hide-status-bar-and-the-book-page-number)
 - [The book card in quick settings (0.26.0)](#the-book-card-in-quick-settings-0260)
@@ -150,6 +152,14 @@ some fonts, accents on capitals can touch the line above at levels 0 and 1.
 - **Hanging punctuation**: off by default, new. An opening quote or bracket at the start of a line hangs into the left margin, and a closing mark at the end of a line (period, comma, closing quote, the hyphen of a split word and so on, also the Greek « » and ano teleia) hangs into the right margin, so the letters line up on both edges. The hang is at most 12 px, and it needs some page margin: with Screen Margin at 0 the hanging mark is cut at the screen edge.
 
 While a book is open the kerning and ligature switches also apply to the menus drawn over it; when you leave the book the menus are back to normal. Greek hyphenation, including polytonic, and the Greek letters in the built-in fonts are not switches, they are always on. Not tried on a device.
+
+## Reading presets (0.70.0)
+
+**Settings → Reader → Reading presets**, and the last row of the book menu → **More**, keep ten sets of your Text settings (kos25k #12). **Save preset** asks which slot and then for a name (it starts as the slot's own name, "Preset 1" and so on). A preset holds font, size, line spacing, alignment, hyphenation, Focus Reading, Even Word Gaps, word and character spacing, screen margin, paragraph indent and the five Advanced Typography switches. In a book, press a slot and its settings apply at once and the page is laid out again; the slot that matches your current settings shows "In use". They are kept in `/.crosspoint/reading-presets.json`.
+
+## The More menu in a book (0.70.0)
+
+Book menu → More starts with **Search in Book**, **Go to %** and **Go to page**, and ends with the favourite toggle, **Take screenshot**, **Show page as QR**, **Delete Book Cache**, **Go Home** and **Reading presets**. Frontlight and Night Mode are not in it any more: they are in the quick settings (swipe down) and in Settings.
 
 ## Go to page (0.68.0)
 
@@ -378,11 +388,13 @@ all, if you prefer a ragged right edge.
 
 Three changes to the file browser and the lists (kos25k #6, #14, #15):
 
-- **Sort gear**: a gear left of the magnifier opens **Sort files**: name A to Z or Z to A, newest or oldest first, largest or smallest first, and recently opened (the books you opened lately come first, the others follow by name). Folders always come first. It applies in every folder, and it is kept until you change it. Folders have no size, so for size they stay in name order.
+- **Sort gear**: a gear left of the magnifier opens **Sort files**: name A to Z or Z to A, newest or oldest first, largest or smallest first. Date means when the file was added to the card or last changed (the later of its created and modified time), the same time Info shows. Folders always come first. It applies in every folder, and it is kept until you change it. Folders have no size, so for size they stay in name order.
 - **File type inside the icon**: books show a page icon with their type written in it (EPUB, PDF, MOBI, AZW, TXT, MD, XTC, CBZ), and a folder shows a folder icon with the type that most of its files have (counted the first time you see it, up to 300 files). The icons are bigger than before, in Browse Files and in the Library lists.
 - **Favourites star**: a book that is in your favourites has a ★ before its file type in Browse Files, at the right of the Continue Reading card on the home screen, and at the right of the book card in the quick settings (swipe down in a book).
 
 ## Wi-Fi and Bluetooth marks (0.69.0)
+
+The house icon at the top has a small crescent moon in its roof (0.70.0): tap it for the home screen, long-press it to put the device to sleep.
 
 A small Wi-Fi mark appears in the top strip, left of the battery, as soon as Wi-Fi is switched on, with a **!** next to it until it is connected to a network (a hotspot you started counts as connected). The same for the Bluetooth page turner. Both are gone when the radio is off (kos25k #17).
 

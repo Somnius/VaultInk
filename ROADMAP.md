@@ -702,6 +702,7 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
 * ✅ (0.65.0) #1 four new procedural papyrus looks (aged, cracked, stained, crumpled). ⏳ the system-wide contrast slider waits for his answer on what it should change.
 * ✅ (0.68.0, simulator only) #29 Go to page in the book menu under More (estimate by the bracket page number); #14 equal home tiles, bigger Books icon, Books count of books only.
 * ✅ (0.69.0, simulator only) #14 favourites star (Continue Reading card, Browse Files, quick settings card), #17 Wi-Fi and Bluetooth marks, #6 sort gear in Browse Files, #15 bigger icons with the file type inside. Waiting on kos25k: #6 what is wrong with Book info's time, #21 his Sleep Screen settings. #6 'most/less used' became 'recently opened' (no open counter exists).
+* ✅ (0.70.0, simulator only) #12 Reading presets + More order, #17 long press on the house sleeps and a moon in the icon, #14 Continue Reading spacing, #6 Recently opened removed and Info time is the added/changed time. Asked kos25k what 'filters on the central parent folder' means (the sort already applies in every folder).
 * ✅ closed #27 (he tried a real shutter, works)
 * ⏳ #27 Bluetooth shutter: waiting for his test (the page turner may already work).
 * ✅ (0.65.0) #28 Flashlight as a built-in tool (S.O.S., blink, steady; brightness, warmth, speed).

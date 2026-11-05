@@ -1,7 +1,9 @@
 #include "ReadingPresets.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 
 namespace readingpresets {
 
@@ -184,8 +186,14 @@ struct Reader {
     if (p >= end) return false;
     ++p;  // closing quote
     if (out != nullptr && cap > 0) {
-      // Cut on a code point boundary if the buffer filled mid-sequence.
-      len = utf8Cut(out, len, cap - 1);
+      // The buffer may have filled mid-sequence: drop a trailing, incomplete UTF-8 sequence.
+      size_t lead = len;
+      while (lead > 0 && (static_cast<unsigned char>(out[lead - 1]) & 0xC0) == 0x80) --lead;
+      if (lead > 0) {
+        const unsigned char first = static_cast<unsigned char>(out[lead - 1]);
+        const size_t need = first >= 0xF0 ? 4 : first >= 0xE0 ? 3 : first >= 0xC0 ? 2 : 1;
+        if (need > 1 && len - (lead - 1) < need) len = lead - 1;
+      }
       out[len] = '\0';
     }
     return true;
@@ -314,10 +322,8 @@ struct Reader {
 
 bool Layout::operator==(const Layout& other) const {
   if (std::strcmp(sdFontFamilyName, other.sdFontFamilyName) != 0) return false;
-  for (const Field& f : kFields) {
-    if (this->*(f.member) != other.*(f.member)) return false;
-  }
-  return true;
+  return std::all_of(std::begin(kFields), std::end(kFields),
+                     [this, &other](const Field& f) { return this->*(f.member) == other.*(f.member); });
 }
 
 void PresetList::reset() {

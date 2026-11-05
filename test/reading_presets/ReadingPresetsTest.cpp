@@ -143,6 +143,19 @@ TEST(ReadingPresets, ParseDecodesEscapedNames) {
   EXPECT_STREQ("a\"b\\c\xce\xb1\n", list.slots[0].name);
 }
 
+TEST(ReadingPresets, ParseNeverKeepsAHalfCutUtf8Name) {
+  // 16 Greek letters are 32 bytes; the name holds 24: the cut must fall between letters.
+  std::string json = "{\"slots\":[{\"name\":\"";
+  for (int i = 0; i < 16; ++i) json += "\xCE\xB1";
+  json += "\",\"saved\":false}]}";
+  PresetList list;
+  ASSERT_TRUE(parse(json.c_str(), json.size(), list));
+  const size_t len = std::strlen(list.slots[0].name);
+  EXPECT_EQ(0u, len % 2);
+  EXPECT_LE(len, 24u);
+  EXPECT_GT(len, 0u);
+}
+
 TEST(ReadingPresets, FindMatchesSavedSlotsOnly) {
   PresetList list;
   EXPECT_EQ(-1, list.find(Layout{}));
