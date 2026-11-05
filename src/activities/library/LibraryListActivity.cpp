@@ -1593,7 +1593,7 @@ void LibraryListActivity::buildHeader(UiScreen& screen) {
   }
   fui::Rect home;
   if (BaseTheme::headerHomeRect(band, home)) {
-    screen.frame().target().bitmap(home, fui::bitmapFromIcon(icon_house_24), fui::BitmapMode::Center);
+    screen.frame().target().bitmap(home, fui::bitmapFromIcon(icon_house_moon_24), fui::BitmapMode::Center);
   }
 }
 

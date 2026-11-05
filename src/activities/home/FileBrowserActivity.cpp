@@ -31,6 +31,7 @@
 #include "util/BookInfo.h"
 #include "util/BookmarkUtil.h"
 #include "util/FileOps.h"
+#include "util/FileTime.h"
 #include "util/FileTypeIcons.h"
 #include "util/TaskWatchdog.h"
 #include "util/ZipExtract.h"
@@ -105,7 +106,7 @@ void FileBrowserActivity::loadFiles() {
   const auto addEntry = [&](std::string name, HalFile& file) {
     filesort::Entry entry;
     entry.size = file.isDirectory() ? 0 : static_cast<uint32_t>(file.fileSize());
-    entry.modified = file.modificationTime();
+    entry.modified = filetime::added(file);
     entry.name = std::move(name);
     entries.push_back(std::move(entry));
   };
@@ -141,16 +142,6 @@ void FileBrowserActivity::loadFiles() {
   root.close();
   const auto order =
       this->mode == Mode::Books ? static_cast<filesort::Mode>(SETTINGS.fileSort % filesort::COUNT) : filesort::NAME_AZ;
-  if (order == filesort::RECENTLY_OPENED) {
-    const auto& recent = RECENT_BOOKS.getBooks();
-    const std::string prefix = basepath.back() == '/' ? basepath : basepath + "/";
-    for (auto& entry : entries) {
-      const std::string full = prefix + entry.name;
-      const auto hit =
-          std::find_if(recent.begin(), recent.end(), [&full](const RecentBook& b) { return b.path == full; });
-      if (hit != recent.end()) entry.recentRank = static_cast<int>(hit - recent.begin());
-    }
-  }
   std::sort(entries.begin(), entries.end(),
             [order](const filesort::Entry& a, const filesort::Entry& b) { return filesort::before(order, a, b); });
   std::transform(entries.begin(), entries.end(), std::back_inserter(files),
@@ -277,9 +268,9 @@ void FileBrowserActivity::sortActionTrampoline(const fui::ActionEvent&, void* us
 // The gear: how this folder, and every other, is ordered (kos25k #6). Kept until the user changes it.
 void FileBrowserActivity::openSortMenu() {
   app.clearTapFlash();
-  static constexpr StrId SORT_OPTIONS[filesort::COUNT] = {
-      StrId::STR_SORT_NAME_AZ, StrId::STR_SORT_NAME_ZA,  StrId::STR_SORT_NEWEST,         StrId::STR_SORT_OLDEST,
-      StrId::STR_SORT_LARGEST, StrId::STR_SORT_SMALLEST, StrId::STR_SORT_RECENTLY_OPENED};
+  static constexpr StrId SORT_OPTIONS[filesort::COUNT] = {StrId::STR_SORT_NAME_AZ, StrId::STR_SORT_NAME_ZA,
+                                                          StrId::STR_SORT_NEWEST,  StrId::STR_SORT_OLDEST,
+                                                          StrId::STR_SORT_LARGEST, StrId::STR_SORT_SMALLEST};
   optionPopup.show(StrId::STR_SORT_FILES, SORT_OPTIONS, filesort::COUNT, SETTINGS.fileSort % filesort::COUNT,
                    [this](const int index) {
                      if (index < 0 || index >= filesort::COUNT || index == SETTINGS.fileSort) {

@@ -4,6 +4,8 @@
 #include <Logging.h>
 #include <SDCardManager.h>
 #include <esp_heap_caps.h>
+
+#include <algorithm>
 #if FREEINK_CAP_USB_MSC
 #include <UsbMassStorage.h>
 #endif
@@ -262,6 +264,23 @@ uint32_t HalFile::modificationTime() {
   uint16_t time = 0;
   if (!impl || !impl->file.getModifyDateTime(&date, &time) || date == 0) return 0;
   return (static_cast<uint32_t>(date) << 16) | time;
+}
+// The later of when the file was made on the card and when it was last written (kos25k #6). A file copied from a
+// computer keeps its old modified time but gets a new created time on the card, and a file edited since is newer in
+// the modified time, so the larger one is when the file was last added or changed.
+uint32_t HalFile::addedTime() {
+  HalStorage::StorageLock lock;
+  uint16_t date = 0;
+  uint16_t time = 0;
+  uint32_t best = 0;
+  if (impl && impl->file.getModifyDateTime(&date, &time) && date != 0)
+    best = (static_cast<uint32_t>(date) << 16) | time;
+  date = 0;
+  time = 0;
+  if (impl && impl->file.getCreateDateTime(&date, &time) && date != 0) {
+    best = std::max(best, (static_cast<uint32_t>(date) << 16) | time);
+  }
+  return best;
 }
 bool HalFile::seek(size_t pos) { HAL_FILE_WRAPPED_CALL(seekSet, pos); }
 bool HalFile::seek64(uint64_t pos) { HAL_FILE_WRAPPED_CALL(seekSet, pos); }

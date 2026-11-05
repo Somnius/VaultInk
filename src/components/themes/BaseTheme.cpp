@@ -542,7 +542,7 @@ void BaseTheme::drawHeader(const GfxRenderer& renderer, Rect rect, const char* t
   drawConnectivity(ui.frame.target(), band, props);
   fui::Rect home;
   if (headerHomeRect(band, home)) {
-    ui.frame.target().bitmap(home, fui::bitmapFromIcon(icon_house_24), fui::BitmapMode::Center);
+    ui.frame.target().bitmap(home, fui::bitmapFromIcon(icon_house_moon_24), fui::BitmapMode::Center);
   }
 }
 

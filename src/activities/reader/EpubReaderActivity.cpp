@@ -3679,9 +3679,37 @@ void EpubReaderActivity::buildMoreActions() {
                                          CLIPPINGS.hasClippings(), isVaultNote(), FAVOURITES.contains(epub->getPath()));
   moreItems.erase(std::remove_if(moreItems.begin(), moreItems.end(),
                                  [](const auto& item) {
-                                   return item.action == MA::SELECT_CHAPTER || item.action == MA::TEXT_SETTINGS;
+                                   // Frontlight and Night Mode live in the quick settings, not here (kos25k #12).
+                                   return item.action == MA::SELECT_CHAPTER || item.action == MA::TEXT_SETTINGS ||
+                                          item.action == MA::FRONTLIGHT || item.action == MA::NIGHT_MODE;
                                  }),
                   moreItems.end());
+  // Search, Go to % and Go to page lead; the favourite toggle, screenshot, QR, delete cache and Go home close the
+  // list; everything else keeps its order in between (kos25k #12).
+  static constexpr MA FIRST[] = {MA::SEARCH_BOOK, MA::GO_TO_PERCENT, MA::GO_TO_PAGE};
+  static constexpr MA LAST[] = {MA::TOGGLE_FAVOURITE, MA::SCREENSHOT, MA::DISPLAY_QR, MA::DELETE_CACHE, MA::GO_HOME};
+  std::vector<EpubReaderMenuActivity::MenuItem> ordered;
+  ordered.reserve(moreItems.size());
+  const auto take = [&](const MA action) {
+    const auto it =
+        std::find_if(moreItems.begin(), moreItems.end(), [action](const auto& m) { return m.action == action; });
+    if (it == moreItems.end()) return;
+    ordered.push_back(*it);
+    moreItems.erase(it);
+  };
+  for (const MA action : FIRST) take(action);
+  std::vector<EpubReaderMenuActivity::MenuItem> last;
+  for (const MA action : LAST) {
+    const auto it =
+        std::find_if(moreItems.begin(), moreItems.end(), [action](const auto& m) { return m.action == action; });
+    if (it != moreItems.end()) {
+      last.push_back(*it);
+      moreItems.erase(it);
+    }
+  }
+  ordered.insert(ordered.end(), moreItems.begin(), moreItems.end());
+  ordered.insert(ordered.end(), last.begin(), last.end());
+  moreItems = std::move(ordered);
 }
 
 std::string EpubReaderActivity::moreRowName(int row) const {

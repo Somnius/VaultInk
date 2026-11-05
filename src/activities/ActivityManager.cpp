@@ -136,6 +136,17 @@ void ActivityManager::loop() {
   if (currentActivity) {
     // The house icon at the top of a header (kos25k #17): straight home, also from the quick
     // settings panel, whose own home gesture only closes it.
+    // A long press on the house puts the device to sleep (kos25k #17); the tap still goes home.
+    int homeX = 0;
+    int homeY = 0;
+    if (!HeaderHomeTapTarget::hidden && mappedInput.hasTouch() && mappedInput.peekScreenLongPress(homeX, homeY) &&
+        HeaderHomeTapTarget::contains(homeX, homeY)) {
+      mappedInput.takeScreenLongPress();
+      haptic_feedback::touchAction();
+      HeaderHomeTapTarget::clear();
+      requestSleep();
+      return;
+    }
     if (!HeaderHomeTapTarget::hidden && mappedInput.hasTouch() && mappedInput.wasHeaderHomeTap()) {
       haptic_feedback::touchAction();
       HeaderHomeTapTarget::clear();

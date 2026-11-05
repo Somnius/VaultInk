@@ -13,7 +13,7 @@ std::string text(const std::string& path);
 // Any other file or folder: name, size and when it was last changed.
 std::string fileText(const std::string& path);
 
-// FAT date and time as packed by HalFile::modificationTime(), as "2026-11-01 01:46"; "" when unknown.
+// FAT date and time as packed by HalFile::addedTime(), as "2026-11-01 01:46"; "" when unknown.
 std::string modifiedText(uint32_t packed);
 
 // When to show the info popup opened from another popup's choice: a little after that popup closed,

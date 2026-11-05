@@ -11,6 +11,7 @@
 #include "FavouritesStore.h"
 #include "RecentBooksStore.h"
 #include "util/BookProgress.h"
+#include "util/FileTime.h"
 
 namespace bookinfo {
 namespace {
@@ -70,7 +71,7 @@ std::string fileText(const std::string& path) {
   if (Storage.openFileForRead("INFO", clean.c_str(), file)) {
     if (!file.isDirectory())
       out += " · " + std::string(tr(STR_INFO_SIZE)) + " " + sizeText(static_cast<uint32_t>(file.fileSize()));
-    const std::string modified = modifiedText(file.modificationTime());
+    const std::string modified = modifiedText(filetime::added(file));
     if (!modified.empty()) out += " · " + std::string(tr(STR_INFO_MODIFIED)) + " " + modified;
     file.close();
   }
@@ -86,7 +87,7 @@ std::string text(const std::string& path) {
   HalFile file;
   if (Storage.openFileForRead("INFO", path.c_str(), file)) {
     fileSize = static_cast<uint32_t>(file.fileSize());
-    modified = modifiedText(file.modificationTime());
+    modified = modifiedText(filetime::added(file));
     file.close();
   }
 

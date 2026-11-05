@@ -16,15 +16,13 @@ enum Mode : uint8_t {
   OLDEST = 3,
   LARGEST = 4,
   SMALLEST = 5,
-  RECENTLY_OPENED = 6,
-  COUNT = 7,
+  COUNT = 6,
 };
 
 struct Entry {
   std::string name;       // a folder ends with '/'
   uint32_t size = 0;      // bytes; 0 for a folder
   uint32_t modified = 0;  // FAT packed date and time (date << 16 | time), 0 when unknown
-  int recentRank = -1;    // position in the recently opened list, 0 = latest; -1 = not in it
 };
 
 // True when `a` comes before `b`.
@@ -47,12 +45,6 @@ inline bool before(const Mode mode, const Entry& a, const Entry& b) {
     case SMALLEST:
       if (!aDir && a.size != b.size) return a.size < b.size;
       break;
-    case RECENTLY_OPENED: {
-      const int ra = a.recentRank < 0 ? 1 << 20 : a.recentRank;
-      const int rb = b.recentRank < 0 ? 1 << 20 : b.recentRank;
-      if (ra != rb) return ra < rb;
-      break;
-    }
     case NAME_AZ:
     default:
       break;

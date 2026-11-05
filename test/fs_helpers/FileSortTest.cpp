@@ -53,14 +53,6 @@ TEST(FileSort, SizeOrdersFilesAndKeepsFoldersByName) {
             (std::vector<std::string>{"Art/", "Docs/", "a.epub", "c.epub", "b.epub"}));
 }
 
-TEST(FileSort, RecentlyOpenedPutsUnopenedLastByName) {
-  auto entries = sample();
-  entries[0].recentRank = 1;  // b.epub
-  entries[3].recentRank = 0;  // c.epub
-  EXPECT_EQ(sorted(filesort::RECENTLY_OPENED, entries),
-            (std::vector<std::string>{"Art/", "Docs/", "c.epub", "b.epub", "a.epub"}));
-}
-
 TEST(FileSort, NaturalNumbersWithinAMode) {
   EXPECT_EQ(sorted(filesort::NAME_AZ, {{"10.epub"}, {"2.epub"}, {"1.epub"}}),
             (std::vector<std::string>{"1.epub", "2.epub", "10.epub"}));

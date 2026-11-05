@@ -194,7 +194,7 @@ void VaultInkHomeUi::drawCardFooter(UiScreen& screen, const fui::Rect rect, cons
   text.align = fui::TextAlign::Center;
   target.text(fui::Rect{x, y, width, line}, tr(STR_CONTINUE_READING), text);
   if (progress < 0) return;
-  y = static_cast<int16_t>(y + line + 4);
+  y = static_cast<int16_t>(y + line + 1);  // the label sits close above its bar (kos25k #14)
   const int16_t rowH = line > FOOTER_BAR ? line : FOOTER_BAR;
   text.align = fui::TextAlign::Left;
   const int16_t labelW = target.measureText(text.font, progressText, text).width;
@@ -223,7 +223,10 @@ void VaultInkHomeUi::drawCard(UiScreen& screen, fui::Rect rect) {
     auto& target = screen.frame().target();
     fui::TextStyle title = theme.titleText;
     title.bold = true;
-    const int16_t column = static_cast<int16_t>(rect.width - 2 * CARD_PAD - CARD_COVER_HEIGHT * 2 / 3 - theme.spaceLg);
+    // A favourite's star takes a strip at the right, so the title has that much less room (it wrapped to two lines
+    // on a real screen while the author still showed, and Continue Reading ran into it: kos25k #14).
+    const int16_t column = static_cast<int16_t>(rect.width - 2 * CARD_PAD - CARD_COVER_HEIGHT * 2 / 3 - theme.spaceLg -
+                                                (favourite ? STAR_STRIP : 0));
     if (target.measureText(title.font, card.title, title).width > column) card.author = nullptr;
   }
   card.meta = nullptr;

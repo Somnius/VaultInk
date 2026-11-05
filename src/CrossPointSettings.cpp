@@ -319,7 +319,8 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   if (doc["galleryFilter"].is<uint8_t>()) galleryFilter = doc["galleryFilter"].as<uint8_t>() % 4;
   if (doc["lockMode"].is<uint8_t>()) lockMode = doc["lockMode"].as<uint8_t>() % 3;
   if (doc["libraryBooksOnly"].is<uint8_t>()) libraryBooksOnly = doc["libraryBooksOnly"].as<uint8_t>() ? 1 : 0;
-  if (doc["fileSort"].is<uint8_t>()) fileSort = doc["fileSort"].as<uint8_t>() % 7;
+  if (doc["fileSort"].is<uint8_t>())
+    fileSort = doc["fileSort"].as<uint8_t>() % 6;  // 6 was Recently opened, taken out (kos25k #6)
   if (doc["libraryFormatMask"].is<uint8_t>()) libraryFormatMask = doc["libraryFormatMask"].as<uint8_t>() & 127;
   if (libraryFormatMask == 0) libraryFormatMask = 127;  // nothing ticked would be an empty Library
   // A mask saved before 0.67.0 knows nothing of MOBI: list it, the user can untick it.
