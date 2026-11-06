@@ -19,14 +19,17 @@ class LibraryFormatsActivity final : public UiListActivity {
   void onExit() override;
 
  private:
-  static constexpr int COUNT = 8;  // All, then the seven formats
-  int listCount() const override { return COUNT; }
+  static constexpr int LIBRARY_COUNT = 8;   // All, then the seven book formats
+  static constexpr int BROWSER_COUNT = 11;  // ... and Pictures, Drawings and ZIP files (Browse Files only)
+  int listCount() const override { return browser ? BROWSER_COUNT : LIBRARY_COUNT; }
   void buildScreen(UiScreen& screen) override;
   void activateIndex(int index) override;
   const char* headerTitle() const override;
 
-  freeink::ui::ListItem rowItems[COUNT]{};
-  uint8_t mask = library::FMT_ALL;
+  freeink::ui::ListItem rowItems[BROWSER_COUNT]{};
+  uint16_t mask = library::BROWSE_ALL;
   bool browser = false;
-  uint8_t& stored() const;
+  uint16_t stored() const;
+  void store(uint16_t value) const;
+  uint16_t allMask() const { return browser ? library::BROWSE_ALL : library::FMT_ALL; }
 };

@@ -124,7 +124,10 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   if (lockMode != 0) doc["lockMode"] = lockMode;
   if (libraryBooksOnly != 0) doc["libraryBooksOnly"] = libraryBooksOnly;
   if (fileSort != 0) doc["fileSort"] = fileSort;
-  if (browserFormatMask != 127) doc["browserFormatMask"] = browserFormatMask;
+  if (browserFormatMask != 1023) {
+    doc["browserFormatMask"] = browserFormatMask;
+    doc["browserFormatMaskV"] = 2;  // 2 = pictures, drawings and zips have switches (0.72.0)
+  }
   if (libraryFormatMask != 127) {
     doc["libraryFormatMask"] = libraryFormatMask;
     doc["libraryFormatMaskV"] = 2;  // 2 = has the MOBI bit (0.67.0)
@@ -320,8 +323,10 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   if (doc["galleryFilter"].is<uint8_t>()) galleryFilter = doc["galleryFilter"].as<uint8_t>() % 4;
   if (doc["lockMode"].is<uint8_t>()) lockMode = doc["lockMode"].as<uint8_t>() % 3;
   if (doc["libraryBooksOnly"].is<uint8_t>()) libraryBooksOnly = doc["libraryBooksOnly"].as<uint8_t>() ? 1 : 0;
-  if (doc["browserFormatMask"].is<uint8_t>()) browserFormatMask = doc["browserFormatMask"].as<uint8_t>() & 127;
-  if (browserFormatMask == 0) browserFormatMask = 127;
+  if (doc["browserFormatMask"].is<uint16_t>()) browserFormatMask = doc["browserFormatMask"].as<uint16_t>() & 1023;
+  // A mask saved by 0.71.0 only knew the seven book formats: the new switches start on.
+  if (!doc["browserFormatMaskV"].is<uint8_t>()) browserFormatMask |= 896;
+  if ((browserFormatMask & 127) == 0) browserFormatMask = 1023;
   if (doc["fileSort"].is<uint8_t>())
     fileSort = doc["fileSort"].as<uint8_t>() % 6;  // 6 was Recently opened, taken out (kos25k #6)
   if (doc["libraryFormatMask"].is<uint8_t>()) libraryFormatMask = doc["libraryFormatMask"].as<uint8_t>() & 127;

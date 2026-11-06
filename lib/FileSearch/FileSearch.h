@@ -41,6 +41,11 @@ class Walker {
 
   Walker(DirectorySource& source, const std::string& root, const std::string& query, bool showHidden);
 
+  // Files for which this returns false are never hits (Browse Files' File types switches reach the search too).
+  // Folders are not filtered.
+  using FileFilter = bool (*)(const std::string& name);
+  void setFileFilter(FileFilter filter) { fileFilter = filter; }
+
   // Reads one folder: its matches join hits(), its sub folders join the queue. False when there is
   // nothing left to read (or the hit cap is reached); the matches so far stay.
   bool step();
@@ -61,6 +66,7 @@ class Walker {
   DirectorySource& source;
   std::string folded;  // the query, folded; empty = nothing matches
   bool showHidden;
+  FileFilter fileFilter = nullptr;
   std::vector<Pending> pending;  // a stack: depth first, so one folder's files come together
   std::vector<Hit> hits;
   std::vector<Entry> entries;  // reused per step

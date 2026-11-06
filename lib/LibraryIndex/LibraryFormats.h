@@ -46,6 +46,33 @@ inline uint8_t formatBitOf(std::string_view name) {
   return 0;
 }
 
+// Browse Files (0.72.0, kos25k #6): the seven book formats above plus three more switches. A wider mask than the
+// Library's, which stays at seven bits.
+inline constexpr uint16_t BROWSE_PICTURES = 128;
+inline constexpr uint16_t BROWSE_DRAWINGS = 256;  // .canvas and .excalidraw / .excalidraw.md
+inline constexpr uint16_t BROWSE_ZIP = 512;
+inline constexpr uint16_t BROWSE_ALL = 1023;
+
+// The Browse Files switch a file belongs to; 0 for anything without one (it always shows).
+inline uint16_t browseBitOf(std::string_view name) {
+  using detail::endsWithNoCase;
+  if (endsWithNoCase(name, ".canvas") || endsWithNoCase(name, ".excalidraw") ||
+      endsWithNoCase(name, ".excalidraw.md")) {
+    return BROWSE_DRAWINGS;
+  }
+  if (endsWithNoCase(name, ".zip")) return BROWSE_ZIP;
+  if (endsWithNoCase(name, ".jpg") || endsWithNoCase(name, ".jpeg") || endsWithNoCase(name, ".png") ||
+      endsWithNoCase(name, ".bmp") || endsWithNoCase(name, ".gif")) {
+    return BROWSE_PICTURES;
+  }
+  return formatBitOf(name);
+}
+
+inline bool browseAllowed(uint16_t mask, std::string_view name) {
+  const uint16_t bit = browseBitOf(name);
+  return bit == 0 || (mask & bit) != 0;
+}
+
 inline bool formatAllowed(uint8_t mask, std::string_view name) {
   const uint8_t bit = formatBitOf(name);
   return bit == 0 || (mask & bit) != 0;

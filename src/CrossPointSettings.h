@@ -469,7 +469,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t fileSort = 0;
   // Browse Files shows only the ticked book formats (0.71.0, kos25k #6); 127 = all. Folders and other types always
   // show.
-  uint8_t browserFormatMask = 127;
+  uint16_t browserFormatMask = 1023;  // BROWSE_ALL in LibraryFormats.h
   uint8_t libraryFormatButton = 1;
   uint32_t libraryTabOrder = 0;  // the order of the Library tabs, util/LibraryTabOrder.h; 0 = default
   uint8_t libraryStartTab = 0;   // the tab the Library opens on: 0 Recent, 1 Title, 2 Author, 3 Favourites, 4 Folders

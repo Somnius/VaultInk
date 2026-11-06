@@ -40,6 +40,10 @@ class FileBrowserActivity final : public UiListActivity {
   static void sortActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
   void openSortMenu();
   void openSortOptions();
+  static constexpr freeink::ui::ActionId ACTION_REFRESH = ACTION_USER + 2;
+  static void refreshActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
+  uint16_t loadedFormats = 0;  // the File types and sort the listing was made with: a change reloads it
+  uint8_t loadedSort = 0;
   void openSearch();
   void showInFolder(const std::string& path);
   std::string revealName;      // a search hit to list although the browser would not (any extension, kos25k #13)

@@ -38,6 +38,7 @@ bool Walker::step() {
   for (const Entry& entry : entries) {
     if (skipped(entry.name, showHidden)) continue;
     if (entry.isDirectory && current.depth < MAX_DEPTH) subFolders.push_back(entry.name);
+    if (!entry.isDirectory && fileFilter && !fileFilter(entry.name)) continue;
     if (foldName(entry.name).find(folded) != std::string::npos) {
       if (hits.size() < MAX_HITS) {
         hits.push_back({entry.name, current.path, entry.isDirectory});

@@ -2,6 +2,17 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.72.0 (2026-11-06)
+
+File types that show, more of them, a refresh button and wider rows in Browse Files (kos25k #6, #15).
+
+- **File types** (kos25k #6): switches for **Pictures**, **Drawings** (canvas and Excalidraw) and **ZIP files** next to the book formats, with All at the top. They apply to the search results too. Browse Files now lists the folder again whenever the choice (or the sort) is different from what it shows, however you came back to it: on a real reader the choice didn't always show (kos25k's "nothing changes").
+- **Refresh** (kos25k #6): a button left of the gear that reads the folder again, so a file you just copied over Wi-Fi shows.
+- **Wider rows** (kos25k #15): the icons sit closer to the left edge and the file type closer to the right edge, so long titles show more.
+- A Browse Files choice saved in 0.71.0 keeps the book formats and starts with pictures, drawings and zips on.
+
+Tried in the simulator, not on a device.
+
 ## 0.71.0 (2026-11-06)
 
 A bigger house and moon, the Bluetooth mark that stays, and File types in Browse Files (kos25k #17, #6).

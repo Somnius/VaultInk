@@ -75,6 +75,20 @@ TEST(FileSearch, MatchesFoldersAndAnyExtension) {
   EXPECT_EQ(hits[1].folder, "/Classics");
 }
 
+TEST(FileSearch, AFileFilterDropsFilesButNotFolders) {
+  FakeCard card;
+  card.dir("/", "Books");
+  card.file("/Books", "Books-1.epub");
+  card.file("/Books", "Books-2.pdf");
+  filesearch::Walker walker(card, "/", "books", false);
+  walker.setFileFilter(
+      [](const std::string& name) { return name.size() > 4 && name.substr(name.size() - 4) == ".pdf"; });
+  const auto hits = runAll(walker);
+  ASSERT_EQ(hits.size(), 2u);
+  EXPECT_EQ(hits[0].name, "Books");  // a folder always stays
+  EXPECT_EQ(hits[1].name, "Books-2.pdf");
+}
+
 TEST(FileSearch, StepsOneFolderAtATime) {
   FakeCard card;
   card.dir("/", "A");

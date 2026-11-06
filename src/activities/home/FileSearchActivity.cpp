@@ -4,6 +4,7 @@
 #include <GfxRenderer.h>
 #include <HalStorage.h>
 #include <I18n.h>
+#include <LibraryFormats.h>
 #include <Logging.h>
 #include <Memory.h>
 #include <Utf8.h>
@@ -125,6 +126,8 @@ void FileSearchActivity::startSearch(const std::string& text) {
     LOG_ERR("FileSearch", "OOM: walker");
     return;
   }
+  // The File types switches of Browse Files apply to the hits too (kos25k #6).
+  next->setFileFilter([](const std::string& name) { return library::browseAllowed(SETTINGS.browserFormatMask, name); });
   {
     RenderLock lock;
     walker = std::move(next);

@@ -78,6 +78,8 @@ FileBrowserActivity::FileBrowserActivity(GfxRenderer& renderer, MappedInputManag
 
 void FileBrowserActivity::loadFiles() {
   files.clear();
+  loadedFormats = SETTINGS.browserFormatMask;  // what this listing was filtered with
+  loadedSort = SETTINGS.fileSort;
   filetypeicon::forget();  // files may have moved, so the folders' types are counted again
   prewarmedStart = -1;     // new folder contents: re-prewarm the visible window
 
@@ -132,7 +134,7 @@ void FileBrowserActivity::loadFiles() {
         if (FsHelpers::checkFileExtension(filename, ".bin")) {
           addEntry(std::string(filename), file);
         }
-      } else if (this->mode == Mode::Books && !library::formatAllowed(SETTINGS.browserFormatMask, filename) &&
+      } else if (this->mode == Mode::Books && !library::browseAllowed(SETTINGS.browserFormatMask, filename) &&
                  filename != revealName) {
         continue;  // a book format switched off in the gear's File types (kos25k #6)
       } else if (FsHelpers::hasReflowableBookExtension(filename) || FsHelpers::hasXtcExtension(filename) ||
@@ -259,11 +261,23 @@ void FileBrowserActivity::onEnter() {
   if (mode == Mode::Books) {
     app.on(ACTION_SEARCH, &FileBrowserActivity::searchActionTrampoline, this);
     app.on(ACTION_SORT, &FileBrowserActivity::sortActionTrampoline, this);
+    app.on(ACTION_REFRESH, &FileBrowserActivity::refreshActionTrampoline, this);
   }
 }
 
 void FileBrowserActivity::searchActionTrampoline(const fui::ActionEvent&, void* user) {
   static_cast<FileBrowserActivity*>(user)->openSearch();
+}
+
+void FileBrowserActivity::refreshActionTrampoline(const fui::ActionEvent&, void* user) {
+  auto* self = static_cast<FileBrowserActivity*>(user);
+  self->app.clearTapFlash();
+  const std::string keep = self->nav.selected >= 0 && self->nav.selected < static_cast<int>(self->files.size())
+                               ? self->files[self->nav.selected]
+                               : std::string();
+  self->loadFiles();  // reads the folder again: files added or moved since show up (kos25k #6)
+  self->nav.selected = keep.empty() ? 0 : static_cast<int>(self->findEntry(keep));
+  self->requestUpdate();
 }
 
 void FileBrowserActivity::sortActionTrampoline(const fui::ActionEvent&, void* user) {
@@ -709,6 +723,16 @@ void FileBrowserActivity::transferInto(const std::string& srcPath, const std::st
 
 bool FileBrowserActivity::handleCustomInput() {
   if (optionPopup.handleInput(mappedInput, [this] { requestUpdate(); })) return true;
+  // File types or the sort changed while this screen was away (or the screen came back some other way): list the
+  // folder again so the choice always shows (kos25k #6).
+  if (mode == Mode::Books && !optionPopup.isActive() &&
+      (loadedFormats != SETTINGS.browserFormatMask || loadedSort != SETTINGS.fileSort)) {
+    loadFiles();
+    nav.top = 0;
+    nav.selected = 0;
+    requestUpdate();
+    return true;
+  }
   if (infoAt != 0 && millis() >= infoAt && !optionPopup.isActive()) {
     infoAt = 0;
     static const char* const OK[] = {"OK"};
@@ -844,6 +868,15 @@ void FileBrowserActivity::buildScreen(UiScreen& screen) {
         screen.frame(),
         fui::Rect{static_cast<int16_t>(x - size - 22), static_cast<int16_t>(metrics.topPadding + 22), size, size},
         gear);
+    // Refresh: the folder is read again, a little left of the gear.
+    fui::ButtonProps refresh;
+    refresh.icon = fui::bitmapFromIcon(icon_refresh_cw_32);
+    refresh.action = ACTION_REFRESH;
+    refresh.minTouchSize = 44;
+    fui::button(
+        screen.frame(),
+        fui::Rect{static_cast<int16_t>(x - 2 * (size + 22)), static_cast<int16_t>(metrics.topPadding + 22), size, size},
+        refresh);
     fui::ButtonProps search;
     search.icon = fui::bitmapFromIcon(icon_search_32);
     search.action = ACTION_SEARCH;
@@ -897,8 +930,12 @@ void FileBrowserActivity::buildScreen(UiScreen& screen) {
   props.action = ACTION_ROW;
   // Tap opens/navigates; long-press shows entry actions (physical buttons stay in loop()).
   props.inputMask = fui::InputTouch | fui::InputLongPress;
-  props.valueInset = 8;  // air between the extension and the row edge
-  props.iconSize = 44;   // the type-in-icon bitmaps (kos25k #15); the plain 32 px ones sit centred in it
+  props.valueInset = 2;  // air between the extension and the row edge
+  // Names run closer to both edges, and the extension sits closer to the title (kos25k #15).
+  props.sidePadding = 6;
+  props.rowInset = 4;
+  props.textGap = 8;
+  props.iconSize = 44;  // the type-in-icon bitmaps (kos25k #15); the plain 32 px ones sit centred in it
   // Names use up to two small-font lines; shared list layout sizes each row.
   fui::TextStyle label = screen.theme().smallText;
   label.maxLines = 2;

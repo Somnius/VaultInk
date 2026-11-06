@@ -327,6 +327,14 @@ TEST(LibraryFormats, BitsAndMask) {
   EXPECT_TRUE(formatAllowed(FMT_ALL, "x.cbz"));
   EXPECT_FALSE(formatAllowed(FMT_EPUB | FMT_PDF, "x.txt"));
   EXPECT_TRUE(formatAllowed(FMT_EPUB, "x.canvas"));  // not covered by the filter
+  // Browse Files switches: book formats and pictures, drawings and zips; unknown types always show.
+  EXPECT_FALSE(browseAllowed(BROWSE_ALL & ~BROWSE_PICTURES, "a.PNG"));
+  EXPECT_TRUE(browseAllowed(BROWSE_ALL & ~BROWSE_PICTURES, "a.epub"));
+  EXPECT_FALSE(browseAllowed(BROWSE_ALL & ~BROWSE_DRAWINGS, "board.canvas"));
+  EXPECT_FALSE(browseAllowed(BROWSE_ALL & ~BROWSE_DRAWINGS, "sketch.excalidraw.md"));
+  EXPECT_FALSE(browseAllowed(BROWSE_ALL & ~BROWSE_ZIP, "files.zip"));
+  EXPECT_FALSE(browseAllowed(BROWSE_ALL & ~static_cast<uint16_t>(FMT_MOBI), "a.azw3"));
+  EXPECT_TRUE(browseAllowed(0, "firmware.bin"));
   // The home Books count: books only, and only the ticked formats.
   EXPECT_TRUE(countsAsBook(FMT_ALL, "a.epub"));
   EXPECT_TRUE(countsAsBook(FMT_ALL, "a.PDF"));
