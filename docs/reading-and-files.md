@@ -388,13 +388,14 @@ all, if you prefer a ragged right edge.
 
 Three changes to the file browser and the lists (kos25k #6, #14, #15):
 
+- **File types** (0.71.0): the gear opens a short menu, **Sort files** and **File types**. File types has a switch for EPUB, PDF, TXT, Markdown, XTC / XTCH, CBZ and MOBI / AZW, with **All** on top to tick them all; the ones you switch off don't show in Browse Files. Folders and other files (pictures, drawings, zips) always show. The Library's own format list has an All row too.
 - **Sort gear**: a gear left of the magnifier opens **Sort files**: name A to Z or Z to A, newest or oldest first, largest or smallest first. Date means when the file was added to the card or last changed (the later of its created and modified time), the same time Info shows. Folders always come first. It applies in every folder, and it is kept until you change it. Folders have no size, so for size they stay in name order.
 - **File type inside the icon**: books show a page icon with their type written in it (EPUB, PDF, MOBI, AZW, TXT, MD, XTC, CBZ), and a folder shows a folder icon with the type that most of its files have (counted the first time you see it, up to 300 files). The icons are bigger than before, in Browse Files and in the Library lists.
 - **Favourites star**: a book that is in your favourites has a ★ before its file type in Browse Files, at the right of the Continue Reading card on the home screen, and at the right of the book card in the quick settings (swipe down in a book).
 
 ## Wi-Fi and Bluetooth marks (0.69.0)
 
-The house icon at the top has a small crescent moon in its roof (0.70.0): tap it for the home screen, long-press it to put the device to sleep.
+The home button at the top (0.71.0) is a house, a slash and a crescent moon side by side: tap it for the home screen, long-press it to put the device to sleep. It shows on the home screen too, where a tap does nothing. The Bluetooth mark stays for as long as the Bluetooth Page Turner is on, with a ! until a remote is connected.
 
 A small Wi-Fi mark appears in the top strip, left of the battery, as soon as Wi-Fi is switched on, with a **!** next to it until it is connected to a network (a hotspot you started counts as connected). The same for the Bluetooth page turner. Both are gone when the radio is off (kos25k #17).
 

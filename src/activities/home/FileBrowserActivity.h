@@ -39,6 +39,7 @@ class FileBrowserActivity final : public UiListActivity {
   static constexpr freeink::ui::ActionId ACTION_SORT = ACTION_USER + 1;
   static void sortActionTrampoline(const freeink::ui::ActionEvent& event, void* user);
   void openSortMenu();
+  void openSortOptions();
   void openSearch();
   void showInFolder(const std::string& path);
   std::string revealName;      // a search hit to list although the browser would not (any extension, kos25k #13)

@@ -148,6 +148,7 @@ void ActivityManager::loop() {
       return;
     }
     if (!HeaderHomeTapTarget::hidden && mappedInput.hasTouch() && mappedInput.wasHeaderHomeTap()) {
+      if (currentActivity->isHomeActivity()) return;  // already home
       haptic_feedback::touchAction();
       HeaderHomeTapTarget::clear();
       goHome();
@@ -219,7 +220,8 @@ void ActivityManager::loop() {
 
       } else {
         currentActivity = std::move(stackActivities.back());
-        HeaderHomeTapTarget::hidden = currentActivity && currentActivity->isHomeActivity();
+        // The house and moon show on the home screen too (kos25k #17): a tap there does nothing, a long press sleeps.
+        HeaderHomeTapTarget::hidden = false;
         stackActivities.pop_back();
         LOG_DBG("ACT", "Popped from activity stack, new size = %zu", stackActivities.size());
         // Handle result if necessary
@@ -266,7 +268,8 @@ void ActivityManager::loop() {
       ++screenVisit;
       pendingAction = PendingAction::None;
       currentActivity = std::move(pendingActivity);
-      HeaderHomeTapTarget::hidden = currentActivity && currentActivity->isHomeActivity();
+      // The house and moon show on the home screen too (kos25k #17): a tap there does nothing, a long press sleeps.
+      HeaderHomeTapTarget::hidden = false;
 
       lock.unlock();  // onEnter may acquire its own lock
       currentActivity->onEnter();
@@ -308,7 +311,8 @@ void ActivityManager::replaceActivity(std::unique_ptr<Activity>&& newActivity) {
   } else {
     // No current activity, safe to launch immediately
     currentActivity = std::move(newActivity);
-    HeaderHomeTapTarget::hidden = currentActivity && currentActivity->isHomeActivity();
+    // The house and moon show on the home screen too (kos25k #17): a tap there does nothing, a long press sleeps.
+    HeaderHomeTapTarget::hidden = false;
     currentActivity->onEnter();
   }
 }

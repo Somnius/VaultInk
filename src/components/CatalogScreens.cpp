@@ -64,7 +64,7 @@ void catalogScreenHeader(UiAppHost::UiScreen& screen, const GfxRenderer& rendere
   BaseTheme::drawConnectivity(screen.frame().target(), band, header);
   fui::Rect home;
   if (BaseTheme::headerHomeRect(band, home)) {
-    screen.frame().target().bitmap(home, fui::bitmapFromIcon(icon_house_moon_24), fui::BitmapMode::Center);
+    screen.frame().target().bitmap(home, fui::bitmapFromIcon(icon_house_sleep_56x24), fui::BitmapMode::Center);
   }
   screen.setContentMarginFromScreen(
       fui::Insets{static_cast<int16_t>(metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing), 0,

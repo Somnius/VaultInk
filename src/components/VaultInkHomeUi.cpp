@@ -3,6 +3,7 @@
 #include <BoardConfig.h>
 #include <FreeInkUIIcon.h>
 #include <GfxRenderer.h>
+#include <HalGPIO.h>
 #include <I18n.h>
 
 #include <algorithm>
@@ -176,7 +177,11 @@ void VaultInkHomeUi::draw(UiScreen& screen) {
   screen.setContentMarginFromScreen(
       fui::Insets{static_cast<int16_t>(metrics.topPadding + metrics.batteryBarHeight), static_cast<int16_t>(safe.x),
                   static_cast<int16_t>(metrics.buttonHintsHeight), static_cast<int16_t>(safe.x)});
-  screen.insetContent(fui::Insets{theme.spaceSm, theme.spaceLg, theme.spaceSm, theme.spaceLg});
+  // The house and moon at the top centre are 24 px tall in a 20 px strip: the Continue Reading card sits a little
+  // lower so they don't touch it (kos25k #17).
+  const int16_t homeButtonRoom = SETTINGS.headerHomeButton && gpio.hasTouch() ? 8 : 0;
+  screen.insetContent(
+      fui::Insets{static_cast<int16_t>(theme.spaceSm + homeButtonRoom), theme.spaceLg, theme.spaceSm, theme.spaceLg});
   if (hasContinueReading) {
     drawCard(screen, screen.takeTop(static_cast<int16_t>(CARD_COVER_HEIGHT + 2 * CARD_PAD), theme.spaceLg));
   }

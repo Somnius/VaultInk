@@ -19,27 +19,38 @@ constexpr Format FORMATS[] = {
 };
 }  // namespace
 
+uint8_t& LibraryFormatsActivity::stored() const {
+  return browser ? SETTINGS.browserFormatMask : SETTINGS.libraryFormatMask;
+}
+
 void LibraryFormatsActivity::onEnter() {
   UiListActivity::onEnter();
-  mask = SETTINGS.libraryFormatMask;
+  mask = stored();
 }
 
 void LibraryFormatsActivity::onExit() {
-  if (mask != SETTINGS.libraryFormatMask) {
-    SETTINGS.libraryFormatMask = mask;
+  if (mask != stored()) {
+    stored() = mask;
     SETTINGS.saveToFile();
   }
   Activity::onExit();
 }
 
-const char* LibraryFormatsActivity::headerTitle() const { return tr(STR_LIBRARY_FORMATS); }
+const char* LibraryFormatsActivity::headerTitle() const {
+  return browser ? tr(STR_FILE_TYPES) : tr(STR_LIBRARY_FORMATS);
+}
 
 void LibraryFormatsActivity::activateIndex(const int index) {
   if (index < 0 || index >= COUNT) return;
   nav.selected = index;
   app.clearTapFlash();
-  const uint8_t next = mask ^ FORMATS[index].bit;
-  if (next != 0) mask = next;  // the Library never goes empty by accident
+  if (index == 0) {  // All: every format at once
+    mask = library::FMT_ALL;
+    requestUpdate();
+    return;
+  }
+  const uint8_t next = mask ^ FORMATS[index - 1].bit;
+  if (next != 0) mask = next;  // the list never goes empty by accident
   requestUpdate();
 }
 
@@ -50,9 +61,9 @@ void LibraryFormatsActivity::buildScreen(UiScreen& screen) {
   screen.spacer(static_cast<int16_t>(metrics.verticalSpacing));
   for (int i = 0; i < COUNT; ++i) {
     rowItems[i] = fui::ListItem{};
-    rowItems[i].label = FORMATS[i].label;
+    rowItems[i].label = i == 0 ? tr(STR_LIBRARY_SHOW_ALL) : FORMATS[i - 1].label;
     rowItems[i].toggle = true;
-    rowItems[i].toggleChecked = (mask & FORMATS[i].bit) != 0;
+    rowItems[i].toggleChecked = i == 0 ? mask == library::FMT_ALL : (mask & FORMATS[i - 1].bit) != 0;
     rowItems[i].actionValue = static_cast<int16_t>(i);
   }
   fui::ListProps props;

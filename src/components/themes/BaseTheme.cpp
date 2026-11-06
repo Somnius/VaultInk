@@ -409,7 +409,9 @@ void BaseTheme::drawConnectivity(freeink::ui::DrawTarget& target, const freeink:
     marks[count++] = {&icon_wifi_16, !hotspot && WiFi.status() != WL_CONNECTED};
   }
   const bleturner::Status ble = bleturner::status();
-  if (ble.running || ble.starting || ble.connecting || ble.connected) {
+  // On as long as the page turner is switched on: the radio itself stops after a while idle, and the mark used to
+  // vanish with it (kos25k #17).
+  if (SETTINGS.ble.enabled || ble.running || ble.starting || ble.connecting || ble.connected) {
     marks[count++] = {&icon_bluetooth_16, !ble.connected};
   }
   if (count == 0) return;
@@ -450,12 +452,14 @@ bool BaseTheme::headerHomeRect(const freeink::ui::Rect band, freeink::ui::Rect& 
     HeaderHomeTapTarget::clear();
     return false;
   }
+  // House, slash and moon side by side (kos25k #17): 56 x 24.
   constexpr int16_t SIZE = 24;
-  icon = freeink::ui::Rect{static_cast<int16_t>(band.x + (band.width - SIZE) / 2), band.y, SIZE, SIZE};
+  constexpr int16_t WIDTH = 56;
+  icon = freeink::ui::Rect{static_cast<int16_t>(band.x + (band.width - WIDTH) / 2), band.y, WIDTH, SIZE};
   // A finger-sized target: well beyond the small icon sideways, and from the very top edge of the
   // screen (a finger lands above the icon as often as on it) to just under the strip.
   constexpr int16_t SIDE = 48;
-  HeaderHomeTapTarget::set(icon.x - SIDE, 0, SIZE + 2 * SIDE, band.y + SIZE + 16);
+  HeaderHomeTapTarget::set(icon.x - SIDE, 0, WIDTH + 2 * SIDE, band.y + SIZE + 16);
   return true;
 }
 
@@ -542,7 +546,7 @@ void BaseTheme::drawHeader(const GfxRenderer& renderer, Rect rect, const char* t
   drawConnectivity(ui.frame.target(), band, props);
   fui::Rect home;
   if (headerHomeRect(band, home)) {
-    ui.frame.target().bitmap(home, fui::bitmapFromIcon(icon_house_moon_24), fui::BitmapMode::Center);
+    ui.frame.target().bitmap(home, fui::bitmapFromIcon(icon_house_sleep_56x24), fui::BitmapMode::Center);
   }
 }
 

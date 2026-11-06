@@ -4,6 +4,7 @@
 #include <GfxRenderer.h>
 #include <HalStorage.h>
 #include <I18n.h>
+#include <LibraryFormats.h>
 #include <Memory.h>
 #include <Utf8.h>
 
@@ -20,6 +21,7 @@
 #include "MappedInputManager.h"
 #include "RecentBooksStore.h"
 #include "activities/ActivityManager.h"
+#include "activities/settings/LibraryFormatsActivity.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
@@ -130,6 +132,9 @@ void FileBrowserActivity::loadFiles() {
         if (FsHelpers::checkFileExtension(filename, ".bin")) {
           addEntry(std::string(filename), file);
         }
+      } else if (this->mode == Mode::Books && !library::formatAllowed(SETTINGS.browserFormatMask, filename) &&
+                 filename != revealName) {
+        continue;  // a book format switched off in the gear's File types (kos25k #6)
       } else if (FsHelpers::hasReflowableBookExtension(filename) || FsHelpers::hasXtcExtension(filename) ||
                  FsHelpers::hasCbzExtension(filename) || FsHelpers::hasImageExtension(filename) ||
                  FsHelpers::hasCanvasExtension(filename) || FsHelpers::hasExcalidrawExtension(filename) ||
@@ -268,6 +273,25 @@ void FileBrowserActivity::sortActionTrampoline(const fui::ActionEvent&, void* us
 // The gear: how this folder, and every other, is ordered (kos25k #6). Kept until the user changes it.
 void FileBrowserActivity::openSortMenu() {
   app.clearTapFlash();
+  // The gear: Sort files, or File types (kos25k #6).
+  static constexpr StrId GEAR_OPTIONS[] = {StrId::STR_SORT_FILES, StrId::STR_FILE_TYPES};
+  optionPopup.show(StrId::STR_BROWSE_FILES, GEAR_OPTIONS, 2, 0, [this](const int index) {
+    if (index == 1) {
+      auto types = makeUniqueNoThrow<LibraryFormatsActivity>(renderer, mappedInput, true);
+      if (!types) return;
+      startActivityForResult(std::move(types), [this](const ActivityResult&) {
+        loadFiles();
+        nav.top = 0;
+        nav.selected = 0;
+        requestUpdate();
+      });
+      return;
+    }
+    openSortOptions();
+  });
+}
+
+void FileBrowserActivity::openSortOptions() {
   static constexpr StrId SORT_OPTIONS[filesort::COUNT] = {StrId::STR_SORT_NAME_AZ, StrId::STR_SORT_NAME_ZA,
                                                           StrId::STR_SORT_NEWEST,  StrId::STR_SORT_OLDEST,
                                                           StrId::STR_SORT_LARGEST, StrId::STR_SORT_SMALLEST};

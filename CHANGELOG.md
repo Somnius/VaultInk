@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.71.0 (2026-11-06)
+
+A bigger house and moon, the Bluetooth mark that stays, and File types in Browse Files (kos25k #17, #6).
+
+- **House and moon** (kos25k #17): the home button at the top is now a house, a slash and a crescent moon side by side, the moon the same size as the house. A tap anywhere on it goes home, a long press anywhere on it puts the device to sleep. It shows on the home screen too (a tap there does nothing, a long press sleeps), and the Continue Reading card sits a little lower so they don't touch.
+- **Bluetooth mark** (kos25k #17): it stays in the top strip for as long as the Bluetooth Page Turner is switched on, with a ! until a remote is connected and without it once one is. It used to follow the radio, which stops when idle, so it came and went.
+- **File types** (kos25k #6): the gear in Browse Files has a second row, File types, with a switch for EPUB, PDF, TXT, Markdown, XTC / XTCH, CBZ and MOBI / AZW, and All at the top to tick them all. Folders and other files (pictures, drawings, zips) always show. The Library's format list got an All row too.
+
+Tried in the simulator, not on a device.
+
 ## 0.70.0 (2026-11-05)
 
 Reading presets, a tidier More menu, a sleep long press on the house, and fixes (kos25k #12, #17, #14, #6).
