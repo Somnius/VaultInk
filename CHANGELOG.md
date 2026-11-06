@@ -2,6 +2,14 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.72.2 (2026-11-07)
+
+Folder icons follow File types (kos25k #6).
+
+- **Folder icons** (kos25k #6): a folder shows the file type most of its files have, written inside the folder icon (TXT, MD, EPUB...). That count ignored the File types switches, so a folder of text files still said TXT after TXT was switched off, which looked like the text files were still listed. The count now leaves out the types you switched off.
+
+Tried in the simulator, not on a device.
+
 ## 0.72.1 (2026-11-06)
 
 The house on File Transfer, and long names in Browse Files (kos25k #17, #15).

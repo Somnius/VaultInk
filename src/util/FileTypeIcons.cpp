@@ -2,12 +2,14 @@
 
 #include <FsHelpers.h>
 #include <HalStorage.h>
+#include <LibraryFormats.h>
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
 #include <vector>
 
+#include "CrossPointSettings.h"
 #include "components/icons/fileTypeIcons.h"
 
 namespace fui = freeink::ui;
@@ -65,6 +67,7 @@ uint8_t dominantKind(const std::string& path) {
     for (auto file = dir.openNextFile(); file && seen < 300; file = dir.openNextFile(), ++seen) {
       if (file.isDirectory()) continue;
       file.getName(name, sizeof(name));
+      if (!library::browseAllowed(SETTINGS.browserFormatMask, name)) continue;  // a type switched off in File types
       const uint8_t kind = kindOf(name);
       if (kind != NONE) ++counts[kind];
     }
