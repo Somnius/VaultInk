@@ -156,6 +156,30 @@ void FileBrowserActivity::loadFiles() {
   if (mode == Mode::PickFolder) files.insert(files.begin(), HERE_ENTRY);
 }
 
+// A name too long for its two lines is cut with two dots, and the extension follows straight after, so the
+// last dot meets the extension's dot (kos25k #15). The list would otherwise cut it with one wide "…" and
+// leave a gap before the extension. A guess at the two lines' room, with a margin; short names are untouched.
+void FileBrowserActivity::cutLongName() {
+  if (rowExtBuf[0] == '\0') return;
+  const int fontId = uiScaleSpec().smallFontId;
+  const int room = renderer.getScreenWidth() - 2 * 6 - 2 * 4 - 44 - 8 - 2;  // sides, insets, icon, gap
+  const int ext = renderer.getTextWidth(fontId, rowExtBuf);
+  const int whole = renderer.getTextWidth(fontId, rowNameBuf) + ext + 8;
+  const int capacity = (2 * room * 9) / 10;  // wrapping wastes a little at the first line's end
+  if (whole <= capacity) return;
+  size_t len = strlen(rowNameBuf);
+  char cut[sizeof(rowNameBuf)];
+  snprintf(cut, sizeof(cut), "%s", rowNameBuf);
+  while (len > 1) {
+    --len;
+    while (len > 1 && (static_cast<unsigned char>(rowNameBuf[len]) & 0xC0) == 0x80) --len;  // not inside a character
+    snprintf(cut, sizeof(cut), "%.*s..%s", static_cast<int>(len), rowNameBuf, rowExtBuf);
+    if (renderer.getTextWidth(fontId, cut) <= capacity) break;
+  }
+  snprintf(rowNameBuf, sizeof(rowNameBuf), "%s", cut);
+  rowExtBuf[0] = '\0';
+}
+
 // fui::ListProps::rowProvider — formats row `index` from files[index] into the
 // activity's scratch buffers on demand. Runs on the render task only for the
 // rows the list actually lays out, so nothing per-file is materialized beyond
@@ -177,12 +201,13 @@ void FileBrowserActivity::provideRow(void* ctx, const uint16_t index, fui::ListI
   formatFileName(entry, self->rowNameBuf, sizeof(self->rowNameBuf));
   item.label = self->rowNameBuf;
   formatFileExtension(entry, self->rowExtBuf, sizeof(self->rowExtBuf));
+  self->cutLongName();
   // A favourite book shows a star before its file type (kos25k #14).
   if (!entry.empty() && entry.back() != '/' &&
       FAVOURITES.contains(self->basepath + (self->basepath.back() == '/' ? "" : "/") + entry)) {
     char kind[16];
     snprintf(kind, sizeof(kind), "%s", self->rowExtBuf);
-    snprintf(self->rowExtBuf, sizeof(self->rowExtBuf), "\xE2\x98\x85 %s", kind);
+    snprintf(self->rowExtBuf, sizeof(self->rowExtBuf), kind[0] ? "\xE2\x98\x85 %s" : "\xE2\x98\x85", kind);
   }
   if (self->rowExtBuf[0] != '\0') {
     item.value = self->rowExtBuf;

@@ -2,6 +2,15 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.72.1 (2026-11-06)
+
+The house on File Transfer, and long names in Browse Files (kos25k #17, #15).
+
+- **House and moon on File Transfer** (kos25k #17): once the reader was connected and ready to transfer, a tap on the house did nothing, because that screen reads the touch itself while it serves the files and only looked for Back. A tap now goes home there too.
+- **Long names** (kos25k #15): a name too long for its two lines is cut with two dots, and the file type follows straight after, so the last dot meets the dot of the extension.
+
+Tried in the simulator, not on a device. The File Transfer screen needs Wi-Fi, so that fix is checked in the code only.
+
 ## 0.72.0 (2026-11-06)
 
 File types that show, more of them, a refresh button and wider rows in Browse Files (kos25k #6, #15).
