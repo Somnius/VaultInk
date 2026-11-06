@@ -10,7 +10,7 @@ class GfxRenderer;
 namespace rowfit {
 
 // `name` without its extension, `ext` with its dot (may be empty), `star` a prefix such as "★ " (may be empty).
-std::string nameAndType(GfxRenderer& renderer, int fontId, int width, int maxLines, const std::string& star,
+std::string nameAndType(const GfxRenderer& renderer, int fontId, int width, int maxLines, const std::string& star,
                         const std::string& name, const std::string& ext);
 
 }  // namespace rowfit

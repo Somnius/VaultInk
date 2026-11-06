@@ -6,7 +6,7 @@ namespace {
 constexpr const char* ELLIPSIS = "\xe2\x80\xa6";
 
 // Whether the text wraps into at most maxLines without the list having to cut it.
-bool fits(GfxRenderer& renderer, const int fontId, const int width, const int maxLines, const std::string& text) {
+bool fits(const GfxRenderer& renderer, const int fontId, const int width, const int maxLines, const std::string& text) {
   if (renderer.getTextWidth(fontId, text.c_str()) <= width) return true;
   const auto lines = renderer.wrappedText(fontId, text.c_str(), width, maxLines);
   if (static_cast<int>(lines.size()) > maxLines) return false;
@@ -23,7 +23,7 @@ size_t boundary(const std::string& name, size_t at) {
 
 namespace rowfit {
 
-std::string nameAndType(GfxRenderer& renderer, const int fontId, const int width, const int maxLines,
+std::string nameAndType(const GfxRenderer& renderer, const int fontId, const int width, const int maxLines,
                         const std::string& star, const std::string& name, const std::string& ext) {
   const std::string plain = star + name;
   if (ext.empty()) return plain;
