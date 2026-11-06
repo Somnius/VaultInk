@@ -81,8 +81,7 @@ void FileBrowserActivity::loadFiles() {
   files.clear();
   loadedFormats = SETTINGS.browserFormatMask;  // what this listing was filtered with
   loadedSort = SETTINGS.fileSort;
-  filetypeicon::forget();  // files may have moved, so the folders' types are counted again
-  prewarmedStart = -1;     // new folder contents: re-prewarm the visible window
+  prewarmedStart = -1;  // new folder contents: re-prewarm the visible window
 
   auto root = Storage.open(basepath.c_str());
   if (!root || !root.isDirectory()) {
@@ -191,11 +190,8 @@ void FileBrowserActivity::provideRow(void* ctx, const uint16_t index, fui::ListI
   }
   // The file type is written inside the icon: a page for a book, a folder for a folder (kos25k #15).
   item.icon = listIconFor(UITheme::getFileIcon(entry), 32);
-  if (entry.back() == '/') {
-    filetypeicon::forFolder(self->basepath + (self->basepath.back() == '/' ? "" : "/") + entry, item.icon);
-  } else {
-    filetypeicon::forFile(entry, item.icon);
-  }
+  // A folder keeps the plain folder icon (kos25k #6): no per-folder look inside, and nothing to read while drawing.
+  if (entry.back() != '/') filetypeicon::forFile(entry, item.icon);
   item.actionValue = static_cast<int16_t>(index);
 }
 

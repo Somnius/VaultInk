@@ -2,6 +2,14 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.72.4 (2026-11-07)
+
+Plain folder icons (kos25k #6).
+
+- **Folders** (kos25k #6): every folder has the plain folder icon again. The file type written inside it (0.69.0) is gone: it looked like the folder held only that type, and it read the folder from the card for every row. Files keep the type inside their page icon.
+
+Tried in the simulator, not on a device.
+
 ## 0.72.3 (2026-11-07)
 
 Names that use both lines, in Browse Files and the Library (kos25k #15).
