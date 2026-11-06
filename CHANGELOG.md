@@ -2,6 +2,15 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.72.3 (2026-11-07)
+
+Names that use both lines, in Browse Files and the Library (kos25k #15).
+
+- **Browse Files**: the file type no longer sits in a column at the far right. A short name has it right after the name, a long one runs over both lines and is cut with two dots only where the second line really ends, with the file type last; a name that fills both lines on its own shows no file type.
+- **Library**: the icon sits closer to the left edge, the progress % comes right after it, then the title on up to two lines, and the file type after the title on the same rules. The author stays on the line below.
+
+Tried in the simulator, not on a device.
+
 ## 0.72.2 (2026-11-07)
 
 Folder icons follow File types (kos25k #6).

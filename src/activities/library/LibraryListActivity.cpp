@@ -37,6 +37,7 @@
 #include "util/BookProgress.h"
 #include "util/FileTypeIcons.h"
 #include "util/LibraryTabOrder.h"
+#include "util/RowFit.h"
 
 namespace fui = freeink::ui;
 
@@ -1390,7 +1391,10 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
   props.action = ACTION_ROW;
   props.inputMask = fui::InputTouch | fui::InputLongPress;
   props.labelText = screen.theme().bodyText;
-  props.labelText.maxLines = 1;
+  props.labelText.maxLines = 2;
+  props.sidePadding = 6;
+  props.rowInset = 4;
+  props.textGap = 8;
   // Breathing room between rows; the dense theme default packs the two-line
   // rows edge-to-edge.
   props.rowGap = std::max<int16_t>(screen.theme().listRowGap, 6);
@@ -1420,6 +1424,7 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
     std::string& author = winAuthors[static_cast<size_t>(rows)];
     fui::ListItem item;
     rowFile.clear();
+    std::string percentPrefix;
     if (folders && folderTab()) {
       folderNameFor(entry, title);
       std::string& books = winCounts[static_cast<size_t>(rows)];
@@ -1470,24 +1475,19 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
           formatInitialHeading(initial, heading);
         item.sectionHeading = heading.c_str();
       }
-      if (authorGrouped) {
-        // The author is the heading above the rows, so the line under the title holds the percent alone.
-        const int percent = percentForEntry(entry);
-        if (percent >= 0) {
-          std::string& line = winCounts[static_cast<size_t>(rows)];
-          line = std::to_string(percent) + "%";
-          item.subtitle = line.c_str();
-        }
-      } else {
-        const int percent = percentForEntry(entry);
-        if (percent >= 0) {
-          if (!author.empty()) author += "  ";
-          author += std::to_string(percent) + "%";
-        }
-        if (!author.empty()) item.subtitle = author.c_str();
-      }
+      // The progress sits right of the icon, before the title (kos25k #15); the line under holds the author.
+      const int percent = percentForEntry(entry);
+      if (percent >= 0) percentPrefix = std::to_string(percent) + "%  ";
+      if (!authorGrouped && !author.empty()) item.subtitle = author.c_str();
     }
 
+    if (!rowFile.empty()) {
+      // One label with the progress first and the file type last, using both lines (kos25k #15).
+      const size_t dot = rowFile.rfind('.');
+      const std::string ext = dot == std::string::npos ? std::string() : rowFile.substr(dot);
+      const int room = renderer.getScreenWidth() - 2 * 4 - 2 - 2 * 6 - 44 - 8 - 12;
+      title = rowfit::nameAndType(renderer, uiScaleSpec().bodyFontId, room, 2, percentPrefix, title, ext);
+    }
     item.label = title.c_str();
     // Group headings stay bare; every book row gets its file-type icon.
     if (!rowFile.empty()) {

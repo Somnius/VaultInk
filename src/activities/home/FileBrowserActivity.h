@@ -68,7 +68,6 @@ class FileBrowserActivity final : public UiListActivity {
   static constexpr size_t ROW_NAME_BUF_SIZE = 512;  // NAME_BUFFER_SIZE + "[]" + terminator slack
   char rowNameBuf[ROW_NAME_BUF_SIZE]{};
   char rowExtBuf[24]{};
-  void cutLongName();
   static void provideRow(void* ctx, uint16_t index, freeink::ui::ListItem& item);
 
   // CJK fallback glyphs are prewarmed for a bounded window of rows around the
