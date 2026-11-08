@@ -490,6 +490,9 @@ its text properly (most do), and the filled-in values of form fields (a characte
 page's text). It checked out on 30 real PDFs (character sheets, notes saved from a phone, print exports): all opened, and
 the word count matched the desktop tool `pdftotext` within a few percent on 28 of them.
 
+A tinted (filled) box around text, such as a callout or a code block, shows as a line of twelve em dashes above and below
+that text (0.72.5). Chart frames, table borders, page backgrounds and pages with many boxes get none.
+
 What it doesn't: pictures, tables as tables, more than four columns, page numbers as pages, and
 scans without a text layer. Two, three or four columns (0.56.0) are read column by column when the page has clear gutters (a title across all of them is kept in place). A file whose fonts carry no text map (so the letters can't be told) says the text can't be read, instead of showing garbage (0.56.0). A scan says "This PDF has no text to read". A PDF locked with a password you need to open it says so (PDFs that are only locked against copying or printing, with no password to open, are read: RC4, AES-128 and, from 0.56.0, AES-256). A PDF you have read
 shows in Recent and on the Continue card (opening it from there goes straight to the text). Since 0.58.0 PDFs are also listed in the Library (the PDF row in Book formats), and you can still find one in Browse Files or by its link.

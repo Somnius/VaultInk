@@ -1420,8 +1420,16 @@ struct Fragment {
   std::string text;
 };
 
+// A filled or stroked rectangle on the page (a callout, a note box): x across, row down like Fragment.
+struct BoxRect {
+  double x0, x1, r0, r1;
+};
+
 struct PageText {
   std::vector<Fragment> frags;
+  std::vector<BoxRect> rects;  // at most MAX_RECTS; past that the page is a table or a grid and has none
+  bool rectsOverflow = false;
+  static constexpr size_t MAX_RECTS = 48;
   size_t bytes = 0;
   size_t maxBytes = 0;
   size_t keptGlyphs = 0;     // glyphs shown (the share that droppedGlyphs is weighed against)
@@ -1581,6 +1589,62 @@ std::vector<size_t> columnOrder(const std::vector<Fragment>& frags) {
 
 // The page's text: fragments in reading order, with the spaces, line joins and paragraph breaks their
 // positions imply.
+// The rectangles worth marking: big enough to hold text, never all of the page's text, and few (more is a table).
+// Each fragment gets the smallest one around its centre, or -1.
+constexpr size_t MAX_BOXES = 6;
+
+std::vector<int> boxOfFragments(const PageText& page) {
+  std::vector<int> box(page.frags.size(), -1);
+  if (page.rectsOverflow || page.rects.empty()) return box;
+  const size_t n = page.rects.size();
+  std::vector<int> count(n, 0);
+  std::vector<int> best(page.frags.size(), -1);
+  for (size_t i = 0; i < page.frags.size(); ++i) {
+    const Fragment& f = page.frags[i];
+    const double cx = (f.x0 + f.x1) / 2;
+    double bestArea = 0;
+    for (size_t k = 0; k < n; ++k) {
+      const BoxRect& r = page.rects[k];
+      if (r.r1 - r.r0 < 1.5 * f.size || r.x1 - r.x0 < 4 * f.unit) continue;  // a rule, an underline, a cell edge
+      if (cx < r.x0 || cx > r.x1 || f.row < r.r0 || f.row > r.r1 + 0.3 * f.size) continue;
+      const double area = (r.x1 - r.x0) * (r.r1 - r.r0);
+      if (best[i] < 0 || area < bestArea) {
+        best[i] = static_cast<int>(k);
+        bestArea = area;
+      }
+    }
+    if (best[i] >= 0) ++count[static_cast<size_t>(best[i])];
+  }
+  // A callout holds sentences. A chart or a figure frame holds many short labels, and a page background holds
+  // most of the page: both are left out.
+  std::vector<size_t> letters(n, 0);  // code points of text in each box
+  for (size_t i = 0; i < best.size(); ++i) {
+    if (best[i] < 0) continue;
+    for (const char c : page.frags[i].text) {
+      if ((static_cast<uint8_t>(c) & 0xC0) != 0x80) ++letters[static_cast<size_t>(best[i])];
+    }
+  }
+  for (size_t k = 0; k < n; ++k) {
+    if (count[k] == 0) continue;
+    const bool background = page.frags.size() >= 4 && count[k] * 5 >= static_cast<int>(page.frags.size()) * 4;
+    if (background || letters[k] < 12 || letters[k] < 6 * static_cast<size_t>(count[k])) count[k] = 0;
+  }
+  for (size_t i = 0; i < best.size(); ++i) {
+    if (best[i] >= 0 && count[static_cast<size_t>(best[i])] == 0) best[i] = -1;
+  }
+  size_t marked = 0;
+  const size_t used = static_cast<size_t>(std::count_if(count.begin(), count.end(), [](int c) { return c > 0; }));
+  if (used > MAX_BOXES) return box;  // that many boxes with text in them is a table, not callouts
+  for (size_t i = 0; i < best.size(); ++i) {
+    if (best[i] >= 0) {
+      box[i] = best[i];
+      ++marked;
+    }
+  }
+  if (marked == box.size()) std::fill(box.begin(), box.end(), -1);  // a frame round everything is no callout
+  return box;
+}
+
 std::string layoutPage(const PageText& page) {
   TextOut out;
   out.maxBytes = page.maxBytes;
@@ -1589,6 +1653,14 @@ std::string layoutPage(const PageText& page) {
     order.resize(page.frags.size());
     for (size_t i = 0; i < order.size(); ++i) order[i] = i;
   }
+  const std::vector<int> boxOf = boxOfFragments(page);
+  static const char* const RULE =
+      "\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94"
+      "\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94";  // twelve em dashes
+  const auto trimEnd = [&] {
+    while (!out.text.empty() && (out.text.back() == ' ' || out.text.back() == '\n')) out.text.pop_back();
+  };
+  int inBox = -1;
   const Fragment* prev = nullptr;
   for (const size_t i : order) {
     const Fragment& f = page.frags[i];
@@ -1598,9 +1670,33 @@ std::string layoutPage(const PageText& page) {
       needSpace = gap > 0.15 * f.unit || gap < -2 * f.unit;
     }
     out.gap(f.row, f.size, needSpace);
+    int box = boxOf[i];
+    if (f.text.find_first_not_of(' ') == std::string::npos) box = inBox;  // a blank piece stays where it is
+    if (box != inBox) {
+      trimEnd();
+      if (inBox >= 0 && box >= 0) {  // one box straight after another: a single divider between them
+        out.text += "\n";
+        out.text += RULE;
+        out.text += "\n";
+      } else if (inBox >= 0) {
+        out.text += "\n";
+        out.text += RULE;
+        out.text += "\n\n";
+      } else {
+        if (!out.text.empty()) out.text += "\n\n";
+        out.text += RULE;
+        out.text += "\n";
+      }
+      inBox = box;
+    }
     out.text += f.text;
     prev = &f;
     if (out.full()) break;
+  }
+  if (inBox >= 0) {
+    trimEnd();
+    out.text += "\n";
+    out.text += RULE;
   }
   return out.text;
 }
@@ -1622,6 +1718,7 @@ class Interpreter {
     double leading = 0, charSpace = 0, wordSpace = 0, hScale = 1;
     Fragment cur;
     bool open = false;
+    std::vector<BoxRect> pathRects;  // `re` rectangles waiting for the paint operator that follows
     const Obj fontDict = doc.resolveKey(resources, "Font");
     const Obj xobjects = doc.resolveKey(resources, "XObject");
 
@@ -1716,6 +1813,31 @@ class Interpreter {
           ctm = saved.back();
           saved.pop_back();
         }
+      } else if (op == "re" && stack.size() >= 4) {
+        // Axis-aligned rectangles only (a rotated or skewed page has no boxes to mark here).
+        if (pathRects.size() >= 8) out.rectsOverflow = true;  // one path of many rectangles is a grid
+        if (std::fabs(ctm.b) < 1e-6 && std::fabs(ctm.c) < 1e-6 && pathRects.size() < 8) {
+          const double x = num(stack.size() - 4), y = num(stack.size() - 3);
+          const double w = num(stack.size() - 2), h = num(stack.size() - 1);
+          const double ax = x * ctm.a + ctm.e, bx = (x + w) * ctm.a + ctm.e;
+          const double ay = y * ctm.d + ctm.f, by = (y + h) * ctm.d + ctm.f;
+          pathRects.push_back(BoxRect{std::min(ax, bx), std::max(ax, bx), -std::max(ay, by), -std::min(ay, by)});
+        }
+      } else if (op == "f" || op == "F" || op == "f*" || op == "B" || op == "B*" || op == "b" || op == "b*" ||
+                 op == "S" || op == "s") {
+        // Filled ones only: a tinted callout is filled, while chart frames and table borders are strokes.
+        const bool filled = op != "S" && op != "s";
+        for (const BoxRect& r : pathRects) {
+          if (!filled) break;
+          if (out.rects.size() < PageText::MAX_RECTS) {
+            out.rects.push_back(r);
+          } else {
+            out.rectsOverflow = true;
+          }
+        }
+        pathRects.clear();
+      } else if (op == "n" || op == "sh") {
+        pathRects.clear();
       } else if (op == "cm" && stack.size() >= 6) {
         ctm = multiply(Matrix{num(0), num(1), num(2), num(3), num(4), num(5)}, ctm);
       } else if (op == "Tf" && stack.size() >= 2) {

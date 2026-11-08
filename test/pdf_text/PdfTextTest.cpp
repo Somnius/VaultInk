@@ -381,3 +381,26 @@ TEST(PdfText, AFileThatNeedsAPasswordIsNotRead) {
   EXPECT_FALSE(run.ok);
   EXPECT_TRUE(run.result.encrypted);
 }
+
+// kos25k #29: a tinted callout is drawn as a filled rectangle behind the text. It gets a line of em dashes
+// above and below, so the box shows in the plain text.
+TEST(PdfText, FilledBoxesGetRuleLines) {
+  const auto run = extract(slurp("reflow-boxes-gr.pdf"));
+  ASSERT_TRUE(run.ok);
+  const std::string rule =
+      "\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94"
+      "\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94";
+  size_t count = 0;
+  for (size_t at = run.text.find(rule); at != std::string::npos; at = run.text.find(rule, at + rule.size())) ++count;
+  EXPECT_EQ(count, 4u);  // two boxes: the callout on page 1 and "Τέλος δοκιμής" on page 3
+  const size_t open = run.text.find(rule);
+  ASSERT_NE(open, std::string::npos);
+  EXPECT_EQ(run.text.compare(open + rule.size(), 3, "\n\xCE\x91"), 0);  // the callout's first word, Αν, follows
+  EXPECT_NE(run.text.find(rule + "\n\xCE\xA4\xCE\xAD\xCE\xBB\xCE\xBF\xCF\x82"), std::string::npos);  // Τέλος
+}
+
+TEST(PdfText, PagesWithoutBoxesStayPlain) {
+  const auto run = extract(slurp("columns.pdf"));
+  ASSERT_TRUE(run.ok);
+  EXPECT_EQ(run.text.find("\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94"), std::string::npos);
+}

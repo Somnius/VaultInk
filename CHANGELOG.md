@@ -2,6 +2,14 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.72.5 (2026-11-08)
+
+PDF boxes show as rule lines (kos25k #29).
+
+- **PDF as text** (kos25k #29): a tinted box in a PDF (a callout, a note, a code block) used to lose its box, because only the words come across. Now a line of twelve em dashes goes above and below the text that sat in a filled box, so you can see where it starts and ends. Only filled boxes count: chart frames, table borders, page backgrounds and pages with many boxes are left alone. A PDF you already opened keeps its old text until it is converted again (delete its folder under `/.vaultink/pdf/` to redo it).
+
+Tried on a computer with his test PDF and about 50 others, not on a device.
+
 ## 0.72.4 (2026-11-07)
 
 Plain folder icons (kos25k #6).
