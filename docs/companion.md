@@ -226,6 +226,10 @@ The byte counting and clipping are in `PhoneText.kt` with JUnit tests (`PhoneTex
 
 ## Releases
 
+The newest app is always at the fixed link
+`https://github.com/Somnius/VaultInk/releases/download/android/vaultink-companion.apk` (release tag `android`, not Latest;
+repoint it by uploading the new APK with `--clobber` after each companion release).
+
 Tag `companion-x.y.z`, asset `vaultink-companion-x.y.z.apk`. A companion release is never marked
 **Latest**: the device's update check reads the latest release, and from 0.29.0 it also ignores
 tags that aren't a plain `x.y.z` version.

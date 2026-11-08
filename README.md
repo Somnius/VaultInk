@@ -27,6 +27,11 @@
   <a href="https://github.com/Somnius/VaultInk/releases">Releases</a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/Somnius/VaultInk/releases/download/android/vaultink-companion.apk"><b>Download the Android companion app (APK)</b></a> ·
+  <a href="docs/companion.md">Companion guide</a>
+</p>
+
 VaultInk is firmware for the Xteink X4 Pro e-reader. It keeps everything
 [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) does for books, and adds
 a way to carry your [Obsidian](https://obsidian.md) notes with you. You can read them, search them
