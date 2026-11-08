@@ -11,6 +11,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Line spacing, 0 to 10](#line-spacing-0-to-10)
 - [Advanced Typography (0.66.0, renamed from Experimental in 0.66.1)](#advanced-typography-0660-renamed-from-experimental-in-0661)
 - [Reading presets](#reading-presets-0700)
+- [Book menu options](#book-menu-options-0730)
 - [The More menu in a book](#the-more-menu-in-a-book-0700)
 - [Go to page](#go-to-page-0680)
 - [Hide Status Bar and the book page number](#hide-status-bar-and-the-book-page-number)
@@ -156,6 +157,10 @@ While a book is open the kerning and ligature switches also apply to the menus d
 ## Reading presets (0.70.0)
 
 **Settings → Reader → Reading presets**, and the last row of the book menu → **More**, keep ten sets of your Text settings (kos25k #12). **Save preset** asks which slot and then for a name (it starts as the slot's own name, "Preset 1" and so on). A preset holds font, size, line spacing, alignment, hyphenation, Focus Reading, Even Word Gaps, word and character spacing, screen margin, paragraph indent and the five Advanced Typography switches. In a book, press a slot and its settings apply at once and the page is laid out again; the slot that matches your current settings shows "In use". They are kept in `/.crosspoint/reading-presets.json`.
+
+## Book menu options (0.73.0)
+
+**Settings → Reader → Book menu options** (the last row) arranges the reader's toolbar panels (kos25k #15). The first row picks the panel, **More** or **Text**. The second says what a tap on an entry does: **moves it** (tap an entry to pick it up, then tap where it goes) or **shows or hides it** (the switch on each row). The last row puts the panel back to the default. In More, **Back** (in a note) and **Go home** can't be hidden, and a panel is never left empty. An entry that only exists sometimes (Footnotes, Bookmarks, a note's Edit) keeps the place you gave it for when it shows up. **Contents** is the chapter list of the book, so there is nothing to arrange there. The classic list menu is not changed.
 
 ## The More menu in a book (0.70.0)
 
@@ -492,6 +497,8 @@ the word count matched the desktop tool `pdftotext` within a few percent on 28 o
 
 A tinted (filled) box around text, such as a callout or a code block, shows as a line of twelve em dashes above and below
 that text (0.72.5). Chart frames, table borders, page backgrounds and pages with many boxes get none.
+
+**Style (0.73.0, kos25k #29).** The converted text keeps a PDF's headings (a short line in a clearly larger font than the body), bold and italic (from the font's name and flags). They show when **Style** is on, and the plain text shows when it is off: Settings → Reader → Text settings → Style, or the **Style** checkbox at the bottom of the book's Text panel (it applies at once). A PDF opened before 0.73.0 is converted again the first time you open it. It is the PDF's structure, not its layout: pictures, tables, columns' positions and page breaks are still not kept.
 
 What it doesn't: pictures, tables as tables, more than four columns, page numbers as pages, and
 scans without a text layer. Two, three or four columns (0.56.0) are read column by column when the page has clear gutters (a title across all of them is kept in place). A file whose fonts carry no text map (so the letters can't be told) says the text can't be read, instead of showing garbage (0.56.0). A scan says "This PDF has no text to read". A PDF locked with a password you need to open it says so (PDFs that are only locked against copying or printing, with no password to open, are read: RC4, AES-128 and, from 0.56.0, AES-256). A PDF you have read

@@ -52,6 +52,9 @@ class EpubReaderMenuActivity final : public UiListActivity {
   };
 
   static void toggleBluetooth();
+  // The toolbar's More panel from the classic list: Chapters, Text settings, Frontlight and Night mode have a tool of
+  // their own; Search, Go to % and Go to page lead, and the favourite toggle to Reading presets close the list.
+  static void arrangeMoreItems(std::vector<MenuItem>& items);
   static void buildMenuItems(std::vector<MenuItem>& items, bool hasFootnotes, bool hasBookmarks, bool hasClippings,
                              bool isVaultNote = false, bool isFavourite = false);
 

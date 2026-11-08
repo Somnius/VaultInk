@@ -66,7 +66,11 @@ Status ensureText(const GfxRenderer& renderer, const std::string& pdfPath, std::
   textPath = textPathFor(pdfPath);
   const std::string dir = directoryFor(pdfPath);
   const std::string stampPath = dir + "/stamp.txt";
-  const uint64_t stamp = vaultfiles::sdFs().stamp(pdfPath);
+  // The stamp also carries the converter's version: the text with style marks (0.73.0) replaces what 0.72.5 and
+  // earlier wrote, so a book converted before is converted again the next time it is opened.
+  constexpr uint64_t CONVERTER_VERSION = 0x0300000000000000ULL;
+  const uint64_t fileStamp = vaultfiles::sdFs().stamp(pdfPath);
+  const uint64_t stamp = fileStamp == 0 ? 0 : fileStamp ^ CONVERTER_VERSION;
   uint64_t stored = 0;
   if (stamp != 0 && Storage.exists(textPath.c_str()) && readStamp(stampPath, stored) && stored == stamp) {
     return Status::Ok;
@@ -101,6 +105,8 @@ Status ensureText(const GfxRenderer& renderer, const std::string& pdfPath, std::
     pending.clear();
   };
   pdf::Result result;
+  pdf::Limits limits;
+  limits.styleMarks = true;  // headings, bold and italic: the reader's Style setting decides if they show
   const bool opened = pdf::extractText(
       src, inflateZlib,
       [&](size_t page, size_t pages, const std::string& text) {
@@ -114,7 +120,7 @@ Status ensureText(const GfxRenderer& renderer, const std::string& pdfPath, std::
           GUI.fillPopupProgress(renderer, popup, static_cast<int>((page + 1) * 100 / pages));
         }
       },
-      &result);
+      &result, limits);
   flushPending("");
   out.flush();
   out.close();

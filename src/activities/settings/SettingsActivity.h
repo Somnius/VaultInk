@@ -33,6 +33,7 @@ enum class SettingAction {
   KeyboardLayouts,
   PaperCycle,
   HomeRows,
+  BookMenuOptions,
   HomeItems,
   LibraryFormats,
   LibraryTabs,

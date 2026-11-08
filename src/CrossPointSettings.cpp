@@ -120,6 +120,10 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   if (homeRowOrder != 0) doc["homeRowOrder"] = homeRowOrder;
   if (libraryTabOrder != 0) doc["libraryTabOrder"] = libraryTabOrder;
   if (homeRowsHidden != 0) doc["homeRowsHidden"] = homeRowsHidden;
+  if (moreMenuOrder[0] != '\0') doc["moreMenuOrder"] = moreMenuOrder;
+  if (moreMenuHidden != 0) doc["moreMenuHidden"] = moreMenuHidden;
+  if (textMenuOrder[0] != '\0') doc["textMenuOrder"] = textMenuOrder;
+  if (textMenuHidden != 0) doc["textMenuHidden"] = textMenuHidden;
   if (galleryFilter != 0) doc["galleryFilter"] = galleryFilter;
   if (lockMode != 0) doc["lockMode"] = lockMode;
   if (libraryBooksOnly != 0) doc["libraryBooksOnly"] = libraryBooksOnly;
@@ -320,6 +324,10 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   if (doc["libraryTabOrder"].is<uint32_t>()) libraryTabOrder = doc["libraryTabOrder"].as<uint32_t>();
   if (doc["homeRowOrder"].is<uint64_t>()) homeRowOrder = doc["homeRowOrder"].as<uint64_t>();
   if (doc["homeRowsHidden"].is<uint16_t>()) homeRowsHidden = doc["homeRowsHidden"].as<uint16_t>();
+  copyToField(moreMenuOrder, doc["moreMenuOrder"] | "", sizeof(moreMenuOrder));
+  if (doc["moreMenuHidden"].is<uint32_t>()) moreMenuHidden = doc["moreMenuHidden"].as<uint32_t>();
+  copyToField(textMenuOrder, doc["textMenuOrder"] | "", sizeof(textMenuOrder));
+  if (doc["textMenuHidden"].is<uint32_t>()) textMenuHidden = doc["textMenuHidden"].as<uint32_t>();
   if (doc["galleryFilter"].is<uint8_t>()) galleryFilter = doc["galleryFilter"].as<uint8_t>() % 4;
   if (doc["lockMode"].is<uint8_t>()) lockMode = doc["lockMode"].as<uint8_t>() % 3;
   if (doc["libraryBooksOnly"].is<uint8_t>()) libraryBooksOnly = doc["libraryBooksOnly"].as<uint8_t>() ? 1 : 0;

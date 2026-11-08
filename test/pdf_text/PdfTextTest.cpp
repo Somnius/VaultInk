@@ -404,3 +404,47 @@ TEST(PdfText, PagesWithoutBoxesStayPlain) {
   ASSERT_TRUE(run.ok);
   EXPECT_EQ(run.text.find("\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94\xE2\x80\x94"), std::string::npos);
 }
+
+Extracted extractStyled(const std::string& bytes) {
+  Extracted run;
+  pdf::Source src;
+  src.size = bytes.size();
+  src.read = [&bytes](uint64_t off, uint8_t* out, size_t len) {
+    if (off + len > bytes.size()) return false;
+    std::copy(bytes.begin() + off, bytes.begin() + off + len, out);
+    return true;
+  };
+  pdf::Limits limits;
+  limits.styleMarks = true;
+  run.ok = pdf::extractText(
+      src, inflater(),
+      [&run](size_t, size_t, const std::string& t) {
+        if (run.pages++) run.text += '\f';
+        run.text += t;
+      },
+      &run.result, limits);
+  return run;
+}
+
+// kos25k #29 (0.73.0): the title is a heading and the callout's bold text is marked; the words are the same.
+TEST(PdfText, StyleMarksMakeHeadingsAndBold) {
+  const auto plain = extract(slurp("reflow-boxes-gr.pdf"));
+  const auto styled = extractStyled(slurp("reflow-boxes-gr.pdf"));
+  ASSERT_TRUE(styled.ok);
+  EXPECT_NE(styled.text.find("\x01"), std::string::npos);  // a heading starts
+  EXPECT_NE(styled.text.find("\x04"), std::string::npos);  // and ends
+  EXPECT_NE(styled.text.find("\x02"), std::string::npos);  // bold on
+  // Without the marks it is the text it was.
+  std::string stripped;
+  for (size_t i = 0; i < styled.text.size(); ++i) {
+    const char c = styled.text[i];
+    if (c == 1) {
+      ++i;  // the heading level after it
+    } else if (c < 1 || c > 4) {
+      stripped += c;
+    }
+  }
+  EXPECT_TRUE(squeeze(stripped) == squeeze(plain.text));  // not EXPECT_EQ: a failure would print the whole text
+  // Marks off by default: plain text has none of the bytes.
+  for (const char c : plain.text) EXPECT_TRUE(c < 1 || c > 4);
+}

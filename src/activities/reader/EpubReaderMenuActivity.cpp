@@ -5,6 +5,8 @@
 #include <HalFrontlight.h>
 #include <I18n.h>
 
+#include <algorithm>
+
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "ReaderUtils.h"
@@ -99,6 +101,43 @@ void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, const 
   items.push_back({MenuAction::TEXT_SETTINGS, StrId::STR_TEXT_SETTINGS});
   // Last in both menus: the classic list and the toolbar's More panel (which drops Text Settings).
   items.push_back({MenuAction::READING_PRESETS, StrId::STR_READING_PRESETS});
+}
+
+void EpubReaderMenuActivity::arrangeMoreItems(std::vector<MenuItem>& items) {
+  using MA = MenuAction;
+  items.erase(std::remove_if(items.begin(), items.end(),
+                             [](const auto& item) {
+                               // Frontlight and Night Mode live in the quick settings, not here (kos25k #12).
+                               return item.action == MA::SELECT_CHAPTER || item.action == MA::TEXT_SETTINGS ||
+                                      item.action == MA::FRONTLIGHT || item.action == MA::NIGHT_MODE;
+                             }),
+              items.end());
+  // Search, Go to % and Go to page lead; the favourite toggle, screenshot, QR, delete cache and Go home close the
+  // list; everything else keeps its order in between (kos25k #12).
+  static constexpr MA FIRST[] = {MA::SEARCH_BOOK, MA::GO_TO_PERCENT, MA::GO_TO_PAGE};
+  static constexpr MA LAST[] = {MA::TOGGLE_FAVOURITE, MA::SCREENSHOT, MA::DISPLAY_QR,
+                                MA::DELETE_CACHE,     MA::GO_HOME,    MA::READING_PRESETS};
+  std::vector<MenuItem> ordered;
+  ordered.reserve(items.size());
+  const auto find = [&items](const MA action) {
+    return std::find_if(items.begin(), items.end(), [action](const auto& m) { return m.action == action; });
+  };
+  for (const MA action : FIRST) {
+    const auto it = find(action);
+    if (it == items.end()) continue;
+    ordered.push_back(*it);
+    items.erase(it);
+  }
+  std::vector<MenuItem> last;
+  for (const MA action : LAST) {
+    const auto it = find(action);
+    if (it == items.end()) continue;
+    last.push_back(*it);
+    items.erase(it);
+  }
+  ordered.insert(ordered.end(), items.begin(), items.end());
+  ordered.insert(ordered.end(), last.begin(), last.end());
+  items = std::move(ordered);
 }
 
 void EpubReaderMenuActivity::toggleBluetooth() {

@@ -2,6 +2,15 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.73.0 (2026-11-08)
+
+Book menu options and PDF style (kos25k #15, #29).
+
+- **Book menu options** (kos25k #15): Settings > Reader > Book menu options (the last row). Pick the **More** or the **Text** panel, then tap an entry to pick it up and tap where it goes, or switch to show or hide and tap an entry to hide it. Reset puts the panel back. Back and Go home in More always stay, and a panel is never left empty. Contents is the chapter list, so it has nothing to arrange.
+- **PDF style** (kos25k #29): a PDF's text now keeps its headings, bold and italic (read from the PDF's font sizes and font names), and the boxes of 0.72.5. They show when Style is on, and a plain text shows when it is off. There is a **Style** checkbox at the bottom of the book's Text panel, and Settings > Reader > Text settings > Style does the same. A PDF is converted again the first time you open it with 0.73.0.
+
+Tried on a computer and in the simulator, not on a device.
+
 ## 0.72.5 (2026-11-08)
 
 PDF boxes show as rule lines (kos25k #29).

@@ -14,6 +14,8 @@
 #include <Logging.h>
 #include <Memory.h>
 #include <TrustedTime.h>
+#include <Txt.h>
+#include <TxtToHtml.h>
 #include <WiFi.h>
 #include <WordSearch.h>
 #include <esp_system.h>
@@ -54,6 +56,7 @@
 #include "SdCardFont.h"
 #include "SdCardFontSystem.h"
 #include "SilentRestart.h"
+#include "TextPanelRows.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/settings/ReadingPresetsActivity.h"
 #include "activities/settings/TextSettingsActivity.h"
@@ -74,6 +77,7 @@
 #include "util/ClippingExport.h"
 #include "util/LineSpacing.h"
 #include "util/LinkUpdate.h"
+#include "util/MenuLayout.h"
 #include "util/PaperTexture.h"
 #include "util/RandomPage.h"
 #include "util/ScreenshotUtil.h"
@@ -279,6 +283,9 @@ bool EpubReaderActivity::loadBook() {
   {
     std::optional<GfxRenderer::FrameBufferLoan> loan;
     if (uncached) loan.emplace(renderer);
+    pdfStyledLoaded = SETTINGS.embeddedStyle != 0;
+    TxtToHtml::setPdfStyled(pdfStyledLoaded);  // a PDF's text: the style marks show or not (kos25k #29)
+    Txt::syncPdfStyle(loadedEpub->getPath(), loadedEpub->getCachePath(), pdfStyledLoaded);
     loaded = loadedEpub->load(true, SETTINGS.embeddedStyle == 0);
   }
   if (!loaded) {
@@ -2976,23 +2983,11 @@ bool EpubReaderActivity::handleSearchInput() {
 namespace {
 // Rows 6-10 (kos25k #12), row 11 Experimental (kos25k #30): the rest of the layout settings, so they change while
 // reading too.
-constexpr StrId kTextRowNames[] = {StrId::STR_FONT,
-                                   StrId::STR_FONT_SIZE,
-                                   StrId::STR_LINE_SPACING,
-                                   StrId::STR_PARA_ALIGNMENT,
-                                   StrId::STR_HYPHENATION,
-                                   StrId::STR_FOCUS_READING,
-                                   StrId::STR_EVEN_WORD_GAPS,
-                                   StrId::STR_WORD_SPACING,
-                                   StrId::STR_CHARACTER_SPACING,
-                                   StrId::STR_SCREEN_MARGIN,
-                                   StrId::STR_PARAGRAPH_INDENTATION,
-                                   StrId::STR_EXPERIMENTAL};
 constexpr const StrId (&kSpacingIds)[CrossPointSettings::LINE_COMPRESSION_COUNT] = LINE_SPACING_IDS;
 constexpr StrId kGapIds[] = {StrId::STR_STATE_OFF, StrId::STR_GAPS_SLIGHT, StrId::STR_GAPS_MEDIUM};
 constexpr StrId kAlignIds[] = {StrId::STR_JUSTIFY, StrId::STR_ALIGN_LEFT, StrId::STR_CENTER, StrId::STR_ALIGN_RIGHT,
                                StrId::STR_BOOK_S_STYLE};
-constexpr int kTextRowCount = static_cast<int>(std::size(kTextRowNames));
+constexpr int kTextRowCount = textpanel::COUNT;
 static_assert(std::size(kSpacingIds) == CrossPointSettings::LINE_COMPRESSION_COUNT, "line spacing labels");
 static_assert(std::size(kAlignIds) == CrossPointSettings::PARAGRAPH_ALIGNMENT_COUNT, "alignment labels");
 }  // namespace
@@ -3012,8 +3007,20 @@ std::string EpubReaderActivity::currentChapterTitle() const {
   return tr(STR_UNNAMED);
 }
 
+// The Text panel's rows as the reader arranged them in Settings > Reader > Book menu options (kos25k #15): the
+// rows' own numbers, in order, without the hidden ones.
+void EpubReaderActivity::buildTextRows() {
+  std::vector<int> defaults(static_cast<size_t>(kTextRowCount));
+  for (int i = 0; i < kTextRowCount; ++i) defaults[static_cast<size_t>(i)] = i;
+  textRows = menulayout::arrange(defaults, SETTINGS.textMenuOrder, SETTINGS.textMenuHidden, 0);
+}
+
+int EpubReaderActivity::textRowAt(const int index) const {
+  return index >= 0 && index < static_cast<int>(textRows.size()) ? textRows[static_cast<size_t>(index)] : -1;
+}
+
 std::string EpubReaderActivity::textRowName(int row) const {
-  return row >= 0 && row < kTextRowCount ? I18N.get(kTextRowNames[row]) : "";
+  return row >= 0 && row < kTextRowCount ? I18N.get(textpanel::ROWS[row]) : "";
 }
 
 std::string EpubReaderActivity::textRowValue(int row) const {
@@ -3217,6 +3224,7 @@ void EpubReaderActivity::openOverlay(Overlay target) {
     }
     case Overlay::Text:
       panelIndex = 0;
+      buildTextRows();
       toolbarUi->nav().reset();
       break;
     case Overlay::More:
@@ -3335,12 +3343,16 @@ void EpubReaderActivity::renderOverlay() {
     };
   } else if (overlay == Overlay::Text) {
     model.panelTitle = tr(STR_TOOL_TEXT);
-    model.itemCount = kTextRowCount;
-    model.rowText = [this](int i) { return textRowName(i); };
-    model.rowValue = [this](int i) { return textRowValue(i); };
-    model.rowCheckbox = [](void*, int i, freeink::ui::ListItem& item) {
-      if (i == 4) GUI.setCheckboxRow(item, SETTINGS.hyphenationEnabled);
-      if (i == 5) GUI.setCheckboxRow(item, SETTINGS.focusReadingEnabled);
+    model.itemCount = static_cast<int>(textRows.size());
+    model.rowText = [this](int i) { return textRowName(textRowAt(i)); };
+    model.rowValue = [this](int i) { return textRowValue(textRowAt(i)); };
+    model.rowCheckboxContext = this;
+    model.rowCheckbox = [](void* ctx, int i, freeink::ui::ListItem& item) {
+      const auto* self = static_cast<EpubReaderActivity*>(ctx);
+      const int row = self->textRowAt(i);
+      if (row == 4) GUI.setCheckboxRow(item, SETTINGS.hyphenationEnabled);
+      if (row == 5) GUI.setCheckboxRow(item, SETTINGS.focusReadingEnabled);
+      if (row == 12) GUI.setCheckboxRow(item, SETTINGS.embeddedStyle != 0);
     };
   } else {
     model.panelTitle = tr(STR_TOOL_MORE);
@@ -3472,7 +3484,7 @@ void EpubReaderActivity::handleOverlayInput() {
 
   // --- Panels (Contents / Text / More) ---
   const int count = overlay == Overlay::Contents ? epub->getTocItemsCount()
-                    : overlay == Overlay::Text   ? kTextRowCount
+                    : overlay == Overlay::Text   ? static_cast<int>(textRows.size())
                                                  : static_cast<int>(moreItems.size());
   const int pageRows = std::max(1, toolbarUi->visibleRows());
 
@@ -3481,7 +3493,8 @@ void EpubReaderActivity::handleOverlayInput() {
   const auto activateRow = [this, count, &fastRedraw] {
     if (panelIndex < 0 || panelIndex >= count) return;
     if (overlay == Overlay::Text) {
-      if (panelIndex == 0) {
+      const int textRow = textRowAt(panelIndex);  // the row's own number, wherever it sits in the panel now
+      if (textRow == 0) {
         // Full font picker (built-in + SD fonts, live preview) -- the same
         // screen Settings uses; a popup cannot scroll a long font list.
         overlay = Overlay::None;
@@ -3500,18 +3513,22 @@ void EpubReaderActivity::handleOverlayInput() {
                                  if (toolbarUi) toolbarUi->begin();  // the picker drew its own FUI screen
                                  requestUpdate();                    // re-render page + Text panel
                                });
-      } else if (panelIndex == 4) {
+      } else if (textRow == 4) {
         // Hyphenation is an on/off that can change while reading (kos25k); the chapter re-paginates.
         SETTINGS.hyphenationEnabled = SETTINGS.hyphenationEnabled ? 0 : 1;
         applyTextSettingLive();
-      } else if (panelIndex == 5) {
+      } else if (textRow == 5) {
         // Focus Reading is a genuine on/off: a tap toggles and applies live.
         SETTINGS.focusReadingEnabled = SETTINGS.focusReadingEnabled ? 0 : 1;
+        applyTextSettingLive();
+      } else if (textRow == 12) {
+        // Style (kos25k #29): a book's own styling on or off; for a PDF's text, its headings, bold and italic.
+        SETTINGS.embeddedStyle = SETTINGS.embeddedStyle ? 0 : 1;
         applyTextSettingLive();
 
       } else {
         // Enum rows open the Settings-style option picker.
-        showTextRowPopup(panelIndex);
+        showTextRowPopup(textRow);
       }
     } else if (overlay == Overlay::Contents) {
       const auto item = epub->getTocItem(panelIndex);
@@ -3673,6 +3690,13 @@ void EpubReaderActivity::applyReaderTextSettings() {
     // Release the old parser and page table before settings serialization needs heap.
     section.reset();  // force re-pagination with the new settings
   }
+  // A PDF's text carries its headings, bold and italic as style marks: the Style setting turns them into tags or drops
+  // them when the book's HTML is made, so a change throws that HTML (and the pages built from it) away.
+  if (epub && TxtToHtml::isPdfText(epub->getPath()) && pdfStyledLoaded != (SETTINGS.embeddedStyle != 0)) {
+    pdfStyledLoaded = SETTINGS.embeddedStyle != 0;
+    TxtToHtml::setPdfStyled(pdfStyledLoaded);
+    Txt::syncPdfStyle(epub->getPath(), epub->getCachePath(), pdfStyledLoaded);
+  }
   SETTINGS.saveToFile();
   // (Re)load or unload the selected SD-card font for the current family/size.
   // The reader otherwise only loads SD fonts on book open, so without this an
@@ -3688,40 +3712,24 @@ void EpubReaderActivity::buildMoreActions() {
   using MA = EpubReaderMenuActivity::MenuAction;
   EpubReaderMenuActivity::buildMenuItems(moreItems, !currentPageFootnotes.empty(), !cachedBookmarks.empty(),
                                          CLIPPINGS.hasClippings(), isVaultNote(), FAVOURITES.contains(epub->getPath()));
-  moreItems.erase(std::remove_if(moreItems.begin(), moreItems.end(),
-                                 [](const auto& item) {
-                                   // Frontlight and Night Mode live in the quick settings, not here (kos25k #12).
-                                   return item.action == MA::SELECT_CHAPTER || item.action == MA::TEXT_SETTINGS ||
-                                          item.action == MA::FRONTLIGHT || item.action == MA::NIGHT_MODE;
-                                 }),
-                  moreItems.end());
-  // Search, Go to % and Go to page lead; the favourite toggle, screenshot, QR, delete cache and Go home close the
-  // list; everything else keeps its order in between (kos25k #12).
-  static constexpr MA FIRST[] = {MA::SEARCH_BOOK, MA::GO_TO_PERCENT, MA::GO_TO_PAGE};
-  static constexpr MA LAST[] = {MA::TOGGLE_FAVOURITE, MA::SCREENSHOT, MA::DISPLAY_QR,
-                                MA::DELETE_CACHE,     MA::GO_HOME,    MA::READING_PRESETS};
-  std::vector<EpubReaderMenuActivity::MenuItem> ordered;
-  ordered.reserve(moreItems.size());
-  const auto take = [&](const MA action) {
-    const auto it =
-        std::find_if(moreItems.begin(), moreItems.end(), [action](const auto& m) { return m.action == action; });
-    if (it == moreItems.end()) return;
-    ordered.push_back(*it);
-    moreItems.erase(it);
-  };
-  for (const MA action : FIRST) take(action);
-  std::vector<EpubReaderMenuActivity::MenuItem> last;
-  for (const MA action : LAST) {
-    const auto it =
-        std::find_if(moreItems.begin(), moreItems.end(), [action](const auto& m) { return m.action == action; });
-    if (it != moreItems.end()) {
-      last.push_back(*it);
-      moreItems.erase(it);
-    }
+  EpubReaderMenuActivity::arrangeMoreItems(moreItems);
+
+  // The reader's own arrangement (kos25k #15): the stored order, without what they hid. Back and Go home stay.
+  std::vector<int> defaults;
+  defaults.reserve(moreItems.size());
+  for (const auto& item : moreItems) defaults.push_back(static_cast<int>(item.action));
+  static_assert(static_cast<int>(MA::READING_PRESETS) < menulayout::MAX_ID, "menu actions fit the layout mask");
+  const uint32_t locked =
+      menulayout::maskOf(static_cast<int>(MA::BACK)) | menulayout::maskOf(static_cast<int>(MA::GO_HOME));
+  const std::vector<int> shown = menulayout::arrange(defaults, SETTINGS.moreMenuOrder, SETTINGS.moreMenuHidden, locked);
+  std::vector<EpubReaderMenuActivity::MenuItem> arranged;
+  arranged.reserve(shown.size());
+  for (const int id : shown) {
+    const auto it = std::find_if(moreItems.begin(), moreItems.end(),
+                                 [id](const auto& item) { return static_cast<int>(item.action) == id; });
+    if (it != moreItems.end()) arranged.push_back(*it);
   }
-  ordered.insert(ordered.end(), moreItems.begin(), moreItems.end());
-  ordered.insert(ordered.end(), last.begin(), last.end());
-  moreItems = std::move(ordered);
+  moreItems = std::move(arranged);
 }
 
 std::string EpubReaderActivity::moreRowName(int row) const {

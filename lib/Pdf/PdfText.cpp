@@ -1102,6 +1102,8 @@ struct Font {
   bool utf16Codes = false;  // Type0 without ToUnicode and a Uni*-UCS2/UTF16 CMap: the codes are UTF-16
   std::string simple[256];  // simple fonts without a ToUnicode map
   bool simpleReady = false;
+  bool bold = false;  // from the font's name and descriptor (style marks, 0.73.0)
+  bool italic = false;
   // Glyph widths in 1/1000 em, to know where a string ends and so where a word space is.
   double defaultWidth = 500;
   int firstChar = 0;
@@ -1316,8 +1318,32 @@ void loadWidths(Doc& doc, const Obj& fontDict, Font& font) {
   }
 }
 
+// Bold and italic, from what the font says about itself: its name ("ABCDEF+Arial-BoldMT") and, for simple fonts, the
+// descriptor's flags (italic bit 7, force-bold bit 19) and weight.
+void loadFontStyle(Doc& doc, const Obj& fontDict, Font& font) {
+  const Obj baseFont = doc.resolveKey(fontDict, "BaseFont");
+  std::string name = baseFont.s;
+  std::transform(name.begin(), name.end(), name.begin(),
+                 [](const char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c + 32) : c; });
+  const auto has = [&name](const char* word) { return name.find(word) != std::string::npos; };
+  font.bold = has("bold") || has("black") || has("heavy");
+  font.italic = has("italic") || has("oblique");
+  const Obj desc = doc.resolveKey(fontDict, "FontDescriptor");
+  if (desc.isDict()) {
+    const Obj flags = doc.resolveKey(desc, "Flags");
+    if (flags.isNum()) {
+      const int64_t f = static_cast<int64_t>(flags.num());
+      if ((f & 64) != 0) font.italic = true;
+      if ((f & 262144) != 0) font.bold = true;
+    }
+    const Obj weight = doc.resolveKey(desc, "FontWeight");
+    if (weight.isNum() && weight.num() >= 700) font.bold = true;
+  }
+}
+
 Font loadFont(Doc& doc, const Obj& fontDict) {
   Font font;
+  loadFontStyle(doc, fontDict, font);
   const Obj subtype = doc.resolveKey(fontDict, "Subtype");
   if (subtype.s == "Type0") font.twoByte = true;
   loadWidths(doc, fontDict, font);
@@ -1417,6 +1443,7 @@ struct Fragment {
   double row = 0;         // smaller is higher on the page
   double size = 10;       // line height scale, for deciding what is a new line
   double unit = 10;       // the em across, for deciding what is a word gap
+  uint8_t style = 0;      // bit 0 bold, bit 1 italic
   std::string text;
 };
 
@@ -1645,7 +1672,22 @@ std::vector<int> boxOfFragments(const PageText& page) {
   return box;
 }
 
-std::string layoutPage(const PageText& page) {
+// Style marks for the converted text (Limits::styleMarks, 0.73.0, kos25k #29), as control bytes the reader turns into
+// tags or drops (lib/Txt/TxtToHtml.cpp): STYLE_BOLD and STYLE_ITALIC switch the style on and off, HEADING_START and a
+// digit 1-3 open a heading and HEADING_END closes it.
+constexpr char STYLE_HEADING_START = '\x01';
+constexpr char STYLE_BOLD = '\x02';
+constexpr char STYLE_ITALIC = '\x03';
+constexpr char STYLE_HEADING_END = '\x04';
+
+// 0 for body text, else 1-3: a short line well above the body size is a heading.
+int headingLevel(const Fragment& f, const double bodySize) {
+  if (bodySize <= 0 || f.size < 1.2 * bodySize || f.text.size() > 240) return 0;
+  const double ratio = f.size / bodySize;
+  return ratio >= 1.8 ? 1 : (ratio >= 1.4 ? 2 : 3);
+}
+
+std::string layoutPage(const PageText& page, const bool marks = false, const double bodySize = 0) {
   TextOut out;
   out.maxBytes = page.maxBytes;
   std::vector<size_t> order = columnOrder(page.frags);
@@ -1660,6 +1702,25 @@ std::string layoutPage(const PageText& page) {
   const auto trimEnd = [&] {
     while (!out.text.empty() && (out.text.back() == ' ' || out.text.back() == '\n')) out.text.pop_back();
   };
+  bool bold = false, italic = false;
+  int heading = 0;
+  const auto setStyle = [&](const bool wantBold, const bool wantItalic) {
+    if (wantBold != bold) out.text += STYLE_BOLD;
+    if (wantItalic != italic) out.text += STYLE_ITALIC;
+    bold = wantBold;
+    italic = wantItalic;
+  };
+  // Ends whatever style is open, before a box edge or the end of the page.
+  const auto closeStyles = [&] {
+    if (!marks) return;
+    setStyle(false, false);
+    if (heading > 0) {
+      trimEnd();  // no line break inside the heading
+      out.text += STYLE_HEADING_END;
+      out.text += "\n\n";
+      heading = 0;
+    }
+  };
   int inBox = -1;
   const Fragment* prev = nullptr;
   for (const size_t i : order) {
@@ -1670,9 +1731,11 @@ std::string layoutPage(const PageText& page) {
       needSpace = gap > 0.15 * f.unit || gap < -2 * f.unit;
     }
     out.gap(f.row, f.size, needSpace);
+    const bool blank = f.text.find_first_not_of(' ') == std::string::npos;
     int box = boxOf[i];
-    if (f.text.find_first_not_of(' ') == std::string::npos) box = inBox;  // a blank piece stays where it is
+    if (blank) box = inBox;  // a blank piece stays where it is
     if (box != inBox) {
+      closeStyles();
       trimEnd();
       if (inBox >= 0 && box >= 0) {  // one box straight after another: a single divider between them
         out.text += "\n";
@@ -1689,10 +1752,36 @@ std::string layoutPage(const PageText& page) {
       }
       inBox = box;
     }
-    out.text += f.text;
+    if (marks && !blank) {
+      const int level = headingLevel(f, bodySize);
+      if (level != heading) {
+        if (heading > 0) {
+          trimEnd();
+          out.text += STYLE_HEADING_END;
+          out.text += "\n\n";
+        }
+        if (level > 0) {
+          setStyle(false, false);
+          trimEnd();
+          if (!out.text.empty()) out.text += "\n\n";
+          out.text += STYLE_HEADING_START;
+          out.text += static_cast<char>('0' + level);
+        }
+        heading = level;
+      }
+      if (heading == 0) setStyle((f.style & 1) != 0, (f.style & 2) != 0);
+    }
+    if (marks) {
+      for (const char c : f.text) {
+        if (c < 1 || c > 4) out.text += c;  // the marks' own bytes never come from the PDF's text
+      }
+    } else {
+      out.text += f.text;
+    }
     prev = &f;
     if (out.full()) break;
   }
+  closeStyles();
   if (inBox >= 0) {
     trimEnd();
     out.text += "\n";
@@ -1745,6 +1834,7 @@ class Interpreter {
         cur.row = trm.d >= 0 ? -trm.f : trm.f;
         cur.size = size * std::max(std::fabs(trm.d), std::fabs(trm.c));
         cur.unit = size * std::hypot(trm.a, trm.b);
+        cur.style = static_cast<uint8_t>((font->bold ? 1 : 0) | (font->italic ? 2 : 0));
         open = true;
       }
       double advance = 0;
@@ -1983,6 +2073,7 @@ bool extractText(const Source& source, const Inflate& inflate,
   size_t visits = 0;
   size_t index = 0;
   std::unordered_map<uint32_t, std::unique_ptr<Font>> fonts;
+  std::map<int, size_t> sizeBytes;  // text per line height (in half points) so far: the body size is the commonest
   const auto handlePage = [&](const Obj& node, const Obj& pageResources) {
     const size_t p = index++;
     PageText pageText;
@@ -2013,7 +2104,21 @@ bool extractText(const Source& source, const Inflate& inflate,
     // A page where most glyphs had no way to text (a CID font without a ToUnicode map) is not text.
     result.droppedGlyphs += pageText.droppedGlyphs;
     if (pageText.droppedGlyphs > pageText.keptGlyphs) pageText.frags.clear();
-    out.text = layoutPage(pageText);
+    double bodySize = 0;
+    if (limits.styleMarks) {
+      for (const Fragment& f : pageText.frags) {
+        const int key = static_cast<int>(f.size * 2 + 0.5);
+        if (key > 0 && (sizeBytes.size() < 200 || sizeBytes.count(key) != 0)) sizeBytes[key] += f.text.size();
+      }
+      size_t most = 0;
+      for (const auto& [key, bytes] : sizeBytes) {
+        if (bytes > most) {
+          most = bytes;
+          bodySize = key / 2.0;
+        }
+      }
+    }
+    out.text = layoutPage(pageText, limits.styleMarks, bodySize);
     // Filled-in form fields (a character sheet): "Name: value" after the page text.
     const Obj annots = doc.resolveKey(node, "Annots");
     if (annots.type == Obj::Arr) {
@@ -2043,6 +2148,10 @@ bool extractText(const Source& source, const Inflate& inflate,
         if (!fields.empty()) fields += '\n';
         if (name.type == Obj::Str && !name.s.empty()) fields += text(name.s) + ": ";
         fields += text(value.s);
+      }
+      if (limits.styleMarks) {  // a field's text must not carry the style marks' own bytes
+        fields.erase(std::remove_if(fields.begin(), fields.end(), [](const char c) { return c >= 1 && c <= 4; }),
+                     fields.end());
       }
       if (!fields.empty()) {
         if (!out.text.empty()) out.text += "\n\n";

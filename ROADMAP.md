@@ -720,5 +720,7 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
 * ✅ (0.72.1, simulator only) #17 house tap on File Transfer once connected (the web server loop swallowed the tap); #15 long names end with two dots meeting the extension's dot. #6 'txt and md still show with the switch off': could not reproduce in the simulator (hidden there), asked which screen.
 * ✅ (0.72.2, simulator only) #6 'txt and md still appear' was folders drawn with the TXT/MD type icon (the type count ignored File types); the count now follows the switches.
 * ✅ (0.72.3, simulator only) #15 Browse Files and Library names use both lines: type right after a short name, cut with two dots only at the end of line 2, none when the name fills both lines; Library has the percent right of the icon.
+* ✅ (0.73.0, computer tests) #15 Settings > Reader > Book menu options: reorder and hide the More and Text panels' entries
+* ✅ (0.73.0, computer tests) #29 PDF style: headings, bold and italic from the PDF, shown with Style on, plain with it off; a Style checkbox in the Text panel
 * ✅ (0.72.5, computer tests only) #29 filled boxes in a PDF show as em-dash rule lines in the converted text (the borders were dropped because only the words come across)
 * ✅ (0.72.4, simulator only) #6 plain folder icons for every folder (he could not paste into a folder with a typed icon; the Move code never looks at the icon, so the real cause is still unknown, asked which step stops).

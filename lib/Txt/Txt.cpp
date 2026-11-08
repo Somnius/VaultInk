@@ -176,6 +176,20 @@ bool Txt::streamTxtToHtml(const std::string& filepath, Print& out, const std::st
   return ok;
 }
 
+void Txt::syncPdfStyle(const std::string& filepath, const std::string& cachePath, const bool styled) {
+  if (!TxtToHtml::isPdfText(filepath) || cachePath.empty()) return;
+  const std::string markerPath = cachePath + "/pdfstyle.txt";
+  const char want = styled ? 's' : 'p';
+  if (Storage.exists(markerPath.c_str())) {
+    const String stored = Storage.readFile(markerPath.c_str());
+    if (stored.length() > 0 && stored[0] == want) return;
+  }
+  invalidateCache(cachePath);
+  if (!Storage.exists(cachePath.c_str())) Storage.mkdir(cachePath.c_str());
+  const char text[2] = {want, '\0'};
+  if (!Storage.writeFile(markerPath.c_str(), String(text))) LOG_ERR("TXT", "Failed to write %s", markerPath.c_str());
+}
+
 void Txt::invalidateCache(const std::string& cachePath) {
   Storage.removeDir((cachePath + "/html").c_str());
   Storage.removeDir((cachePath + "/sections").c_str());

@@ -11,8 +11,15 @@
 
 const char* TxtToHtml::cacheVersionTag(std::string_view filename) {
   if (FsHelpers::hasMobiExtension(filename)) return mobi::CACHE_VERSION_TAG;
+  if (isPdfText(filename)) return "<!-- TXT_CACHE_VERSION: 2 -->";  // the Style setting: Txt::syncPdfStyle
   if (!FsHelpers::hasMarkdownExtension(filename)) return "<!-- TXT_CACHE_VERSION: 1 -->";
   return taskBoxes ? "<!-- MD_CACHE_VERSION: 8 boxes -->" : "<!-- MD_CACHE_VERSION: 8 -->";
+}
+
+bool TxtToHtml::isPdfText(const std::string_view filename) {
+  constexpr std::string_view FOLDER = "/.vaultink/pdf/";
+  return filename.size() > FOLDER.size() && filename.compare(0, FOLDER.size(), FOLDER) == 0 &&
+         FsHelpers::hasTxtExtension(filename);
 }
 
 size_t TxtToHtml::escapedHtmlSize(const std::string_view text) {
@@ -78,6 +85,33 @@ bool TxtToHtml::stream(std::string_view filename, void* readerCtx, int (*readFn)
   size_t pendingSpaces = 0;
   int bytesRead = 0;
 
+  // A PDF's text carries style marks (lib/Pdf/PdfText.cpp): 1 + digit opens a heading, 4 closes it, 2 and 3 switch bold
+  // and italic. Styled makes them tags, plain drops them.
+  const bool marks = isPdfText(filename);
+  const bool styled = marks && pdfStyled;
+  bool bold = false, italic = false, levelNext = false;
+  int heading = 0;
+  size_t skipBreaks = 0;          // the blank lines a heading already has round it
+  const auto flushSpaces = [&] {  // spaces wait for the next letter; a tag goes after them
+    if (pendingSpaces == 0) return;
+    for (size_t k = 0; k + 1 < pendingSpaces; ++k) writeStr("&#160;");
+    writeByte(' ');
+    pendingSpaces = 0;
+  };
+  const auto closeHeading = [&] {
+    if (heading == 0) return;
+    writeStr(heading == 1 ? "</h1>" : (heading == 2 ? "</h2>" : "</h3>"));
+    heading = 0;
+  };
+  const auto closeInline = [&] {
+    if (italic) writeStr("</i>");
+    if (bold) writeStr("</b>");
+  };
+  const auto openInline = [&] {
+    if (bold) writeStr("<b>");
+    if (italic) writeStr("<i>");
+  };
+
   while ((bytesRead = readFn(readerCtx, inBuf.get(), IN_BUF_SIZE)) > 0) {
     int startIdx = 0;
     if (isStart) {
@@ -91,8 +125,45 @@ bool TxtToHtml::stream(std::string_view filename, void* readerCtx, int (*readFn)
       uint8_t b = inBuf[i];
       if (b == '\r') continue;
 
+      if (marks) {
+        if (levelNext) {
+          levelNext = false;
+          if (styled && b >= '1' && b <= '3') {
+            flushSpaces();
+            closeInline();  // a heading never sits inside bold or italic, nor inside another heading
+            closeHeading();
+            bold = italic = false;
+            heading = b - '0';
+            writeStr(heading == 1 ? "<h1>" : (heading == 2 ? "<h2>" : "<h3>"));
+          }
+          continue;
+        }
+        if (b >= 1 && b <= 4) {
+          if (b == 1) {
+            levelNext = true;
+          } else if (styled && b == 4) {
+            if (heading > 0) {
+              flushSpaces();
+              closeHeading();
+              skipBreaks = 2;
+            }
+          } else if (styled && heading == 0) {  // a heading is bold already
+            flushSpaces();
+            closeInline();
+            if (b == 2) bold = !bold;
+            if (b == 3) italic = !italic;
+            openInline();
+          }
+          continue;
+        }
+      }
+
       if (b == '\n') {
         pendingSpaces = 0;
+        if (skipBreaks > 0) {
+          --skipBreaks;
+          continue;
+        }
         writeStr("<br />");
         atLineStart = true;
         continue;
@@ -115,6 +186,7 @@ bool TxtToHtml::stream(std::string_view filename, void* readerCtx, int (*readFn)
         pendingSpaces = 0;
       }
       atLineStart = false;
+      skipBreaks = 0;
 
       if (b == '&' || b == '<' || b == '>') {
         const char special = static_cast<char>(b);
@@ -132,6 +204,8 @@ bool TxtToHtml::stream(std::string_view filename, void* readerCtx, int (*readFn)
     return false;
   }
 
+  closeInline();
+  closeHeading();
   writeStr("\n</body>\n</html>\n");
   flushOut();
   if (!outputOk) {

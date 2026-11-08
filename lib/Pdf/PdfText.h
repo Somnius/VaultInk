@@ -24,6 +24,8 @@ struct Limits {
   size_t maxPages = 5000;
   size_t maxStreamBytes = 4 * 1024 * 1024;  // one decoded content or object stream
   size_t maxPageText = 256 * 1024;
+  // Bold, italic and headings as control bytes in the text (kos25k #29, 0.73.0); off for plain text.
+  bool styleMarks = false;
 };
 
 struct Result {

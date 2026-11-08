@@ -107,6 +107,8 @@ class EpubReaderActivity final : public ReaderActivity {
   void settleOverlayRefresh();
   int autoTurnOption = 0;  // current auto page-turn rate index (More panel)
   std::vector<EpubReaderMenuActivity::MenuItem> moreItems;
+  bool pdfStyledLoaded = true;  // the Style setting the PDF's text was last built with (kos25k #29)
+  std::vector<int> textRows;  // the Text panel's rows, in the reader's own order (kos25k #15)
 
   // Footnote support
   std::vector<FootnoteEntry> currentPageFootnotes;
@@ -197,6 +199,8 @@ class EpubReaderActivity final : public ReaderActivity {
   void renderOverlay();
   std::string currentChapterTitle() const;
   // Text panel rows (font, size, line spacing, alignment, focus reading).
+  void buildTextRows();
+  int textRowAt(int index) const;
   std::string textRowName(int row) const;
   std::string textRowValue(int row) const;
   void showTextRowPopup(int row);

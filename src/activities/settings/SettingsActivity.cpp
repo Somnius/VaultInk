@@ -17,6 +17,7 @@
 #include "AboutActivity.h"
 #include "BatteryActivity.h"
 #include "BleSettingsActivity.h"
+#include "BookMenuOptionsActivity.h"
 #include "ButtonRemapActivity.h"
 #include "ClearCacheActivity.h"
 #include "ClockSettingsActivity.h"
@@ -183,6 +184,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   }
   addAction(SettingsSection::Reader, StrId::STR_CUSTOMISE_STATUS_BAR, SettingAction::CustomiseStatusBar);
   addAction(SettingsSection::Reader, StrId::STR_CLEAR_READING_CACHE, SettingAction::ClearCache);
+  addAction(SettingsSection::Reader, StrId::STR_BOOK_MENU_OPTIONS, SettingAction::BookMenuOptions);
   addAction(SettingsSection::Vaults, StrId::STR_REBUILD_SEARCH_INDEX, SettingAction::RebuildSearchIndex);
   addAction(SettingsSection::Vaults, StrId::STR_LIVESYNC, SettingAction::LiveSync);
 
@@ -509,6 +511,11 @@ void SettingsActivity::toggleSelectedSetting() {
         break;
       case SettingAction::LibraryTabs:
         if (auto activity = makeUniqueNoThrow<LibraryTabsActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), nullptr);
+        }
+        break;
+      case SettingAction::BookMenuOptions:
+        if (auto activity = makeUniqueNoThrow<BookMenuOptionsActivity>(renderer, mappedInput)) {
           startActivityForResult(std::move(activity), nullptr);
         }
         break;

@@ -448,6 +448,12 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint64_t homeRowOrder = 0;
   // Home rows hidden from the VaultInk home, bit = VaultInkHomeUi::Row id (kos25k #14); 0 = all shown.
   uint16_t homeRowsHidden = 0;
+  // The reader toolbar's More and Text panels (0.73.0, kos25k #15, util/MenuLayout.h): the order as a string of
+  // ids and the hidden entries as a bit mask. Empty and 0 = the default order, nothing hidden.
+  char moreMenuOrder[40] = "";
+  uint32_t moreMenuHidden = 0;
+  char textMenuOrder[24] = "";
+  uint32_t textMenuHidden = 0;
   // Gallery filter (kos25k #8): 0 all pictures, 1 PNG only, 2 pictures inside a vault (the notes' images).
   uint8_t galleryFilter = 0;
   // Lock screen (kos25k #22): 0 off, 1 a 4-digit PIN, 2 a long press on any corner.

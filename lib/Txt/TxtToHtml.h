@@ -33,6 +33,11 @@ class TxtToHtml {
   // Markdown tasks as ☐ / ☑ (the built-in reading fonts have them) or [ ] / [x] (an SD-card font
   // may not). Part of the cache tag, so switching fonts rebuilds the notes.
   static void setTaskBoxes(bool on) { taskBoxes = on; }
+  // A PDF's converted text (/.vaultink/pdf/..., src/util/PdfConvert.cpp) carries style marks: headings, bold and italic
+  // as control bytes (lib/Pdf/PdfText.cpp). Styled turns them into tags, plain drops them. Part of the cache tag, so
+  // switching Style rebuilds the book's HTML (kos25k #29, Txt::syncPdfStyle).
+  static void setPdfStyled(bool on) { pdfStyled = on; }
+  static bool isPdfText(std::string_view filename);
 
  private:
   static bool streamMarkdown(std::string_view filename, void* readerCtx,
@@ -51,4 +56,5 @@ class TxtToHtml {
 
  private:
   static inline bool taskBoxes = false;
+  static inline bool pdfStyled = true;
 };
