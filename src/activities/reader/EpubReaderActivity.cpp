@@ -4010,6 +4010,11 @@ void EpubReaderActivity::showQuickMenu() {
 }
 
 bool EpubReaderActivity::runReaderAction(const gestures::Action action) {
+  // Nothing to act on at the end-of-book screen (no page layout): the page-bound actions do nothing there.
+  if (!section && (action == gestures::NextChapter || action == gestures::PrevChapter || action == gestures::Bookmark ||
+                   action == gestures::QuickMenu)) {
+    return false;
+  }
   switch (action) {
     case gestures::NextPage:
     case gestures::PrevPage:
