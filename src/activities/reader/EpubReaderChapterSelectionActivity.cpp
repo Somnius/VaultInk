@@ -1,5 +1,6 @@
 #include "EpubReaderChapterSelectionActivity.h"
 
+#include <BookMap.h>
 #include <FontCacheManager.h>
 #include <GfxRenderer.h>
 #include <I18n.h>
@@ -20,10 +21,12 @@ constexpr unsigned long LONG_PRESS_MS = 1000;
 EpubReaderChapterSelectionActivity::EpubReaderChapterSelectionActivity(GfxRenderer& renderer,
                                                                        MappedInputManager& mappedInput,
                                                                        const std::shared_ptr<Epub>& epub,
-                                                                       const int currentTocIndex)
+                                                                       const int currentTocIndex,
+                                                                       const float pagesPerByte)
     : UiListActivity("EpubReaderChapterSelection", renderer, mappedInput, /*wantsTouchLongPress=*/true),
       epub(epub),
-      currentTocIndex(currentTocIndex) {}
+      currentTocIndex(currentTocIndex),
+      pagesPerByte(pagesPerByte) {}
 
 void EpubReaderChapterSelectionActivity::onEnter() {
   UiListActivity::onEnter();
@@ -61,6 +64,14 @@ void EpubReaderChapterSelectionActivity::refreshTocWindow(const int start) {
   if (clamped == windowStart) return;
 
   windowCount = total - clamped < TOC_WINDOW ? total - clamped : TOC_WINDOW;
+  // The page estimate for the book as it counts now (EpubReaderActivity::bookPageScale): pages per unit of
+  // progress, and where chapter 1 starts.
+  float pageFirst = 0.0f;
+  const float pageScale = pagesPerByte > 0.0f ? pagesPerByte * static_cast<float>(epub->visibleBookSize()) : 0.0f;
+  if (pageScale > 0.0f && total > 0) {
+    const int firstSpine = epub->getSpineIndexForTocIndex(0);
+    if (firstSpine >= 0) pageFirst = epub->visibleProgress(firstSpine, 0.0f);
+  }
   for (int i = 0; i < windowCount; i++) {
     const auto tocItem = epub->getTocItem(clamped + i);
     std::string indent(tocItem.level > 0 ? (tocItem.level - 1) * 2 : 0, ' ');
@@ -68,7 +79,17 @@ void EpubReaderChapterSelectionActivity::refreshTocWindow(const int start) {
     fui::ListItem item;
     item.label = windowLabels[i].c_str();
     // Hidden flows: a chapter left out of the book's page count and percent says so.
-    if (tocItem.spineIndex >= 0 && epub->isSpineHidden(tocItem.spineIndex)) item.value = tr(STR_CHAPTER_HIDDEN);
+    // The others show the estimated book page they start on (the same estimate as the status bar's number).
+    windowValues[i].clear();
+    if (tocItem.spineIndex >= 0 && epub->isSpineHidden(tocItem.spineIndex)) {
+      item.value = tr(STR_CHAPTER_HIDDEN);
+    } else if (tocItem.spineIndex >= 0 && pageScale > 0.0f) {
+      const int page = bookmap::chapterStartPage(epub->visibleProgress(tocItem.spineIndex, 0.0f), pageFirst, pageScale);
+      if (page > 0) {
+        windowValues[i] = std::to_string(page);
+        item.value = windowValues[i].c_str();
+      }
+    }
     item.actionValue = static_cast<int16_t>(clamped + i);
     windowItems[i] = item;
   }

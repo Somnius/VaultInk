@@ -32,6 +32,13 @@ struct PercentResult {
   int percent = 0;
 };
 
+// Book map: a share of the counted book to jump to, or the hidden chapter or the bookmark that was picked.
+struct BookMapResult {
+  float fraction = 0.0f;
+  int spineIndex = -1;     // >= 0: open this spine item at its start (a hidden chapter)
+  int bookmarkIndex = -1;  // >= 0: open this bookmark, by its place in the reader's list
+};
+
 struct IntervalResult {
   uint32_t value = 0;
 };
@@ -80,9 +87,9 @@ struct FilePathResult {
   std::string path;
 };
 
-using ResultVariant =
-    std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult, IntervalResult,
-                 PageResult, ClippingResult, ProgressChangeResult, NetworkModeResult, FootnoteResult, FilePathResult>;
+using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult,
+                                   IntervalResult, PageResult, ClippingResult, ProgressChangeResult, NetworkModeResult,
+                                   FootnoteResult, FilePathResult, BookMapResult>;
 
 struct ActivityResult {
   bool isCancelled = false;

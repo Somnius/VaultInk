@@ -43,8 +43,16 @@ class EpubReaderMenuActivity final : public UiListActivity {
     FLASHCARDS,        // notes: review this note's cards
     EXPORT_CLIPPINGS,  // books with clippings: write them to a note in a vault
     BACK,              // a note: the note before it, else its folder (touch-only boards have no Back key)
-    READING_PRESETS    // 0.70.0 (kos25k #12): save / apply the Text panel's settings as one of ten presets; last
+    READING_PRESETS,   // 0.70.0 (kos25k #12): save / apply the Text panel's settings as one of ten presets
+    BOOK_MAP           // EPUB only: the book as a strip of chapters, with bookmarks and clippings (see layoutId)
   };
+
+  // The id an action has in the More panel's stored order and hidden mask (util/MenuLayout.h, ids 0-31). It is the
+  // action's own number, but the 32 numbers are used up, so Book map takes the id of Select Chapter, which is never
+  // in the More panel (Contents is a tool of its own) and so was never stored.
+  static constexpr int layoutId(const MenuAction action) {
+    return action == MenuAction::BOOK_MAP ? static_cast<int>(MenuAction::SELECT_CHAPTER) : static_cast<int>(action);
+  }
 
   struct MenuItem {
     MenuAction action;
@@ -56,12 +64,13 @@ class EpubReaderMenuActivity final : public UiListActivity {
   // their own; Search, Go to % and Go to page lead, and the favourite toggle to Reading presets close the list.
   static void arrangeMoreItems(std::vector<MenuItem>& items);
   static void buildMenuItems(std::vector<MenuItem>& items, bool hasFootnotes, bool hasBookmarks, bool hasClippings,
-                             bool isVaultNote = false, bool isFavourite = false);
+                             bool isVaultNote = false, bool isFavourite = false, bool hasBookMap = false);
 
   explicit EpubReaderMenuActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const std::string& title,
                                   const int currentPage, const int totalPages, const int bookProgressPercent,
                                   const uint8_t currentOrientation, const bool hasFootnotes, bool hasBookmarks,
-                                  bool hasClippings, bool isVaultNote = false, bool isFavourite = false);
+                                  bool hasClippings, bool isVaultNote = false, bool isFavourite = false,
+                                  bool hasBookMap = false);
 
   void render(RenderLock&&) override;
   bool handleHomeGesture() override;
@@ -73,7 +82,7 @@ class EpubReaderMenuActivity final : public UiListActivity {
   // fixed-capacity array avoids any heap allocation for the row list. Labels
   // are set once in the constructor (buildMenuRowItems()); buildScreen()
   // only refreshes rows whose values reflect live state.
-  static constexpr size_t MAX_MENU_ITEMS = 32;  // every action at once (30) fits
+  static constexpr size_t MAX_MENU_ITEMS = 32;  // more than a book or a note ever lists at once
   freeink::ui::ListItem menuRowItems[MAX_MENU_ITEMS]{};
   void buildMenuRowItems();
 

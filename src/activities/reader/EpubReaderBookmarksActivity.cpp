@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include "../../util/BookmarkFile.h"
+#include "BookmarkJump.h"
 #include "MappedInputManager.h"
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
@@ -74,22 +75,7 @@ void EpubReaderBookmarksActivity::openSelectedBookmark() {
   if (bookmarks.empty()) {
     return;
   }
-  const auto& bookmark = bookmarks.at(nav.selected);
-  ProgressChangeResult result{};
-  result.xpath = bookmark.xpath;
-  result.percentage = bookmark.percentage;
-  result.hasSavedProgress = true;
-  result.hasVisibleTextOffset = bookmark.hasVisibleTextOffset;
-  result.visibleTextOffset = bookmark.visibleTextOffset;
-  // The offset is spine-relative, so carry its spine even when the legacy page hints below
-  // are stale. The reader validates the index.
-  result.spineIndex = bookmark.computedSpineIndex;
-  if (bookmark.computedChapterPageCount > 0 && bookmark.computedChapterProgress < bookmark.computedChapterPageCount &&
-      bookmark.computedSpineIndex < epub->getSpineItemsCount()) {
-    result.page = bookmark.computedChapterProgress;
-    result.totalPages = bookmark.computedChapterPageCount;
-  }
-  setResult(std::move(result));
+  setResult(bookmarkjump::resultFor(bookmarks.at(nav.selected), epub->getSpineItemsCount()));
   finish();
 }
 

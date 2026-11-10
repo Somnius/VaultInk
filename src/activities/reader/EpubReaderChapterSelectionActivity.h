@@ -9,6 +9,9 @@
 class EpubReaderChapterSelectionActivity final : public UiListActivity {
   std::shared_ptr<Epub> epub;
   int currentTocIndex = 0;
+  // The reader's page estimate, as pages per byte of the book: the rows show the book page a chapter starts on.
+  // Per byte, so it stays right when a chapter is hidden or shown here. 0: no numbers.
+  float pagesPerByte = 0.0f;
 
   // Windowed row buffers: TOC entries are SD-backed (BookMetadataCache LUT
   // reads), so only the rows around the viewport are materialized. A
@@ -20,6 +23,7 @@ class EpubReaderChapterSelectionActivity final : public UiListActivity {
   // pays one bounded SD pass and repaints stay RAM-only.
   static constexpr int TOC_WINDOW = 24;
   std::string windowLabels[TOC_WINDOW];
+  std::string windowValues[TOC_WINDOW];  // the estimated book page a chapter starts on
   freeink::ui::ListItem windowItems[TOC_WINDOW];
   int windowStart = -1;
   int windowCount = 0;
@@ -38,6 +42,7 @@ class EpubReaderChapterSelectionActivity final : public UiListActivity {
 
  public:
   explicit EpubReaderChapterSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
-                                              const std::shared_ptr<Epub>& epub, int currentTocIndex);
+                                              const std::shared_ptr<Epub>& epub, int currentTocIndex,
+                                              float pagesPerByte = 0.0f);
   void onEnter() override;
 };
