@@ -13,10 +13,10 @@
 // Epub::visibleProgress() gives and jumpToBookFraction() takes.
 namespace bookmap {
 
-inline constexpr int MIN_WIDTH = 3;        // the narrowest a chapter is drawn
-inline constexpr int HIDDEN_WIDTH = 6;     // every hidden chapter: a hatched sliver, outside the scale
-inline constexpr int HIT_WIDTH = 24;       // a narrower segment is still this wide for a finger
-inline constexpr int TICK_TOLERANCE = 12;  // a tap this near a mark picks the mark
+inline constexpr int MIN_WIDTH = 3;       // the narrowest a chapter is drawn
+inline constexpr int HIDDEN_WIDTH = 6;    // every hidden chapter: a hatched sliver, outside the scale
+inline constexpr int HIT_WIDTH = 24;      // a narrower segment is still this wide for a finger
+inline constexpr int TICK_TOLERANCE = 8;  // a tap this near a mark picks the mark
 
 struct Group {
   int16_t firstSpine = 0;

@@ -2866,10 +2866,12 @@ void EpubReaderActivity::openBookMap() {
   {
     RenderLock lock;  // the book's cache file is read below
     const float pagesHere = section->estimatedTotalPages();
-    const float chapterProgress = pagesHere > 0 ? static_cast<float>(section->currentPage + 1) / pagesHere : 0.0f;
+    // The middle of the page, not its end: on a chapter's last page the end is the next chapter's first byte.
+    const float chapterProgress = pagesHere > 0 ? (static_cast<float>(section->currentPage) + 0.5f) / pagesHere : 0.0f;
     data.currentSpine = currentSpineIndex;
     data.currentFraction = epub->visibleProgress(currentSpineIndex, chapterProgress);
     if (!bookPageScale(pagesHere, data.pageFirst, data.pageScale)) data.pageScale = 0.0f;
+    data.ticks.reserve(256);  // one allocation for the usual book; more only for a book full of marks
 
     const int spineCount = std::min(epub->getSpineItemsCount(), 32767);
     const int tocCount = std::min(epub->getTocItemsCount(), 32767);
@@ -2916,8 +2918,8 @@ void EpubReaderActivity::openBookMap() {
       if (!clipping || clipping->spineIndex >= spineCount) continue;
       const float within =
           clipping->pageCount > 0
-              ? std::clamp(static_cast<float>(clipping->startPage) / static_cast<float>(clipping->pageCount), 0.0f,
-                           1.0f)
+              ? std::clamp((static_cast<float>(clipping->startPage) + 0.5f) / static_cast<float>(clipping->pageCount),
+                           0.0f, 1.0f)  // the middle of its page, so the jump opens that page, not the one before
               : 0.0f;
       const float fraction = std::clamp(epub->visibleProgress(clipping->spineIndex, within), 0.0f, 1.0f);
       const size_t slot = std::min<size_t>(static_cast<size_t>(fraction * BookMapData::CLIPPING_SLOTS),
