@@ -22,6 +22,8 @@ Keep it lightweight: it must stay fast and stable on the X4 Pro (ESP32-S3, 8 MB 
 * **Writing:** a note editor with touch keyboard, Bluetooth keyboard and the Android companion.
 * **Languages:** English and Greek for the UI and content.
 * **Attachments:** PNG, JPEG and GIF images now (WebP needs a decoder); PDF after a feasibility trial; audio and Excalidraw later.
+* **Clients (decided 2026-11-10):** WebDAV, FTP and SFTP file clients, an SSH terminal, and a gamepad
+  input scaffold (no games), in the order of the KOReader parity milestone in ROADMAP.md.
 * **Code quality:** refactors that make the above easier to maintain or cheaper in memory.
 
 ## 3. Out of scope
@@ -30,7 +32,7 @@ Keep it lightweight: it must stay fast and stable on the X4 Pro (ESP32-S3, 8 MB 
 * Other sync services (Git, Syncthing, Dropbox, iCloud, Obsidian Sync) and LiveSync's object storage
   and P2P modes.
 * Running Obsidian plugins (Dataview, Bases, Templater) or showing their output.
-* Graph view, games, browsers, RSS.
+* Graph view, games (the gamepad is input only), browsers, RSS.
 * Licences, accounts, payments, telemetry. VaultInk is fully free.
 * iOS companion.
 

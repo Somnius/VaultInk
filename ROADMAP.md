@@ -696,6 +696,31 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
 
 - 0.64.0 status: Grok review fixes applied (Random page recents, book-info name check, LzString first code, search "may be more", phone text outbox on refusal). Host tests, x4pro build, companion tests and cppcheck vs HEAD clean. README, SPECS and site text updated (site not deployed). Waiting for hardware checks and Lef's go.
 
+## KOReader parity milestone (decided 2026-11-10; planned with Opus, Fable and Grok; nothing is released until Lef says so)
+
+What it is: close the gaps against KOReader that kos25k and Lef picked. Lef's calls: no text-to-speech, no Dropbox, **WebDAV, FTP and SFTP clients are in**, an **SSH terminal is in**, the **gamepad is a scaffold only** (input plumbing, no games), **VaultEUC stays in the firmware**. Sizes and effort below are estimates from reading code, not measurements; the flash left is about 1.70 MB (0.73.1 binary 6,626,464 of 8,323,072 bytes, 79.6%), so every step reports its flash cost after a real build. The sleep-drain investigation (0.73.1) is still open, so nothing here adds a wake-up.
+
+* **Step 0, before any new code:**
+  * 💤 Check the licence of wolfSSL, which the network and content code links. Fable read it as GPL-2.0 while the repo is MIT and NOTICE does not list it. **Unverified by us**; settle it before adding any more GPL-licensed code (wolfSSH is GPL, LibSSH-ESP32 is LGPL).
+  * 💤 Measure on a device: free internal heap and flash with a TLS session and the Bluetooth keyboard together, and a scroll prototype (below).
+* **Release A: reader features with no network** (all host-testable, about 120 KB together):
+  * 💤 Hidden flows (exclude sections from the page count; one cache version bump).
+  * 💤 Auto warmth and night mode by time (a schedule first; sun position needs a location, later).
+  * 💤 Customisable gestures, profiles and a Quick Menu, folded into Reading presets (one settings layer; a mapping that can never lock you out).
+  * 💤 Skim widget, book map and page browser (a chapter and percent strip, no thumbnails).
+  * 💤 FB2, HTML and RTF through one adapter into the existing text pipeline (like MOBI).
+* **Release B: network, after certificate checks reach the shared HTTP code** (today only LiveSync checks certificates):
+  * 💤 Wikipedia lookup as plain text; translation only if a free API is found (a paid key is not an option on the device).
+  * 💤 Highlight exports to Readwise, Memos and Joplin as payload builders; tokens on the card are a risk to state in the docs.
+  * 💤 WebDAV client (the device has only the server today); then FTP (plain text, so it says so on the screen).
+* **Release C: scroll mode** (kos25k #30), alone, because it changes the section cache and every page-based thing (progress, bookmarks, KOReader sync). Needs the device prototype first: ghosting after N partial scroll steps, ms per step. Go or no-go from device photos.
+* **Release D: SSH** (device only):
+  * 💤 SSH terminal: a line terminal, not vim or htop; BLE keyboard and the touch keyboard (Ctrl, Esc, Tab, arrows added), known_hosts pinning, no password stored, blocked by the lock screen, off in USB Drive mode, closed at sleep.
+  * 💤 SFTP client on the same library, since the key handling and the library are shared.
+  * 💤 Gamepad scaffold: a raw HID report map to the action list. `BleKeyboardHost` is in the read-only SDK and parses only the keyboard and consumer pages, so this needs an SDK change or a raw-report hook.
+* **Not in the firmware** (the companion app or a desktop tool turns them into EPUB, XTC or text): OCR and scanned-PDF reflow, DjVu, CHM, DOC. They do not fit the flash, and DjVuLibre (GPL) and chmlib (LGPL) are copyleft.
+* **Dropped:** text-to-speech, Dropbox.
+
 ## 0.65.0 plan (from kos25k's issues of 2026-11-01, answered 2026-11-03)
 * ✅ (0.65.0, simulator only) #12 Hide Status Bar moved into Customise Status Bar; Book page number "(37)" (an estimate for books) and Page number when bar is hidden.
 * ✅ (0.65.0) #20 Battery: drain awake with the light off and on (needs new data; approximate).
