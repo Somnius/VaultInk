@@ -537,10 +537,11 @@ void enterDeepSleep(bool fromTimeout = false) {
     WiFi.mode(WIFI_OFF);
   }
 
+  // Switch the light off before every deep sleep (SETTINGS.frontlightOn keeps the preference for restore-on-wake).
+  // The Picco's I2C LED driver keeps its state through sleep; the X4 Pro's PWM pads were only left to isolate
+  // (0.73.1, kos25k #34). Whether that leaked current is not measured; this just stops depending on it.
+  if (Frontlight.present()) Frontlight.setOn(false);
 #if FREEINK_DEVICE_PICCO
-  // The I2C LED driver keeps its state through deep sleep; switch it off here
-  // (SETTINGS.frontlightOn keeps the preference for restore-on-wake).
-  Frontlight.setOn(false);
   const bool wakeOnHeldButton = holdSleepWhileUsbPowered();
 #else
   const bool wakeOnHeldButton = false;
@@ -729,7 +730,9 @@ void setup() {
   // Restore the monotonic clock floor before anything reads time() (event
   // timestamps, loan-expiry checks).
   trustedtime::init();
-  batteryhistory::noteWake();
+  // Why this boot happened, for the battery log: the wake reason, or 4 when the power key was not held through the
+  // check (a wake nobody asked for that stays on until the idle timeout when Short Power Press is Sleep).
+  batteryhistory::noteWake(wakeHoldVerified ? static_cast<int>(wakeupReason) : 4);
   bleturner::begin(pageturner::host, SETTINGS.ble);
 
   // Brightness and warmth are always restored. A normal wake starts with the
@@ -748,6 +751,9 @@ void setup() {
       if (!wakeHoldVerified && SETTINGS.shortPwrBtn != CrossPointSettings::SHORT_PWRBTN::SLEEP &&
           !(FREEINK_DEVICE_PICCO && gpio.isUsbConnected())) {
         LOG_DBG("MAIN", "Power-button wake not held through verification, sleeping");
+        // Frontlight.begin() above may have restored the light; a ghost wake must not sleep with it on.
+        if (Frontlight.present()) Frontlight.setOn(false);
+        batteryhistory::noteSleep();  // pairs the W line above (cause 4), so a ghost wake shows in the battery log
         Storage.prepareForDeepSleep();
         powerManager.startDeepSleep(gpio);
       }

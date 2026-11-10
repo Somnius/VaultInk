@@ -6,18 +6,23 @@
 namespace batterylog {
 
 std::string toLine(const Record& r) {
-  char buffer[56];
-  snprintf(buffer, sizeof(buffer), "%lld\t%c\t%u\t%u\t%u", static_cast<long long>(r.epoch), r.sleep ? 'S' : 'W',
-           static_cast<unsigned>(r.percent), r.usb ? 1u : 0u, r.light ? 1u : 0u);
+  char buffer[80];
+  int n = snprintf(buffer, sizeof(buffer), "%lld\t%c\t%u\t%u\t%u", static_cast<long long>(r.epoch), r.sleep ? 'S' : 'W',
+                   static_cast<unsigned>(r.percent), r.usb ? 1u : 0u, r.light ? 1u : 0u);
+  if (r.millivolts != 0 || r.wakeCause >= 0) {
+    char cause[2] = {r.wakeCause >= 0 && r.wakeCause <= 9 ? static_cast<char>('0' + r.wakeCause) : '-', '\0'};
+    snprintf(buffer + n, sizeof(buffer) - static_cast<size_t>(n), "\t%u\t%s", static_cast<unsigned>(r.millivolts),
+             cause);
+  }
   return buffer;
 }
 
 bool fromLine(std::string_view line, Record& out) {
   while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.remove_suffix(1);
-  std::string_view fields[5];
+  std::string_view fields[8];
   size_t count = 0;
   size_t start = 0;
-  while (count < 5) {
+  while (count < 8) {
     const size_t tab = line.find('\t', start);
     if (tab == std::string_view::npos) {
       fields[count++] = line.substr(start);
@@ -26,7 +31,7 @@ bool fromLine(std::string_view line, Record& out) {
     fields[count++] = line.substr(start, tab - start);
     start = tab + 1;
   }
-  if ((count != 4 && count != 5) || fields[0].empty() || fields[1].size() != 1) return false;
+  if ((count != 4 && count != 5 && count != 7) || fields[0].empty() || fields[1].size() != 1) return false;
   if (fields[1][0] != 'S' && fields[1][0] != 'W') return false;
   const std::string epoch(fields[0]);
   char* end = nullptr;
@@ -36,13 +41,29 @@ bool fromLine(std::string_view line, Record& out) {
   const long p = strtol(percent.c_str(), &end, 10);
   if (end == percent.c_str() || *end != '\0' || p < 0 || p > 100) return false;
   if (fields[3] != "0" && fields[3] != "1") return false;
-  if (count == 5 && fields[4] != "0" && fields[4] != "1") return false;
+  if (count >= 5 && fields[4] != "0" && fields[4] != "1") return false;
+  unsigned millivolts = 0;
+  int cause = -1;
+  if (count == 7) {
+    const std::string mv(fields[5]);
+    const unsigned long v = strtoul(mv.c_str(), &end, 10);
+    if (mv.empty() || end == mv.c_str() || *end != '\0' || v > 65535) return false;
+    millivolts = static_cast<unsigned>(v);
+    if (fields[6].size() != 1) return false;
+    if (fields[6][0] >= '0' && fields[6][0] <= '9') {
+      cause = fields[6][0] - '0';
+    } else if (fields[6][0] != '-') {
+      return false;
+    }
+  }
   out.epoch = value;
   out.sleep = fields[1][0] == 'S';
   out.percent = static_cast<uint8_t>(p);
   out.usb = fields[3] == "1";
-  out.lightKnown = count == 5;
-  out.light = count == 5 && fields[4] == "1";
+  out.lightKnown = count >= 5;
+  out.light = count >= 5 && fields[4] == "1";
+  out.millivolts = static_cast<uint16_t>(millivolts);
+  out.wakeCause = static_cast<int8_t>(cause);
   return true;
 }
 

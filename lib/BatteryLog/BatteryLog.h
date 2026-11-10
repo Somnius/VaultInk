@@ -7,9 +7,12 @@
 
 // Battery drain per hour for Settings > System > Battery (kos25k #20). Each deep sleep and each wake
 // leaves one line in /.vaultink/battery-log.tsv:
-//   <epoch>\t<S or W>\t<percent>\t<usb 0/1>[\t<light 0/1>]
+//   <epoch>\t<S or W>\t<percent>\t<usb 0/1>[\t<light 0/1>[\t<millivolts>\t<wake cause>]]
 // The light field (0.65.0) says the front light was on at some point in the awake period that ends at an S line;
 // lines from before have none, and their awake pairs stay out of the light-off and light-on rates.
+// Millivolts and the wake cause (0.73.1, kos25k #34) tell a real drain from the gauge re-guessing its percent, and a
+// wake nobody asked for from a normal one: 0 power key held, 1 after flash, 2 USB power, 3 other, 4 power key not
+// held (a ghost wake, which goes straight back to sleep or stays on); '-' on an S line. Millivolts 0 = not read.
 // The gauge only reports whole percent and nothing in the firmware measures current per task, so the
 // page shows two rates, asleep (sleep to wake) and awake (wake to sleep), summed over many pairs.
 namespace batterylog {
@@ -25,6 +28,8 @@ struct Record {
   bool usb = false;
   bool lightKnown = false;  // the line had a light field
   bool light = false;       // on an S line: the light was on during the awake period before it
+  uint16_t millivolts = 0;  // 0 = not read (older lines)
+  int8_t wakeCause = -1;    // -1 = none (S lines and older lines)
 };
 
 struct Rate {

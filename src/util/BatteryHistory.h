@@ -9,7 +9,8 @@ namespace batteryhistory {
 // Called just before deep sleep. Skipped when the clock is not trusted.
 void noteSleep();
 // Called at boot. Logged only when the last line was a sleep, so a restart or a crash is not paired.
-void noteWake();
+// cause: 0 power key held, 1 after flash, 2 USB power, 3 other, 4 power key not held.
+void noteWake(int cause);
 batterylog::Stats load();
 
 }  // namespace batteryhistory

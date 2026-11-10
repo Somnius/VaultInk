@@ -1,5 +1,8 @@
 #include "BatteryHistory.h"
 
+#ifndef SIMULATOR
+#include <BatteryMonitor.h>
+#endif
 #include <HalFrontlight.h>
 #include <HalGPIO.h>
 #include <HalPowerManager.h>
@@ -41,7 +44,7 @@ std::vector<batterylog::Record> readAll() {
   return records;
 }
 
-void add(const bool sleep) {
+void add(const bool sleep, const int cause) {
   const int64_t now = trustedtime::trustedNow();
   if (now <= 0) return;  // an undated line could not be paired
   batterylog::Record record;
@@ -51,6 +54,11 @@ void add(const bool sleep) {
       static_cast<uint8_t>(std::min<unsigned>(powerManager.getBatteryPercentage(), 100));  // fromLine refuses above 100
   record.usb = gpio.isUsbConnected();
   record.lightKnown = true;
+  record.wakeCause = (!sleep && cause >= 0 && cause <= 9) ? static_cast<int8_t>(cause) : static_cast<int8_t>(-1);
+#ifndef SIMULATOR
+  const BatteryMonitor battery;
+  record.millivolts = battery.readMillivolts();
+#endif
 #ifndef SIMULATOR  // the simulator's light is a stub without the flag
   record.light = sleep && Frontlight.usedSinceBoot();
 #endif
@@ -78,8 +86,8 @@ void add(const bool sleep) {
 
 }  // namespace
 
-void noteSleep() { add(true); }
-void noteWake() { add(false); }
+void noteSleep() { add(true, -1); }
+void noteWake(const int cause) { add(false, cause); }
 batterylog::Stats load() { return batterylog::compute(readAll()); }
 
 }  // namespace batteryhistory

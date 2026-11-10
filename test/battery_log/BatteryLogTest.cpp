@@ -24,6 +24,55 @@ TEST(BatteryLog, LineRoundTrip) {
   EXPECT_TRUE(out.usb);
 }
 
+TEST(BatteryLog, VoltageAndWakeCauseRoundTrip) {
+  Record in = rec(1790000000, false, 64);
+  in.lightKnown = true;
+  in.millivolts = 3871;
+  in.wakeCause = 4;
+  Record out;
+  ASSERT_TRUE(fromLine(toLine(in), out));
+  EXPECT_EQ(out.millivolts, 3871);
+  EXPECT_EQ(out.wakeCause, 4);
+  EXPECT_TRUE(out.lightKnown);
+  EXPECT_FALSE(out.sleep);
+
+  Record sleepLine = rec(1790000100, true, 64);
+  sleepLine.lightKnown = true;
+  sleepLine.millivolts = 3860;  // an S line has a voltage and no wake cause
+  ASSERT_TRUE(fromLine(toLine(sleepLine), out));
+  EXPECT_EQ(out.millivolts, 3860);
+  EXPECT_EQ(out.wakeCause, -1);
+  EXPECT_NE(toLine(sleepLine).find("\t3860\t-"), std::string::npos);
+}
+
+TEST(BatteryLog, OlderLinesStillRead) {
+  Record out;
+  ASSERT_TRUE(fromLine("1793896312\tS\t77\t0\t1", out));
+  EXPECT_EQ(out.millivolts, 0);
+  EXPECT_EQ(out.wakeCause, -1);
+  ASSERT_TRUE(fromLine("1793896312\tS\t77\t0", out));
+  EXPECT_FALSE(out.lightKnown);
+  // a line with only one of the two new fields, or junk in them, is refused
+  EXPECT_FALSE(fromLine("1793896312\tS\t77\t0\t1\t3800", out));
+  EXPECT_FALSE(fromLine("1793896312\tW\t77\t0\t0\t3800\tx", out));
+  EXPECT_FALSE(fromLine("1793896312\tW\t77\t0\t0\t99999999\t0", out));
+  EXPECT_FALSE(fromLine("1793896312\tW\t77\t0\t0\t3800\t12", out));
+}
+
+TEST(BatteryLog, NewFieldsDoNotChangeTheRates) {
+  std::vector<Record> v;
+  Record a = rec(1000, true, 90);
+  a.millivolts = 4000;
+  Record b = rec(1000 + 10 * H, false, 89);
+  b.millivolts = 3990;
+  b.wakeCause = 0;
+  append(v, a);
+  append(v, b);
+  const Stats s = compute(v);
+  ASSERT_TRUE(s.asleep.known);
+  EXPECT_EQ(s.asleep.hundredthsPerHour, 10u);
+}
+
 TEST(BatteryLog, BadLinesRejected) {
   Record out;
   EXPECT_FALSE(fromLine("", out));
