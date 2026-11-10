@@ -11,7 +11,7 @@ class BookMetadataCache;
 class Txt {
  public:
   static bool isTxtOrMd(std::string_view path);
-  // TXT, MD or plain MOBI: the Epub class reads these as one streamed HTML section instead of a zip.
+  // TXT, MD, MOBI, FB2, HTML or RTF: the Epub class reads these as one streamed HTML section instead of a zip.
   static bool isPlainBook(std::string_view path);
   static bool validateCache(const std::string& filepath, const std::string& cachePath, size_t cachedSize);
   static void invalidateCache(const std::string& cachePath);

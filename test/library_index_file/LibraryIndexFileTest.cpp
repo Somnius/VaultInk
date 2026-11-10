@@ -339,6 +339,16 @@ TEST(LibraryFormats, BitsAndMask) {
   EXPECT_TRUE(countsAsBook(FMT_ALL, "a.epub"));
   EXPECT_TRUE(countsAsBook(FMT_ALL, "a.PDF"));
   EXPECT_TRUE(countsAsBook(FMT_ALL, "a.azw3"));
+  // FB2, HTML and RTF share the MOBI / AZW bit: every stored mask stays valid (no new bit, no migration).
+  for (const char* name : {"a.fb2", "b.HTML", "c.htm", "d.xhtml", "e.Rtf"}) {
+    EXPECT_EQ(formatBitOf(name), FMT_MOBI) << name;
+    EXPECT_TRUE(formatAllowed(FMT_ALL, name)) << name;
+    EXPECT_FALSE(formatAllowed(FMT_ALL & ~FMT_MOBI, name)) << name;
+    EXPECT_FALSE(browseAllowed(BROWSE_ALL & ~static_cast<uint16_t>(FMT_MOBI), name)) << name;
+    EXPECT_TRUE(countsAsBook(FMT_ALL, name)) << name;
+  }
+  EXPECT_EQ(FMT_ALL, 127);
+  EXPECT_EQ(BROWSE_ALL, 1023);
   EXPECT_FALSE(countsAsBook(FMT_ALL, "notes.md"));
   EXPECT_FALSE(countsAsBook(FMT_ALL, "readme.txt"));
   EXPECT_FALSE(countsAsBook(FMT_ALL, "board.canvas"));

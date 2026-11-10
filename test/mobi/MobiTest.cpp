@@ -746,6 +746,25 @@ TEST(HtmlFilter, DropsUnknownTagsAndAttributes) {
   EXPECT_EQ(filterOnly("<!DOCTYPE html><?xml version=\"1.0\"?><!-- a -- comment --><p>x</p>"), "<p>x</p>");
 }
 
+TEST(HtmlFilter, DroppedElementsDropAllTheirText) {
+  // Nothing of a script, a style or the head reaches the page: not a bare '<', not an entity.
+  EXPECT_EQ(filterOnly("<p>a</p><script>for (i = 0; i < n; i++) { x = a && b; y = \"&amp;\"; }</script><p>b</p>"),
+            "<p>a</p><p>b</p>");
+  // "i<n" opens what looks like a tag and never closes it: the real closing tag is still seen
+  EXPECT_EQ(filterOnly("<script>for(i=0;i<n;i++){}</script><p>after</p>"), "<p>after</p>");
+  EXPECT_EQ(filterOnly("<head><title>A &amp; B &copy;</title></head><p>t</p>"), "<p>t</p>");
+  EXPECT_EQ(filterOnly("<style>a > b { } &lt;</style>x"), "x");
+  // HTML lets </head> be left out
+  EXPECT_EQ(filterOnly("<html><head><title>t</title><body><p>text</p></body></html>"), "<p>text</p>");
+  EXPECT_EQ(filterOnly("<svg><text>label</text></svg>shown"), "shown");
+}
+
+TEST(HtmlFilter, NewerBlockTagsBecomeDivs) {
+  EXPECT_EQ(filterOnly("<section>a</section><article>b</article><figure>c<figcaption>d</figcaption></figure>"),
+            "<div>a</div><div>b</div><div>c<div>d</div></div>");
+  EXPECT_EQ(filterOnly("<del>x</del><cite>y</cite>"), "<s>x</s><em>y</em>");
+}
+
 TEST(HtmlFilter, EntitiesAndBareAmpersands) {
   EXPECT_EQ(filterOnly("a &amp; b &lt; c &gt; d"), "a &amp; b &lt; c &gt; d");
   EXPECT_EQ(filterOnly("Tom & Jerry"), "Tom &amp; Jerry");

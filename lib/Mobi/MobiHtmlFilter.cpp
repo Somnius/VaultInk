@@ -63,12 +63,30 @@ constexpr TagDef TAGS[] = {
     {"style", "", SKIP},
     {"script", "", SKIP},
     {"title", "", SKIP},
+    // Loose HTML pages (lib/Html): the block tags of newer HTML keep their text apart from the next block's.
+    {"section", "div", BLOCK},
+    {"article", "div", BLOCK},
+    {"header", "div", BLOCK},
+    {"footer", "div", BLOCK},
+    {"aside", "div", BLOCK},
+    {"nav", "div", BLOCK},
+    {"main", "div", BLOCK},
+    {"figure", "div", BLOCK},
+    {"figcaption", "div", BLOCK},
+    {"caption", "div", BLOCK},
+    {"dl", "div", BLOCK},
+    {"dt", "div", BLOCK},
+    {"dd", "div", BLOCK},
+    {"del", "s", INLINE},
+    {"cite", "em", INLINE},
+    {"svg", "", SKIP},
 };
 constexpr uint8_t TAG_P = 1;
 constexpr uint8_t TAG_UL = 10;
 constexpr uint8_t TAG_OL = 11;
 constexpr uint8_t TAG_LI = 12;
 constexpr uint8_t TAG_IMG = 37;
+constexpr uint8_t TAG_HEAD = 39;
 
 uint8_t lookup(std::string_view name) {
   for (size_t i = 1; i < sizeof(TAGS) / sizeof(TAGS[0]); i++) {
@@ -228,6 +246,11 @@ void HtmlFilter::handleTag() {
   const uint8_t id = lookup(std::string_view(name, nameLen));
   if (skipId_ != 0) {
     // Inside <head>/<style>/...: only its own open/close nesting matters.
+    if (skipId_ == TAG_HEAD && !closing && std::string_view(name, nameLen) == "body") {
+      skipId_ = 0;  // HTML lets </head> be left out: <body> ends the head
+      skipNest_ = 0;
+      return;
+    }
     if (id == skipId_) {
       if (closing) {
         if (--skipNest_ == 0) skipId_ = 0;
@@ -266,6 +289,7 @@ void HtmlFilter::handleTag() {
 void HtmlFilter::flushEntity(bool complete) {
   const std::string_view ent(entity_, entityLen_);
   entityLen_ = 0;
+  if (skipId_ != 0) return;  // inside <head>, <script>...: its text is dropped, entities too
   if (complete) {
     if (ent.size() >= 3 && ent[1] == '#') {
       // Numeric: expat expands these itself; reject the control range it refuses.
@@ -381,7 +405,7 @@ bool HtmlFilter::feed(std::string_view input) {
         }
         if (tagLen_ == 0 && !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '/' || c == '!' || c == '?')) {
           // "a < b": a bare less-than is text, not a tag that would swallow everything to the next '>'
-          out("&lt;");
+          if (skipId_ == 0) out("&lt;");  // not inside <script> ("i < n"), whose text is dropped
           mode_ = Mode::Text;
           if (c == '<') {
             mode_ = Mode::Tag;
@@ -392,6 +416,12 @@ bool HtmlFilter::feed(std::string_view input) {
           } else {
             text(c);
           }
+          break;
+        }
+        if (c == '<' && skipId_ != 0) {
+          // "i<n;i++){...}</script>": inside a dropped element a '<' starts over, so its closing tag is still seen
+          tagLen_ = 0;
+          tagOverflow_ = false;
           break;
         }
         if (c == '>') {

@@ -14,7 +14,11 @@ inline constexpr uint8_t FMT_TXT = 4;
 inline constexpr uint8_t FMT_MD = 8;
 inline constexpr uint8_t FMT_XTC = 16;  // .xtc and .xtch
 inline constexpr uint8_t FMT_CBZ = 32;
-inline constexpr uint8_t FMT_MOBI = 64;  // .mobi, .prc, .azw and .azw3 (kos25k #26)
+// .mobi, .prc, .azw and .azw3 (kos25k #26), and the other converted book formats: .fb2, .html / .htm / .xhtml and
+// .rtf. They share this bit because the Library's mask is a uint8_t whose eighth bit is BROWSE_PICTURES in the
+// Browse Files mask: a new bit would mean widening both stored masks and migrating them. Sharing keeps every
+// stored mask valid as it is; the row is called "MOBI / AZW / FB2 / HTML / RTF".
+inline constexpr uint8_t FMT_MOBI = 64;
 inline constexpr uint8_t FMT_ALL = 127;
 
 namespace detail {
@@ -41,6 +45,10 @@ inline uint8_t formatBitOf(std::string_view name) {
   if (endsWithNoCase(name, ".cbz")) return FMT_CBZ;
   if (endsWithNoCase(name, ".mobi") || endsWithNoCase(name, ".prc") || endsWithNoCase(name, ".azw") ||
       endsWithNoCase(name, ".azw3")) {
+    return FMT_MOBI;
+  }
+  if (endsWithNoCase(name, ".fb2") || endsWithNoCase(name, ".html") || endsWithNoCase(name, ".htm") ||
+      endsWithNoCase(name, ".xhtml") || endsWithNoCase(name, ".rtf")) {
     return FMT_MOBI;
   }
   return 0;

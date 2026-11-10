@@ -9,6 +9,7 @@
 #include <HalFrontlight.h>
 #include <HalPowerManager.h>
 #include <I18n.h>
+#include <MarkupBook.h>
 #include <Memory.h>
 #include <Mobi.h>
 #include <VectorFontSupport.h>
@@ -448,6 +449,19 @@ void ActivityManager::goToReader(std::string path, const bool allowFastInitialRe
       goToFileBrowser(slash == std::string::npos || slash == 0 ? "/" : path.substr(0, slash));
       return;
     }
+  }
+
+  // An .fb2 that is not FictionBook XML, an .rtf that is not RTF or a UTF-16 .html is refused the same way.
+  if (MarkupBook::isMarkupBook(path) && !MarkupBook::probe(path)) {
+    {
+      RenderLock lock;
+      GUI.drawPopup(renderer, tr(STR_MOBI_UNREADABLE));
+    }
+    delay(2500);
+    randompage::take();
+    const size_t slash = path.find_last_of('/');
+    goToFileBrowser(slash == std::string::npos || slash == 0 ? "/" : path.substr(0, slash));
+    return;
   }
 
   if (FsHelpers::hasImageExtension(path)) {
