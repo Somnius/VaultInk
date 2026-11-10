@@ -705,10 +705,10 @@ What it is: close the gaps against KOReader that kos25k and Lef picked. Lef's ca
   * 💤 Measure on a device: free internal heap and flash with a TLS session and the Bluetooth keyboard together, and a scroll prototype (below).
 * **Release A: reader features with no network** (all host-testable, about 120 KB together):
   * 💤 Hidden flows (exclude sections from the page count; one cache version bump).
-  * 💤 Auto warmth and night mode by time (a schedule first; sun position needs a location, later).
+  * ✅ (unreleased, computer tests only) Auto warmth and night mode by time (a schedule; sun position needs a location, later). Reviewed by Fable and Grok; bugs fixed: night warmth survives a wake, the light panel edits the night value at night, turning it off restores the day side, an untrusted clock does nothing.
   * 💤 Customisable gestures, profiles and a Quick Menu, folded into Reading presets (one settings layer; a mapping that can never lock you out).
   * 💤 Skim widget, book map and page browser (a chapter and percent strip, no thumbnails).
-  * 🚧 FB2, HTML and RTF into the existing text pipeline (like MOBI): lib/Fb2, lib/Html, lib/Rtf and lib/Txt/MarkupBook are written and host-tested (test/markup_books), listed under the MOBI / AZW row. Still to do before a release: the device build and its flash cost, a run in the simulator and on an X4 Pro, screenshots. No pictures, no chapters, no zipped FB2.
+  * ✅ (device build compiles, reviewed by Fable and Grok) FB2, HTML and RTF into the existing text pipeline (like MOBI): lib/Fb2, lib/Html, lib/Rtf and lib/Txt/MarkupBook are written and host-tested (test/markup_books), listed under the MOBI / AZW row. Still to do before a release: the device build and its flash cost, a run in the simulator and on an X4 Pro, screenshots. No pictures, no chapters, no zipped FB2.
 * **Release B: network, after certificate checks reach the shared HTTP code** (today only LiveSync checks certificates):
   * 💤 Wikipedia lookup as plain text; translation only if a free API is found (a paid key is not an option on the device).
   * 💤 Highlight exports to Readwise, Memos and Joplin as payload builders; tokens on the card are a risk to state in the docs.

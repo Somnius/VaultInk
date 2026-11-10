@@ -6,6 +6,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 
 **Reading and text**
 
+- [Auto warmth and night mode by the clock](#auto-warmth-and-night-mode-by-the-clock)
 - [Page backgrounds: Paper Button Cycle](#page-backgrounds-paper-button-cycle)
 - [Paper contrast (0.60.0)](#paper-contrast-0600)
 - [Line spacing, 0 to 10](#line-spacing-0-to-10)
@@ -60,6 +61,12 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Bluetooth keyboard typing (0.63.0)](#bluetooth-keyboard-typing-0630)
 - [Sudoku (0.59.0)](#sudoku-0590)
 
+
+## Auto warmth and night mode by the clock
+
+**Settings → Display** (boards with a frontlight): **Auto Warmth by Clock** turns the schedule on. **Night From (hour)** and **Night Until (hour)** set the window on the local clock (default 20 to 7; it can cross midnight, and the same hour twice means never). **Night Warmth** is the warmth used inside the window, and **Night Mode at Night** also turns night mode on for it. At the start of the window the light goes to the night warmth, at the end back to your day warmth.
+
+It only acts when the window starts or ends, so a change you make in the light panel stays until the next switch. Inside the window the light panel changes the night warmth, and outside it the day warmth. A wake at night is still warm. Turning the setting off puts the day side back. It needs the clock to be set (Settings → System → Clock); with no trusted time it does nothing. It is by time only: there is no sun position, because that needs a location, and it adds no wake-ups, so it does not touch sleep. Computer tests only, not tried on a device.
 
 ## Page backgrounds: Paper Button Cycle
 
