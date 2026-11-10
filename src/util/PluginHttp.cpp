@@ -21,7 +21,10 @@ constexpr size_t MAX_TOKEN_FILE_SIZE = 2 * 1024;
 // connected client, or nullptr if begin() failed.
 freeink::SecureHttpClient* openClient(freeink::SecureHttpClient* session, freeink::SecureHttpClient& tmp,
                                       const std::string& url, const pluginhttp::Headers& headers) {
-  freeink::SecureHttpClient& http = session ? *session : tmp;
+  // A reused session client may already have been told not to check certificates (that choice sticks), so a
+  // host that is always checked gets a fresh client instead.
+  const bool freshNeeded = session && tlspolicy::isPublicHost(tlspolicy::hostOf(url));
+  freeink::SecureHttpClient& http = (session && !freshNeeded) ? *session : tmp;
   http.setUserAgent("CrossPoint");
   // A plugin's own server is encrypted but not checked (as before); GitHub and
   // Wikipedia are always checked, and the request stops when that can't be set up.

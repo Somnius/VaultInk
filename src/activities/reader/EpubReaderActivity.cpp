@@ -1700,6 +1700,10 @@ bool EpubReaderActivity::launchKOReaderSync() {
 void EpubReaderActivity::launchWikipediaLookup(std::string text) {
   if (!epub) return;
   flushReaderSession();
+  // The way back is a restart into the book, so the position must be on the card first (as for a KOReader sync).
+  if (section && !saveProgress(currentSpineIndex, section->currentPage, section->estimatedTotalPages())) {
+    LOG_ERR("WIKI", "Position could not be saved before the lookup");
+  }
   // The book's own language picks the Wikipedia; the UI language is next, then English.
   const char* uiCode = LANGUAGE_CODES[static_cast<int>(SETTINGS.language)];
   auto lookup = makeUniqueNoThrow<WikipediaLookupActivity>(

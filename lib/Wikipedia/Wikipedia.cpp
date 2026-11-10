@@ -19,11 +19,30 @@ std::string languageCode(const std::string_view tag) {
   while (end < tag.size() && isAsciiLetter(tag[end])) end++;
   const size_t len = end - start;
   if (len < 2 || len > 3) return {};
+  const bool threeLetters = len == 3;
   while (end < tag.size() && isAsciiSpace(tag[end])) end++;
   if (end < tag.size() && tag[end] != '-' && tag[end] != '_') return {};
   std::string code(tag.substr(start, len));
   for (char& c : code) {
     if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+  }
+  if (threeLetters) {
+    // ISO 639-2 codes (books use them too) map to the two-letter Wikipedia code.
+    struct Map {
+      const char* three;
+      const char* two;
+    };
+    static constexpr Map MAP[] = {{"eng", "en"}, {"ell", "el"}, {"gre", "el"}, {"fra", "fr"}, {"fre", "fr"},
+                                  {"deu", "de"}, {"ger", "de"}, {"spa", "es"}, {"ita", "it"}, {"por", "pt"},
+                                  {"rus", "ru"}, {"nld", "nl"}, {"dut", "nl"}, {"pol", "pl"}, {"tur", "tr"},
+                                  {"swe", "sv"}, {"nor", "no"}, {"dan", "da"}, {"fin", "fi"}, {"ces", "cs"},
+                                  {"cze", "cs"}, {"ron", "ro"}, {"rum", "ro"}, {"hun", "hu"}, {"bul", "bg"}};
+    for (const Map& m : MAP) {
+      if (code == m.three) return m.two;
+    }
+    // Not a language: undetermined, multiple, no linguistic content.
+    if (code == "und" || code == "mul" || code == "zxx") return {};
+    // Any other three letters can be a Wikipedia of its own (ceb, war, arz, ast...), so it is passed on.
   }
   if (code == "nb") code = "no";  // Norwegian Bokmål lives at no.wikipedia.org
   return code;

@@ -69,6 +69,11 @@ TEST(WikipediaLanguage, BookFirstThenUiThenEnglish) {
   EXPECT_EQ(languageFor("", ""), "en");
   EXPECT_EQ(languageFor("e/../x", "??"), "en");  // nothing odd reaches the host name
   EXPECT_EQ(languageFor("nb-NO", "EN"), "no");
+  EXPECT_EQ(languageFor("eng", "EL"), "en");  // ISO 639-2 codes map to the two-letter Wikipedia
+  EXPECT_EQ(languageFor("ell", "EN"), "el");
+  EXPECT_EQ(languageFor("gre", "EN"), "el");
+  EXPECT_EQ(languageFor("und", "DE"), "de");   // undetermined is not a language: the UI language
+  EXPECT_EQ(languageFor("ceb", "EN"), "ceb");  // a three-letter Wikipedia of its own passes through
 }
 
 TEST(WikipediaTitle, PlainWordsAndSpaces) {
