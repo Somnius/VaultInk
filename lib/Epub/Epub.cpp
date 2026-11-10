@@ -1351,6 +1351,7 @@ float Epub::calculateProgress(const int currentSpineIndex, const float currentSp
 
 namespace {
 constexpr char HIDDEN_FLOWS_FILE[] = "/hidden.bin";
+constexpr size_t MAX_HIDDEN_ITEMS = 128;  // spine items in the saved list, see saveHiddenFlows
 
 // A write that is cut short leaves a file decode() refuses, and the chapters are shown again.
 bool writeHiddenFlowsFile(const std::string& path, const std::string& bytes) {
@@ -1436,11 +1437,19 @@ bool Epub::saveHiddenFlows() {
     if (hiddenFlags[i]) hrefs.push_back(bookMetadataCache->getSpineEntry(i).href);
   }
   if (hrefs.empty()) return !Storage.exists(path.c_str()) || Storage.remove(path.c_str());
+  // The encode makes a few copies of the list and the heap is small in a reading session: a very long list is
+  // refused (the caller undoes the change) instead of risking an out-of-memory abort.
+  if (hrefs.size() > MAX_HIDDEN_ITEMS) {
+    LOG_ERR("EBP", "Too many hidden spine items to save (%u)", static_cast<unsigned>(hrefs.size()));
+    return false;
+  }
   setupCacheDir();
   return writeHiddenFlowsFile(path, hiddenflows::encode(hrefs));
 }
 
 bool Epub::setSpineRangeHidden(const int firstSpineIndex, const int lastSpineIndex, const bool hidden) {
+  decltype(hiddenFlags) previousFlags;
+  decltype(hiddenCumulative) previousCumulative;
   {
     std::lock_guard<std::mutex> lock(hiddenLock);
     if (!supportsHiddenFlows() || !bookMetadataCache || !bookMetadataCache->isLoaded()) return false;
@@ -1448,6 +1457,8 @@ bool Epub::setSpineRangeHidden(const int firstSpineIndex, const int lastSpineInd
     const int first = std::max(0, firstSpineIndex);
     const int last = std::min(count - 1, lastSpineIndex);
     if (first > last || !fillHiddenTotals()) return false;
+    previousFlags = hiddenFlags;
+    previousCumulative = hiddenCumulative;
     for (int i = first; i <= last; i++) hiddenFlags[i] = hidden ? 1 : 0;
     if (std::find(hiddenFlags.begin(), hiddenFlags.end(), 1) == hiddenFlags.end()) {
       hiddenCumulative.clear();
@@ -1455,7 +1466,13 @@ bool Epub::setSpineRangeHidden(const int firstSpineIndex, const int lastSpineInd
     }
     hiddenActive = hiddenflows::active(hiddenCumulative, hiddenFlags);
   }
-  return saveHiddenFlows();
+  if (saveHiddenFlows()) return true;
+  // Could not save: put the previous state back, so the screen and the file agree.
+  std::lock_guard<std::mutex> lock(hiddenLock);
+  hiddenFlags = std::move(previousFlags);
+  hiddenCumulative = std::move(previousCumulative);
+  hiddenActive = hiddenflows::active(hiddenCumulative, hiddenFlags);
+  return false;
 }
 
 bool Epub::getTocSpineRange(const int tocIndex, int& firstSpineIndex, int& lastSpineIndex) const {

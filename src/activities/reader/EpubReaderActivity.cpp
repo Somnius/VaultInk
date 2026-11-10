@@ -4324,7 +4324,9 @@ int EpubReaderActivity::getProgressBasisPoints() const {
   const int totalPages = section->estimatedTotalPages();
   if (totalPages <= 0) return getProgressPercent() * 100;
   const float chapterProgress = static_cast<float>(section->currentPage) / static_cast<float>(totalPages);
-  const int basisPoints = static_cast<int>(epub->visibleProgress(currentSpineIndex, chapterProgress) * 10000.0f + 0.5f);
+  // Raw, not visible: the reading log counts what was read, and hiding a chapter mid-session must not jump it.
+  const int basisPoints =
+      static_cast<int>(epub->calculateProgress(currentSpineIndex, chapterProgress) * 10000.0f + 0.5f);
   return std::clamp(basisPoints, 0, 10000);
 }
 

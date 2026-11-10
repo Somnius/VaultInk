@@ -138,7 +138,7 @@ bool EpubReaderChapterSelectionActivity::handleButtons() {
   }
 
   // The release after the hold is swallowed by wasLongPressed(), so it does not also open the chapter.
-  if (mappedInput.wasLongPressed(MappedInputManager::Button::Confirm, LONG_PRESS_MS)) {
+  if (epub->supportsHiddenFlows() && mappedInput.wasLongPressed(MappedInputManager::Button::Confirm, LONG_PRESS_MS)) {
     onRowLongPress(nav.selected);
     return true;
   }
