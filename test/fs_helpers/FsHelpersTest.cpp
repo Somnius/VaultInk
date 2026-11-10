@@ -10,7 +10,8 @@ namespace {
 using namespace std::string_view_literals;
 
 TEST(ReflowableBookExtension, IncludesTextFormatsAndExcludesImageBooks) {
-  for (const auto path : {"/Books/book.epub"sv, "book.TXT"sv, "book.mD"sv}) {
+  for (const auto path : {"/Books/book.epub"sv, "book.TXT"sv, "book.mD"sv, "book.mobi"sv, "book.FB2"sv, "page.html"sv,
+                          "page.HTM"sv, "page.xhtml"sv, "letter.Rtf"sv}) {
     EXPECT_TRUE(FsHelpers::hasReflowableBookExtension(path));
   }
   for (const auto path : {"book.xtc"sv, "book.XTCH"sv, "book.bmp"sv, "book.epub.bak"sv, ""sv}) {
@@ -76,11 +77,26 @@ TEST(SanitizePathComponentForFat32, DoesNotSplitLetterAtBufferLimit) {
   EXPECT_EQ(sanitize(kTitle2103), "Богиня-глюкозы.-Нормализуйте-уров");
 }
 
+TEST(MarkupBookExtension, Fb2HtmlRtf) {
+  EXPECT_TRUE(FsHelpers::hasFb2Extension("a.fb2"));
+  EXPECT_FALSE(FsHelpers::hasFb2Extension("a.fb2.zip"));  // the zipped kind is not read
+  for (const auto path : {"a.html"sv, "a.htm"sv, "a.XHTML"sv}) EXPECT_TRUE(FsHelpers::hasHtmlExtension(path));
+  EXPECT_FALSE(FsHelpers::hasHtmlExtension("a.mhtml.txt"));
+  EXPECT_TRUE(FsHelpers::hasRtfExtension("a.RTF"));
+  for (const auto path : {"a.fb2"sv, "a.html"sv, "a.htm"sv, "a.xhtml"sv, "a.rtf"sv}) {
+    EXPECT_TRUE(FsHelpers::hasMarkupBookExtension(path));
+  }
+  for (const auto path : {"a.epub"sv, "a.txt"sv, "a.md"sv, "a.mobi"sv, "a.doc"sv, "rtf"sv}) {
+    EXPECT_FALSE(FsHelpers::hasMarkupBookExtension(path));
+  }
+}
+
 }  // namespace
 
 TEST(RandomPageBook, PicksBookFormatsOnly) {
-  for (const char* path : {"/Books/a.epub", "/Books/a.EPUB", "/Comics/x.cbz", "/Comics/x.xtch", "/Books/p.pdf",
-                           "/Books/novel.txt", "/Ελληνικά/βιβλίο.epub"}) {
+  for (const char* path :
+       {"/Books/a.epub", "/Books/a.EPUB", "/Comics/x.cbz", "/Comics/x.xtch", "/Books/p.pdf", "/Books/novel.txt",
+        "/Ελληνικά/βιβλίο.epub", "/Books/a.fb2", "/Books/a.html", "/Books/a.rtf"}) {
     EXPECT_TRUE(FsHelpers::isRandomPageBook(path)) << path;
   }
   for (const char* path : {"/Vaults/V/note.md", "/pic.png", "/a.canvas", "/a.zip", "/Sketch.excalidraw"}) {

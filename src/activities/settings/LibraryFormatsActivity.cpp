@@ -19,7 +19,7 @@ constexpr Format FORMATS[] = {
     {library::FMT_MD, "Markdown (MD)"},
     {library::FMT_XTC, "XTC / XTCH"},
     {library::FMT_CBZ, "CBZ"},
-    {library::FMT_MOBI, "MOBI / AZW"},
+    {library::FMT_MOBI, "MOBI / AZW / FB2 / HTML / RTF"},
     // Browse Files only (the last three rows after All and the seven book formats)
     {library::BROWSE_PICTURES, "Pictures"},
     {library::BROWSE_DRAWINGS, "Drawings (canvas, Excalidraw)"},

@@ -16,13 +16,16 @@
 #include <cstring>
 #include <vector>
 
+#include "MarkupBook.h"
 #include "TxtToHtml.h"
 
 bool Txt::isTxtOrMd(std::string_view path) {
   return FsHelpers::hasTxtExtension(path) || FsHelpers::hasMarkdownExtension(path);
 }
 
-bool Txt::isPlainBook(std::string_view path) { return isTxtOrMd(path) || Mobi::isMobi(path); }
+bool Txt::isPlainBook(std::string_view path) {
+  return isTxtOrMd(path) || Mobi::isMobi(path) || MarkupBook::isMarkupBook(path);
+}
 
 std::string Txt::findCompanionCoverImage(const std::string& filepath) {
   std::string folder = FsHelpers::extractFolderPath(filepath);
@@ -102,6 +105,7 @@ bool Txt::convertCoverImageToBmp(const std::string& imagePath, const std::string
 
 bool Txt::streamTxtToHtml(const std::string& filepath, Print& out, const std::string& cachePath) {
   if (Mobi::isMobi(filepath)) return Mobi::streamHtml(filepath, out, cachePath);
+  if (MarkupBook::isMarkupBook(filepath)) return MarkupBook::streamHtml(filepath, out);
   const uint32_t t0 = millis();
   HalFile src;
   if (!Storage.openFileForRead("TXT", filepath, src)) {
@@ -207,7 +211,9 @@ bool Txt::validateCache(const std::string& filepath, const std::string& cachePat
       const int bytesRead = htmlFile.read(header, sizeof(header) - 1);
       if (bytesRead > 0) {
         header[bytesRead] = '\0';
-        if (strstr(header, TxtToHtml::cacheVersionTag(filepath)) == nullptr) {
+        const char* tag = MarkupBook::isMarkupBook(filepath) ? MarkupBook::cacheVersionTag(filepath)
+                                                             : TxtToHtml::cacheVersionTag(filepath);
+        if (strstr(header, tag) == nullptr) {
           LOG_DBG("TXT", "HTML cache version mismatch or missing, invalidating: %s", htmlPath.c_str());
           valid = false;
         }
@@ -267,6 +273,7 @@ bool Txt::validateCache(const std::string& filepath, const std::string& cachePat
 bool Txt::buildTxtCache(const std::string& filepath, const std::string& cachePath,
                         std::unique_ptr<BookMetadataCache>& bookMetadataCache) {
   if (Mobi::isMobi(filepath)) return Mobi::buildCache(filepath, cachePath, bookMetadataCache);
+  if (MarkupBook::isMarkupBook(filepath)) return MarkupBook::buildCache(filepath, cachePath, bookMetadataCache);
   LOG_DBG("TXT", "Building metadata cache for TXT: %s", filepath.c_str());
 
   if (!Storage.exists(cachePath.c_str())) {

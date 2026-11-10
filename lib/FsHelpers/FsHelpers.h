@@ -70,12 +70,19 @@ bool hasMarkdownExtension(std::string_view fileName);
 bool hasCanvasExtension(std::string_view fileName);
 // .excalidraw, and the Obsidian Excalidraw plugin's .excalidraw.md (0.63.0)
 bool hasExcalidrawExtension(std::string_view fileName);
-// Which files Random page! may pick (kos25k #15): book formats only (EPUB, PDF, CBZ, XTC/XTCH, TXT), and no text that
-// is not a book: anything under a dot-folder or /debug, crash logs, the changelog note, .log files.
+// Which files Random page! may pick (kos25k #15): book formats only (EPUB, PDF, CBZ, XTC/XTCH, TXT, MOBI, FB2, HTML,
+// RTF), and no text that is not a book: anything under a dot-folder or /debug, crash logs, the changelog note, .log
+// files.
 bool isRandomPageBook(std::string_view path);
 bool hasPdfExtension(std::string_view fileName);  // read as text (src/util/PdfConvert)
 // Plain Mobipocket books, .mobi and .prc (lib/Mobi, kos25k #26); AZW/KF8 and DRM are refused when opened.
 bool hasMobiExtension(std::string_view fileName);
+// FictionBook 2 (lib/Fb2), loose HTML pages (.html, .htm, .xhtml, lib/Html) and RTF (lib/Rtf): converted to the
+// reader's text-book page when opened, like MOBI (lib/Txt/MarkupBook).
+bool hasFb2Extension(std::string_view fileName);
+bool hasHtmlExtension(std::string_view fileName);
+bool hasRtfExtension(std::string_view fileName);
+bool hasMarkupBookExtension(std::string_view fileName);
 
 bool hasReflowableBookExtension(std::string_view fileName);
 

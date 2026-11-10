@@ -1,0 +1,64 @@
+find_package(EXPAT REQUIRED)
+
+add_executable(MarkupBooksTest
+  CodePageTest.cpp
+  Fb2ToHtmlTest.cpp
+  HtmlBookTest.cpp
+  RtfToHtmlTest.cpp
+  ${REPO_ROOT}/lib/CodePage/CodePage.cpp
+  ${REPO_ROOT}/lib/Fb2/Fb2ToHtml.cpp
+  ${REPO_ROOT}/lib/Html/HtmlBook.cpp
+  ${REPO_ROOT}/lib/Rtf/RtfToHtml.cpp
+  ${REPO_ROOT}/lib/Mobi/MobiHtmlFilter.cpp
+  ${REPO_ROOT}/lib/Mobi/MobiFormat.cpp
+  ${REPO_ROOT}/lib/Epub/Epub/htmlEntities.cpp
+)
+
+target_include_directories(MarkupBooksTest PRIVATE
+  ${REPO_ROOT}/lib/CodePage
+  ${REPO_ROOT}/lib/Fb2
+  ${REPO_ROOT}/lib/Html
+  ${REPO_ROOT}/lib/Rtf
+  ${REPO_ROOT}/lib/Mobi
+  ${REPO_ROOT}/lib/Epub
+  ${REPO_ROOT}/lib/XmlParserUtils
+)
+
+target_link_libraries(MarkupBooksTest PRIVATE
+  crosspoint_test_common
+  EXPAT::EXPAT
+  GTest::gtest_main
+)
+
+gtest_discover_tests(MarkupBooksTest)
+
+# The FB2 tests again with the expat the firmware is built with (lib/expat) and the firmware's expat flags
+# (platformio.ini: XML_GE=0, XML_CONTEXT_BYTES=0), not the host's: the memory cap and the encodings depend on it.
+add_executable(Fb2FirmwareExpatTest
+  Fb2ToHtmlTest.cpp
+  ${REPO_ROOT}/lib/CodePage/CodePage.cpp
+  ${REPO_ROOT}/lib/Fb2/Fb2ToHtml.cpp
+  ${REPO_ROOT}/lib/expat/xmlparse.c
+  ${REPO_ROOT}/lib/expat/xmlrole.c
+  ${REPO_ROOT}/lib/expat/xmltok.c
+)
+
+target_include_directories(Fb2FirmwareExpatTest BEFORE PRIVATE
+  ${REPO_ROOT}/lib/expat
+  ${REPO_ROOT}/lib/CodePage
+  ${REPO_ROOT}/lib/Fb2
+  ${REPO_ROOT}/lib/XmlParserUtils
+)
+
+target_compile_definitions(Fb2FirmwareExpatTest PRIVATE
+  XML_GE=0
+  XML_CONTEXT_BYTES=0
+  XML_STATIC
+  XML_DEV_URANDOM
+)
+
+target_link_libraries(Fb2FirmwareExpatTest PRIVATE
+  GTest::gtest_main
+)
+
+gtest_discover_tests(Fb2FirmwareExpatTest TEST_PREFIX "FirmwareExpat.")

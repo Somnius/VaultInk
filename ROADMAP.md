@@ -708,7 +708,7 @@ What it is: close the gaps against KOReader that kos25k and Lef picked. Lef's ca
   * 💤 Auto warmth and night mode by time (a schedule first; sun position needs a location, later).
   * 💤 Customisable gestures, profiles and a Quick Menu, folded into Reading presets (one settings layer; a mapping that can never lock you out).
   * 💤 Skim widget, book map and page browser (a chapter and percent strip, no thumbnails).
-  * 💤 FB2, HTML and RTF through one adapter into the existing text pipeline (like MOBI).
+  * 🚧 FB2, HTML and RTF into the existing text pipeline (like MOBI): lib/Fb2, lib/Html, lib/Rtf and lib/Txt/MarkupBook are written and host-tested (test/markup_books), listed under the MOBI / AZW row. Still to do before a release: the device build and its flash cost, a run in the simulator and on an X4 Pro, screenshots. No pictures, no chapters, no zipped FB2.
 * **Release B: network, after certificate checks reach the shared HTTP code** (today only LiveSync checks certificates):
   * 💤 Wikipedia lookup as plain text; translation only if a free API is found (a paid key is not an option on the device).
   * 💤 Highlight exports to Readwise, Memos and Joplin as payload builders; tokens on the card are a risk to state in the docs.

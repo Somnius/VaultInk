@@ -7,6 +7,7 @@
 #include <HalStorage.h>
 #include <JpegToBmpConverter.h>
 #include <Logging.h>
+#include <MarkupBook.h>
 #include <Memory.h>
 #include <Mobi.h>
 #include <PngToBmpConverter.h>
@@ -664,6 +665,14 @@ bool Epub::loadMetadata(std::string& title, std::string& author) {
     // Record 0 only: title and author from the EXTH header, no cache written.
     mobi::Info info;
     if (Mobi::probe(filepath, &info) != mobi::Status::Ok) return false;
+    title = utf8ComposeNfc(info.title.empty() ? FsHelpers::getFileNameWithoutExtension(filepath) : info.title);
+    author = utf8ComposeNfc(info.author);
+    return true;
+  }
+  if (MarkupBook::isMarkupBook(filepath)) {
+    // The head of the file only (an FB2's title-info, an RTF's info group, an HTML page's <title>), no cache written.
+    MarkupBook::Info info;
+    if (!MarkupBook::probe(filepath, &info)) return false;
     title = utf8ComposeNfc(info.title.empty() ? FsHelpers::getFileNameWithoutExtension(filepath) : info.title);
     author = utf8ComposeNfc(info.author);
     return true;

@@ -155,10 +155,12 @@ UIIcon UITheme::getFileIcon(const std::string& filename) {
     return Folder;
   }
   if (FsHelpers::hasEpubExtension(filename) || FsHelpers::hasXtcExtension(filename) ||
-      FsHelpers::hasCbzExtension(filename) || FsHelpers::hasMobiExtension(filename)) {
+      FsHelpers::hasCbzExtension(filename) || FsHelpers::hasMobiExtension(filename) ||
+      FsHelpers::hasFb2Extension(filename)) {
     return Book;
   }
-  if (FsHelpers::hasTxtExtension(filename) || FsHelpers::hasMarkdownExtension(filename)) {
+  if (FsHelpers::hasTxtExtension(filename) || FsHelpers::hasMarkdownExtension(filename) ||
+      FsHelpers::hasHtmlExtension(filename) || FsHelpers::hasRtfExtension(filename)) {
     return Text;
   }
   if (FsHelpers::hasImageExtension(filename)) {
