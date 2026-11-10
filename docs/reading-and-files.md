@@ -10,6 +10,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Paper contrast (0.60.0)](#paper-contrast-0600)
 - [Line spacing, 0 to 10](#line-spacing-0-to-10)
 - [Advanced Typography (0.66.0, renamed from Experimental in 0.66.1)](#advanced-typography-0660-renamed-from-experimental-in-0661)
+- [Screenshots](#screenshots)
 - [Reading presets](#reading-presets-0700)
 - [Book menu options](#book-menu-options-0730)
 - [The More menu in a book](#the-more-menu-in-a-book-0700)
@@ -165,6 +166,12 @@ While a book is open the kerning and ligature switches also apply to the menus d
 ## The More menu in a book (0.70.0)
 
 Book menu → More starts with **Search in Book**, **Go to %** and **Go to page**, and ends with the favourite toggle, **Take screenshot**, **Show page as QR**, **Delete Book Cache**, **Go Home** and **Reading presets**. Frontlight and Night Mode are not in it any more: they are in the quick settings (swipe down) and in Settings.
+
+## Screenshots
+
+Hold **Power** and press **Down** together, on any screen, and the reader saves the whole screen as a BMP in `/screenshots/` on the SD card. Down is the right-hand side button on the X4 Pro, where the side buttons sit on the edges. It works in menus, the lock screen and the home screen too, and no setting turns it off. It does not work while USB Drive mode has the SD card.
+
+In a book the file goes in `/screenshots/<book title>/`, named with the chapter (EPUB only), page and percent. Anywhere else it is `/screenshots/screenshot-<number>.bmp`. A frame flashes around the screen for a second after it is saved; the frame is not in the picture. In a book the same thing is in the book menu, under More, as **Take screenshot**. Holding Down and Power while the device starts is something else: it starts the recovery firmware.
 
 ## Go to page (0.68.0)
 

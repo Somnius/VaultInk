@@ -280,6 +280,8 @@ The first time VaultInk starts, it shows a short welcome guide. The five pages a
 4. **Adding books.** Copy books into the `books` folder on the SD card, or send them from your computer with File Transfer (Wi-Fi, USB or Calibre).
 5. **That's it.** Open the guide again from **Settings → System → Welcome Guide**. It also comes back once after an update that changes it. To stop that, turn off **Show Welcome Guide After Updates** in the same place.
 
+**Screenshots.** Hold Power and press Down at the same time, on any screen, and the reader saves what is on the screen as a BMP in `/screenshots/` on the SD card (in a book it goes in a folder with the book's title). The Down button is the right-hand side button on the X4 Pro. Inside a book it is also in the book menu, under More, as Take screenshot. [docs/reading-and-files.md](docs/reading-and-files.md#screenshots)
+
 **Menus in Greek:** Settings → System → Language, then **Ελληνικά** (second in the list, right
 after English). Back in Greek the same place is Ρυθμίσεις → Σύστημα → Γλώσσα.
 
