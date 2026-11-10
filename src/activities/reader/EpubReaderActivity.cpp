@@ -303,6 +303,7 @@ bool EpubReaderActivity::loadBook() {
   });
 
   epub->setupCacheDir();
+  epub->loadHiddenFlows();  // chapters hidden from the page count (the book's hidden.bin), before any percent is drawn
 
   HalFile f;
   if (Storage.openFileForRead("ERS", epub->getCachePath() + "/progress.bin", f)) {
@@ -362,7 +363,7 @@ int EpubReaderActivity::bookPercentFor(const ChapterPosition& position) const {
   if (!epub || epub->getBookSize() == 0 || !position.hasTotal()) return 0;
   // The page index can run past the chapter's estimated total while it is still
   // building, so the fraction is clamped before the cast.
-  const float fraction = epub->calculateProgress(currentSpineIndex, position.chapterFraction());
+  const float fraction = epub->visibleProgress(currentSpineIndex, position.chapterFraction());
   return static_cast<int>(std::clamp(fraction, 0.0f, 1.0f) * 100.0f + 0.5f);
 }
 
@@ -1117,9 +1118,16 @@ void EpubReaderActivity::loop() {
 }
 
 // The chapter that holds byte `targetSize` of the book, and how far into it that is (pendingSpineProgress).
+// With hidden chapters the bytes are those of Epub::visibleBookSize() and the answer is never a hidden chapter.
 bool EpubReaderActivity::locateBookSize(const size_t targetSize, int& targetSpineIndex) {
   const int spineCount = epub->getSpineItemsCount();
   if (spineCount == 0) return false;
+
+  float visibleFraction = 0.0f;
+  if (epub->locateVisibleSize(targetSize, targetSpineIndex, visibleFraction)) {
+    pendingSpineProgress = std::clamp(visibleFraction, 0.0f, 1.0f);
+    return true;
+  }
 
   targetSpineIndex = spineCount - 1;
   size_t prevCumulative = 0;
@@ -1141,7 +1149,7 @@ bool EpubReaderActivity::locateBookSize(const size_t targetSize, int& targetSpin
 // Opens on a random page without touching the saved place: the search bar's return arrow goes back to it
 // and "stay here" keeps the page (kos25k #15).
 void EpubReaderActivity::beginRandomPeek() {
-  const size_t bookSize = epub->getBookSize();
+  const size_t bookSize = epub->visibleBookSize();  // a random page is never in a hidden chapter
   if (bookSize < 2) return;
   int spine = 0;
   if (!locateBookSize(randompage::random32() % bookSize, spine)) return;
@@ -1158,7 +1166,7 @@ void EpubReaderActivity::beginRandomPeek() {
 
 void EpubReaderActivity::jumpToPercent(int percent) {
   if (!epub) return;
-  const size_t bookSize = epub->getBookSize();
+  const size_t bookSize = epub->visibleBookSize();
   if (bookSize == 0) return;
 
   percent = clampPercent(percent);
@@ -1183,7 +1191,7 @@ void EpubReaderActivity::jumpToPercent(int percent) {
 
 void EpubReaderActivity::jumpToBookFraction(const float fraction) {
   if (!epub) return;
-  const size_t bookSize = epub->getBookSize();
+  const size_t bookSize = epub->visibleBookSize();
   if (bookSize == 0) return;
   const double clamped = std::clamp(static_cast<double>(fraction), 0.0, 1.0);
   size_t targetSize = static_cast<size_t>(static_cast<double>(bookSize) * clamped);
@@ -1446,8 +1454,7 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
           uint16_t backupPage = section->currentPage;
           uint16_t backupPageCount = section->pageCount;
           section.reset();
-          epub->clearCache();
-          epub->setupCacheDir();
+          epub->clearCacheKeepHidden();  // the hidden chapters are the reader's choice, like the place saved below
           if (!saveProgress(backupSpine, backupPage, backupPageCount)) {
             LOG_ERR("ERS", "Failed to save progress before cache clear");
           }
@@ -2701,7 +2708,7 @@ void EpubReaderActivity::renderStatusBar() const {
   const int currentPage = section ? section->currentPage + 1 : 1;
   const float pageCount = section ? section->estimatedTotalPages() : 1;
   const float sectionChapterProg = (pageCount > 0) ? (static_cast<float>(currentPage) / pageCount) : 0;
-  const float bookProgress = epub ? (epub->calculateProgress(currentSpineIndex, sectionChapterProg) * 100) : 0;
+  const float bookProgress = epub ? (epub->visibleProgress(currentSpineIndex, sectionChapterProg) * 100) : 0;
   publishLiveBookProgress(epub ? clampPercent(static_cast<int>(bookProgress + 0.5f)) : -1);
   if (search.active) {
     drawSearchBar();
@@ -2751,14 +2758,19 @@ void EpubReaderActivity::renderStatusBar() const {
 // changes with the font and spacing, and a book that starts before its first chapter shows 1 there.
 bool EpubReaderActivity::bookPageScale(const float chapterPages, float& first, float& scale) const {
   if (!epub || !section || chapterPages <= 0) return false;
-  const float chapterStart = epub->calculateProgress(currentSpineIndex, 0.0f);
-  const float chapterEnd = epub->calculateProgress(currentSpineIndex + 1, 0.0f);
-  const float share = chapterEnd - chapterStart;
+  // This chapter's share of the counted book (hidden chapters are left out of the book, so the total gets
+  // smaller). The chapter's own bytes are used even when it is hidden itself, so the scale stays usable there.
+  const size_t bookSize = epub->visibleBookSize();
+  if (bookSize == 0) return false;
+  const size_t chapterEnd = epub->getCumulativeSpineItemSize(currentSpineIndex);
+  const size_t chapterStart = currentSpineIndex > 0 ? epub->getCumulativeSpineItemSize(currentSpineIndex - 1) : 0;
+  if (chapterEnd <= chapterStart) return false;
+  const float share = static_cast<float>(chapterEnd - chapterStart) / static_cast<float>(bookSize);
   if (share <= 0.0f) return false;
   first = 0.0f;  // where chapter 1 starts; when it can't be found, the start of the book
   if (epub->getTocItemsCount() > 0) {
     const int firstSpine = epub->getSpineIndexForTocIndex(0);
-    if (firstSpine >= 0) first = epub->calculateProgress(firstSpine, 0.0f);
+    if (firstSpine >= 0) first = epub->visibleProgress(firstSpine, 0.0f);
   }
   scale = chapterPages / share;  // pages of the whole book per unit of book progress
   return true;
@@ -2771,6 +2783,18 @@ int EpubReaderActivity::bookPageNumber(const float bookFraction, const float cha
   return std::max(1, static_cast<int>(pages + 0.5f));  // the fraction already counts the page you are on
 }
 
+// Hidden flows: hides the chapter of contents entry `tocIndex` from the book's page count and percent, or shows
+// it again. The chapter can still be opened and read.
+void EpubReaderActivity::toggleChapterHidden(const int tocIndex) {
+  if (!epub || !epub->supportsHiddenFlows()) return;
+  RenderLock lock;  // the render task reads the same flags and the book's cache file
+  int first = 0, last = 0;
+  if (!epub->getTocSpineRange(tocIndex, first, last)) return;
+  if (!epub->setSpineRangeHidden(first, last, !epub->isSpineHidden(first))) {
+    LOG_ERR("ERS", "Hidden chapters could not be saved");
+  }
+}
+
 // Go to page (kos25k #29): the number is the estimate the status bar shows, so the jump goes the other way,
 // from the page to the share of the book.
 void EpubReaderActivity::openGoToPage() {
@@ -2779,7 +2803,7 @@ void EpubReaderActivity::openGoToPage() {
   const float pagesHere = section->estimatedTotalPages();
   if (pagesHere <= 0) return;
   const float chapterProgress = static_cast<float>(section->currentPage + 1) / pagesHere;
-  const float fraction = epub->calculateProgress(currentSpineIndex, chapterProgress);
+  const float fraction = epub->visibleProgress(currentSpineIndex, chapterProgress);
   float first = 0.0f, scale = 0.0f;
   if (!bookPageScale(pagesHere, first, scale)) return;
   const int total = std::max(1, bookPageNumber(1.0f, pagesHere));
@@ -3314,7 +3338,7 @@ void EpubReaderActivity::renderOverlay() {
     const int pageCount = section->estimatedTotalPages();
     const float chapterProgress =
         pageCount > 0 ? static_cast<float>(section->currentPage + 1) / static_cast<float>(pageCount) : 0.0f;
-    const float bookProgress = epub->calculateProgress(currentSpineIndex, chapterProgress);
+    const float bookProgress = epub->visibleProgress(currentSpineIndex, chapterProgress);
     pageInfo = std::to_string(section->currentPage + 1) + "/" + std::to_string(pageCount) + "   " +
                std::to_string(clampPercent(static_cast<int>(bookProgress * 100.0f + 0.5f))) + "%";
     model.chapterTitle = chapterTitle.c_str();
@@ -3341,6 +3365,16 @@ void EpubReaderActivity::renderOverlay() {
       const int depth = item.level > 1 ? (item.level - 1) * 2 : 0;
       return std::string(depth, ' ') + item.title;
     };
+    // Hidden flows: a chapter left out of the page count says so; a long press on the row changes it.
+    if (epub->supportsHiddenFlows()) {
+      model.rowLongPress = true;
+      if (epub->hasAnyHiddenSpine()) {
+        model.rowValue = [this](int i) {
+          const int spine = epub->getTocItem(i).spineIndex;
+          return std::string(spine >= 0 && epub->isSpineHidden(spine) ? tr(STR_CHAPTER_HIDDEN) : "");
+        };
+      }
+    }
   } else if (overlay == Overlay::Text) {
     model.panelTitle = tr(STR_TOOL_TEXT);
     model.itemCount = static_cast<int>(textRows.size());
@@ -3607,6 +3641,11 @@ void EpubReaderActivity::handleOverlayInput() {
       }
       panelIndex = routed.value;
       panelCursorShown = false;
+      if (routed.longPress && overlay == Overlay::Contents) {
+        toggleChapterHidden(panelIndex);
+        fastRedraw();
+        return;
+      }
       activateRow();
       return;
     default:
@@ -3625,6 +3664,15 @@ void EpubReaderActivity::handleOverlayInput() {
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
     dismissPanel();
+    return;
+  }
+
+  // Buttons: holding Confirm on a chapter hides it from the page count or shows it again (the release that
+  // follows is swallowed by wasLongPressed, so it does not also open the chapter).
+  if (overlay == Overlay::Contents && panelCursorShown && epub->supportsHiddenFlows() &&
+      mappedInput.wasLongPressed(MappedInputManager::Button::Confirm, PANEL_HIDE_HOLD_MS)) {
+    toggleChapterHidden(panelIndex);
+    fastRedraw();
     return;
   }
 
@@ -4261,7 +4309,7 @@ ScreenshotInfo EpubReaderActivity::getScreenshotInfo() const {
     info.totalPages = section->estimatedTotalPages();
     if (epub && epub->getBookSize() > 0 && info.totalPages > 0) {
       const float chapterProgress = static_cast<float>(section->currentPage) / static_cast<float>(info.totalPages);
-      int pct = static_cast<int>(epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f + 0.5f);
+      int pct = static_cast<int>(epub->visibleProgress(currentSpineIndex, chapterProgress) * 100.0f + 0.5f);
       if (pct < 0) pct = 0;
       if (pct > 100) pct = 100;
       info.progressPercent = pct;
@@ -4276,8 +4324,7 @@ int EpubReaderActivity::getProgressBasisPoints() const {
   const int totalPages = section->estimatedTotalPages();
   if (totalPages <= 0) return getProgressPercent() * 100;
   const float chapterProgress = static_cast<float>(section->currentPage) / static_cast<float>(totalPages);
-  const int basisPoints =
-      static_cast<int>(epub->calculateProgress(currentSpineIndex, chapterProgress) * 10000.0f + 0.5f);
+  const int basisPoints = static_cast<int>(epub->visibleProgress(currentSpineIndex, chapterProgress) * 10000.0f + 0.5f);
   return std::clamp(basisPoints, 0, 10000);
 }
 

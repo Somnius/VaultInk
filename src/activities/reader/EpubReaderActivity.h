@@ -80,6 +80,7 @@ class EpubReaderActivity final : public ReaderActivity {
   // sluggish. True once a hold has jumped, so the release that ends it is swallowed.
   static constexpr unsigned long PANEL_HOLD_MS = 1500;
   static constexpr int PANEL_HOLD_STEP = 10;
+  static constexpr unsigned long PANEL_HIDE_HOLD_MS = 1000;  // Confirm held on a chapter: hidden flows
   bool panelHoldJumped = false;
   // Whether the panel draws its cursor row. Button boards always do; touch
   // boards only once a button has moved it, so a tapped row is not left inverted.
@@ -182,6 +183,7 @@ class EpubReaderActivity final : public ReaderActivity {
   void jumpToBookFraction(float fraction);  // like jumpToPercent, to a share of the book
   void openGoToPage();
   bool locateBookSize(size_t targetSize, int& targetSpineIndex);
+  void toggleChapterHidden(int tocIndex);  // hidden flows, from the Contents panel
   void beginRandomPeek();
   void onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action);
   int currentTocIndex() const;

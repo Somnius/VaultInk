@@ -3,6 +3,7 @@
 #include <FontCacheManager.h>
 #include <GfxRenderer.h>
 #include <I18n.h>
+#include <Logging.h>
 
 #include <string>
 
@@ -12,11 +13,15 @@
 
 namespace fui = freeink::ui;
 
+namespace {
+constexpr unsigned long LONG_PRESS_MS = 1000;
+}
+
 EpubReaderChapterSelectionActivity::EpubReaderChapterSelectionActivity(GfxRenderer& renderer,
                                                                        MappedInputManager& mappedInput,
                                                                        const std::shared_ptr<Epub>& epub,
                                                                        const int currentTocIndex)
-    : UiListActivity("EpubReaderChapterSelection", renderer, mappedInput),
+    : UiListActivity("EpubReaderChapterSelection", renderer, mappedInput, /*wantsTouchLongPress=*/true),
       epub(epub),
       currentTocIndex(currentTocIndex) {}
 
@@ -62,6 +67,8 @@ void EpubReaderChapterSelectionActivity::refreshTocWindow(const int start) {
     windowLabels[i] = indent + tocItem.title;
     fui::ListItem item;
     item.label = windowLabels[i].c_str();
+    // Hidden flows: a chapter left out of the book's page count and percent says so.
+    if (tocItem.spineIndex >= 0 && epub->isSpineHidden(tocItem.spineIndex)) item.value = tr(STR_CHAPTER_HIDDEN);
     item.actionValue = static_cast<int16_t>(clamped + i);
     windowItems[i] = item;
   }
@@ -100,6 +107,23 @@ void EpubReaderChapterSelectionActivity::activateIndex(const int index) {
   }
 }
 
+// Hidden flows: a long press (or holding Confirm) hides the chapter from the book's page count and percent, or
+// shows it again. The row stays in the list and can still be opened.
+void EpubReaderChapterSelectionActivity::onRowLongPress(const int index) {
+  app.clearTapFlash();
+  if (!epub || !epub->supportsHiddenFlows() || index < 0 || index >= listCount()) return;
+  {
+    RenderLock lock(*this);  // the render task reads the same flags and the book's cache file
+    int first = 0, last = 0;
+    if (!epub->getTocSpineRange(index, first, last)) return;
+    if (!epub->setSpineRangeHidden(first, last, !epub->isSpineHidden(first))) {
+      LOG_ERR("ERS", "Hidden chapters could not be saved");
+    }
+    windowStart = -1;  // the rows are made again with the new marks
+  }
+  requestUpdate();
+}
+
 bool EpubReaderChapterSelectionActivity::handleButtons() {
   if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
     ActivityResult result;
@@ -110,6 +134,12 @@ bool EpubReaderChapterSelectionActivity::handleButtons() {
   }
 
   if (!epub) {
+    return true;
+  }
+
+  // The release after the hold is swallowed by wasLongPressed(), so it does not also open the chapter.
+  if (mappedInput.wasLongPressed(MappedInputManager::Button::Confirm, LONG_PRESS_MS)) {
+    onRowLongPress(nav.selected);
     return true;
   }
 
@@ -143,6 +173,7 @@ void EpubReaderChapterSelectionActivity::buildScreen(UiScreen& screen) {
   props.count = static_cast<uint16_t>(listCount());
   props.action = ACTION_ROW;
   props.inputMask = fui::InputTouch;  // physical buttons stay in loop()
+  if (epub->supportsHiddenFlows()) props.inputMask |= fui::InputLongPress;
   syncListViewport(screen, props);
   // Materialize the row window for the final viewport (syncListViewport just
   // applied follow/clamping to nav.top) and hand list() the window with its
@@ -154,5 +185,7 @@ void EpubReaderChapterSelectionActivity::buildScreen(UiScreen& screen) {
 }
 
 void EpubReaderChapterSelectionActivity::drawChrome() {
-  GUI.drawHeader(renderer, UITheme::getInstance().getHeaderRect(renderer, true, false), tr(STR_SELECT_CHAPTER));
+  // The header's right label is the hint for the long press (hidden flows).
+  GUI.drawHeader(renderer, UITheme::getInstance().getHeaderRect(renderer, true, false), tr(STR_SELECT_CHAPTER),
+                 epub && epub->supportsHiddenFlows() && listCount() > 0 ? tr(STR_CHAPTER_HIDE_HINT) : nullptr);
 }

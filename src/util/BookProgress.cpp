@@ -39,7 +39,8 @@ int loadBookProgress(const std::string& path) {
     if (spine == epub->getSpineItemsCount()) return 100;
     if (spine > epub->getSpineItemsCount()) return -1;
     const float fraction = total > 0 && page != UINT16_MAX ? std::clamp(float(page) / total, 0.0f, 1.0f) : 0;
-    return std::clamp(static_cast<int>(epub->calculateProgress(spine, fraction) * 100 + 0.5f), 0, 100);
+    epub->loadHiddenFlows();  // the same percent the reader shows: hidden chapters are not counted
+    return std::clamp(static_cast<int>(epub->visibleProgress(spine, fraction) * 100 + 0.5f), 0, 100);
   }
   if (FsHelpers::hasXtcExtension(path)) {
     auto xtc = makeUniqueNoThrow<Xtc>(path, "/.crosspoint");

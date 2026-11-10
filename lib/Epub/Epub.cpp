@@ -5,6 +5,7 @@
 #include <GifLimitedWriter.h>
 #include <GifToBmpConverter.h>
 #include <HalStorage.h>
+#include <HiddenFlows.h>
 #include <JpegToBmpConverter.h>
 #include <Logging.h>
 #include <MarkupBook.h>
@@ -17,6 +18,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <string_view>
@@ -1345,6 +1347,167 @@ float Epub::calculateProgress(const int currentSpineIndex, const float currentSp
   const float sectionProgSize = currentSpineRead * static_cast<float>(curChapterSize);
   const float totalProgress = static_cast<float>(prevChapterSize) + sectionProgSize;
   return totalProgress / static_cast<float>(bookSize);
+}
+
+namespace {
+constexpr char HIDDEN_FLOWS_FILE[] = "/hidden.bin";
+
+// A write that is cut short leaves a file decode() refuses, and the chapters are shown again.
+bool writeHiddenFlowsFile(const std::string& path, const std::string& bytes) {
+  HalFile file;
+  if (!Storage.openFileForWrite("EBP", path, file)) return false;
+  const bool ok = file.write(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size()) == bytes.size();
+  file.close();
+  if (!ok) LOG_ERR("EBP", "Hidden chapters file could not be written: %s", path.c_str());
+  return ok;
+}
+}  // namespace
+
+bool Epub::clearCacheKeepHidden() const {
+  const std::string path = cachePath + HIDDEN_FLOWS_FILE;
+  std::string bytes;
+  const bool kept = Storage.exists(path.c_str()) &&
+                    Storage.readFileToString("EBP", path, hiddenflows::MAX_FILE_SIZE, bytes) && !bytes.empty();
+  const bool cleared = clearCache();
+  setupCacheDir();
+  if (kept && !Storage.exists(path.c_str()) && !writeHiddenFlowsFile(path, bytes)) return false;
+  return cleared;
+}
+
+bool Epub::supportsHiddenFlows() const { return FsHelpers::hasEpubExtension(filepath); }
+
+// One pass over the spine for the totals the visible numbers are worked out from.
+bool Epub::fillHiddenTotals() {
+  const int count = getSpineItemsCount();
+  if (count <= 0) return false;
+  if (static_cast<int>(hiddenCumulative.size()) == count && static_cast<int>(hiddenFlags.size()) == count) return true;
+  hiddenCumulative.clear();
+  hiddenFlags.clear();
+  hiddenCumulative.reserve(count);
+  for (int i = 0; i < count; i++) hiddenCumulative.push_back(bookMetadataCache->getSpineEntry(i).cumulativeSize);
+  hiddenFlags.assign(count, 0);
+  return true;
+}
+
+void Epub::loadHiddenFlows() {
+  std::lock_guard<std::mutex> lock(hiddenLock);
+  hiddenCumulative.clear();
+  hiddenFlags.clear();
+  hiddenActive = false;
+  if (!supportsHiddenFlows() || !bookMetadataCache || !bookMetadataCache->isLoaded()) return;
+  const std::string path = cachePath + HIDDEN_FLOWS_FILE;
+  if (!Storage.exists(path.c_str())) return;
+  std::string bytes;
+  std::vector<std::string> hrefs;
+  if (!Storage.readFileToString("EBP", path, hiddenflows::MAX_FILE_SIZE, bytes) ||
+      !hiddenflows::decode(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), hrefs)) {
+    LOG_ERR("EBP", "Hidden chapters file could not be read: %s", path.c_str());
+    return;
+  }
+  const int count = getSpineItemsCount();
+  if (hrefs.empty() || count <= 0) return;
+  // The exact href the file was written from, one pass. A href the spine no longer has is dropped.
+  hiddenCumulative.reserve(count);
+  hiddenFlags.assign(count, 0);
+  bool any = false;
+  for (int i = 0; i < count; i++) {
+    const auto entry = bookMetadataCache->getSpineEntry(i);
+    hiddenCumulative.push_back(entry.cumulativeSize);
+    if (std::find(hrefs.begin(), hrefs.end(), entry.href) != hrefs.end()) {
+      hiddenFlags[i] = 1;
+      any = true;
+    }
+  }
+  if (!any) {
+    hiddenCumulative.clear();
+    hiddenFlags.clear();
+    return;
+  }
+  hiddenActive = hiddenflows::active(hiddenCumulative, hiddenFlags);
+  LOG_DBG("EBP", "Hidden chapters loaded: %u hrefs", static_cast<unsigned>(hrefs.size()));
+}
+
+bool Epub::saveHiddenFlows() {
+  std::lock_guard<std::mutex> lock(hiddenLock);
+  if (!supportsHiddenFlows() || !bookMetadataCache || !bookMetadataCache->isLoaded()) return false;
+  const std::string path = cachePath + HIDDEN_FLOWS_FILE;
+  std::vector<std::string> hrefs;
+  for (int i = 0; i < static_cast<int>(hiddenFlags.size()); i++) {
+    if (hiddenFlags[i]) hrefs.push_back(bookMetadataCache->getSpineEntry(i).href);
+  }
+  if (hrefs.empty()) return !Storage.exists(path.c_str()) || Storage.remove(path.c_str());
+  setupCacheDir();
+  return writeHiddenFlowsFile(path, hiddenflows::encode(hrefs));
+}
+
+bool Epub::setSpineRangeHidden(const int firstSpineIndex, const int lastSpineIndex, const bool hidden) {
+  {
+    std::lock_guard<std::mutex> lock(hiddenLock);
+    if (!supportsHiddenFlows() || !bookMetadataCache || !bookMetadataCache->isLoaded()) return false;
+    const int count = getSpineItemsCount();
+    const int first = std::max(0, firstSpineIndex);
+    const int last = std::min(count - 1, lastSpineIndex);
+    if (first > last || !fillHiddenTotals()) return false;
+    for (int i = first; i <= last; i++) hiddenFlags[i] = hidden ? 1 : 0;
+    if (std::find(hiddenFlags.begin(), hiddenFlags.end(), 1) == hiddenFlags.end()) {
+      hiddenCumulative.clear();
+      hiddenFlags.clear();
+    }
+    hiddenActive = hiddenflows::active(hiddenCumulative, hiddenFlags);
+  }
+  return saveHiddenFlows();
+}
+
+bool Epub::getTocSpineRange(const int tocIndex, int& firstSpineIndex, int& lastSpineIndex) const {
+  if (!bookMetadataCache || !bookMetadataCache->isLoaded()) return false;
+  return hiddenflows::chapterRange(
+      tocIndex, bookMetadataCache->getTocCount(), bookMetadataCache->getSpineCount(),
+      [this](const int i) { return static_cast<int>(bookMetadataCache->getTocEntry(i).spineIndex); }, firstSpineIndex,
+      lastSpineIndex);
+}
+
+bool Epub::isSpineHidden(const int spineIndex) const {
+  std::lock_guard<std::mutex> lock(hiddenLock);
+  return hiddenflows::isHidden(hiddenFlags, spineIndex);
+}
+
+bool Epub::hasAnyHiddenSpine() const {
+  std::lock_guard<std::mutex> lock(hiddenLock);
+  return !hiddenFlags.empty();
+}
+
+bool Epub::hasHiddenFlows() const {
+  std::lock_guard<std::mutex> lock(hiddenLock);
+  return hiddenActive;
+}
+
+size_t Epub::visibleBookSize() const {
+  {
+    std::lock_guard<std::mutex> lock(hiddenLock);
+    if (hiddenActive) return hiddenflows::visibleSize(hiddenCumulative, hiddenFlags);
+  }
+  return getBookSize();
+}
+
+// Progress in the book without the hidden chapters (0.0-1.0); inside a hidden chapter it stands still.
+float Epub::visibleProgress(const int currentSpineIndex, const float currentSpineRead) const {
+  {
+    std::lock_guard<std::mutex> lock(hiddenLock);
+    if (hiddenActive) {
+      return hiddenflows::visibleFraction(hiddenCumulative, hiddenFlags, currentSpineIndex, currentSpineRead);
+    }
+  }
+  return calculateProgress(currentSpineIndex, currentSpineRead);
+}
+
+bool Epub::locateVisibleSize(const size_t visibleBytes, int& spineIndex, float& fraction) const {
+  std::lock_guard<std::mutex> lock(hiddenLock);
+  if (!hiddenActive) return false;
+  const auto at = hiddenflows::locate(hiddenCumulative, hiddenFlags,
+                                      static_cast<uint32_t>(std::min<size_t>(visibleBytes, UINT32_MAX)));
+  spineIndex = at.spineIndex;
+  fraction = at.fraction;
+  return true;
 }
 
 int Epub::resolveHrefToSpineIndex(const std::string& href) const {

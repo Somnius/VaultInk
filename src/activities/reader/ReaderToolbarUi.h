@@ -38,6 +38,7 @@ class ReaderToolbarUi : public UiAppHost {
     int selectedIndex = -1;  // row the buttons' cursor sits on; -1 = none shown
     std::function<std::string(int)> rowText;
     std::function<std::string(int)> rowValue;
+    bool rowLongPress = false;  // rows also answer a long press (Routed::longPress)
     void (*rowCheckbox)(void* ctx, int index, freeink::ui::ListItem& item) = nullptr;
     void* rowCheckboxContext = nullptr;
     // Tile row: the tool in focus (toolbar) / the open panel (panel). 0..2.
@@ -49,10 +50,11 @@ class ReaderToolbarUi : public UiAppHost {
 
   struct Routed {
     Event event = Event::None;
-    int value = 0;        // Tool: tool index; Row: row index
-    int permille = -1;    // Scrub: 0..1000 along the track
-    bool routed = false;  // the gate was open and a touch frame was routed
-    int x = 0;            // touch position of the routed frame (logical px)
+    int value = 0;           // Tool: tool index; Row: row index
+    bool longPress = false;  // Row: it was a long press (only with Model::rowLongPress)
+    int permille = -1;       // Scrub: 0..1000 along the track
+    bool routed = false;     // the gate was open and a touch frame was routed
+    int x = 0;               // touch position of the routed frame (logical px)
     int y = 0;
   };
 

@@ -4,6 +4,7 @@
 #include <Print.h>
 
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -46,6 +47,13 @@ class Epub {
   std::unique_ptr<freeink::content::ContentDecryptor> decryptor;
   // User-presentable reason the encrypted-entry accessor could not be opened.
   std::string protectionError;
+
+  // Hidden flows (lib/HiddenFlows): one flag and one total per spine item, held only while something is hidden.
+  mutable std::mutex hiddenLock;
+  std::vector<uint32_t> hiddenCumulative;
+  std::vector<uint8_t> hiddenFlags;
+  bool hiddenActive = false;
+  bool fillHiddenTotals();
 
   bool findContentOpfFile(std::string* contentOpfFile, ZipFile* sharedZip = nullptr) const;
   bool parseContentOpf(BookMetadataCache::BookMetadata& bookMetadata, bool writeSpineEntries = true,
@@ -103,6 +111,26 @@ class Epub {
 
   size_t getBookSize() const;
   float calculateProgress(int currentSpineIndex, float currentSpineRead) const;
+
+  // Hidden flows: chapters the reader hid are left out of the size, percent and page count of the book.
+  // The list is the book's hidden.bin (spine hrefs) in its cache folder; EPUB only. calculateProgress() and
+  // getBookSize() stay raw (KOReader sync, bookmarks). Call the writers with the render task held off.
+  bool supportsHiddenFlows() const;
+  void loadHiddenFlows();
+  bool saveHiddenFlows();
+  // clearCache() that carries hidden.bin over (the reader's Delete Book Cache); the cache folder is left in place.
+  bool clearCacheKeepHidden() const;
+  bool setSpineRangeHidden(int firstSpineIndex, int lastSpineIndex, bool hidden);
+  // The spine items contents entry `tocIndex` stands for; false when it has none.
+  bool getTocSpineRange(int tocIndex, int& firstSpineIndex, int& lastSpineIndex) const;
+  bool isSpineHidden(int spineIndex) const;
+  bool hasAnyHiddenSpine() const;
+  // True when the visible numbers differ from the raw ones (something is hidden and something is left).
+  bool hasHiddenFlows() const;
+  size_t visibleBookSize() const;
+  float visibleProgress(int currentSpineIndex, float currentSpineRead) const;
+  // The shown chapter that holds counted byte `visibleBytes` and how far into it; false when !hasHiddenFlows().
+  bool locateVisibleSize(size_t visibleBytes, int& spineIndex, float& fraction) const;
   CssParser* getCssParser() const { return cssParser.get(); }
   int resolveHrefToSpineIndex(const std::string& href) const;
 };

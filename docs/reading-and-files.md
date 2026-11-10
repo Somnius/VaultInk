@@ -16,6 +16,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Book menu options](#book-menu-options-0730)
 - [The More menu in a book](#the-more-menu-in-a-book-0700)
 - [Go to page](#go-to-page-0680)
+- [Hidden chapters](#hidden-chapters-left-out-of-the-page-count)
 - [Hide Status Bar and the book page number](#hide-status-bar-and-the-book-page-number)
 - [The book card in quick settings (0.26.0)](#the-book-card-in-quick-settings-0260)
 - [Tap Zones: corners only (0.25.0)](#tap-zones-corners-only-0250)
@@ -185,6 +186,26 @@ In a book the file goes in `/screenshots/<book title>/`, named with the chapter 
 Book menu → **More → Go to page** (under Go to %) opens a slider that counts pages the way the number in brackets in the status bar does (kos25k #29). It opens on the page the bar shows and ends on the estimated last page; the **-** and **+** step one page, the side buttons jump by a twentieth of the book, and dragging the slider goes anywhere. It's an estimate, like the bracket number: the pages of the other chapters are worked out from the chapter you're in, so it changes with the font and spacing. It isn't in vault notes.
 
 ![Go to page: 1216 of an estimated 8108](images/vaultink/go-to-page-068.png)
+
+## Hidden chapters (left out of the page count)
+
+Not released yet, tested on a computer only. In an EPUB you can hide chapters you don't want counted, such as a long list of notes, an index or a preview of another book at the end (KOReader calls this hidden flows). In the chapter list (**Select Chapter**, or **Contents** in the toolbar menu), **long-press a chapter**, or hold Confirm on it for a second with the buttons. The row then says **Hidden**; the same press shows it again. In Select Chapter the header says **Hold: hide** as a reminder.
+
+A hidden chapter is left out of:
+
+- the book percent and the progress bar, in the book, on the home card and in the Library,
+- the book page number in brackets and the last page of **Go to page**,
+- **Go to %** and **Go to page**, which never land in a hidden chapter, and the random page.
+
+The chapter is still in the book. You can open it from the list and turn pages into it; while you read it the percent and the book page number stand still at the point where it was cut out. Each chapter's own page count (12/40) does not change.
+
+The details:
+
+- A contents entry hides its own file and the files after it up to the next entry. Sub-headings that point into the same file hide and show together, so one part of a file can't be hidden on its own.
+- If you hide everything, nothing is left to count, and the numbers go back to the whole book.
+- The choice is kept per book in `hidden.bin` in the book's cache folder, as file names from the book, so it survives a rebuilt cache. It moves with the book when you rename or move it. **Delete Book Cache** in the book menu keeps it. **Clear Reading Cache** in Settings and replacing the book file by an upload remove it, as they remove the reading position.
+- KOReader sync still sends the percent of the whole book, so other devices agree; bookmarks and highlights are by position and don't change. The reading log records the percent the book shows.
+- Not there: syncing the list or showing it in the companion app, hiding by the book's own guide (cover, notes) automatically, and other formats (TXT, Markdown, MOBI, FB2, HTML, RTF, PDF, comics).
 
 ## Hide Status Bar and the book page number
 
@@ -451,8 +472,8 @@ The details:
 - A folder can't be moved or copied into itself.
 - A copy is written as `name.part` and renamed when it's complete. If the card fills up or a read
   fails, the part file is removed, and for a folder the half-made copy is removed too.
-- Moving or renaming a **book** takes its reading position, bookmarks, clippings and recent-books
-  entry with it.
+- Moving or renaming a **book** takes its reading position, bookmarks, clippings, hidden chapters and
+  recent-books entry with it.
 - Moving or renaming a **folder** is one rename on the card. Books inside it start again from the
   beginning (their caches are rebuilt), and a vault's search index is built again the next time
   you search it or open backlinks. Carrying their state along is on the roadmap.

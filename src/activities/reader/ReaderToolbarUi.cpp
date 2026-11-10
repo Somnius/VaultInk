@@ -65,7 +65,7 @@ void ReaderToolbarUi::render() {
 ReaderToolbarUi::Routed ReaderToolbarUi::route(const MappedInputManager& input) {
   pending_ = Routed{};
   // routeHeld: the scrub track is a drag target, so held frames must reach it.
-  const auto touch = routeTouch(input, false, /*routeHeld=*/true);
+  const auto touch = routeTouch(input, model_.panel && model_.rowLongPress, /*routeHeld=*/true);
   pending_.routed = touch.routed;
   pending_.x = touch.snap.touchX;
   pending_.y = touch.snap.touchY;
@@ -80,6 +80,7 @@ void ReaderToolbarUi::onAction(const fui::ActionEvent& event, void* user) {
   auto* self = static_cast<ReaderToolbarUi*>(user);
   Routed& out = self->pending_;
   out.value = event.value;
+  out.longPress = event.longPress;
   out.permille = event.dragPermille;
   if (event.action >= ACTION_DISMISS && event.action <= ACTION_ROW) out.event = static_cast<Event>(event.action);
   if (out.event == Event::Scrub && event.dragPermille < 0) out.event = Event::None;
@@ -276,6 +277,7 @@ void ReaderToolbarUi::buildPanel(UiScreen& screen) {
   listProps_.count = static_cast<uint16_t>(std::max(0, model_.itemCount));
   listProps_.action = ACTION_ROW;
   listProps_.inputMask = fui::InputTouch;  // physical buttons stay with the reader
+  if (model_.rowLongPress) listProps_.inputMask |= fui::InputLongPress;
   listProps_.rowHeight = rowH;
   listProps_.rowGap = rowGap;
   listProps_.toggleCheckbox = true;
