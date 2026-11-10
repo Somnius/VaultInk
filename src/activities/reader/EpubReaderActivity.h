@@ -4,6 +4,7 @@
 #include <Epub/FootnoteEntry.h>
 #include <Epub/PageLink.h>
 #include <Epub/Section.h>
+#include <Gestures.h>
 
 #include <atomic>
 #include <memory>
@@ -221,6 +222,14 @@ class EpubReaderActivity final : public ReaderActivity {
   // slot applies it live. Save asks for the slot, then the name on the keyboard screen.
   void showReadingPresetsPopup();
   void saveReadingPresetFromReader(int slot);
+  // Reader gestures (Settings > Reader > Gestures, lib/Gestures). runReaderAction does what a gesture slot or a
+  // Quick Menu row asks for, through the code the reader menu and the toolbar already use; false when the action
+  // is nothing to do. The Quick Menu is a list popup drawn over the page (renderBook paints it); a row picked
+  // there runs on the next loop pass, once the popup has let go of the input.
+  bool runReaderAction(gestures::Action action);
+  void showQuickMenu();
+  OptionPopup quickMenuPopup;
+  gestures::Action pendingQuickAction = gestures::None;
   void openFootnoteSelect(bool reopenMenuOnCancel);
   void openDictionaryWordSelect();
   void startClipSelection(int initialX = -1, int initialY = -1,
@@ -271,7 +280,9 @@ class EpubReaderActivity final : public ReaderActivity {
   uint8_t appliedPaper = 0;  // background of the page last drawn
   uint8_t appliedContrast = 100;
   // A Markdown note (opened from a vault or Files): the menu offers backlinks.
-  bool hasOpenMenu() const override { return overlay != Overlay::None || overlayPopup.isActive(); }
+  bool hasOpenMenu() const override {
+    return overlay != Overlay::None || overlayPopup.isActive() || quickMenuPopup.isActive();
+  }
   bool isVaultNote() const {
     return bookPath.size() > 3 && (bookPath.compare(bookPath.size() - 3, 3, ".md") == 0 ||
                                    bookPath.compare(bookPath.size() - 3, 3, ".MD") == 0);

@@ -20,6 +20,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Hide Status Bar and the book page number](#hide-status-bar-and-the-book-page-number)
 - [The book card in quick settings (0.26.0)](#the-book-card-in-quick-settings-0260)
 - [Tap Zones: corners only (0.25.0)](#tap-zones-corners-only-0250)
+- [Gestures and the Quick Menu](#gestures-and-the-quick-menu)
 - [Even Word Gaps (0.24.0, levels in 0.27.0)](#even-word-gaps-0240-levels-in-0270)
 - [In the book: the Text panel (0.27.0)](#in-the-book-the-text-panel-0270)
 - [Word gaps and hyphenation](#word-gaps-and-hyphenation)
@@ -237,6 +238,29 @@ for right-to-left books and Inverted Tap). Taps anywhere else do nothing, so res
 tapping by mistake while reading doesn't turn the page. Swipes and the buttons work as always. The
 status bar strip at the very bottom still opens quick settings, also in the bottom corners. Taps
 only turn pages when the page gestures (Settings → Controls) allow taps.
+
+## Gestures and the Quick Menu
+
+Not released yet. Computer tests only: not built for a device and not tried on one.
+
+**Settings → Reader → Gestures** (touch boards) chooses what the reader does on nine touches inside a book or note: a tap in each of the four corners, a tap in the centre, and a swipe left, right, up or down in the page. A tap on a row opens the list of actions:
+
+- **Default**: what the older settings say (Next Page, Previous Page, Tap Zones, Show Reader Menu). Every row starts here, so nothing changes until you edit one, and nothing is written to the settings file before that.
+- **None**, **Next Page**, **Previous Page**, **Next Chapter**, **Previous Chapter**, **Reader Menu**, **Quick Menu**, **Night Mode**, **Frontlight** (on or off), **Light panel**, **Toggle Bookmark**, **Refresh screen**, **Go Home**, **Take screenshot**.
+
+What the rows cover:
+
+- The **corner** rows only work with **Tap Zones** on **Corners only** (the row says so while they don't). A corner is the same square as there, a sixth of the screen's short side.
+- The **centre** is the middle third of the screen both ways. Left at Default it opens the reader menu as before (when Show Reader Menu is Tap).
+- A tap anywhere else follows the page gestures, as before.
+- A **swipe** counts when it starts away from the edges: not in the top or bottom 14% of the screen moving away from that edge, and for a swipe right not in the left quarter. Those belong to the fixed gestures below. Up and down swipes did nothing before, so they are free to use.
+- A link, a task box, a long press (text selection) and the search bar come first, as before.
+
+What can't be changed, so no choice here can lock you out of the reader: the hardware buttons, the swipe down from the top edge (light panel), the swipe from the left edge, the swipe up from the bottom edge, the header's back and home targets and the long press. Setting every row to None is allowed: the buttons still turn pages and open the menu. **Reset gestures**, the last row, puts every row and the Quick Menu back. With **Touch Reader Controls** off (Settings → Controls) the whole list is ignored.
+
+The **Quick Menu** is a short list drawn over the page, opened by the gesture you give the **Quick Menu** action. The rows **Quick Menu 1** to **6** choose its entries; an empty one is skipped. With all six empty it shows Night Mode, Frontlight, Light panel, Toggle Bookmark, Refresh screen and Go Home. On a board without a frontlight the two light entries are left out. A tap outside it, or Back, closes it.
+
+Limits: EPUB books and notes only for now (the TXT, XTC and comic readers keep the older settings). Gestures are not part of Reading presets yet. Brightness and warmth steps are not actions; the Light panel action opens the sliders.
 
 ## Even Word Gaps (0.24.0, levels in 0.27.0)
 

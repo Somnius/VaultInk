@@ -34,6 +34,7 @@ enum class SettingAction {
   PaperCycle,
   HomeRows,
   BookMenuOptions,
+  Gestures,
   HomeItems,
   LibraryFormats,
   LibraryTabs,

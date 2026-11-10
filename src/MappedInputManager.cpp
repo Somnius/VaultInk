@@ -392,6 +392,19 @@ bool MappedInputManager::wasBottomEdgeUpSwipe() const { return wasEdgeSwipe(fui:
 
 bool MappedInputManager::wasMenuGesture() const { return wasTopEdgeDownSwipe(); }
 
+bool MappedInputManager::wasGlobalEdgeSwipe() const {
+  int sx = 0;
+  int sy = 0;
+  int ex = 0;
+  int ey = 0;
+  if (!decodeSwipe(sx, sy, ex, ey)) return false;
+  const int width = renderer.getScreenWidth();
+  const int height = renderer.getScreenHeight();
+  return fui::edgeSwipe(fui::ScreenEdge::Top, sx, sy, ex, ey, width, height) ||
+         fui::edgeSwipe(fui::ScreenEdge::Left, sx, sy, ex, ey, width, height) ||
+         fui::edgeSwipe(fui::ScreenEdge::Bottom, sx, sy, ex, ey, width, height);
+}
+
 bool MappedInputManager::wasReaderMenuSwipeUp() const { return gpio.hasHomeKey() && wasBottomEdgeUpSwipe(); }
 
 bool MappedInputManager::wasHomeGesture() const {

@@ -24,6 +24,7 @@
 #include "CrossPointSettings.h"
 #include "ExperimentalSettingsActivity.h"
 #include "FontDownloadActivity.h"
+#include "GesturesActivity.h"
 #include "HomeButtonSettingsActivity.h"
 #include "HomeItemsActivity.h"
 #include "HomeRowsActivity.h"
@@ -185,6 +186,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   addAction(SettingsSection::Reader, StrId::STR_CUSTOMISE_STATUS_BAR, SettingAction::CustomiseStatusBar);
   addAction(SettingsSection::Reader, StrId::STR_CLEAR_READING_CACHE, SettingAction::ClearCache);
   addAction(SettingsSection::Reader, StrId::STR_BOOK_MENU_OPTIONS, SettingAction::BookMenuOptions);
+  if (BoardConfig::hasTouch()) addAction(SettingsSection::Reader, StrId::STR_GESTURES, SettingAction::Gestures);
   addAction(SettingsSection::Vaults, StrId::STR_REBUILD_SEARCH_INDEX, SettingAction::RebuildSearchIndex);
   addAction(SettingsSection::Vaults, StrId::STR_LIVESYNC, SettingAction::LiveSync);
 
@@ -516,6 +518,11 @@ void SettingsActivity::toggleSelectedSetting() {
         break;
       case SettingAction::BookMenuOptions:
         if (auto activity = makeUniqueNoThrow<BookMenuOptionsActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), nullptr);
+        }
+        break;
+      case SettingAction::Gestures:
+        if (auto activity = makeUniqueNoThrow<GesturesActivity>(renderer, mappedInput)) {
           startActivityForResult(std::move(activity), nullptr);
         }
         break;

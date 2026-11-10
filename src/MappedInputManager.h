@@ -109,6 +109,9 @@ class MappedInputManager {
     deferredHomeAction = HomeButtonAction::Ignore;
   }
   bool wasMenuGesture() const;
+  // A swipe that starts in the top, left or bottom edge band and moves away from it: the global gestures' own
+  // (light panel or menu, Back, Home). The reader's gesture table (lib/Gestures) leaves these alone.
+  bool wasGlobalEdgeSwipe() const;
   // Bottom-edge up-swipe as the reader-menu gesture (SHOW_READER_MENU's Swipe
   // Up option). Only meaningful on home-key boards, where Home lives on the
   // key and the bottom edge is free; elsewhere the same swipe is the Home

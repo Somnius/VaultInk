@@ -124,6 +124,13 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   if (moreMenuHidden != 0) doc["moreMenuHidden"] = moreMenuHidden;
   if (textMenuOrder[0] != '\0') doc["textMenuOrder"] = textMenuOrder;
   if (textMenuHidden != 0) doc["textMenuHidden"] = textMenuHidden;
+  // Reader gestures: a slot at Default and an empty Quick Menu place are not written.
+  for (int i = 0; i < gestures::kSlotCount; ++i) {
+    if (gestureAction[i] != gestures::Default) doc[gestures::slotKey(i)] = gestureAction[i];
+  }
+  for (int i = 0; i < gestures::kQuickMenuSize; ++i) {
+    if (quickMenu[i] != gestures::Default) doc[gestures::quickMenuKey(i)] = quickMenu[i];
+  }
   if (galleryFilter != 0) doc["galleryFilter"] = galleryFilter;
   if (lockMode != 0) doc["lockMode"] = lockMode;
   if (libraryBooksOnly != 0) doc["libraryBooksOnly"] = libraryBooksOnly;
@@ -328,6 +335,15 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   if (doc["moreMenuHidden"].is<uint32_t>()) moreMenuHidden = doc["moreMenuHidden"].as<uint32_t>();
   copyToField(textMenuOrder, doc["textMenuOrder"] | "", sizeof(textMenuOrder));
   if (doc["textMenuHidden"].is<uint32_t>()) textMenuHidden = doc["textMenuHidden"].as<uint32_t>();
+  // Reader gestures: a missing key is Default, and so is an action this version does not know.
+  for (int i = 0; i < gestures::kSlotCount; ++i) {
+    const char* key = gestures::slotKey(i);
+    gestureAction[i] = gestures::sanitizeSlot(doc[key].is<uint8_t>() ? doc[key].as<uint8_t>() : uint8_t{0});
+  }
+  for (int i = 0; i < gestures::kQuickMenuSize; ++i) {
+    const char* key = gestures::quickMenuKey(i);
+    quickMenu[i] = gestures::sanitizeQuick(doc[key].is<uint8_t>() ? doc[key].as<uint8_t>() : uint8_t{0});
+  }
   if (doc["galleryFilter"].is<uint8_t>()) galleryFilter = doc["galleryFilter"].as<uint8_t>() % 4;
   if (doc["lockMode"].is<uint8_t>()) lockMode = doc["lockMode"].as<uint8_t>() % 3;
   if (doc["libraryBooksOnly"].is<uint8_t>()) libraryBooksOnly = doc["libraryBooksOnly"].as<uint8_t>() ? 1 : 0;

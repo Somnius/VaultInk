@@ -61,6 +61,7 @@
 #include "activities/settings/ReadingPresetsActivity.h"
 #include "activities/settings/TextSettingsActivity.h"
 #include "activities/util/ConfirmationActivity.h"
+#include "activities/util/FrontlightPanelActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
 #include "activities/vault/CardReviewActivity.h"
 #include "activities/vault/NoteEditorActivity.h"
@@ -75,6 +76,7 @@
 #include "util/ButtonNavigator.h"
 #include "util/CardsDevice.h"
 #include "util/ClippingExport.h"
+#include "util/GestureLabels.h"
 #include "util/LineSpacing.h"
 #include "util/LinkUpdate.h"
 #include "util/MenuLayout.h"
@@ -686,6 +688,17 @@ void EpubReaderActivity::loop() {
 
   rememberBookOnceRendered();
 
+  // The Quick Menu owns all input while it is up; the row picked there runs on the pass after it closed.
+  if (quickMenuPopup.isActive()) {
+    quickMenuPopup.handleInput(mappedInput, [this] { requestUpdate(); });
+    return;
+  }
+  if (pendingQuickAction != gestures::None) {
+    const gestures::Action picked = pendingQuickAction;
+    pendingQuickAction = gestures::None;
+    if (runReaderAction(picked)) return;
+  }
+
   // The radio stopped for a chapter build: once the render task has let go of the lock, that page
   // is on screen; once the build tick below has finished the chapter, no parser is left alive and
   // the radio may start again.
@@ -783,8 +796,25 @@ void EpubReaderActivity::loop() {
 
   if (handleSearchInput()) return;
 
-  const auto touch =
-      ReaderUtils::detectTouchPageTurn(renderer, mappedInput, ReaderUtils::isRtlBookLanguage(epub->getLanguage()));
+  // Touch: with every gesture slot at Default the page-turn zones are decoded as they always were. Once a slot is
+  // changed, the gesture table decodes taps and swipes instead: page turns go on as `touch`, anything else is
+  // `gestureAction` and runs below, after the link taps.
+  const bool rtlBook = ReaderUtils::isRtlBookLanguage(epub->getLanguage());
+  const bool customGestures = ReaderUtils::gesturesCustomised(mappedInput);
+  ReaderUtils::TouchPageTurn touch{false, false, 0};
+  gestures::Action gestureAction = gestures::None;
+  if (customGestures) {
+    const auto gesture = ReaderUtils::detectTouchGesture(renderer, mappedInput, rtlBook);
+    if (gesture.action == gestures::NextPage) {
+      touch = {false, true, gesture.heldMs};
+    } else if (gesture.action == gestures::PrevPage) {
+      touch = {true, false, gesture.heldMs};
+    } else {
+      gestureAction = gesture.action;
+    }
+  } else {
+    touch = ReaderUtils::detectTouchPageTurn(renderer, mappedInput, rtlBook);
+  }
 
   if (showBookmarkMessage && (millis() - bookmarkMessageTime) >= ReaderUtils::BOOKMARK_MESSAGE_DURATION_MS) {
     showBookmarkMessage = false;
@@ -843,7 +873,9 @@ void EpubReaderActivity::loop() {
   }
 
   if (automaticPageTurnActive) {
-    const bool touchStopsAutoTurn = ReaderUtils::isTouchMenuGesture(renderer, mappedInput);
+    // Any gesture that is not a page turn stops it, as the menu tap always did, and does nothing else.
+    const bool touchStopsAutoTurn =
+        ReaderUtils::isTouchMenuGesture(renderer, mappedInput, !customGestures) || gestureAction != gestures::None;
     if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) ||
         mappedInput.wasReleased(MappedInputManager::Button::Back) || touchStopsAutoTurn) {
       automaticPageTurnActive = false;
@@ -987,7 +1019,9 @@ void EpubReaderActivity::loop() {
     }
   }
 
-  const bool touchMenu = ReaderUtils::isTouchMenuGesture(renderer, mappedInput);
+  // With the gesture table in use the centre tap is the table's: only the edge swipes open the menu from here.
+  const bool touchMenu =
+      ReaderUtils::isTouchMenuGesture(renderer, mappedInput, !customGestures) || gestureAction == gestures::ReaderMenu;
   if (confirmReleased || touchMenu) {
     if (touchMenu) haptic_feedback::touchAction();
     // Toolbar style: the page is on screen and in the framebuffer, so paint the
@@ -999,6 +1033,11 @@ void EpubReaderActivity::loop() {
       openReaderMenu();
     }
     return;  // no build step before the menu shows
+  }
+
+  if (gestureAction != gestures::None && runReaderAction(gestureAction)) {
+    haptic_feedback::touchAction();
+    return;
   }
 
   if (footnoteDepth > 0 && mappedInput.wasReleased(MappedInputManager::Button::Back) &&
@@ -2242,6 +2281,12 @@ void EpubReaderActivity::renderBook() {
 
   if (showClippingMessage) {
     GUI.drawPopup(renderer, I18N.get(clippingMessage));
+  }
+
+  // The Quick Menu rides on the page, like the messages above.
+  if (quickMenuPopup.isActive()) {
+    quickMenuPopup.render(renderer);
+    renderer.displayBuffer(HalDisplay::FAST_REFRESH);
   }
 
   pageBufferStale = false;  // the page is back in the framebuffer
@@ -3940,6 +3985,102 @@ void EpubReaderActivity::showReadingPresetsPopup() {
     if (READING_PRESET_STORE.apply(idx - 1)) applyTextSettingLive();
   });
   paintOverlayPopup();
+}
+
+// The Quick Menu: the actions chosen in Settings > Reader > Gestures, or the default six. The light entries are
+// left out on a board without a frontlight.
+void EpubReaderActivity::showQuickMenu() {
+  if (!section || overlay != Overlay::None) return;
+  gestures::Action items[gestures::kQuickMenuSize];
+  const int count = gestures::quickMenuItems(SETTINGS.quickMenu, items);
+  std::vector<gestures::Action> actions;
+  std::vector<std::string> labels;
+  for (int i = 0; i < count; ++i) {
+    const bool light = items[i] == gestures::ToggleFrontlight || items[i] == gestures::LightPanel;
+    if (light && !Frontlight.present()) continue;
+    actions.push_back(items[i]);
+    labels.emplace_back(I18N.get(gesturelabels::action(items[i])));
+  }
+  if (actions.empty()) return;
+  pendingManualTurn = 0;
+  quickMenuPopup.show(StrId::STR_QUICK_MENU, labels, 0, [this, actions](const int idx) {
+    if (idx >= 0 && idx < static_cast<int>(actions.size())) pendingQuickAction = actions[idx];
+  });
+  requestUpdate();
+}
+
+bool EpubReaderActivity::runReaderAction(const gestures::Action action) {
+  switch (action) {
+    case gestures::NextPage:
+    case gestures::PrevPage:
+      // From the Quick Menu; a gesture's page turn goes through the loop's own path.
+      pendingManualTurn = action == gestures::NextPage ? 1 : -1;
+      pendingManualTurnTouch = false;
+      return true;
+    case gestures::NextChapter:
+    case gestures::PrevChapter: {
+      const bool succeeded = skipPages(action == gestures::NextChapter ? 1 : -1);
+      notePageTurn(false, succeeded);  // a skip is navigation, not reading
+      requestUpdate();
+      return true;
+    }
+    case gestures::ReaderMenu:
+      if (usesToolbarMenu() && section) {
+        pendingManualTurn = 0;
+        openOverlay(Overlay::Toolbar);
+      } else {
+        openReaderMenu();
+      }
+      return true;
+    case gestures::QuickMenu:
+      showQuickMenu();
+      return true;
+    case gestures::ToggleNight:
+      SETTINGS.screenInverted = SETTINGS.screenInverted == 0 ? 1 : 0;
+      SETTINGS.saveToFile();
+      requestUpdate();
+      return true;
+    case gestures::ToggleFrontlight: {
+      if (!Frontlight.present()) return true;
+      const bool lightOn = !Frontlight.isOn();
+      Frontlight.setOn(lightOn);
+      SETTINGS.frontlightOn = lightOn ? 1 : 0;
+      SETTINGS.saveToFile();
+      return true;
+    }
+    case gestures::LightPanel:
+      // The same screen the swipe down from the top edge opens (ActivityManager).
+      if (Frontlight.present()) {
+        activityManager.pushActivity(std::make_unique<FrontlightPanelActivity>(renderer, mappedInput));
+      }
+      return true;
+    case gestures::Bookmark:
+      if (!section) return true;  // the end-of-book page has nothing to mark
+      addBookmark();
+      showBookmarkMessage = true;
+      bookmarkMessageTime = millis();
+      requestUpdate();
+      return true;
+    case gestures::Refresh:
+      pagesUntilFullRefresh = 1;  // the next page paint is the cleaning one
+      requestUpdate();
+      return true;
+    case gestures::GoHome:
+      onGoHome();
+      return true;
+    case gestures::Screenshot: {
+      {
+        RenderLock lock;
+        pendingScreenshot = true;
+      }
+      requestUpdate();
+      return true;
+    }
+    case gestures::Default:
+    case gestures::None:
+    default:
+      return false;
+  }
 }
 
 void EpubReaderActivity::saveReadingPresetFromReader(const int slot) {

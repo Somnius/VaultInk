@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <BlePageTurner.h>
 #include <Epub/ReaderRenderSpec.h>
+#include <Gestures.h>
 #include <PersistableStore.h>
 
 #include <cstdint>
@@ -415,6 +416,11 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // up-swipe). Only surfaced on home-key boards, where Home is the capacitive
   // key and the bottom edge is free; elsewhere it stays at the Tap default.
   uint8_t showReaderMenu = READER_MENU_TAP;
+  // Reader gestures (Settings > Reader > Gestures, lib/Gestures): the action of each touch slot, 0 = Default (what
+  // the four settings above say). Saved per slot under gestures::slotKey, only when not Default. The Quick Menu's six
+  // places, 0 = empty (all empty: the default six).
+  uint8_t gestureAction[gestures::kSlotCount] = {};
+  uint8_t quickMenu[gestures::kQuickMenuSize] = {};
   // Show the welcome guide once after an update that changes it (Settings -> System).
   uint8_t welcomeGuideAfterUpdates = 1;
   // Frontlight quick-panel state. Category-less SettingsList entries persist

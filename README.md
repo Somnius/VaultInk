@@ -221,6 +221,7 @@ Each line links to its guide where there is one; all the guides are listed in [d
 - **Page backgrounds**: fourteen of them, from plain to papyrus and bath towel, a set you choose for the quick-settings paper tile, and a 0 to 100 contrast slider with a preview. [Mostly for fun](#page-backgrounds).
 - **Status bar**: choose what it shows, hide it from Settings or the book menu, and show the page number counted from the start of the book in brackets, even with the bar hidden (the number is an estimate for books). **Go to page** in the book menu under More (0.68.0) jumps by that number. [docs/reading-and-files.md](docs/reading-and-files.md#hide-status-bar-and-the-book-page-number)
 - **Tap Zones**: turn pages from the whole page or the corners only, so a stray finger does nothing. [docs/reading-and-files.md](docs/reading-and-files.md#tap-zones-corners-only-0250)
+- **Gestures and a Quick Menu** (not released yet, computer tests only): Settings → Reader → Gestures gives the corner taps, the centre tap and the four swipes an action each (next chapter, bookmark, night mode, light panel, a Quick Menu of up to six actions, and more). The buttons and edge swipes stay fixed. [docs/reading-and-files.md](docs/reading-and-files.md#gestures-and-the-quick-menu)
 - **Quick settings** on a swipe down: light and warmth, night mode, refresh, sleep, Wi-Fi, Sync, Library, the paper tile, and a book card that opens the Library or goes Home. One menu at a time, so menus never stack.
 
 **Tools** (Home → Plugins, built into the firmware: [docs/tools.md](docs/tools.md))

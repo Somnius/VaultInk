@@ -1,6 +1,7 @@
 #pragma once
 
 #include <CrossPointSettings.h>
+#include <Gestures.h>
 #include <GfxRenderer.h>
 #include <HalGPIO.h>
 #include <HalTiltSensor.h>
@@ -151,6 +152,72 @@ inline TouchPageTurn detectTouchPageTurn(const GfxRenderer& renderer, const Mapp
   return result;
 }
 
+// lib/Gestures copies these values so it stays free of the settings header.
+static_assert(gestures::kTapAndSwipe == CrossPointSettings::TAP_AND_SWIPE, "gesture values");
+static_assert(gestures::kTapOnly == CrossPointSettings::TAP_ONLY, "gesture values");
+static_assert(gestures::kSwipeOnly == CrossPointSettings::SWIPE_ONLY, "gesture values");
+static_assert(gestures::kInvertedTap == CrossPointSettings::INVERTED_TAP, "gesture values");
+static_assert(gestures::kMenuTap == CrossPointSettings::READER_MENU_TAP, "gesture values");
+
+// True when Settings > Reader > Gestures has at least one slot off Default and touch reader controls are on. Only
+// then does the reader decode touches through the gesture table (detectTouchGesture); otherwise
+// detectTouchPageTurn and isTouchMenuTap run as they always did.
+inline bool gesturesCustomised(const MappedInputManager& input) {
+  return SETTINGS.touchReaderControls && input.hasTouch() && gestures::anyCustom(SETTINGS.gestureAction);
+}
+
+struct TouchGesture {
+  gestures::Action action = gestures::None;
+  unsigned long heldMs = 0;  // of a tap, so a held tap on a page-turn action still skips a chapter
+};
+
+// The action of this frame's tap or swipe through the gesture table. A slot at Default, and any touch that belongs
+// to no slot (a tap outside the centre and the corners, a swipe from the top, left or bottom edge), gives what the
+// older settings give, the centre tap's reader menu included: with the table in use it is the only owner of taps
+// and swipes (call isTouchMenuGesture with includeTap = false).
+inline TouchGesture detectTouchGesture(const GfxRenderer& renderer, const MappedInputManager& input,
+                                       const bool rtlBook = false) {
+  TouchGesture result;
+  if (!SETTINGS.touchReaderControls || !input.hasTouch()) return result;
+  gestures::Legacy legacy;
+  legacy.nextGesture = SETTINGS.pageTurnGesture;
+  legacy.prevGesture = SETTINGS.previousPageGesture;
+  legacy.tapZones = SETTINGS.tapZones;
+  legacy.showReaderMenu = SETTINGS.showReaderMenu;
+  legacy.rtlBook = rtlBook;
+
+  const auto dir = input.wasSwipe();
+  if (dir != MappedInputManager::SwipeDir::None) {
+    gestures::Swipe swipe = gestures::Swipe::None;
+    switch (dir) {
+      case MappedInputManager::SwipeDir::Left:
+        swipe = gestures::Swipe::Left;
+        break;
+      case MappedInputManager::SwipeDir::Right:
+        swipe = gestures::Swipe::Right;
+        break;
+      case MappedInputManager::SwipeDir::Up:
+        swipe = gestures::Swipe::Up;
+        break;
+      case MappedInputManager::SwipeDir::Down:
+        swipe = gestures::Swipe::Down;
+        break;
+      default:
+        break;
+    }
+    result.action = gestures::swipeAction(SETTINGS.gestureAction, legacy, swipe, input.wasGlobalEdgeSwipe());
+    return result;
+  }
+
+  int x = 0;
+  int y = 0;
+  if (!input.wasScreenTapped(x, y)) return result;
+  result.action =
+      gestures::tapAction(SETTINGS.gestureAction, legacy, x, y, renderer.getScreenWidth(), renderer.getScreenHeight());
+  result.heldMs = gpio.lastTouchHeldMs();
+  return result;
+}
+
 // Tap in the center third of the screen: the tap path into the reader menu on
 // every touch board. detectTouchPageTurn() excludes this centered rectangle,
 // so it remains free in tap mode. The Off/Swipe Up
@@ -173,7 +240,9 @@ inline bool isTouchMenuTap(const GfxRenderer& renderer, const MappedInputManager
 // actions are configured separately from screen gestures.
 // Menu gestures honor showReaderMenu independently of touchReaderControls,
 // which only gates page-turn touch zones in detectTouchPageTurn().
-inline bool isTouchMenuGesture(const GfxRenderer& renderer, const MappedInputManager& input) {
+// includeTap = false leaves the centre tap out: the gesture table owns it (detectTouchGesture).
+inline bool isTouchMenuGesture(const GfxRenderer& renderer, const MappedInputManager& input,
+                               const bool includeTap = true) {
   if (!input.hasTouch()) return false;
   if (input.wasMenuGesture()) return true;
   // Bottom-edge up-swipe variant: only selectable on home-key boards, where
@@ -181,7 +250,7 @@ inline bool isTouchMenuGesture(const GfxRenderer& renderer, const MappedInputMan
   if (SETTINGS.showReaderMenu == CrossPointSettings::READER_MENU_SWIPE_UP && input.wasReaderMenuSwipeUp()) {
     return true;
   }
-  return isTouchMenuTap(renderer, input);
+  return includeTap && isTouchMenuTap(renderer, input);
 }
 
 // One helper, blocking or deferred: the async form starts the refresh and
