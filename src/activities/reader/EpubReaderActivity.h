@@ -185,6 +185,8 @@ class EpubReaderActivity final : public ReaderActivity {
   void jumpToPercent(int percent);
   void jumpToBookFraction(float fraction);  // like jumpToPercent, to a share of the book
   void openGoToPage();
+  bool hasBookMap() const;
+  void openBookMap();
   bool locateBookSize(size_t targetSize, int& targetSpineIndex);
   void toggleChapterHidden(int tocIndex);  // hidden flows, from the Contents panel
   void beginRandomPeek();

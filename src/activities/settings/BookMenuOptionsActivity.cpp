@@ -29,7 +29,7 @@ struct Label {
 std::vector<Label> moreEntries() {
   std::vector<EpubReaderMenuActivity::MenuItem> book;
   std::vector<EpubReaderMenuActivity::MenuItem> note;
-  EpubReaderMenuActivity::buildMenuItems(book, true, true, true, false, false);
+  EpubReaderMenuActivity::buildMenuItems(book, true, true, true, false, false, true);
   EpubReaderMenuActivity::buildMenuItems(note, true, true, true, true, false);
   std::vector<EpubReaderMenuActivity::MenuItem> merged = note;
   const auto has = [&merged](const MA action) {
@@ -52,7 +52,7 @@ std::vector<Label> moreEntries() {
   std::vector<Label> all;
   all.reserve(merged.size());
   std::transform(merged.begin(), merged.end(), std::back_inserter(all),
-                 [](const auto& item) { return Label{static_cast<int>(item.action), item.labelId}; });
+                 [](const auto& item) { return Label{EpubReaderMenuActivity::layoutId(item.action), item.labelId}; });
   return all;
 }
 }  // namespace

@@ -17,6 +17,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [The More menu in a book](#the-more-menu-in-a-book-0700)
 - [Go to page](#go-to-page-0680)
 - [Hidden chapters](#hidden-chapters-left-out-of-the-page-count)
+- [Book map](#book-map-and-page-numbers-in-the-chapter-list)
 - [Hide Status Bar and the book page number](#hide-status-bar-and-the-book-page-number)
 - [The book card in quick settings (0.26.0)](#the-book-card-in-quick-settings-0260)
 - [Tap Zones: corners only (0.25.0)](#tap-zones-corners-only-0250)
@@ -174,7 +175,7 @@ While a book is open the kerning and ligature switches also apply to the menus d
 
 ## The More menu in a book (0.70.0)
 
-Book menu → More starts with **Search in Book**, **Go to %** and **Go to page**, and ends with the favourite toggle, **Take screenshot**, **Show page as QR**, **Delete Book Cache**, **Go Home** and **Reading presets**. Frontlight and Night Mode are not in it any more: they are in the quick settings (swipe down) and in Settings.
+Book menu → More starts with **Search in Book**, **Go to %**, **Go to page** and (in an EPUB, not released yet) **Book map**, and ends with the favourite toggle, **Take screenshot**, **Show page as QR**, **Delete Book Cache**, **Go Home** and **Reading presets**. Frontlight and Night Mode are not in it any more: they are in the quick settings (swipe down) and in Settings.
 
 ## Screenshots
 
@@ -207,6 +208,27 @@ The details:
 - The choice is kept per book in `hidden.bin` in the book's cache folder, as file names from the book, so it survives a rebuilt cache. It moves with the book when you rename or move it. **Delete Book Cache** in the book menu keeps it. **Clear Reading Cache** in Settings and replacing the book file by an upload remove it, as they remove the reading position.
 - KOReader sync still sends the percent of the whole book, so other devices agree; bookmarks and highlights are by position and don't change. The reading log records the percent the book shows.
 - Not there: syncing the list or showing it in the companion app, hiding by the book's own guide (cover, notes) automatically, and other formats (TXT, Markdown, MOBI, FB2, HTML, RTF, PDF, comics).
+
+## Book map (and page numbers in the chapter list)
+
+Not released yet, tested on a computer only: it has not run on a device or in the simulator. In an EPUB, book menu → **More → Book map** (after Go to page) shows the whole book as one strip across the screen. It is what KOReader calls the skim widget and the book map, in one screen and without page thumbnails.
+
+- **One segment per chapter**, from the contents list, as wide as the chapter is long. A book without a contents list gets one segment per file. A very short chapter is still 3 pixels wide, and a finger hits it from 12 pixels either side.
+- **Hidden chapters** (above) are narrow hatched slivers that take no part in the scale, so the strip shows the same book the percent counts.
+- **Marks**: a thick mark above the strip for each bookmark, a thin one below it for each clipping, and a small box with a dotted line where you were when you opened the map.
+- **The marker** (an arrow and a bar) follows your finger. Above the strip you see the chapter's title, the percent and the estimated book page of that spot.
+
+**Let go and the book jumps there.** A tap right on a bookmark's mark (within 12 pixels) opens that bookmark exactly, as the Bookmarks list does; a tap on a clipping's mark goes to its page. A tap on a hidden sliver opens that chapter at its start. With the buttons: left and right move 1%, the side buttons go a chapter at a time, Confirm jumps and Back returns to the menu without moving.
+
+The details:
+
+- The screen has no way to refresh only a part of the panel, so while you drag the whole screen is redrawn with a fast refresh at most about five times a second, and the positions in between are skipped. The first frame is a clean (half) refresh.
+- The page number is the same estimate as the number in brackets in the status bar, so it changes with the font. The jump is by position in the book's text, like Go to %.
+- A strip has room for one chapter per 6 pixels (about 74 on an upright X4 Pro). A book with more chapters than that gets neighbours drawn as one segment.
+- A bookmark or clipping inside a hidden chapter is marked on that chapter's sliver. At most 256 bookmarks are marked, and clippings that fall on the same 1/512 of the book share one mark.
+- Like Go to page, it isn't in vault notes or in other formats, and it can be hidden or moved in **Settings → Reader → Book menu options**.
+
+**Page numbers in the chapter list.** Instead of a grid of page thumbnails, **Select Chapter** and **Contents** in the toolbar menu now show, at the right of each chapter, the estimated book page it starts on. A hidden chapter says **Hidden** there instead. It's the same estimate as above, worked out from the chapter you are reading.
 
 ## Hide Status Bar and the book page number
 

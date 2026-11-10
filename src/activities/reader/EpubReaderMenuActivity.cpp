@@ -19,14 +19,15 @@ EpubReaderMenuActivity::EpubReaderMenuActivity(GfxRenderer& renderer, MappedInpu
                                                const std::string& title, const int currentPage, const int totalPages,
                                                const int bookProgressPercent, const uint8_t currentOrientation,
                                                const bool hasFootnotes, const bool hasBookmarks,
-                                               const bool hasClippings, const bool isVaultNote, const bool isFavourite)
+                                               const bool hasClippings, const bool isVaultNote, const bool isFavourite,
+                                               const bool hasBookMap)
     : UiListActivity("EpubReaderMenu", renderer, mappedInput),
       title(title),
       pendingOrientation(currentOrientation),
       currentPage(currentPage),
       totalPages(totalPages),
       bookProgressPercent(bookProgressPercent) {
-  buildMenuItems(menuItems, hasFootnotes, hasBookmarks, hasClippings, isVaultNote, isFavourite);
+  buildMenuItems(menuItems, hasFootnotes, hasBookmarks, hasClippings, isVaultNote, isFavourite, hasBookMap);
   buildMenuRowItems();
 }
 
@@ -44,7 +45,7 @@ void EpubReaderMenuActivity::buildMenuRowItems() {
 
 void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, const bool hasFootnotes,
                                             const bool hasBookmarks, const bool hasClippings, const bool isVaultNote,
-                                            const bool isFavourite) {
+                                            const bool isFavourite, const bool hasBookMap) {
   items.clear();
   items.reserve(MAX_MENU_ITEMS);
   // A note gets Back first: on boards without a Back key (X4 Pro) the left-edge swipe is easy to
@@ -87,6 +88,7 @@ void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, const 
   items.push_back({MenuAction::AUTO_PAGE_TURN, StrId::STR_AUTO_TURN_PAGES_PER_MIN});
   items.push_back({MenuAction::GO_TO_PERCENT, StrId::STR_GO_TO_PERCENT});
   if (!isVaultNote) items.push_back({MenuAction::GO_TO_PAGE, StrId::STR_GO_TO_PAGE});
+  if (hasBookMap && !isVaultNote) items.push_back({MenuAction::BOOK_MAP, StrId::STR_BOOK_MAP});
   items.push_back({MenuAction::SCREENSHOT, StrId::STR_SCREENSHOT_BUTTON});
   items.push_back({MenuAction::DISPLAY_QR, StrId::STR_DISPLAY_QR});
   items.push_back({MenuAction::GO_HOME, StrId::STR_GO_HOME_BUTTON});
@@ -112,9 +114,9 @@ void EpubReaderMenuActivity::arrangeMoreItems(std::vector<MenuItem>& items) {
                                       item.action == MA::FRONTLIGHT || item.action == MA::NIGHT_MODE;
                              }),
               items.end());
-  // Search, Go to % and Go to page lead; the favourite toggle, screenshot, QR, delete cache and Go home close the
-  // list; everything else keeps its order in between (kos25k #12).
-  static constexpr MA FIRST[] = {MA::SEARCH_BOOK, MA::GO_TO_PERCENT, MA::GO_TO_PAGE};
+  // Search, Go to %, Go to page and Book map lead; the favourite toggle, screenshot, QR, delete cache and Go home close
+  // the list; everything else keeps its order in between (kos25k #12).
+  static constexpr MA FIRST[] = {MA::SEARCH_BOOK, MA::GO_TO_PERCENT, MA::GO_TO_PAGE, MA::BOOK_MAP};
   static constexpr MA LAST[] = {MA::TOGGLE_FAVOURITE, MA::SCREENSHOT, MA::DISPLAY_QR,
                                 MA::DELETE_CACHE,     MA::GO_HOME,    MA::READING_PRESETS};
   std::vector<MenuItem> ordered;

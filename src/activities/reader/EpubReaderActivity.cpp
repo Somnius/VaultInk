@@ -1,6 +1,7 @@
 #include "EpubReaderActivity.h"
 
 #include <BlePageTurner.h>
+#include <BookMap.h>
 #include <Epub/Page.h>
 #include <Epub/blocks/TextBlock.h>
 #include <FontCacheManager.h>
@@ -22,18 +23,21 @@
 
 #include <algorithm>
 #include <array>
+#include <bitset>
 #include <functional>
 #include <iterator>
 #include <limits>
 
 #include "../../util/BookmarkFile.h"
 #include "BookmarkEntry.h"
+#include "BookmarkJump.h"
 #include "ChapterBuildGate.h"
 #include "ClipSelectionActivity.h"
 #include "ClippingStore.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "DictionaryWordSelectActivity.h"
+#include "EpubReaderBookMapActivity.h"
 #include "EpubReaderBookmarksActivity.h"
 #include "EpubReaderChapterSelectionActivity.h"
 #include "EpubReaderClippingListActivity.h"
@@ -395,7 +399,7 @@ void EpubReaderActivity::openReaderMenu() {
       std::make_unique<EpubReaderMenuActivity>(
           renderer, mappedInput, epub->getTitle(), position.displayPage(), position.totalPages, bookProgressPercent,
           SETTINGS.orientation, !currentPageFootnotes.empty(), !cachedBookmarks.empty(), CLIPPINGS.hasClippings(),
-          isVaultNote(), FAVOURITES.contains(epub->getPath())),
+          isVaultNote(), FAVOURITES.contains(epub->getPath()), hasBookMap()),
       [this](const ActivityResult& result) {
         const auto& menu = std::get<MenuResult>(result.data);
 
@@ -1325,6 +1329,7 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
   switch (action) {
     case EpubReaderMenuActivity::MenuAction::SELECT_CHAPTER: {
       int tocIndex;
+      float pagesPerByte = 0.0f;  // for the page number beside each chapter; 0 = none
       // Release the section while the chapter list is up (mirrors the
       // TEXT_SETTINGS path): picking a chapter resets it anyway, and its
       // tens-of-KB footprint is the difference between the chapter list
@@ -1334,6 +1339,10 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       {
         RenderLock lock;
         tocIndex = currentTocIndex();
+        float pageFirst = 0.0f, pageScale = 0.0f;
+        if (section && !isVaultNote() && bookPageScale(section->estimatedTotalPages(), pageFirst, pageScale)) {
+          pagesPerByte = pageScale / static_cast<float>(epub->visibleBookSize());  // not 0: the scale exists
+        }
         if (section) {
           rememberCurrentContentOffset();
           cachedSpineIndex = currentSpineIndex;
@@ -1343,7 +1352,7 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
         section.reset();
       }
       startActivityForResult(
-          std::make_unique<EpubReaderChapterSelectionActivity>(renderer, mappedInput, epub, tocIndex),
+          std::make_unique<EpubReaderChapterSelectionActivity>(renderer, mappedInput, epub, tocIndex, pagesPerByte),
           [this](const ActivityResult& result) {
             if (result.isCancelled) {
               openReaderMenu();
@@ -1418,6 +1427,9 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
     }
     case EpubReaderMenuActivity::MenuAction::GO_TO_PAGE:
       openGoToPage();
+      break;
+    case EpubReaderMenuActivity::MenuAction::BOOK_MAP:
+      openBookMap();
       break;
     case EpubReaderMenuActivity::MenuAction::BACK: {
       if (!vaultnav::goBack()) activityManager.goToFileBrowser(bookPath);
@@ -2840,6 +2852,119 @@ void EpubReaderActivity::toggleChapterHidden(const int tocIndex) {
   }
 }
 
+// Book map: EPUB only, and only when the book has a size to draw.
+bool EpubReaderActivity::hasBookMap() const {
+  return epub && !isVaultNote() && epub->supportsHiddenFlows() && epub->getSpineItemsCount() > 0 &&
+         epub->visibleBookSize() > 0;
+}
+
+// Book map (KOReader's skim widget and book map, without thumbnails): the screen gets plain numbers, worked out
+// here once, and answers with a share of the book, a chapter, or a bookmark.
+void EpubReaderActivity::openBookMap() {
+  if (!hasBookMap() || !section) return;
+  BookMapData data;
+  {
+    RenderLock lock;  // the book's cache file is read below
+    const float pagesHere = section->estimatedTotalPages();
+    const float chapterProgress = pagesHere > 0 ? static_cast<float>(section->currentPage + 1) / pagesHere : 0.0f;
+    data.currentSpine = currentSpineIndex;
+    data.currentFraction = epub->visibleProgress(currentSpineIndex, chapterProgress);
+    if (!bookPageScale(pagesHere, data.pageFirst, data.pageScale)) data.pageScale = 0.0f;
+
+    const int spineCount = std::min(epub->getSpineItemsCount(), 32767);
+    const int tocCount = std::min(epub->getTocItemsCount(), 32767);
+    std::vector<uint32_t> cumulative(static_cast<size_t>(spineCount));
+    std::vector<uint8_t> hidden;
+    if (epub->hasHiddenFlows()) hidden.assign(static_cast<size_t>(spineCount), 0);
+    for (int i = 0; i < spineCount; i++) {
+      cumulative[static_cast<size_t>(i)] =
+          static_cast<uint32_t>(std::min<size_t>(epub->getCumulativeSpineItemSize(i), UINT32_MAX));
+      if (!hidden.empty() && epub->isSpineHidden(i)) hidden[static_cast<size_t>(i)] = 1;
+    }
+    std::vector<int16_t> tocSpine(static_cast<size_t>(tocCount));
+    for (int i = 0; i < tocCount; i++) {
+      tocSpine[static_cast<size_t>(i)] =
+          static_cast<int16_t>(std::clamp<int>(epub->getTocItem(i).spineIndex, -1, spineCount - 1));
+    }
+    data.groups = bookmap::mergeGroups(bookmap::groupChapters(cumulative, hidden, tocSpine),
+                                       EpubReaderBookMapActivity::maxGroups(renderer));
+
+    // Marks: where a bookmark or a clipping is, by its chapter and how far into it (the stored percent is of
+    // the raw book and would be off with hidden chapters).
+    const auto addTick = [&](const int spine, const int page, const int pageCount, const uint8_t kind, const int ref) {
+      if (spine < 0 || spine >= spineCount) return;
+      const float within =
+          pageCount > 0 ? std::clamp(static_cast<float>(page) / static_cast<float>(pageCount), 0.0f, 1.0f) : 0.0f;
+      bookmap::Tick tick;
+      tick.fraction = std::clamp(epub->visibleProgress(spine, within), 0.0f, 1.0f);
+      tick.spineIndex = static_cast<int16_t>(spine);
+      tick.ref = static_cast<int16_t>(ref);
+      tick.kind = kind;
+      data.ticks.push_back(tick);
+    };
+    const size_t bookmarkCount = std::min<size_t>(cachedBookmarks.size(), BookMapData::MAX_BOOKMARK_TICKS);
+    for (size_t i = 0; i < bookmarkCount; i++) {
+      const BookmarkEntry& bookmark = cachedBookmarks[i];
+      addTick(bookmark.computedSpineIndex, bookmark.computedChapterProgress, bookmark.computedChapterPageCount,
+              BookMapData::TICK_BOOKMARK, static_cast<int>(i));
+    }
+    // Clippings are already in memory (loaded with the book). Many of them fall on the same pixel, so one per
+    // 1/512 of the book is kept.
+    std::bitset<BookMapData::CLIPPING_SLOTS> taken;
+    for (size_t i = 0; i < CLIPPINGS.clippingCount(); i++) {
+      const Clipping* clipping = CLIPPINGS.clippingAt(i);
+      if (!clipping || clipping->spineIndex >= spineCount) continue;
+      const float within =
+          clipping->pageCount > 0
+              ? std::clamp(static_cast<float>(clipping->startPage) / static_cast<float>(clipping->pageCount), 0.0f,
+                           1.0f)
+              : 0.0f;
+      const float fraction = std::clamp(epub->visibleProgress(clipping->spineIndex, within), 0.0f, 1.0f);
+      const size_t slot = std::min<size_t>(static_cast<size_t>(fraction * BookMapData::CLIPPING_SLOTS),
+                                           BookMapData::CLIPPING_SLOTS - 1);
+      if (taken.test(slot)) continue;
+      taken.set(slot);
+      addTick(clipping->spineIndex, clipping->startPage, clipping->pageCount, BookMapData::TICK_CLIPPING,
+              static_cast<int>(i));
+    }
+  }
+  // The title of one contents entry at a time, read when the screen needs it (a list of them all would cost
+  // tens of KB in a long book).
+  data.chapterTitle = [book = epub](const int tocIndex) {
+    return tocIndex >= 0 && tocIndex < book->getTocItemsCount() ? book->getTocItem(tocIndex).title : std::string();
+  };
+  auto screen = makeUniqueNoThrow<EpubReaderBookMapActivity>(renderer, mappedInput, std::move(data));
+  if (!screen) {
+    LOG_ERR("ERS", "OOM: book map");
+    return;
+  }
+  startActivityForResult(std::move(screen), [this](const ActivityResult& result) {
+    if (result.isCancelled) {
+      openReaderMenu();
+      return;
+    }
+    const auto* picked = std::get_if<BookMapResult>(&result.data);
+    if (!picked) return;
+    if (picked->bookmarkIndex >= 0 && picked->bookmarkIndex < static_cast<int>(cachedBookmarks.size())) {
+      // The bookmark itself, by its exact place, as the bookmarks screen opens it.
+      applyProgressChange(bookmarkjump::resultFor(cachedBookmarks[static_cast<size_t>(picked->bookmarkIndex)],
+                                                  epub->getSpineItemsCount()));
+      return;
+    }
+    if (picked->spineIndex >= 0 && picked->spineIndex < epub->getSpineItemsCount()) {
+      // A hidden chapter has no place in the counted book: open it at its start, as the chapter list does.
+      RenderLock lock;
+      clearDeferredReposition();
+      currentSpineIndex = picked->spineIndex;
+      nextPageNumber = 0;
+      section.reset();
+      requestUpdate();
+      return;
+    }
+    jumpToBookFraction(picked->fraction);
+  });
+}
+
 // Go to page (kos25k #29): the number is the estimate the status bar shows, so the jump goes the other way,
 // from the page to the share of the book.
 void EpubReaderActivity::openGoToPage() {
@@ -3411,14 +3536,18 @@ void EpubReaderActivity::renderOverlay() {
       return std::string(depth, ' ') + item.title;
     };
     // Hidden flows: a chapter left out of the page count says so; a long press on the row changes it.
-    if (epub->supportsHiddenFlows()) {
-      model.rowLongPress = true;
-      if (epub->hasAnyHiddenSpine()) {
-        model.rowValue = [this](int i) {
-          const int spine = epub->getTocItem(i).spineIndex;
-          return std::string(spine >= 0 && epub->isSpineHidden(spine) ? tr(STR_CHAPTER_HIDDEN) : "");
-        };
-      }
+    if (epub->supportsHiddenFlows()) model.rowLongPress = true;
+    // The other rows show the estimated book page the chapter starts on (the page browser of the book map).
+    float pageFirst = 0.0f, pageScale = 0.0f;
+    if (isVaultNote() || !bookPageScale(section->estimatedTotalPages(), pageFirst, pageScale)) pageScale = 0.0f;
+    if (pageScale > 0.0f || epub->hasAnyHiddenSpine()) {
+      model.rowValue = [this, pageFirst, pageScale](int i) {
+        const int spine = epub->getTocItem(i).spineIndex;
+        if (spine < 0) return std::string();
+        if (epub->isSpineHidden(spine)) return std::string(tr(STR_CHAPTER_HIDDEN));
+        const int page = bookmap::chapterStartPage(epub->visibleProgress(spine, 0.0f), pageFirst, pageScale);
+        return page > 0 ? std::to_string(page) : std::string();
+      };
     }
   } else if (overlay == Overlay::Text) {
     model.panelTitle = tr(STR_TOOL_TEXT);
@@ -3804,22 +3933,27 @@ void EpubReaderActivity::applyReaderTextSettings() {
 void EpubReaderActivity::buildMoreActions() {
   using MA = EpubReaderMenuActivity::MenuAction;
   EpubReaderMenuActivity::buildMenuItems(moreItems, !currentPageFootnotes.empty(), !cachedBookmarks.empty(),
-                                         CLIPPINGS.hasClippings(), isVaultNote(), FAVOURITES.contains(epub->getPath()));
+                                         CLIPPINGS.hasClippings(), isVaultNote(), FAVOURITES.contains(epub->getPath()),
+                                         hasBookMap());
   EpubReaderMenuActivity::arrangeMoreItems(moreItems);
 
   // The reader's own arrangement (kos25k #15): the stored order, without what they hid. Back and Go home stay.
   std::vector<int> defaults;
   defaults.reserve(moreItems.size());
-  for (const auto& item : moreItems) defaults.push_back(static_cast<int>(item.action));
+  for (const auto& item : moreItems) defaults.push_back(EpubReaderMenuActivity::layoutId(item.action));
   static_assert(static_cast<int>(MA::READING_PRESETS) < menulayout::MAX_ID, "menu actions fit the layout mask");
+  static_assert(static_cast<int>(MA::BOOK_MAP) == static_cast<int>(MA::READING_PRESETS) + 1 &&
+                    EpubReaderMenuActivity::layoutId(MA::BOOK_MAP) < menulayout::MAX_ID,
+                "the last action has a layout id inside the mask");
   const uint32_t locked =
       menulayout::maskOf(static_cast<int>(MA::BACK)) | menulayout::maskOf(static_cast<int>(MA::GO_HOME));
   const std::vector<int> shown = menulayout::arrange(defaults, SETTINGS.moreMenuOrder, SETTINGS.moreMenuHidden, locked);
   std::vector<EpubReaderMenuActivity::MenuItem> arranged;
   arranged.reserve(shown.size());
   for (const int id : shown) {
-    const auto it = std::find_if(moreItems.begin(), moreItems.end(),
-                                 [id](const auto& item) { return static_cast<int>(item.action) == id; });
+    const auto it = std::find_if(moreItems.begin(), moreItems.end(), [id](const auto& item) {
+      return EpubReaderMenuActivity::layoutId(item.action) == id;
+    });
     if (it != moreItems.end()) arranged.push_back(*it);
   }
   moreItems = std::move(arranged);
