@@ -19,5 +19,9 @@ Third-party code and assets in this repository keep their own licences:
   (built-in fonts): SIL Open Font License 1.1.
 - Ubuntu font (built-in UI fonts): Ubuntu Font Licence 1.0.
 - Lucide icons (src/components/icons): ISC License, Copyright (c) Lucide Contributors.
+- wolfSSL 5.7.2 (Arduino-wolfSSL, linked into the firmware for TLS 1.3 and the content code): GPL-2.0-or-later,
+  Copyright (c) wolfSSL Inc. wolfSSL is dual-licensed (GPL or a commercial licence). VaultInk uses it under the GPL.
+  Because of that, the firmware binaries are distributed under the terms of the GPL-2.0-or-later, with the
+  source in this repository. The source files of VaultInk itself stay under the MIT licence (see LICENSE).
 
 See the licence files and headers inside each directory for the full terms.

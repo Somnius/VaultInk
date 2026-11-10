@@ -701,7 +701,7 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
 What it is: close the gaps against KOReader that kos25k and Lef picked. Lef's calls: no text-to-speech, no Dropbox, **WebDAV, FTP and SFTP clients are in**, an **SSH terminal is in**, the **gamepad is a scaffold only** (input plumbing, no games), **VaultEUC stays in the firmware**. Sizes and effort below are estimates from reading code, not measurements; the flash left is about 1.70 MB (0.73.1 binary 6,626,464 of 8,323,072 bytes, 79.6%), so every step reports its flash cost after a real build. The sleep-drain investigation (0.73.1) is still open, so nothing here adds a wake-up.
 
 * **Step 0, before any new code:**
-  * 💤 Check the licence of wolfSSL, which the network and content code links. Fable read it as GPL-2.0 while the repo is MIT and NOTICE does not list it. **Unverified by us**; settle it before adding any more GPL-licensed code (wolfSSH is GPL, LibSSH-ESP32 is LGPL).
+  * ✅ wolfSSL licence checked (2026-11-10): wolfSSL 5.7.2 is GPL-2.0-or-later (dual-licensed with a commercial licence), linked into the firmware. Done: NOTICE and README now say the binaries are distributed under the GPL terms and the repo's own source stays MIT. Open: a GPL-3.0 SSH library (wolfSSH) would make the binary GPL-3.0 as a whole; pick the SSH library after the device test.
   * 💤 Measure on a device: free internal heap and flash with a TLS session and the Bluetooth keyboard together, and a scroll prototype (below).
 * **Release A: reader features with no network** (all host-testable, about 120 KB together):
   * 💤 Hidden flows (exclude sections from the page count; one cache version bump).

@@ -416,4 +416,6 @@ The licences of the fonts, icons and libraries are listed in [NOTICE](NOTICE).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT for VaultInk's own source. See [LICENSE](LICENSE).
+
+The firmware binaries also contain wolfSSL (TLS 1.3), which is GPL-2.0-or-later, so the binaries are distributed under the GPL terms, with the source in this repository. See [NOTICE](NOTICE).
