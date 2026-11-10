@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <AutoSchedule.h>
 #include <BlePageTurner.h>
 #include <BoardConfig.h>
 #include <Epub.h>
@@ -227,6 +228,33 @@ void toggleFrontlight() {
   SETTINGS.frontlightOn = lightOn ? 1 : 0;
   SETTINGS.saveToFile();
   LOG_INF("LIGHT", "Frontlight toggled %s", lightOn ? "on" : "off");
+}
+
+// Auto warmth and night mode by the clock: at the first check after the night window starts or ends (and after a
+// boot or wake), the light goes warm and night mode turns on, or back. Only on a switch of the window, so a change
+// made in the light panel inside the window stays. Needs the RTC to have been set.
+void handleAutoSchedule() {
+  static unsigned long lastCheckMs = 0;
+  if (SETTINGS.autoWarmth == 0) return;
+  const unsigned long now = millis();
+  if (lastCheckMs != 0 && now - lastCheckMs < 30000) return;
+  lastCheckMs = now;
+  uint8_t hour = 0;
+  uint8_t minute = 0;
+  if (!halClock.isAvailable() || !halClock.getTime(hour, minute)) return;
+  const autoschedule::Step step =
+      autoschedule::next(true, SETTINGS.autoWarmthStart, SETTINGS.autoWarmthEnd, hour, SETTINGS.autoWarmthApplied);
+  if (step == autoschedule::Step::None) return;
+  const bool night = step == autoschedule::Step::EnterNight;
+  if (Frontlight.present() && Frontlight.hasColorTemperature()) {
+    Frontlight.setWarmth(night ? SETTINGS.autoWarmthNight : SETTINGS.frontlightWarmth);
+  }
+  if (SETTINGS.autoNightMode != 0) SETTINGS.screenInverted = night ? 1 : 0;
+  SETTINGS.autoWarmthApplied = night ? 1 : 0;
+  SETTINGS.saveToFile();
+  if (SETTINGS.autoNightMode != 0) activityManager.requestUpdate();
+  LOG_INF("AUTO", "Auto warmth: %s at %02u:%02u", night ? "night" : "day", static_cast<unsigned>(hour),
+          static_cast<unsigned>(minute));
 }
 
 // Applies the slide switch's position to the bound function at boot, on each
@@ -960,6 +988,7 @@ void loop() {
 
   // After the exclusive-storage return: it saves settings to the SD card.
   handleSlideSwitch();
+  handleAutoSchedule();
   halTiltSensor.update(SETTINGS.tiltPageTurn, SETTINGS.orientation, activityManager.isReaderActivity());
 
   // Under the render lock, so a step never overlaps the themes' gauge reads.

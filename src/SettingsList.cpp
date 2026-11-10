@@ -69,6 +69,19 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
 #if FREEINK_CAP_FRONTLIGHT
   emit(SettingInfo::Toggle(StrId::STR_RESTORE_LIGHT_ON_WAKE, &CrossPointSettings::frontlightRestoreOnWake,
                            "frontlightRestoreOnWake", StrId::STR_CAT_DISPLAY));
+  // Auto warmth and night mode by the clock. Needs the clock set (Settings > System > Clock).
+  emit(SettingInfo::Toggle(StrId::STR_AUTO_WARMTH, &CrossPointSettings::autoWarmth, "autoWarmth",
+                           StrId::STR_CAT_DISPLAY));
+  emit(SettingInfo::Value(StrId::STR_AUTO_WARMTH_FROM, &CrossPointSettings::autoWarmthStart, {0, 23, 1},
+                          "autoWarmthStart", StrId::STR_CAT_DISPLAY));
+  emit(SettingInfo::Value(StrId::STR_AUTO_WARMTH_UNTIL, &CrossPointSettings::autoWarmthEnd, {0, 23, 1}, "autoWarmthEnd",
+                          StrId::STR_CAT_DISPLAY));
+#if FREEINK_CAP_WARMLIGHT
+  emit(SettingInfo::Value(StrId::STR_NIGHT_WARMTH, &CrossPointSettings::autoWarmthNight, {0, 100, 5}, "autoWarmthNight",
+                          StrId::STR_CAT_DISPLAY));
+#endif
+  emit(SettingInfo::Toggle(StrId::STR_AUTO_NIGHT_MODE, &CrossPointSettings::autoNightMode, "autoNightMode",
+                           StrId::STR_CAT_DISPLAY));
 #endif
 #if FREEINK_DEVICE_PICCO
   emit(SettingInfo::Enum(StrId::STR_SLIDE_SWITCH, &CrossPointSettings::slideSwitchAction,
@@ -296,6 +309,8 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Value(StrId::STR_WARMTH, &CrossPointSettings::frontlightWarmth, {0, 100, 5}, "frontlightWarmth"));
 #endif
   emit(SettingInfo::Toggle(StrId::STR_FRONTLIGHT, &CrossPointSettings::frontlightOn, "frontlightOn"));
+  emit(SettingInfo::Value(StrId::STR_AUTO_WARMTH, &CrossPointSettings::autoWarmthApplied, {0, 1, 1},
+                          "autoWarmthApplied"));  // hidden: which side of the schedule was applied last
 
   // --- KOReader Sync (web-only, uses KOReaderCredentialStore) ---
   emit(SettingInfo::DynamicString(

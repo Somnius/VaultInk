@@ -425,6 +425,15 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Restore the saved on/off state after a normal boot or wake. Brightness and
   // warmth are always remembered even when this is disabled.
   uint8_t frontlightRestoreOnWake = 1;
+  // Auto warmth by the clock (KOReader parity): warmer light, and optionally night mode, from the start hour to the
+  // end hour. `autoWarmthApplied` remembers which side was applied last (0 day, 1 night), so a manual change in the
+  // light panel stays until the next switch.
+  uint8_t autoWarmth = 0;
+  uint8_t autoWarmthStart = 20;
+  uint8_t autoWarmthEnd = 7;
+  uint8_t autoWarmthNight = 80;
+  uint8_t autoNightMode = 0;
+  uint8_t autoWarmthApplied = 0;
   // What the slide switch controls (boards with one): frontlight on/off or
   // night mode. The switch's position is applied at boot and on each change.
   enum SLIDE_SWITCH_ACTION : uint8_t {
