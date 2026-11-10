@@ -10,7 +10,7 @@ std::string toLine(const Record& r) {
   int n = snprintf(buffer, sizeof(buffer), "%lld\t%c\t%u\t%u\t%u", static_cast<long long>(r.epoch), r.sleep ? 'S' : 'W',
                    static_cast<unsigned>(r.percent), r.usb ? 1u : 0u, r.light ? 1u : 0u);
   if (r.millivolts != 0 || r.wakeCause >= 0) {
-    char cause[2] = {r.wakeCause >= 0 && r.wakeCause <= 9 ? static_cast<char>('0' + r.wakeCause) : '-', '\0'};
+    const char cause[2] = {r.wakeCause >= 0 && r.wakeCause <= 9 ? static_cast<char>('0' + r.wakeCause) : '-', '\0'};
     snprintf(buffer + n, sizeof(buffer) - static_cast<size_t>(n), "\t%u\t%s", static_cast<unsigned>(r.millivolts),
              cause);
   }

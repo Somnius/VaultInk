@@ -2,6 +2,16 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.73.1 (2026-11-10)
+
+Battery in sleep (kos25k, follows #31).
+
+- **The battery log records more.** Each line in `/.vaultink/battery-log.tsv` can now end with the battery voltage in millivolts and why the device woke (power key held, USB power, power key not held and so on). The Battery page rates are the same. If the device wakes by itself at night, the log now shows it.
+- **A wake that is not held through the check is logged.** The device goes back to sleep as before, but writes a wake and a sleep line, so you can see it.
+- **The front light goes off before every sleep** on the X4 Pro too (it was only the Picco), including after a wake that goes straight back to sleep. I haven't measured whether the light used current in sleep.
+
+From the log you sent, the device lost about 0.18% an hour asleep and did not wake by itself. I haven't found the cause yet. Tried on a computer, not on a device.
+
 ## 0.73.0 (2026-11-08)
 
 Book menu options and PDF style (kos25k #15, #29).

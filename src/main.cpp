@@ -539,7 +539,7 @@ void enterDeepSleep(bool fromTimeout = false) {
 
   // Switch the light off before every deep sleep (SETTINGS.frontlightOn keeps the preference for restore-on-wake).
   // The Picco's I2C LED driver keeps its state through sleep; the X4 Pro's PWM pads were only left to isolate
-  // (0.73.1, kos25k #34). Whether that leaked current is not measured; this just stops depending on it.
+  // (0.73.1, kos25k, follows #31). Whether that leaked current is not measured; this just stops depending on it.
   if (Frontlight.present()) Frontlight.setOn(false);
 #if FREEINK_DEVICE_PICCO
   const bool wakeOnHeldButton = holdSleepWhileUsbPowered();
