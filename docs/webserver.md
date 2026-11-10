@@ -28,6 +28,18 @@ networks or in hotspot mode when you control who is connected.
 | **Join Network** | You want the reader to join an existing Wi-Fi network. |
 | **Calibre Wireless** | You want to receive books from the CrossPoint Calibre plugin workflow. |
 | **Create Hotspot** | You want the reader to create its own open Wi-Fi network. |
+| **USB Drive** | You want to copy files over the USB-C cable, with no Wi-Fi. |
+
+## USB Drive
+
+**File Transfer → USB Drive** ("Manage the SD card from your computer") makes the reader show up on your computer as a drive, over the USB-C cable. No Wi-Fi, router or password is involved, so it is a good way to copy large folders, a whole library or a vault. I have not timed it against Wi-Fi.
+
+1. Open **File Transfer → USB Drive**. The reader says it is preparing the drive.
+2. Plug the reader into your computer with the USB-C cable. The screen asks you to connect it. Connecting can take up to 30 seconds. If no computer connects within 5 minutes, the reader goes back Home.
+3. The SD card appears as a drive. Copy files and folders as with any USB stick.
+4. **Eject the drive on your computer** before you unplug, so nothing is cut off while it is writing. Ejecting, or disconnecting the cable, brings the reader back Home. If something goes wrong the screen says so and tells you to disconnect the cable.
+
+While it is on, the reader does not use the SD card: the computer has it. Do not unplug the cable while files are copying. The web page (Wi-Fi) and USB Drive are two ways to the same SD card.
 
 ## Join Network Mode
 

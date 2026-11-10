@@ -245,7 +245,7 @@ Each line links to its guide where there is one; all the guides are listed in [d
 - No telemetry, accounts or payments; the update check is the only network call you don't start yourself.
 
 **Phone, Bluetooth and languages**
-- **File Transfer** over Wi-Fi (as `vaultink.local`), USB and Calibre; a web page for files, notes, settings, LiveSync setup and vault import. [docs/webserver.md](docs/webserver.md)
+- **File Transfer** over Wi-Fi (as `vaultink.local`), **USB Drive** (the SD card as a drive over the USB-C cable, no Wi-Fi: File Transfer → USB Drive) and Calibre; a web page for files, notes, settings, LiveSync setup and vault import. [docs/webserver.md](docs/webserver.md)
 - **Android companion app** ([docs/companion.md](docs/companion.md)): quick notes into a vault, share text, pictures, books and comics from other apps, the SD card with uploads and downloads, the reader's settings, a comic converter inside the app, an outbox for when the reader is away, a Google Keep importer, LiveSync status with a sync request, typing into the reader from the phone, and the documentation offline. English and Greek. Tested against the simulator, not a real X4 Pro yet.
 - **Bluetooth**: a page-turner remote, and a Bluetooth keyboard can type into the on-screen keyboard's line (off by default, not tried with a real keyboard). [docs/reading-and-files.md](docs/reading-and-files.md#bluetooth-keyboard-typing-0630)
 - Full **Greek** interface, a Greek and English on-screen keyboard, Greek (monotonic and polytonic) in the built-in fonts and hyphenation. Menus in many more languages from CrossPoint. [docs/translating.md](docs/translating.md)
@@ -282,7 +282,7 @@ The first time VaultInk starts, it shows a short welcome guide. The five pages a
 1. **Welcome.** VaultInk is for your books and your Obsidian vaults. The menus are in English, Greek and many other languages, listed on this page.
 2. **Reading.** Swipe left for the next page and right for the previous one, or use the side buttons. Tap the middle of the page to open the reading menu.
 3. **Quick settings.** Swipe down from the top of the screen, or tap the battery. You get the light, night mode, sleep, and a full refresh (to clear ghost images).
-4. **Adding books.** Copy books into the `books` folder on the SD card, or send them from your computer with File Transfer (Wi-Fi, USB or Calibre).
+4. **Adding books.** Copy books into the `books` folder on the SD card, or send them from your computer with File Transfer (Wi-Fi, USB Drive over the USB-C cable, or Calibre).
 5. **That's it.** Open the guide again from **Settings → System → Welcome Guide**. It also comes back once after an update that changes it. To stop that, turn off **Show Welcome Guide After Updates** in the same place.
 
 **Screenshots.** Hold Power and press Down at the same time, on any screen, and the reader saves what is on the screen as a BMP in `/screenshots/` on the SD card (in a book it goes in a folder with the book's title). The Down button is the right-hand side button on the X4 Pro. Inside a book it is also in the book menu, under More, as Take screenshot. [docs/reading-and-files.md](docs/reading-and-files.md#screenshots)
