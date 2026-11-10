@@ -13,7 +13,6 @@
 
 #include "CrossPointSettings.h"
 #include "FavouritesStore.h"
-#include "MappedInputManager.h"
 #include "RecentBooksStore.h"
 #include "activities/ActivityManager.h"
 #include "components/UITheme.h"
@@ -21,6 +20,7 @@
 #include "components/icons/customListIcons.h"
 #include "components/icons/listIcons.h"
 #include "components/icons/readerToolbarIcons.h"
+#include "util/AutoWarmthState.h"
 #include "util/BookProgress.h"
 #include "util/LiveSyncDevice.h"
 #include "util/PaperTexture.h"
@@ -110,11 +110,11 @@ void FrontlightPanelActivity::persistLightSettings() {
   // against SETTINGS here only fires on a genuine user change. lightOn has
   // no such guarantee (see lightOnChanged's declaration), so it's gated on
   // the user actually having touched it this session instead.
-  const bool changed = SETTINGS.frontlightBrightness != brightness || SETTINGS.frontlightWarmth != warmth ||
+  const bool changed = SETTINGS.frontlightBrightness != brightness || autowarmth::effectiveWarmth() != warmth ||
                        (lightOnChanged && SETTINGS.frontlightOn != (lightOn ? 1 : 0));
   if (changed) {
     SETTINGS.frontlightBrightness = brightness;
-    SETTINGS.frontlightWarmth = warmth;
+    autowarmth::storeWarmth(warmth);  // the night value while Auto Warmth has the light in night mode
     if (lightOnChanged) SETTINGS.frontlightOn = lightOn ? 1 : 0;
     SETTINGS.saveToFile();
   }

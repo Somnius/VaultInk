@@ -309,7 +309,7 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Value(StrId::STR_WARMTH, &CrossPointSettings::frontlightWarmth, {0, 100, 5}, "frontlightWarmth"));
 #endif
   emit(SettingInfo::Toggle(StrId::STR_FRONTLIGHT, &CrossPointSettings::frontlightOn, "frontlightOn"));
-  emit(SettingInfo::Value(StrId::STR_AUTO_WARMTH, &CrossPointSettings::autoWarmthApplied, {0, 1, 1},
+  emit(SettingInfo::Value(StrId::STR_AUTO_WARMTH_STATE, &CrossPointSettings::autoWarmthApplied, {0, 3, 1},
                           "autoWarmthApplied"));  // hidden: which side of the schedule was applied last
 
   // --- KOReader Sync (web-only, uses KOReaderCredentialStore) ---

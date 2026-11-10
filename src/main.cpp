@@ -54,6 +54,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "platform/UsbSerialJtagHandoff.h"
+#include "util/AutoWarmthState.h"
 #include "util/BatteryHistory.h"
 #include "util/ButtonNavigator.h"
 #include "util/DebugLog.h"
@@ -230,29 +231,47 @@ void toggleFrontlight() {
   LOG_INF("LIGHT", "Frontlight toggled %s", lightOn ? "on" : "off");
 }
 
-// Auto warmth and night mode by the clock: at the first check after the night window starts or ends (and after a
-// boot or wake), the light goes warm and night mode turns on, or back. Only on a switch of the window, so a change
-// made in the light panel inside the window stays. Needs the RTC to have been set.
+// Auto warmth and night mode by the clock: when the night window starts or ends the light goes warm and night mode
+// turns on, or back. Only on a switch of the window, so a change made in the light panel inside the window stays
+// (and goes to the night value, see util/AutoWarmthState.h). A boot or wake starts the light from the side that was
+// applied last, so a wake at night is still warm. Needs the clock to have been set: with an untrusted clock the
+// schedule does nothing. Turning the feature off puts the day side back once.
 void handleAutoSchedule() {
   static unsigned long lastCheckMs = 0;
-  if (SETTINGS.autoWarmth == 0) return;
+  const bool wasNight = (SETTINGS.autoWarmthApplied & autowarmth::NIGHT_BIT) != 0;
+  if (SETTINGS.autoWarmth == 0 && !wasNight) return;
   const unsigned long now = millis();
   if (lastCheckMs != 0 && now - lastCheckMs < 30000) return;
   lastCheckMs = now;
   uint8_t hour = 0;
   uint8_t minute = 0;
-  if (!halClock.isAvailable() || !halClock.getTime(hour, minute)) return;
-  const autoschedule::Step step =
-      autoschedule::next(true, SETTINGS.autoWarmthStart, SETTINGS.autoWarmthEnd, hour, SETTINGS.autoWarmthApplied);
+  autoschedule::Step step = autoschedule::Step::EnterDay;  // switched off: back to the day side
+  if (SETTINGS.autoWarmth != 0) {
+    if (trustedtime::trustedNow() <= 0 || !halClock.isAvailable() || !halClock.getTime(hour, minute)) return;
+    step = autoschedule::next(true, SETTINGS.autoWarmthStart, SETTINGS.autoWarmthEnd, hour, SETTINGS.autoWarmthApplied);
+  }
   if (step == autoschedule::Step::None) return;
   const bool night = step == autoschedule::Step::EnterNight;
+  bool redraw = false;
+  if (night) {
+    SETTINGS.autoWarmthApplied |= autowarmth::NIGHT_BIT;
+    if (SETTINGS.autoNightMode != 0 && SETTINGS.screenInverted == 0) {
+      SETTINGS.screenInverted = 1;
+      SETTINGS.autoWarmthApplied |= autowarmth::INVERTED_BIT;
+      redraw = true;
+    }
+  } else {
+    if ((SETTINGS.autoWarmthApplied & autowarmth::INVERTED_BIT) != 0) {
+      SETTINGS.screenInverted = 0;
+      redraw = true;
+    }
+    SETTINGS.autoWarmthApplied = 0;
+  }
   if (Frontlight.present() && Frontlight.hasColorTemperature()) {
     Frontlight.setWarmth(night ? SETTINGS.autoWarmthNight : SETTINGS.frontlightWarmth);
   }
-  if (SETTINGS.autoNightMode != 0) SETTINGS.screenInverted = night ? 1 : 0;
-  SETTINGS.autoWarmthApplied = night ? 1 : 0;
   SETTINGS.saveToFile();
-  if (SETTINGS.autoNightMode != 0) activityManager.requestUpdate();
+  if (redraw) activityManager.requestUpdate();
   LOG_INF("AUTO", "Auto warmth: %s at %02u:%02u", night ? "night" : "day", static_cast<unsigned>(hour),
           static_cast<unsigned>(minute));
 }
@@ -769,7 +788,7 @@ void setup() {
   // nor light up against the user's wake preference.
   const bool restoreLightOn =
       isSilentReboot ? silentRebootLightOn : (SETTINGS.frontlightOn != 0 && SETTINGS.frontlightRestoreOnWake != 0);
-  Frontlight.begin(SETTINGS.frontlightBrightness, SETTINGS.frontlightWarmth, restoreLightOn);
+  Frontlight.begin(SETTINGS.frontlightBrightness, autowarmth::effectiveWarmth(), restoreLightOn);
 
   switch (wakeupReason) {
     case HalGPIO::WakeupReason::PowerButton:

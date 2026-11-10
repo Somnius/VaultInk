@@ -433,7 +433,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t autoWarmthEnd = 7;
   uint8_t autoWarmthNight = 80;
   uint8_t autoNightMode = 0;
-  uint8_t autoWarmthApplied = 0;
+  uint8_t autoWarmthApplied = 0;  // bit 0 night side applied, bit 1 the schedule turned night mode on
   // What the slide switch controls (boards with one): frontlight on/off or
   // night mode. The switch's position is applied at boot and on each change.
   enum SLIDE_SWITCH_ACTION : uint8_t {

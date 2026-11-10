@@ -38,3 +38,9 @@ TEST(AutoSchedule, DisabledDoesNothing) {
   EXPECT_EQ(next(false, 20, 7, 22, 0), Step::None);
   EXPECT_EQ(next(false, 20, 7, 12, 1), Step::None);
 }
+
+TEST(AutoSchedule, OtherBitsOfAppliedDoNotMatter) {
+  EXPECT_EQ(next(true, 20, 7, 22, 3), Step::None);  // night, applied night plus the inverted bit
+  EXPECT_EQ(next(true, 20, 7, 12, 3), Step::EnterDay);
+  EXPECT_EQ(next(true, 20, 7, 22, 2), Step::EnterNight);  // bit 1 alone is the day side
+}
