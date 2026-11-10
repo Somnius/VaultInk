@@ -16,6 +16,7 @@
 #include <Memory.h>
 #include <ResumableFetch.h>
 #include <SecureHttpClient.h>
+#include <TlsPolicyDevice.h>
 #include <Util.h>
 #include <WiFi.h>
 #include <WolfsslCrypto.h>
@@ -2413,10 +2414,10 @@ void CrossPointWebServer::handleFetch() {
       url, options,
       [&](freeink::SecureHttpClient& http, const bool sameOrigin) {
         http.setUserAgent("CrossPoint");
-        // The SecureNet transport ships no CA bundle, so peer verification always
-        // fails (wolfSSL -188); skip it like HttpDownloader does. Traffic stays
-        // TLS-encrypted, just unauthenticated — matching the prior library-lending flow.
-        http.setInsecure();
+        // The starting URL decides the certificate rule for every hop (lib/TlsPolicy):
+        // a plugin's own server is encrypted but not checked, as before; GitHub and
+        // Wikipedia are always checked. A check that can't be set up fails the request.
+        tlspolicy::apply(http, url, /*userVerify=*/false);
         // Some delivery servers assemble books on the fly and can stall mid-body
         // while packaging; the default 15s no-data timeout truncates those downloads.
         http.setTimeout(60000);

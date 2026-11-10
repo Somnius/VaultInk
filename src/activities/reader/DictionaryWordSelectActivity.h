@@ -3,6 +3,7 @@
 #include <Epub/Page.h>
 #include <I18n.h>
 
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -12,7 +13,9 @@
 // Controller for dictionary lookup: renders the background page, runs the
 // lookup against the active StarDict dictionary, and either opens
 // DictionaryDefinitionActivity or displays a status popup (Looking up,
-// Indexing, Not found, Error).
+// Indexing, Not found, Error). When the dictionary has no entry and the reader gave a Wikipedia
+// handler, the Not found popup offers the lookup there: Confirm or a tap on the popup takes it,
+// Back or waiting dismisses it. Nothing touches the network before that tap.
 class DictionaryWordSelectActivity final : public Activity {
  public:
   explicit DictionaryWordSelectActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
@@ -23,6 +26,11 @@ class DictionaryWordSelectActivity final : public Activity {
         marginLeft(marginLeft),
         marginTop(marginTop),
         lookupText(std::move(lookupText)) {}
+
+  // Called with the looked-up text when the user takes the Wikipedia offer. The handler replaces
+  // this screen (and the reader under it), so nothing here runs after it.
+  using WikipediaHandler = std::function<void(std::string text)>;
+  void setWikipediaHandler(WikipediaHandler handler) { wikipediaHandler = std::move(handler); }
 
   void onEnter() override;
   void loop() override;
@@ -48,4 +56,10 @@ class DictionaryWordSelectActivity final : public Activity {
   Popup popup = Popup::None;
   StrId popupMsg = StrId::STR_DICT_NOT_FOUND;
   unsigned long popupTime = 0;
+  WikipediaHandler wikipediaHandler;
+  // Where the popup was drawn, for a tap on it (written by render, read by loop).
+  int popupX = 0;
+  int popupY = 0;
+  int popupW = 0;
+  int popupH = 0;
 };

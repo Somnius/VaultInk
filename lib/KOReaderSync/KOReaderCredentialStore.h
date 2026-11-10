@@ -46,6 +46,7 @@ class KOReaderCredentialStore : public PersistableStore<KOReaderCredentialStore>
   DocumentMatchMethod matchMethod = DocumentMatchMethod::FILENAME;  // Default to filename for compatibility
   bool sendMetadata = true;                                         // Send document metadata with progress sync
   bool syncClippings = false;                                       // Opt-in crosspoint-sync extension
+  bool verifyCert = false;  // Check the server certificate (ca.pem or the built-in roots); off = encrypted only
   KOReaderSyncBehavior syncBehavior = KOReaderSyncBehavior::SMART;
   KOReaderServerType serverType = KOReaderServerType::CROSSPOINT;
 
@@ -103,6 +104,10 @@ class KOReaderCredentialStore : public PersistableStore<KOReaderCredentialStore>
 
   void setSyncClippings(bool enabled) { syncClippings = enabled; }
   bool getSyncClippings() const { return syncClippings; }
+
+  // Check the sync server's certificate (lib/TlsPolicy). Off by default: older setups keep working.
+  void setVerifyCert(bool enabled) { verifyCert = enabled; }
+  bool getVerifyCert() const { return verifyCert; }
 
   // Sync behavior
   void setSyncBehavior(KOReaderSyncBehavior behavior);

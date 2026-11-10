@@ -1,6 +1,7 @@
 #include "LiveSyncDevice.h"
 
 #include <ArduinoJson.h>
+#include <CaBundle.h>
 #include <HalStorage.h>
 #include <LiveSyncIds.h>
 #include <LiveSyncPush.h>
@@ -18,7 +19,6 @@
 #include <memory>
 #include <string_view>
 
-#include "util/CaBundle.h"
 #include "util/TaskWatchdog.h"
 #include "util/VaultEdit.h"
 #include "util/VaultFiles.h"

@@ -7,6 +7,7 @@
 #include <Logging.h>
 #include <Memory.h>
 #include <SecureHttpClient.h>
+#include <TlsPolicyDevice.h>
 #include <Utf8.h>
 
 #include <cstring>
@@ -153,8 +154,9 @@ bool clippingSync::run(const std::string& bookPath, const std::string& documentH
     LOG_ERR("CLIP", "Insufficient heap for clipping sync");
     return false;
   }
-  http->setInsecure();
   const std::string url = KOREADER_STORE.getBaseUrl() + "/api/v1/clippings/" + documentHash;
+  // Same server as KOReader sync, so the same Check certificate switch.
+  if (!tlspolicy::apply(*http, url, KOREADER_STORE.getVerifyCert())) return false;
   JsonDocument doc;
   // Probe the extension before any upload, even when the user explicitly enabled it.
   if (!request(*http, url + "?cursor=0&limit=1&format=reader", buffer.get(), doc) ||

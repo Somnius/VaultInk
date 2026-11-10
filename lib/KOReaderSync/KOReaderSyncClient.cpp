@@ -4,6 +4,7 @@
 #include <HalMemory.h>
 #include <Logging.h>
 #include <SecureHttpClient.h>
+#include <TlsPolicyDevice.h>
 #include <base64.h>
 
 #include <string>
@@ -69,7 +70,7 @@ KOReaderSyncClient::Error KOReaderSyncClient::authenticate() {
   if (insufficientHeap()) return LOW_MEMORY;
 
   freeink::SecureHttpClient http;
-  http.setInsecure();
+  if (!tlspolicy::apply(http, url, KOREADER_STORE.getVerifyCert())) return NETWORK_ERROR;
   if (!http.begin(url)) {
     LOG_ERR("KOSync", "Bad URL: %s", url.c_str());
     return NETWORK_ERROR;
@@ -109,7 +110,7 @@ KOReaderSyncClient::Error KOReaderSyncClient::createUser() {
   serializeJson(doc, body);
 
   freeink::SecureHttpClient http;
-  http.setInsecure();
+  if (!tlspolicy::apply(http, url, KOREADER_STORE.getVerifyCert())) return NETWORK_ERROR;
   if (!http.begin(url)) {
     LOG_ERR("KOSync", "Bad URL: %s", url.c_str());
     return NETWORK_ERROR;
@@ -143,7 +144,7 @@ KOReaderSyncClient::Error KOReaderSyncClient::getProgress(const std::string& doc
   if (insufficientHeap()) return LOW_MEMORY;
 
   freeink::SecureHttpClient http;
-  http.setInsecure();
+  if (!tlspolicy::apply(http, url, KOREADER_STORE.getVerifyCert())) return NETWORK_ERROR;
   if (!http.begin(url)) {
     LOG_ERR("KOSync", "Bad URL: %s", url.c_str());
     return NETWORK_ERROR;
@@ -277,7 +278,7 @@ KOReaderSyncClient::Error KOReaderSyncClient::updateProgress(const KOReaderProgr
   LOG_DBG("KOSync", "Request body: %s", body.c_str());
 
   freeink::SecureHttpClient http;
-  http.setInsecure();
+  if (!tlspolicy::apply(http, url, KOREADER_STORE.getVerifyCert())) return NETWORK_ERROR;
   if (!http.begin(url)) {
     LOG_ERR("KOSync", "Bad URL: %s", url.c_str());
     return NETWORK_ERROR;

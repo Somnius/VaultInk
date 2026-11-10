@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <Logging.h>
 #include <ResumableFetch.h>
+#include <TlsPolicyDevice.h>
 
 #include <algorithm>
 #include <functional>
@@ -24,9 +25,13 @@ constexpr int MAX_REDIRECTS = 5;
 // must not balloon the heap.
 constexpr size_t MAX_RESPONSE_BYTES = 4096;
 
-void applyCommonClientSetup(freeink::SecureHttpClient& http) {
+// `startUrl` is where the request began, not the hop being fetched: the certificate rule is the
+// starting host's, so a redirect cannot lower it. GitHub (updates, fonts) is always checked; a
+// server the user added (OPDS, a catalog) is encrypted but not checked, as before. When a checked
+// request cannot be set up (no date) the client is left without roots and the request fails.
+void applyCommonClientSetup(freeink::SecureHttpClient& http, const std::string& startUrl) {
   http.setTimeout(HTTP_TIMEOUT_MS);
-  http.setInsecure();
+  tlspolicy::apply(http, startUrl, /*userVerify=*/false);
   // setUserAgent replaces SecureHttpClient's built-in UA; addHeader would
   // append a second User-Agent header, which strict servers reject (aiohttp
   // answers 400 "Duplicate 'User-Agent' header found").
@@ -55,7 +60,7 @@ HttpDownloader::DownloadError runGetSecure(const std::string& url, const std::st
       url, options,
       [&](freeink::SecureHttpClient& http, const bool sameOrigin) {
         answeredBySameOrigin = sameOrigin;
-        applyCommonClientSetup(http);
+        applyCommonClientSetup(http, url);
         // Credentials and caller headers stay with the starting origin; a
         // redirect elsewhere (or to plain http) gets neither.
         if (sameOrigin) {
@@ -126,7 +131,7 @@ bool HttpDownloader::fetchUrl(const std::string& url, const DataCallback& onData
       status = 0;
       break;
     }
-    applyCommonClientSetup(http);
+    applyCommonClientSetup(http, url);
     // Credentials belong to the starting origin only: a redirect to another
     // origin (a CDN) must not receive them.
     if (freeink::fetchOrigin(current) == startOrigin) {
@@ -174,7 +179,7 @@ bool HttpDownloader::postForm(const std::string& url, const std::string& formBod
     if (statusOut) *statusOut = 0;
     return false;
   }
-  applyCommonClientSetup(http);
+  applyCommonClientSetup(http, url);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   LOG_DBG("HTTP", "wolfSSL POST: %s", url.c_str());
   const int status = http.sendRequest("POST", reinterpret_cast<const uint8_t*>(formBody.data()), formBody.size(),
@@ -207,7 +212,7 @@ HttpDownloader::DownloadError HttpDownloader::postToFile(const std::string& url,
     LOG_ERR("HTTP", "bad URL: %s", url.c_str());
     return HTTP_ERROR;
   }
-  applyCommonClientSetup(http);
+  applyCommonClientSetup(http, url);
   http.addHeader("Content-Type", contentType);
 
   size_t downloaded = 0;

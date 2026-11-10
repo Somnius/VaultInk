@@ -242,6 +242,9 @@ class EpubReaderActivity final : public ReaderActivity {
   void openClippings();
   void applyProgressChange(const ProgressChangeResult& progress);
   bool launchKOReaderSync();
+  // Leaves the book for the Wikipedia lookup of `text` (Wi-Fi on the user's tap); it comes back
+  // through the silent restart, like KOReader sync.
+  void launchWikipediaLookup(std::string text);
   // Search in a book (kos25k #24): hits stay on, highlighted, with a bar to step through them.
   struct SearchBar {
     int top = 0, height = 0;

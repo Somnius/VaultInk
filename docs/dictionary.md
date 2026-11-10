@@ -86,6 +86,49 @@ If a previous definition cannot be read or its position restored, the definition
 The screen also closes if a failed forward lookup cannot reload the current definition.
 
 
+## Wikipedia when the dictionary has no entry
+
+Not released yet: tested on a computer only, not on a reader.
+
+When the dictionary has no entry for what you picked, the **Not found** message asks
+**Look up on Wikipedia?** and stays for about eight seconds.
+
+- Press **Confirm**, or tap the message, to look it up. **Back**, a tap anywhere else, or waiting
+  dismisses it.
+- Wi-Fi turns on only after that press. If no network is saved yet, the usual Wi-Fi screen opens
+  so you can pick one; backing out of it returns to the book.
+- The answer is the short summary at the top of the article, as plain text, on the same screen as
+  a dictionary definition: the title and the text, no pictures and no links. Wi-Fi is off again
+  before you read it.
+- **Back** returns to the book. The reader restarts quietly into the book at your page, as it does
+  after KOReader sync; this clears the memory the Wi-Fi session used.
+
+Which Wikipedia: the book's own language (its `dc:language`, so a Greek book asks
+el.wikipedia.org), else the language of the menus, else English.
+
+What you may see instead of an article:
+
+| Message | What happened |
+| --- | --- |
+| No Wikipedia article | There is no article with exactly that title. Titles are case-sensitive after the first letter, so a name typed in lower case in the book may not match. |
+| Several articles match | The title is a list of meanings (a disambiguation page). Select more words, for example the full name. |
+| Couldn't reach Wikipedia | No connection, or the certificate check failed. |
+| Date not set: can't check Wikipedia | The clock has no date and it could not be set from the network, so the certificate cannot be checked. Nothing is sent. |
+| Couldn't read the answer | The answer was not an article summary (a sign-in page of a public network, for example). |
+| Not Enough Memory | Too little free memory for a secure connection. Try again after the book reopens. |
+
+Good to know:
+
+- The connection to Wikipedia is always checked against the certificates built into the firmware.
+  There is no switch for it.
+- At most 8 KB of an answer is read. A very long summary is cut there and ends with "…".
+- The words you looked up go to Wikipedia (Wikimedia), with the firmware's name and version as the
+  client. Nothing else is sent, and nothing is sent until you press Confirm.
+- It needs a dictionary to be set: the offer is part of the dictionary's Not found message. It is
+  in EPUB books only, like the dictionary.
+- It can't be reached from the lock screen or in USB Drive mode: both come before a book is open.
+
+
 ## Where to find dictionaries
 
 > credit to https://github.com/koreader/koreader/wiki/Dictionary-support for the list.

@@ -93,8 +93,9 @@ certificate has to be for the host in your server address.
 
 - **Built-in roots.** The firmware carries seven root certificates (from the Mozilla store):
   ISRG Root X1 and X2 (Let's Encrypt), DigiCert Global Root G2, GTS Root R1 and R4 (Google Trust
-  Services, also behind Cloudflare), Amazon Root CA 1 and USERTrust RSA (Sectigo). A server with
-  a certificate from one of them works with nothing to set up. `scripts/gen_ca_bundle.sh`
+  Services, also behind Cloudflare), Amazon Root CA 1 and USERTrust RSA (Sectigo). The next
+  release adds three (USERTrust ECC, Sectigo Root E46, GlobalSign Root R3), ten in all. A server
+  with a certificate from one of them works with nothing to set up. `scripts/gen_ca_bundle.sh`
   rebuilds the list.
 - **Your own CA.** For a self-signed server or a private CA, put its certificate (PEM) at
   `/.vaultink/livesync/ca.pem`. It replaces the built-in roots. If that file is there but can't

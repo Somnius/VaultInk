@@ -726,3 +726,35 @@ digit is blanked on the pad, and the timer stops when it is solved (tap for a ne
 Up/Left and Down/Right move the cursor, Confirm adds one to the digit in the cell, a long Confirm turns
 notes on or off, Back leaves. The game is saved to `/.vaultink/sudoku.sav` when you leave, change
 something or the device sleeps, and carries on where you left it.
+
+## Certificate checks
+
+Not released yet: tested on a computer only, not on a reader.
+
+An `https://` address is always encrypted. Whether the reader also checks *who* it is talking to
+depends on the server:
+
+| Where | Checked? |
+| --- | --- |
+| GitHub: the update check, firmware downloads, the font list | Always, against root certificates built into the firmware. No switch. (The font files themselves still come over plain http after GitHub's redirect and are checked by their CRC, as before.) |
+| Wikipedia (the lookup in the [dictionary](dictionary.md#wikipedia-when-the-dictionary-has-no-entry)) | Always, the same way. |
+| KOReader sync and clipping sync | Only with **Check certificate** on (Settings → Network → CrossPoint Sync, or the web settings page). Off by default, so a setup that worked before still works. |
+| OPDS catalogs, plugin servers | Not checked (encrypted only), as before. |
+| LiveSync | Checked by default, with its own switch and file: see [livesync.md](livesync.md#certificates). |
+
+With **Check certificate** on for KOReader sync:
+
+- A server with a certificate from a public authority (Let's Encrypt, Google Trust Services,
+  DigiCert, Amazon, Sectigo, GlobalSign R3) works with nothing more to set up. The name in the
+  certificate has to match the server address.
+- For a self-signed server or your own authority, put its certificate (PEM) at
+  `/.crosspoint/ca.pem` on the card. It replaces the built-in roots for the servers you set up.
+  If the file is there but can't be read, the sync stops; it never falls back to the built-in
+  roots. The file is read once after power-on, so restart the reader after changing it.
+- A failed check shows as the usual network error of the sync.
+
+Certificates have dates, so a checked connection needs the real date. A reader whose clock was
+never set asks the network for the time first (up to 8 seconds); if that fails the request is not
+sent. For the update check this means: no date, no update check, until the network gives the time.
+
+Pinning one exact certificate is not possible yet; it needs a change in the SDK's TLS client.

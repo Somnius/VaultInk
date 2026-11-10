@@ -8,6 +8,7 @@ struct SyncCredentials {
   };
   bool enabled = true;
   bool getSyncClippings() const { return enabled; }
+  bool getVerifyCert() const { return false; }
   bool hasCredentials() const { return true; }
   std::vector<Header> getCustomHeaders() const { return {}; }
   std::string getUsername() const { return "reader"; }

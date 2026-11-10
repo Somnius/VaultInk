@@ -8,9 +8,10 @@
 #include <vector>
 
 /**
- * HTTP client utility for fetching content and downloading files. Built on
- * esp_http_client: https is verified against the CA bundle, plain http is
- * used for local servers (transport is chosen from the URL scheme).
+ * HTTP client utility for fetching content and downloading files, over
+ * SecureNet (wolfSSL). Certificates follow lib/TlsPolicy: GitHub is always
+ * checked against the built-in roots; a server the user added is encrypted
+ * but not checked. Plain http is used as the URL says.
  */
 class HttpDownloader {
  public:

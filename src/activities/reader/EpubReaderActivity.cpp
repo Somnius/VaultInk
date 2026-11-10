@@ -18,6 +18,7 @@
 #include <Txt.h>
 #include <TxtToHtml.h>
 #include <WiFi.h>
+#include <Wikipedia.h>
 #include <WordSearch.h>
 #include <esp_system.h>
 
@@ -61,6 +62,7 @@
 #include "SdCardFontSystem.h"
 #include "SilentRestart.h"
 #include "TextPanelRows.h"
+#include "WikipediaLookupActivity.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/settings/ReadingPresetsActivity.h"
 #include "activities/settings/TextSettingsActivity.h"
@@ -599,6 +601,8 @@ void EpubReaderActivity::startClipSelection(const int initialX, const int initia
         requestUpdate();
         return;
       }
+      // Offered only when the dictionary has no entry, and only acted on by a tap.
+      lookup->setWikipediaHandler([this](std::string text) { launchWikipediaLookup(std::move(text)); });
       startActivityForResult(std::move(lookup), [this](const ActivityResult& result) {
         if (!result.isCancelled) openDictionaryWordSelect();
       });
@@ -1691,6 +1695,22 @@ bool EpubReaderActivity::launchKOReaderSync() {
   activityManager.replaceActivity(std::make_unique<KOReaderSyncActivity>(
       renderer, mappedInput, savedEpubPath, localPos, std::move(localKoPos), std::move(localChapterName)));
   return true;
+}
+
+void EpubReaderActivity::launchWikipediaLookup(std::string text) {
+  if (!epub) return;
+  flushReaderSession();
+  // The book's own language picks the Wikipedia; the UI language is next, then English.
+  const char* uiCode = LANGUAGE_CODES[static_cast<int>(SETTINGS.language)];
+  auto lookup = makeUniqueNoThrow<WikipediaLookupActivity>(
+      renderer, mappedInput, epub->getPath(), wikipedia::languageFor(epub->getLanguage(), uiCode ? uiCode : ""),
+      std::move(text));
+  if (!lookup) {
+    LOG_ERR("WIKI", "OOM: Wikipedia lookup activity");
+    return;
+  }
+  // Replacing the reader frees its memory for Wi-Fi and TLS; the way back is a restart into the book.
+  activityManager.replaceActivity(std::move(lookup));
 }
 
 void EpubReaderActivity::applyInitialOrientation() {

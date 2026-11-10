@@ -8,11 +8,14 @@
 
 #include "CrossPointSettings.h"
 #include "DictionaryDefinitionActivity.h"
+#include "MappedInputManager.h"
 #include "components/UITheme.h"
 
 namespace {
 
 constexpr unsigned long POPUP_DURATION_MS = 1500;
+// The Wikipedia offer stays long enough to read and answer; then it goes like any Not found.
+constexpr unsigned long WIKI_OFFER_MS = 8000;
 
 void indexBuildYield(void*) { vTaskDelay(1); }
 
@@ -117,7 +120,7 @@ void DictionaryWordSelectActivity::performLookup() {
       case Dictionary::LookupResult::NotFound:
       default:
         popup = Popup::NotFound;
-        popupMsg = StrId::STR_DICT_NOT_FOUND;
+        popupMsg = wikipediaHandler ? StrId::STR_WIKI_OFFER : StrId::STR_DICT_NOT_FOUND;
         break;
     }
   }
@@ -129,6 +132,29 @@ void DictionaryWordSelectActivity::loop() {
   if (lookupPending) {
     lookupPending = false;
     performLookup();
+    return;
+  }
+  if (popup == Popup::NotFound && wikipediaHandler) {
+    int tx = 0;
+    int ty = 0;
+    const bool tapped = mappedInput.wasScreenTapped(tx, ty);
+    const bool onPopup = tapped && tx >= popupX && tx < popupX + popupW && ty >= popupY && ty < popupY + popupH;
+    if (onPopup || mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+      // The handler puts the Wikipedia screen in place of the reader and this screen. Should it
+      // not manage to, the offer is gone and the popup times out like a plain Not found.
+      WikipediaHandler handler;
+      {
+        RenderLock lock;  // render() looks at the handler to pick the popup's hints
+        handler = std::move(wikipediaHandler);
+        wikipediaHandler = nullptr;
+      }
+      popupTime = millis();
+      handler(lookupText);
+      return;
+    }
+    if (tapped || mappedInput.wasReleased(MappedInputManager::Button::Back) || millis() - popupTime >= WIKI_OFFER_MS) {
+      finish();
+    }
     return;
   }
   if (popup == Popup::NotFound || popup == Popup::Error) {
@@ -148,7 +174,15 @@ void DictionaryWordSelectActivity::render(RenderLock&&) {
   if (page) page->render(renderer, fontId, marginLeft, marginTop);
 
   if (popup != Popup::None) {
-    GUI.drawPopup(renderer, I18N.get(popupMsg));
+    if (popup == Popup::NotFound && wikipediaHandler) {
+      const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_LOOKUP), "", "");
+      GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+    }
+    const Rect box = GUI.drawPopup(renderer, I18N.get(popupMsg));
+    popupX = box.x;
+    popupY = box.y;
+    popupW = box.width;
+    popupH = box.height;
     return;
   }
   renderer.displayBuffer(HalDisplay::FAST_REFRESH);

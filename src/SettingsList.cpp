@@ -406,6 +406,15 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
         KOREADER_STORE.saveToFile();
       },
       "koSyncClippings", StrId::STR_KOREADER_SYNC));
+  emit(SettingInfo::DynamicEnum(
+      StrId::STR_LIVESYNC_CERT_CHECK, {StrId::STR_STATE_OFF, StrId::STR_STATE_ON},
+      [] { return static_cast<uint8_t>(KOREADER_STORE.getVerifyCert()); },
+      [](uint8_t v) {
+        if (KOREADER_STORE.getVerifyCert() == (v != 0)) return;
+        KOREADER_STORE.setVerifyCert(v != 0);
+        KOREADER_STORE.saveToFile();
+      },
+      "koVerifyCert", StrId::STR_KOREADER_SYNC));
   // --- Status Bar Settings (web-only, uses StatusBarSettingsActivity) ---
   emit(SettingInfo::Toggle(StrId::STR_TEXT_LIGATURES, &CrossPointSettings::textLigatures, "textLigatures",
                            StrId::STR_EXPERIMENTAL));
