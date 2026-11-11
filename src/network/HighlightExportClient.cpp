@@ -49,6 +49,9 @@ Setup Job::begin(const highlightexport::Destination destination) {
   http_->setTimeout(TIMEOUT_MS);
   http_->setUserAgent("VaultInk/" CROSSPOINT_VERSION " (https://github.com/Somnius/VaultInk)");
   http_->setFollowRedirects(0);  // a redirect must not carry the token to another address
+  // One connection per request: the SDK replays a request once when a kept-alive socket fails, and a replayed POST
+  // could store the same memo or batch twice.
+  http_->setReuse(false);
   tlspolicy::Error tlsError = tlspolicy::Error::None;
   if (!tlspolicy::apply(*http_, url_, verify, &tlsError)) {
     http_.reset();

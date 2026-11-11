@@ -152,3 +152,11 @@ On the device:
 - The popups (their width in Greek), the join screen, the return to the same page.
 - A real TLS handshake with readwise.io and the time it takes.
 - A send interrupted by sleep, a dropped connection or a flat battery.
+
+## Things to know
+
+- A Memos server on `http://` gets your access token in clear text, and with **Check certificate** off an `https://` server is encrypted but not checked. Nothing on the screen warns you, so use `https://` and turn Check certificate on where you can.
+- Any 2xx answer counts as sent. A wrong address that answers 200 to everything, or a captive portal, would mark highlights as sent. **Send all again** sends them again.
+- Memos gets one request per highlight, so a long list on a slow server takes a while, and the screen stays on "Sending highlights..." with no cancel. A `#word` in a quote becomes a Memos tag.
+- If a Readwise batch is refused (400 or 413), the same batch is tried again next time; one bad highlight can block the rest of that book.
+
