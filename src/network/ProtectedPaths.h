@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ctype.h>
 #include <string.h>
 #include <strings.h>
 
@@ -25,6 +26,12 @@ inline bool isShortAlias(const char* first, const char* last) {
   const size_t base = static_cast<size_t>((dot ? dot : last) - first);
   const size_t ext = dot ? static_cast<size_t>(last - dot - 1) : 0;
   return base <= 8 && ext <= 3;
+}
+
+inline bool startsWith8dot3Alias(const std::string& rest) {
+  const size_t slash = rest.find('/');
+  const size_t len = slash == std::string::npos ? rest.size() : slash;
+  return isShortAlias(rest.data(), rest.data() + len);
 }
 
 inline bool isSensitivePath(const char* path) {
@@ -63,6 +70,21 @@ inline bool isSensitivePath(const char* path) {
     if (strncasecmp(canon.c_str(), file, strlen(file)) == 0) return true;
   }
   return false;
+}
+
+// The device's own folders (settings, state, caches, the battery log): a file from a server never goes in there,
+// whatever it is called. Case-insensitive like FAT, and the 8.3 alias counts as the folder.
+inline bool isInDeviceFolder(const char* path) {
+  std::string p(path);
+  for (char& c : p) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+  size_t i = 0;
+  while (i < p.size() && (p[i] == '/' || p[i] == ' ')) i++;
+  const std::string rest = p.substr(i);
+  const auto startsWithFolder = [&rest](const char* folder) {
+    const size_t n = strlen(folder);
+    return rest.compare(0, n, folder) == 0 && (rest.size() == n || rest[n] == '/');
+  };
+  return startsWithFolder(".crosspoint") || startsWithFolder(".vaultink") || startsWith8dot3Alias(rest);
 }
 
 // A plugin-supplied path (web request or device.json): absolute, no parent

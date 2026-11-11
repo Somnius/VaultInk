@@ -49,3 +49,15 @@ TEST(ProtectedPaths, PluginPathRules) {
   EXPECT_TRUE(isPluginPath("/.crosspoint/month-wallpaper.json"));
   EXPECT_TRUE(isPluginPath("/Books/new.epub"));
 }
+
+TEST(ProtectedPaths, TheDeviceFoldersTakeNoFileFromAServer) {
+  using protectedpaths::isInDeviceFolder;
+  EXPECT_TRUE(isInDeviceFolder("/.crosspoint/settings.json"));
+  EXPECT_TRUE(isInDeviceFolder("/.CrossPoint/state.json"));
+  EXPECT_TRUE(isInDeviceFolder("/.crosspoint"));
+  EXPECT_TRUE(isInDeviceFolder("/.vaultink/battery-log.tsv"));
+  EXPECT_TRUE(isInDeviceFolder("/CROSSP~1/settings.json"));  // the 8.3 alias of .crosspoint
+  EXPECT_FALSE(isInDeviceFolder("/books/a.epub"));
+  EXPECT_FALSE(isInDeviceFolder("/.crosspointer/a"));  // another folder that only starts the same
+  EXPECT_FALSE(isInDeviceFolder("/"));
+}

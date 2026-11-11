@@ -124,6 +124,12 @@ class FtpClient final : public Client {
       if (result != Error::Ok) break;
       const ftp::Error e = op(*session_);
       result = map(e, missingIsNotFound);
+      if (e == ftp::Error::Aborted) {
+        // A cancelled transfer leaves the server's last reply unread, which would shift every later answer by one:
+        // the session is dropped, never reused.
+        drop();
+        break;
+      }
       if (e != ftp::Error::Network && e != ftp::Error::Protocol) break;
       drop();
       if (!reused || e != ftp::Error::Network || transfer.cancelled()) break;

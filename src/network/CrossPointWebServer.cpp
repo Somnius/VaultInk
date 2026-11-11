@@ -1809,7 +1809,12 @@ void CrossPointWebServer::handlePostRemoteServer() {
       server->send(400, "text/plain", "Invalid server index");
       return;
     }
-    if (!hasPasswordField) remote.password = existing->password;
+    // A stored password only stays with the server it was typed for: a new address or protocol without a new
+    // password drops it, so the web page cannot send it somewhere else.
+    if (!hasPasswordField) {
+      const bool sameTarget = remote.url == existing->url && remote.protocol == existing->protocol;
+      remote.password = sameTarget ? existing->password : std::string();
+    }
     // Left out: keep what is set. The check is never switched off by leaving the field out.
     remote.verifyCert = doc["verifyCert"] | existing->verifyCert;
     if (!REMOTE_STORE.updateServer(static_cast<size_t>(idx), remote)) {

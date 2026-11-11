@@ -265,7 +265,7 @@ void RemoteBrowserActivity::download(const std::string& name, const uint64_t siz
   }
   const std::string dest = localPath(saveFolder, name);
   // A server must not be able to put a file over the saved passwords, whatever it calls it.
-  if (protectedpaths::isSensitivePath(dest.c_str())) {
+  if (protectedpaths::isSensitivePath(dest.c_str()) || protectedpaths::isInDeviceFolder(dest.c_str())) {
     notice = tr(STR_REMOTE_ERR_NAME);
     requestUpdate();
     return;
@@ -289,7 +289,8 @@ void RemoteBrowserActivity::download(const std::string& name, const uint64_t siz
 void RemoteBrowserActivity::upload(const std::string& path) {
   const std::string name = baseName(path);
   // The saved passwords (Wi-Fi, OPDS, KOReader sync, these servers) stay on the device.
-  if (!client || !remotefiles::safeName(name) || protectedpaths::isSensitivePath(path.c_str())) {
+  if (!client || !remotefiles::safeName(name) || protectedpaths::isSensitivePath(path.c_str()) ||
+      protectedpaths::isInDeviceFolder(path.c_str())) {
     notice = tr(STR_REMOTE_ERR_NAME);
     requestUpdate();
     return;

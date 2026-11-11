@@ -346,6 +346,14 @@ TEST(WebDavMultistatus, AnHrefOverTheLimitIsSkipped) {
   EXPECT_EQ(p.listing().skipped, 1u);
 }
 
+TEST(WebDavMultistatus, EndlessNestingIsRefused) {
+  std::string xml = "<d:multistatus xmlns:d=\"DAV:\">";
+  for (int i = 0; i < 200; i++) xml += "<a>";
+  webdav::MultistatusParser p("/d");
+  EXPECT_FALSE(parse(p, xml, 64));
+  EXPECT_EQ(p.error(), webdav::MultistatusParser::Error::Malformed);
+}
+
 TEST(WebDavMultistatus, RefusesWhatIsNotAMultistatus) {
   {
     webdav::MultistatusParser p("/d");

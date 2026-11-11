@@ -362,8 +362,17 @@ void MultistatusParser::onText(void* self, const char* text, const int len) {
   p->text_.append(text, static_cast<size_t>(len));
 }
 
+namespace {
+constexpr int MAX_XML_DEPTH = 32;
+}  // namespace
+
 void MultistatusParser::start(const char* name) {
   ++depth_;
+  if (depth_ > MAX_XML_DEPTH) {  // a multistatus is a few levels deep; endless nesting only costs heap
+    error_ = Error::Malformed;
+    XML_StopParser(static_cast<XML_Parser>(parser_), XML_FALSE);
+    return;
+  }
   const char* local = xmlLocalName(name);
   Capture capture = Capture::None;
   if (depth_ == 1) {
