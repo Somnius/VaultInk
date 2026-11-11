@@ -224,7 +224,7 @@ void SendHighlightsActivity::runJob() {
         return x->startPage < y->startPage;
       });
 
-      const Book book{CLIPPINGS.title(), CLIPPINGS.author()};
+      const highlightexport::Book book{CLIPPINGS.title(), CLIPPINGS.author()};
       ReadwiseBatch batch(book);
       std::vector<uint64_t> batchKeys;
       batchKeys.reserve(READWISE_MAX_BATCH);
