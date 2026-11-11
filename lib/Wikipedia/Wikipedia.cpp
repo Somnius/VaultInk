@@ -1,5 +1,8 @@
 #include "Wikipedia.h"
 
+#include <algorithm>
+#include <iterator>
+
 namespace wikipedia {
 
 namespace {
@@ -23,9 +26,8 @@ std::string languageCode(const std::string_view tag) {
   while (end < tag.size() && isAsciiSpace(tag[end])) end++;
   if (end < tag.size() && tag[end] != '-' && tag[end] != '_') return {};
   std::string code(tag.substr(start, len));
-  for (char& c : code) {
-    if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-  }
+  std::transform(code.begin(), code.end(), code.begin(),
+                 [](const char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; });
   if (threeLetters) {
     // ISO 639-2 codes (books use them too) map to the two-letter Wikipedia code.
     struct Map {
@@ -37,9 +39,9 @@ std::string languageCode(const std::string_view tag) {
                                   {"rus", "ru"}, {"nld", "nl"}, {"dut", "nl"}, {"pol", "pl"}, {"tur", "tr"},
                                   {"swe", "sv"}, {"nor", "no"}, {"dan", "da"}, {"fin", "fi"}, {"ces", "cs"},
                                   {"cze", "cs"}, {"ron", "ro"}, {"rum", "ro"}, {"hun", "hu"}, {"bul", "bg"}};
-    for (const Map& m : MAP) {
-      if (code == m.three) return m.two;
-    }
+    const Map* const found =
+        std::find_if(std::begin(MAP), std::end(MAP), [&code](const Map& m) { return code == m.three; });
+    if (found != std::end(MAP)) return found->two;
     // Not a language: undetermined, multiple, no linguistic content.
     if (code == "und" || code == "mul" || code == "zxx") return {};
     // Any other three letters can be a Wikipedia of its own (ceb, war, arz, ast...), so it is passed on.

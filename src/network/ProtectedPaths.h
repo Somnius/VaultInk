@@ -4,6 +4,7 @@
 #include <string.h>
 #include <strings.h>
 
+#include <algorithm>
 #include <string>
 
 // Credential stores no web request (file manager, plugin endpoints) or plugin
@@ -76,7 +77,8 @@ inline bool isSensitivePath(const char* path) {
 // whatever it is called. Case-insensitive like FAT, and the 8.3 alias counts as the folder.
 inline bool isInDeviceFolder(const char* path) {
   std::string p(path);
-  for (char& c : p) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+  std::transform(p.begin(), p.end(), p.begin(),
+                 [](const char c) { return static_cast<char>(tolower(static_cast<unsigned char>(c))); });
   size_t i = 0;
   while (i < p.size() && (p[i] == '/' || p[i] == ' ')) i++;
   const std::string rest = p.substr(i);

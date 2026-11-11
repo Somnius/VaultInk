@@ -143,7 +143,7 @@ class Session {
 
   Transport& transport_;
   Reply reply_;
-  uint8_t ctrlBuf_[256];
+  uint8_t ctrlBuf_[256] = {};
   size_t ctrlLen_ = 0;
   size_t ctrlPos_ = 0;
   bool epsvUnsupported_ = false;

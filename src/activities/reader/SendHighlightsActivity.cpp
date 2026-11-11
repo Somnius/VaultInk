@@ -288,10 +288,10 @@ void SendHighlightsActivity::runJob() {
     if (!text.empty()) text += "\n";
     text += formatCount(StrId::STR_SENT_HL_COUNT, static_cast<int>(sent));
   }
-  showResult(std::move(text));
+  showResult(text);
 }
 
-void SendHighlightsActivity::showResult(std::string text) {
+void SendHighlightsActivity::showResult(const std::string& text) {
   {
     RenderLock lock(*this);
     state = State::Done;

@@ -244,7 +244,9 @@ void handleAutoSchedule() {
   const unsigned long now = millis();
   if (lastCheckMs != 0 && now - lastCheckMs < 30000) return;
   lastCheckMs = now;
+  // cppcheck-suppress variableScope // the log line at the end prints it
   uint8_t hour = 0;
+  // cppcheck-suppress variableScope // the log line at the end prints it
   uint8_t minute = 0;
   autoschedule::Step step = autoschedule::Step::EnterDay;  // switched off: back to the day side
   if (SETTINGS.autoWarmth != 0) {

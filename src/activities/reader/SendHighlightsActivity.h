@@ -38,7 +38,7 @@ class SendHighlightsActivity final : public Activity {
   void startWifi();
   void onWifiDone(bool connected);
   void runJob();
-  void showResult(std::string text);
+  void showResult(const std::string& text);
   void returnToReader();
   bool loadMarkers();
   bool saveMarkers();

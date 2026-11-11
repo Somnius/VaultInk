@@ -1,5 +1,6 @@
 #include "HighlightExport.h"
 
+#include <algorithm>
 #include <cstdio>
 
 namespace highlightexport {
@@ -66,9 +67,7 @@ std::string cleanLines(const std::string_view text) {
 // One line of plain text: line ends and tabs become spaces.
 std::string oneLine(const std::string_view text) {
   std::string out = cleanLines(text);
-  for (char& c : out) {
-    if (c == '\n' || c == '\t') c = ' ';
-  }
+  std::replace_if(out.begin(), out.end(), [](const char c) { return c == '\n' || c == '\t'; }, ' ');
   return out;
 }
 
@@ -258,7 +257,7 @@ size_t readwiseBatchCount(const size_t highlights) {
   return (highlights + READWISE_MAX_BATCH - 1) / READWISE_MAX_BATCH;
 }
 
-std::string memosContent(const Book book, const Highlight& highlight) {
+std::string memosContent(const Book& book, const Highlight& highlight) {
   const std::string quote = cleanLines(highlight.text);
   std::string out;
   out.reserve(quote.size() + 200);
@@ -294,7 +293,7 @@ std::string memosContent(const Book book, const Highlight& highlight) {
   return out;
 }
 
-std::string memosBody(const Book book, const Highlight& highlight) {
+std::string memosBody(const Book& book, const Highlight& highlight) {
   std::string out = "{\"content\":";
   appendJsonString(out, memosContent(book, highlight));
   out += ",\"visibility\":\"PRIVATE\"}";
@@ -310,17 +309,18 @@ std::string memosUrl(std::string_view server) {
     url = "https://";
   } else {
     std::string name(server.substr(0, scheme));
-    for (char& c : name) {
-      if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-    }
+    std::transform(name.begin(), name.end(), name.begin(),
+                   [](const char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; });
     if (name != "http" && name != "https") return {};
     url = name + "://";
     server.remove_prefix(scheme + 3);
   }
   while (!server.empty() && server.back() == '/') server.remove_suffix(1);
   if (server.empty() || server.front() == '/' || server.front() == ':') return {};
-  for (const char c : server) {
-    if (static_cast<uint8_t>(c) <= 0x20 || c == 0x7F) return {};  // a space or a control character is a typo
+  // A space or a control character is a typo.
+  if (std::any_of(server.begin(), server.end(),
+                  [](const char c) { return static_cast<uint8_t>(c) <= 0x20 || c == 0x7F; })) {
+    return {};
   }
   url.append(server);
   // Someone who pasted the API address already gets it once, not twice.
@@ -395,10 +395,7 @@ std::string SentMarkers::serialize() const {
 }
 
 bool SentMarkers::contains(const uint64_t key) const {
-  for (const uint64_t k : keys_) {
-    if (k == key) return true;
-  }
-  return false;
+  return std::any_of(keys_.begin(), keys_.end(), [key](const uint64_t k) { return k == key; });
 }
 
 bool SentMarkers::add(const uint64_t key) {

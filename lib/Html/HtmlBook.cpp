@@ -37,7 +37,7 @@ void appendCapped(std::string& text, const std::string_view piece) {
 // The raw bytes of a <title> -> UTF-8 with entities decoded and white space folded.
 std::string decodeTitle(std::string_view raw, const codepage::Id encoding) {
   if (raw.size() > MAX_TITLE) raw = raw.substr(0, MAX_TITLE);
-  char utf8[MAX_TITLE * codepage::Decoder::MAX_OUT_PER_BYTE + codepage::Decoder::MAX_PENDING_OUT];
+  char utf8[MAX_TITLE * codepage::Decoder::MAX_OUT_PER_BYTE + codepage::Decoder::MAX_PENDING_OUT] = {};
   codepage::Decoder decoder(encoding);
   // No finish(): a title cut at MAX_TITLE inside a character loses that character.
   const std::string_view text(utf8, decoder.feed(reinterpret_cast<const uint8_t*>(raw.data()), raw.size(), utf8));
@@ -57,9 +57,9 @@ std::string decodeTitle(std::string_view raw, const codepage::Id encoding) {
       const size_t end = text.find(';', i);
       if (end != std::string_view::npos && end - i <= 10) {
         const std::string_view entity = text.substr(i, end - i + 1);
-        char one[4];
-        size_t n = 0;
         if (entity.size() > 3 && entity[1] == '#') {
+          char one[4];
+          size_t n = 0;
           const bool hex = lower(entity[2]) == 'x';
           uint32_t value = 0;
           bool valid = true;
@@ -157,7 +157,7 @@ void sniff(std::string_view head, Info& info) {
     pos = close + 1;
     const std::string_view rawTag = head.substr(open + 1, close - open - 1);
     if (rawTag.size() > MAX_SNIFF_TAG) continue;
-    char buf[MAX_SNIFF_TAG];
+    char buf[MAX_SNIFF_TAG] = {};
     for (size_t i = 0; i < rawTag.size(); i++) buf[i] = lower(rawTag[i]);
     const std::string_view tag(buf, rawTag.size());
     size_t nameEnd = 0;

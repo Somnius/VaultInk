@@ -3,6 +3,8 @@
 #include <Logging.h>
 #include <ObfuscationUtils.h>
 
+#include <algorithm>
+
 namespace {
 
 // A token or address as typed or pasted: no spaces or line ends around it, and no control
@@ -12,9 +14,11 @@ bool clean(const std::string& in, const size_t maxChars, std::string& out) {
   size_t end = in.size();
   while (begin < end && static_cast<uint8_t>(in[begin]) <= 0x20) begin++;
   while (end > begin && static_cast<uint8_t>(in[end - 1]) <= 0x20) end--;
+  // cppcheck-suppress knownConditionTrueFalse // not so: the setters pass text of any length
   if (end - begin > maxChars) return false;
-  for (size_t i = begin; i < end; i++) {
-    if (static_cast<uint8_t>(in[i]) < 0x20 || in[i] == 0x7F) return false;
+  if (std::any_of(in.begin() + static_cast<std::ptrdiff_t>(begin), in.begin() + static_cast<std::ptrdiff_t>(end),
+                  [](const char c) { return static_cast<uint8_t>(c) < 0x20 || c == 0x7F; })) {
+    return false;
   }
   out.assign(in, begin, end - begin);
   return true;
@@ -45,7 +49,8 @@ bool HighlightExportStore::fromJson(JsonVariantConst doc) {
   memosToken_ = readToken(doc["memosToken_obf"]);
   memosUrl_.clear();
   setMemosUrl(doc["memosUrl"] | "");
-  memosVerifyCert_ = doc["memosVerifyCert"] | false;
+  const JsonVariantConst verifyCert = doc["memosVerifyCert"];
+  memosVerifyCert_ = verifyCert.is<bool>() && verifyCert.as<bool>();
   // Only whether each is set: never the values.
   LOG_DBG("EXP", "Exports: Readwise %s, Memos %s", hasReadwise() ? "set" : "not set", hasMemos() ? "set" : "not set");
   return true;

@@ -120,7 +120,7 @@ class Converter {
   codepage::Id docPage_ = codepage::Id::Cp1252;
   int16_t defaultFont_ = -1;
   int16_t tableFont_ = -1;  // the font being defined in the font table
-  Font fonts_[MAX_FONTS];
+  Font fonts_[MAX_FONTS] = {};
   size_t fontCount_ = 0;
 
   bool paraOpen_ = false;

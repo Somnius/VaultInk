@@ -1,5 +1,6 @@
 #include "Ftp.h"
 
+#include <algorithm>
 #include <cstring>
 #include <memory>
 #include <new>
@@ -164,10 +165,7 @@ bool nextNumber(const std::string_view s, size_t& pos, unsigned& out) {
 }
 
 bool lineBreakFree(const std::string_view s) {
-  for (const char c : s) {
-    if (c == '\r' || c == '\n' || c == '\0') return false;
-  }
-  return true;
+  return std::none_of(s.begin(), s.end(), [](const char c) { return c == '\r' || c == '\n' || c == '\0'; });
 }
 
 }  // namespace
@@ -210,9 +208,7 @@ bool parseUrl(const std::string_view url, Url& out) {
 
 std::string command(const std::string_view verb, const std::string_view arg) {
   if (verb.empty() || !lineBreakFree(arg)) return {};
-  for (const char c : verb) {
-    if (c < 'A' || c > 'Z') return {};
-  }
+  if (std::any_of(verb.begin(), verb.end(), [](const char c) { return c < 'A' || c > 'Z'; })) return {};
   std::string out(verb);
   if (!arg.empty()) {
     out += ' ';

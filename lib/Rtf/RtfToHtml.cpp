@@ -1,6 +1,8 @@
 #include "RtfToHtml.h"
 
+#include <algorithm>
 #include <cstring>
+#include <iterator>
 #include <memory>
 #include <new>
 
@@ -401,17 +403,15 @@ void Converter::controlWord() {
     // every other entry stays Info, whose text is dropped
     return;
   }
-  for (const char* skipped : SKIPPED) {
-    if (wordIs(skipped)) {
-      cur_.dest = Dest::Skip;
-      return;
-    }
+  if (std::any_of(std::begin(SKIPPED), std::end(SKIPPED), [this](const char* skipped) { return wordIs(skipped); })) {
+    cur_.dest = Dest::Skip;
+    return;
   }
-  for (const CharWord& entry : CHAR_WORDS) {
-    if (wordIs(entry.name)) {
-      character(entry.codePoint);
-      return;
-    }
+  const CharWord* const charWord = std::find_if(std::begin(CHAR_WORDS), std::end(CHAR_WORDS),
+                                                [this](const CharWord& entry) { return wordIs(entry.name); });
+  if (charWord != std::end(CHAR_WORDS)) {
+    character(charWord->codePoint);
+    return;
   }
   if (cur_.dest != Dest::Body) return;
 

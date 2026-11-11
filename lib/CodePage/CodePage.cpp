@@ -1,5 +1,8 @@
 #include "CodePage.h"
 
+#include <algorithm>
+#include <iterator>
+
 namespace codepage {
 namespace {
 
@@ -51,7 +54,7 @@ size_t normalise(std::string_view name, char* out, const size_t cap) {
 }  // namespace
 
 bool fromName(const std::string_view name, Id& id) {
-  char buf[16];
+  char buf[16] = {};
   const std::string_view n(buf, normalise(name, buf, sizeof(buf)));
   struct Name {
     const char* name;
@@ -63,13 +66,11 @@ bool fromName(const std::string_view name, Id& id) {
       {"cp1253", Id::Cp1253},   {"iso88591", Id::Iso8859_1}, {"latin1", Id::Iso8859_1},  {"iso88597", Id::Iso8859_7},
       {"greek", Id::Iso8859_7}, {"elot928", Id::Iso8859_7},  {"ecma118", Id::Iso8859_7},
   };
-  for (const Name& entry : NAMES) {
-    if (n == entry.name) {
-      id = entry.id;
-      return true;
-    }
-  }
-  return false;
+  const Name* const found =
+      std::find_if(std::begin(NAMES), std::end(NAMES), [n](const Name& entry) { return n == entry.name; });
+  if (found == std::end(NAMES)) return false;
+  id = found->id;
+  return true;
 }
 
 bool fromWindowsNumber(const int number, Id& id) {

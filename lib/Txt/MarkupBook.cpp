@@ -63,23 +63,21 @@ bool MarkupBook::streamHtml(const std::string& filepath, Print& out) {
   if (info.title.empty()) info.title = FsHelpers::getFileNameWithoutExtension(filepath);
   HalFile file;
   if (!Storage.openFileForRead("MKB", filepath, file)) return false;
-  const char* result;
   bool ok;
   if (FsHelpers::hasFb2Extension(filepath)) {
     const fb2::Status status = fb2::streamHtml(&file, readFile, info.title, writePrint, &out);
     ok = status == fb2::Status::Ok || status == fb2::Status::Truncated;  // a file cut short shows what it has
-    result = fb2::statusText(status);
+    LOG_DBG("MKB", "Streamed %s: %s", filepath.c_str(), fb2::statusText(status));
   } else if (FsHelpers::hasRtfExtension(filepath)) {
     const rtf::Status status = rtf::streamHtml(&file, readFile, info.title, writePrint, &out);
     ok = status == rtf::Status::Ok;
-    result = rtf::statusText(status);
+    LOG_DBG("MKB", "Streamed %s: %s", filepath.c_str(), rtf::statusText(status));
   } else {
     const htmlbook::Status status = htmlbook::streamHtml(&file, readFile, info.title, writePrint, &out);
     ok = status == htmlbook::Status::Ok;
-    result = htmlbook::statusText(status);
+    LOG_DBG("MKB", "Streamed %s: %s", filepath.c_str(), htmlbook::statusText(status));
   }
   file.close();
-  LOG_DBG("MKB", "Streamed %s: %s", filepath.c_str(), result);
   return ok;
 }
 

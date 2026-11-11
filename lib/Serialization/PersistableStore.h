@@ -116,6 +116,8 @@ class PersistableStore : public PersistableStoreBase {
       if (!readDocFromFile(T::getFilePath(), doc)) {
         return false;
       }
+      // cppcheck-suppress [knownConditionTrueFalse, unmatchedSuppression] // true for the stores whose fromJson()
+      // cannot fail
       ok = static_cast<T*>(this)->fromJson(doc.as<JsonVariantConst>());
       // Read the flag under the lock that guards the fromJson() that set it.
       doResave = resaveRequested;

@@ -11,6 +11,8 @@
 namespace wikipedia_client {
 
 namespace {
+constexpr char USER_AGENT_NAME[] = "VaultInk/" CROSSPOINT_VERSION;
+constexpr char USER_AGENT_URL[] = " (https://github.com/Somnius/VaultInk)";
 constexpr uint32_t TIMEOUT_MS = 15000;
 // A redirect (another spelling of the title) keeps this client and so the same certificate rule.
 constexpr int MAX_REDIRECTS = 3;
@@ -37,7 +39,7 @@ Result fetch(const std::string& language, const std::string& text, wikipedia::Su
 
   WifiPowerSaveGuard psGuard;
   http->setTimeout(TIMEOUT_MS);
-  http->setUserAgent("VaultInk/" CROSSPOINT_VERSION " (https://github.com/Somnius/VaultInk)");
+  http->setUserAgent(std::string(USER_AGENT_NAME) + USER_AGENT_URL);
 #ifndef SIMULATOR  // the simulator's HTTP stub has no redirect setting
   http->setFollowRedirects(MAX_REDIRECTS);
 #endif
@@ -51,6 +53,7 @@ Result fetch(const std::string& language, const std::string& text, wikipedia::Su
   LOG_DBG("WIKI", "GET %s", url.c_str());
   size_t errorBytes = 0;
   bool capped = false;
+  // cppcheck-suppress unreadVariable // the log line below prints it
   const int status = http->GET([&](const uint8_t* data, const size_t len) {
     const int st = http->getStatus();
     if (st < 200 || st >= 300) {

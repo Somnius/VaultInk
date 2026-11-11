@@ -65,7 +65,7 @@ std::string iso8601(uint32_t epochSeconds);
 // One Readwise request body, built a highlight at a time.
 class ReadwiseBatch {
  public:
-  explicit ReadwiseBatch(Book book) : book_(book) {}
+  explicit ReadwiseBatch(const Book& book) : book_(book) {}
 
   // False when the batch is full (READWISE_MAX_BATCH highlights, or the body is past
   // READWISE_SOFT_BODY_BYTES): send body(), reset(), then add again. The first highlight of a
@@ -88,9 +88,9 @@ size_t readwiseBatchCount(size_t highlights);
 
 // The Markdown of one memo: the quote as a block quote, then a line with the book, the author and
 // the chapter, then the tag line "#highlights #vaultink".
-std::string memosContent(Book book, const Highlight& highlight);
+std::string memosContent(const Book& book, const Highlight& highlight);
 // The JSON body for that memo. Always private.
-std::string memosBody(Book book, const Highlight& highlight);
+std::string memosBody(const Book& book, const Highlight& highlight);
 // The address to post to for the server the user typed: "memos.example.com/" gives
 // "https://memos.example.com/api/v1/memos". No scheme means https. Empty when there is no host.
 std::string memosUrl(std::string_view server);

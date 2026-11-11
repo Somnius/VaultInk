@@ -3,6 +3,7 @@
 #include <XmlParserUtils.h>
 #include <expat.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
@@ -132,7 +133,7 @@ bool parseUrl(const std::string_view url, Url& out) {
   const size_t schemeEnd = trimmed.find("://");
   if (schemeEnd == std::string_view::npos) return false;
   std::string scheme(trimmed.substr(0, schemeEnd));
-  for (char& c : scheme) c = lowerAscii(c);
+  std::transform(scheme.begin(), scheme.end(), scheme.begin(), lowerAscii);
   if (scheme != "http" && scheme != "https") return false;
 
   const size_t hostStart = schemeEnd + 3;
@@ -253,11 +254,10 @@ std::string basicAuthorization(const std::string_view user, const std::string_vi
 std::string requestHead(const std::string_view method, const Url& target, const std::vector<Header>& headers,
                         const int64_t contentLength, const std::string_view userAgent) {
   if (method.empty() || target.host.empty() || hasLineBreak(userAgent)) return {};
-  for (const char c : method) {
-    if (c < 'A' || c > 'Z') return {};
-  }
-  for (const char c : target.path) {
-    if (static_cast<unsigned char>(c) <= 0x20 || c == 0x7F) return {};
+  if (std::any_of(method.begin(), method.end(), [](const char c) { return c < 'A' || c > 'Z'; })) return {};
+  if (std::any_of(target.path.begin(), target.path.end(),
+                  [](const char c) { return static_cast<unsigned char>(c) <= 0x20 || c == 0x7F; })) {
+    return {};
   }
   std::string head(method);
   head += ' ';

@@ -1,5 +1,7 @@
 #include "TlsPolicy.h"
 
+#include <algorithm>
+
 namespace tlspolicy {
 
 namespace {
@@ -41,7 +43,7 @@ std::string hostOf(const std::string_view url) {
   }
   while (!rest.empty() && rest.back() == '.') rest.remove_suffix(1);  // "github.com." is github.com
   std::string host(rest);
-  for (char& c : host) c = lower(c);
+  std::transform(host.begin(), host.end(), host.begin(), lower);
   return host;
 }
 

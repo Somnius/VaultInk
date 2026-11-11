@@ -180,10 +180,12 @@ Layout layout(const std::vector<Group>& groups, const int x, const int width, in
       if (!(slivers && groups[static_cast<size_t>(i)].hidden)) order.push_back(i);
     }
   }
-  int left = freeWidth - used;
-  for (size_t i = 0; left > 0 && !order.empty(); i = (i + 1) % order.size()) {
-    widths[static_cast<size_t>(order[i])]++;
-    left--;
+  if (!order.empty()) {
+    int left = freeWidth - used;
+    for (size_t i = 0; left > 0; i = (i + 1) % order.size()) {
+      widths[static_cast<size_t>(order[i])]++;
+      left--;
+    }
   }
 
   result.segments.reserve(static_cast<size_t>(count));

@@ -12,6 +12,8 @@
 namespace highlight_export_client {
 
 namespace {
+constexpr char USER_AGENT_NAME[] = "VaultInk/" CROSSPOINT_VERSION;
+constexpr char USER_AGENT_URL[] = " (https://github.com/Somnius/VaultInk)";
 constexpr uint32_t TIMEOUT_MS = 20000;
 // The floor for a TLS session, as in WikipediaClient.
 constexpr size_t MIN_TLS_FREE_HEAP = 40000;
@@ -47,7 +49,7 @@ Setup Job::begin(const highlightexport::Destination destination) {
   http_ = makeUniqueNoThrow<freeink::SecureHttpClient>();
   if (!http_) return Setup::LowMemory;
   http_->setTimeout(TIMEOUT_MS);
-  http_->setUserAgent("VaultInk/" CROSSPOINT_VERSION " (https://github.com/Somnius/VaultInk)");
+  http_->setUserAgent(std::string(USER_AGENT_NAME) + USER_AGENT_URL);
   http_->setFollowRedirects(0);  // a redirect must not carry the token to another address
   // One connection per request: the SDK replays a request once when a kept-alive socket fails, and a replayed POST
   // could store the same memo or batch twice.

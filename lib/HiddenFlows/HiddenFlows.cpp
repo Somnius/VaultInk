@@ -31,13 +31,9 @@ uint32_t shownSize(const std::vector<uint32_t>& cumulative, const std::vector<ui
 Location rawLocate(const std::vector<uint32_t>& cumulative, const uint32_t bytes) {
   const int count = itemCount(cumulative);
   if (count == 0) return {};
-  int index = count - 1;
-  for (int i = 0; i < count; i++) {
-    if (cumulative[i] >= bytes) {
-      index = i;
-      break;
-    }
-  }
+  const auto found =
+      std::find_if(cumulative.begin(), cumulative.end(), [bytes](const uint32_t end) { return end >= bytes; });
+  const int index = found != cumulative.end() ? static_cast<int>(found - cumulative.begin()) : count - 1;
   const uint32_t before = index > 0 ? cumulative[index - 1] : 0;
   const uint32_t size = itemSize(cumulative, index);
   if (size == 0 || bytes <= before) return {index, 0.0f};
