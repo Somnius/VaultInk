@@ -295,7 +295,7 @@
   <nav class="sans" aria-label="Page sections">
     <a href="#install">Install</a>
     <a href="#features">Features</a>
-    <a href="#new">New</a>
+    <a href="#milestone">New</a>
     <a href="#comics">Comics</a>
     <a href="#companion">Companion app</a>
     <a href="https://github.com/Somnius/VaultInk">GitHub</a>
@@ -641,6 +641,56 @@
         <figure><a href="shot-home-el.png"><img src="shot-home-el.png" width="480" height="800" loading="lazy" alt="The home screen in Greek"></a><figcaption class="sans">In Greek</figcaption></figure>
       </div>
       </div>
+    </div>
+  </section>
+
+  <section id="milestone">
+    <div class="wrap">
+      <p class="eyebrow sans">New in 0.74.0</p>
+      <h2>The KOReader milestone</h2>
+      <p class="lead">Reading tools, more book formats, and file and highlight transfer, picked from what KOReader has and VaultInk didn&rsquo;t. All of it was tried on a computer and in the simulator, not on a device yet. The screenshots are from the simulator.</p>
+
+      <div class="features">
+        <figure class="feature">
+          <a href="shot-book-map.png" class="shot"><img src="shot-book-map.png" width="480" height="800" loading="lazy" alt="Book map: a strip with a segment per chapter and a marker at the current position"></a>
+          <figcaption>
+            <h3>Book map</h3>
+            <p>The book as one strip with a segment per chapter, a marker for where you are, ticks for bookmarks and highlights, and a &ldquo;you were here&rdquo; mark. Drag along it and let go to jump. Hide the chapters you don&rsquo;t want counted (a long press on a chapter) and the page number and percent leave them out.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-more-book-map.png" class="shot"><img src="shot-more-book-map.png" width="480" height="800" loading="lazy" alt="The More menu in a book with Book map"></a>
+          <figcaption>
+            <h3>In the More menu</h3>
+            <p>Book map sits next to Go to % and Toggle Bookmark. The chapter lists show each chapter&rsquo;s estimated start page.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-gestures.png" class="shot"><img src="shot-gestures.png" width="480" height="800" loading="lazy" alt="Settings, Reader, Gestures"></a>
+          <figcaption>
+            <h3>Gestures and a Quick Menu</h3>
+            <p>Choose what the corner taps, the centre tap and the four swipes do in the reader, and fill a Quick Menu with up to six actions. Every row starts on Default, which is how it worked before. The buttons and the edge gestures can&rsquo;t be changed, so you can&rsquo;t lock yourself out.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-auto-warmth.png" class="shot"><img src="shot-auto-warmth.png" width="480" height="800" loading="lazy" alt="Settings, Display, Auto Warmth by Clock"></a>
+          <figcaption>
+            <h3>Auto warmth by the clock</h3>
+            <p>A warmer light, and night mode if you want it, between two hours you pick. It acts only when the window starts or ends, so a change you make in the light panel stays.</p>
+          </figcaption>
+        </figure>
+      </div>
+
+      <h3 style="margin-top:2.4rem">Also in 0.74.0</h3>
+      <ul class="list">
+        <li><strong>FB2, HTML and RTF books</strong> open like text books, Greek included.</li>
+        <li><strong>Wikipedia lookup</strong> when the dictionary has no entry, in the book&rsquo;s language, with the connection certificate-checked.</li>
+        <li><strong>Highlights to Readwise or Memos</strong> from the Clippings screen. What was sent is remembered. The service fields were written from memory and no real server was tried.</li>
+        <li><strong>WebDAV and FTP clients</strong> to browse a server and copy files to or from the card. FTP isn&rsquo;t encrypted and asks before every connect.</li>
+        <li><strong>USB Drive</strong> (File Transfer over the USB-C cable) and the <strong>Power + Down screenshot</strong> now have guides in the docs.</li>
+        <li>KOReader sync has a Check certificate switch. The update check and GitHub downloads aren&rsquo;t certificate-checked yet; that code waits for a test on a real device.</li>
+        <li>Not in it: scroll mode, the SSH terminal and SFTP, the gamepad scaffold. wolfSSL (TLS 1.3) is GPL-2.0-or-later, so the firmware binaries are under the GPL terms; VaultInk&rsquo;s own code stays MIT.</li>
+      </ul>
     </div>
   </section>
 

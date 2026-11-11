@@ -175,7 +175,7 @@ While a book is open the kerning and ligature switches also apply to the menus d
 
 ## The More menu in a book (0.70.0)
 
-Book menu → More starts with **Search in Book**, **Go to %**, **Go to page** and (in an EPUB, not released yet) **Book map**, and ends with the favourite toggle, **Take screenshot**, **Show page as QR**, **Delete Book Cache**, **Go Home** and **Reading presets**. Frontlight and Night Mode are not in it any more: they are in the quick settings (swipe down) and in Settings.
+Book menu → More starts with **Search in Book**, **Go to %**, **Go to page** and (in an EPUB, 0.74.0) **Book map**, and ends with the favourite toggle, **Take screenshot**, **Show page as QR**, **Delete Book Cache**, **Go Home** and **Reading presets**. Frontlight and Night Mode are not in it any more: they are in the quick settings (swipe down) and in Settings.
 
 ## Screenshots
 
@@ -474,9 +474,9 @@ all, if you prefer a ragged right edge.
 
 Three changes to the file browser and the lists (kos25k #6, #14, #15):
 
-- **File types** (0.71.0): the gear opens a short menu, **Sort files** and **File types**. File types has a switch for EPUB, PDF, TXT, Markdown, XTC / XTCH, CBZ and MOBI / AZW (which also covers FB2, HTML and RTF, not released yet), and since 0.72.0 for Pictures, Drawings (canvas and Excalidraw) and ZIP files, with **All** on top to tick them all; the ones you switch off don't show in Browse Files or in its search. Folders always show. A **refresh** button left of the gear reads the folder again. The Library's own format list has an All row too.
+- **File types** (0.71.0): the gear opens a short menu, **Sort files** and **File types**. File types has a switch for EPUB, PDF, TXT, Markdown, XTC / XTCH, CBZ and MOBI / AZW (which also covers FB2, HTML and RTF, 0.74.0), and since 0.72.0 for Pictures, Drawings (canvas and Excalidraw) and ZIP files, with **All** on top to tick them all; the ones you switch off don't show in Browse Files or in its search. Folders always show. A **refresh** button left of the gear reads the folder again. The Library's own format list has an All row too.
 - **Sort gear**: a gear left of the magnifier opens **Sort files**: name A to Z or Z to A, newest or oldest first, largest or smallest first. Date means when the file was added to the card or last changed (the later of its created and modified time), the same time Info shows. Folders always come first. It applies in every folder, and it is kept until you change it. Folders have no size, so for size they stay in name order.
-- **File type inside the icon**: books show a page icon with their type written in it (EPUB, PDF, MOBI, AZW, TXT, MD, XTC, CBZ, and FB2, HTM, RTF, not released yet), and a folder shows a folder icon with the type that most of its files have (counted the first time you see it, up to 300 files). The icons are bigger than before, in Browse Files and in the Library lists.
+- **File type inside the icon**: books show a page icon with their type written in it (EPUB, PDF, MOBI, AZW, TXT, MD, XTC, CBZ, and FB2, HTM, RTF, 0.74.0), and a folder shows a folder icon with the type that most of its files have (counted the first time you see it, up to 300 files). The icons are bigger than before, in Browse Files and in the Library lists.
 - **Favourites star**: a book that is in your favourites has a ★ before its file type in Browse Files, at the right of the Continue Reading card on the home screen, and at the right of the book card in the quick settings (swipe down in a book).
 
 ## Wi-Fi and Bluetooth marks (0.69.0)

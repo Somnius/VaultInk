@@ -40,7 +40,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Still early.** VaultInk is at 0.73.1. Releases from 0.8.2 on have been tested on a real X4 Pro by one
+> **Still early.** VaultInk is at 0.74.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
 > tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Much of the
 > newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
 > the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
@@ -89,6 +89,30 @@ Page background contrast with a preview, Random page!, the Library's format filt
 MOBI and AZW books, the status bar options with the book page number, and Advanced Typography.
 
 More screenshots are in the sections below and in [docs/](docs/).
+
+## New in 0.74.0: the KOReader milestone
+
+A batch of reading tools and transfer features, picked from what KOReader has and VaultInk didn't. Everything below was tried on a computer and in the simulator, not on a device yet. The screenshots are from the simulator.
+
+<p>
+  <img src="docs/images/vaultink/book-map-0.74.0.png" width="190" alt="Book map: a strip with a segment per chapter, a marker at the current position, and a 'you were here' mark">
+  <img src="docs/images/vaultink/more-menu-book-map-0.74.0.png" width="190" alt="The More menu in a book, with Book map next to Go to % and Toggle Bookmark">
+  <img src="docs/images/vaultink/gestures-0.74.0.png" width="190" alt="Settings, Reader, Gestures: a row for each corner tap, the centre tap and the four swipes, and the Quick Menu entries">
+  <img src="docs/images/vaultink/auto-warmth-0.74.0.png" width="190" alt="Settings, Display: Auto Warmth by Clock, Night From and Night Until hours, Night Warmth and Night Mode at Night">
+</p>
+
+Book map, the More menu that opens it, the Gestures screen, and Auto Warmth in Display.
+
+- **Book map and hidden flows** (EPUB): one strip with a segment per chapter and ticks for bookmarks and highlights, drag to jump; long press a chapter to leave it out of the page count and percent. [docs/reading-and-files.md](docs/reading-and-files.md)
+- **Gestures and a Quick Menu**: set what the corner taps, the centre tap and the four swipes do in the reader. Every row starts on Default, which is how it worked before; the buttons and the edge gestures can't be changed, so you can't lock yourself out.
+- **FB2, HTML and RTF books**, Greek included, open like text books.
+- **Auto warmth by the clock**: warmer light, and night mode if you want, between two hours.
+- **Wikipedia lookup** when the dictionary has no entry, with the connection certificate-checked.
+- **Highlights to Readwise or Memos** from the Clippings screen. [docs/exports.md](docs/exports.md)
+- **WebDAV and FTP clients** to browse a server and copy files to or from the card. FTP is not encrypted and asks before every connect. [docs/webdav-ftp.md](docs/webdav-ftp.md)
+- **USB Drive** (File Transfer over the USB-C cable) and the **Power + Down screenshot** now have guides. [docs/webserver.md](docs/webserver.md)
+
+What isn't in it: scroll mode (it needs a test on the device first), the SSH terminal and SFTP, the gamepad scaffold, and gestures as profiles. The update check and GitHub downloads are not certificate-checked yet; that code is written and waits for a real device. wolfSSL (TLS 1.3) is GPL-2.0-or-later, so the firmware binaries are under the GPL terms; VaultInk's own code stays MIT ([NOTICE](NOTICE)).
 
 ## New since 0.62 (up to 0.70.0)
 
@@ -190,14 +214,14 @@ Each line links to its guide where there is one; all the guides are listed in [d
 **Books** (what opens, and what doesn't: [docs/book-formats.md](docs/book-formats.md))
 - Everything CrossPoint Reader offers: EPUB, TXT and XTC/XTCH books, SD-card fonts, hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS catalogs, Calibre wireless transfer and SD-card plugins. [docs/reading-and-files.md](docs/reading-and-files.md)
 - **MOBI, PRC, AZW and AZW3** (0.67.0, 0.67.1): they open like a text book, read a record at a time, with bold, italic, headings, lists, tables and pictures; Huffman-compressed files too. No chapters yet, and AZW3 shows text only. DRM books are refused. Opened on a real X4 Pro (a MOBI, an AZW3 and an AZW). [docs/reading-and-files.md](docs/reading-and-files.md#mobi-azw-and-azw3-books-0670-0671)
-- **FB2, HTML and RTF** (not released yet, tested on a computer only): `.fb2`, `.html` / `.htm` / `.xhtml` and `.rtf` files open like a text book, read a piece at a time. FB2 keeps its sections, titles, poems and quotes; HTML its headings, lists and quotes; RTF its paragraphs, bold and italic. Greek works in all three (UTF-8, Windows-1253, ISO-8859-7, RTF `\u` and `\'hh`). No pictures and no chapters. [docs/book-formats.md](docs/book-formats.md#fb2-html-and-rtf-in-detail)
-- **Book map** (not released yet, computer tests only): More → Book map shows an EPUB as one strip, a segment per chapter, with marks for bookmarks and clippings and the place you were at. Drag along it to see the chapter, percent and estimated page, let go to jump; tap a bookmark's mark to open it. The chapter lists now show the page each chapter starts on. [docs/reading-and-files.md](docs/reading-and-files.md#book-map-and-page-numbers-in-the-chapter-list)
-- **Hidden chapters** (not released yet, computer tests only): long-press a chapter in an EPUB's chapter list to leave it out of the book percent, the book page number, Go to page and Go to %. It can still be read. [docs/reading-and-files.md](docs/reading-and-files.md#hidden-chapters-left-out-of-the-page-count)
-- **Auto warmth by the clock** (not released yet, computer tests only): Settings → Display turns the light warmer, and optionally night mode on, between two hours you pick. [docs/reading-and-files.md](docs/reading-and-files.md#auto-warmth-and-night-mode-by-the-clock)
-- **Wikipedia lookup** (not released yet, computer tests only): when the dictionary has no entry, the Not found message offers Wikipedia. Wi-Fi comes on only on your tap, the article's summary shows as plain text in the book's language, and Wi-Fi goes off again. [docs/dictionary.md](docs/dictionary.md#wikipedia-when-the-dictionary-has-no-entry)
-- **Highlights to Readwise and Memos** (not released yet, computer tests only, never tried against the real services): send a book's clippings to Readwise or to your own Memos server from the book menu or the Clippings screen. Wi-Fi comes on only for that job, what was sent is remembered so sending again sends only the new ones, and the access tokens are kept on the SD card (anyone with the card and the reader can get them). [docs/exports.md](docs/exports.md)
-- **WebDAV and FTP servers** (not released yet, computer tests only, not tried on a device or against a real server): Settings → Network → WebDAV and FTP servers. Browse a server's folders, tap a file to download it to the card, upload a file from the card, make a folder. WebDAV over https can check the server's certificate; FTP and http:// are not encrypted, and the device says so and asks before every connection. Passwords are kept on the SD card only lightly scrambled, like the OPDS ones. [docs/webdav-ftp.md](docs/webdav-ftp.md)
-- **Certificate checks** (not released yet, computer tests only): Wikipedia is always checked against root certificates built into the firmware. The update check and downloads from GitHub are not checked yet, as before: that is ready in the code but waits for a test on a real device. KOReader sync has a new **Check certificate** switch, off by default so existing setups keep working. [docs/reading-and-files.md](docs/reading-and-files.md#certificate-checks)
+- **FB2, HTML and RTF** (0.74.0, tested on a computer only): `.fb2`, `.html` / `.htm` / `.xhtml` and `.rtf` files open like a text book, read a piece at a time. FB2 keeps its sections, titles, poems and quotes; HTML its headings, lists and quotes; RTF its paragraphs, bold and italic. Greek works in all three (UTF-8, Windows-1253, ISO-8859-7, RTF `\u` and `\'hh`). No pictures and no chapters. [docs/book-formats.md](docs/book-formats.md#fb2-html-and-rtf-in-detail)
+- **Book map** (0.74.0, computer tests only): More → Book map shows an EPUB as one strip, a segment per chapter, with marks for bookmarks and clippings and the place you were at. Drag along it to see the chapter, percent and estimated page, let go to jump; tap a bookmark's mark to open it. The chapter lists now show the page each chapter starts on. [docs/reading-and-files.md](docs/reading-and-files.md#book-map-and-page-numbers-in-the-chapter-list)
+- **Hidden chapters** (0.74.0, computer tests only): long-press a chapter in an EPUB's chapter list to leave it out of the book percent, the book page number, Go to page and Go to %. It can still be read. [docs/reading-and-files.md](docs/reading-and-files.md#hidden-chapters-left-out-of-the-page-count)
+- **Auto warmth by the clock** (0.74.0, computer tests only): Settings → Display turns the light warmer, and optionally night mode on, between two hours you pick. [docs/reading-and-files.md](docs/reading-and-files.md#auto-warmth-and-night-mode-by-the-clock)
+- **Wikipedia lookup** (0.74.0, computer tests only): when the dictionary has no entry, the Not found message offers Wikipedia. Wi-Fi comes on only on your tap, the article's summary shows as plain text in the book's language, and Wi-Fi goes off again. [docs/dictionary.md](docs/dictionary.md#wikipedia-when-the-dictionary-has-no-entry)
+- **Highlights to Readwise and Memos** (0.74.0, computer tests only, never tried against the real services): send a book's clippings to Readwise or to your own Memos server from the book menu or the Clippings screen. Wi-Fi comes on only for that job, what was sent is remembered so sending again sends only the new ones, and the access tokens are kept on the SD card (anyone with the card and the reader can get them). [docs/exports.md](docs/exports.md)
+- **WebDAV and FTP servers** (0.74.0, computer tests only, not tried on a device or against a real server): Settings → Network → WebDAV and FTP servers. Browse a server's folders, tap a file to download it to the card, upload a file from the card, make a folder. WebDAV over https can check the server's certificate; FTP and http:// are not encrypted, and the device says so and asks before every connection. Passwords are kept on the SD card only lightly scrambled, like the OPDS ones. [docs/webdav-ftp.md](docs/webdav-ftp.md)
+- **Certificate checks** (0.74.0, computer tests only): Wikipedia is always checked against root certificates built into the firmware. The update check and downloads from GitHub are not checked yet, as before: that is ready in the code but waits for a test on a real device. KOReader sync has a new **Check certificate** switch, off by default so existing setups keep working. [docs/reading-and-files.md](docs/reading-and-files.md#certificate-checks)
 - **PDF as text**: a PDF opens as reflowing text, Greek and filled-in form fields included, up to four columns, with its headings, bold and italic (the Style setting turns them off) and its filled boxes marked by dash lines (0.73.0); no pictures, tables or scans. PDFs are listed in the Library. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text)
 - **Comics**: CBZ files open straight from the card (JPEG and PNG pages, chapters from folders, covers, landscape spreads as two pages, manga right to left, a page cache for faster turns). XTC/XTCH files from the Banana Comic Converter open with their chapters; a QR code in Settings opens the converter on your phone. [docs/comics.md](docs/comics.md)
 - **Highlights to a vault note**: a book's clippings written to `Highlights/<title>.md` in your vault, and sent on by LiveSync. [docs/reading-and-files.md](docs/reading-and-files.md#highlights-to-a-vault-note)
@@ -226,7 +250,7 @@ Each line links to its guide where there is one; all the guides are listed in [d
 - **Page backgrounds**: fourteen of them, from plain to papyrus and bath towel, a set you choose for the quick-settings paper tile, and a 0 to 100 contrast slider with a preview. [Mostly for fun](#page-backgrounds).
 - **Status bar**: choose what it shows, hide it from Settings or the book menu, and show the page number counted from the start of the book in brackets, even with the bar hidden (the number is an estimate for books). **Go to page** in the book menu under More (0.68.0) jumps by that number. [docs/reading-and-files.md](docs/reading-and-files.md#hide-status-bar-and-the-book-page-number)
 - **Tap Zones**: turn pages from the whole page or the corners only, so a stray finger does nothing. [docs/reading-and-files.md](docs/reading-and-files.md#tap-zones-corners-only-0250)
-- **Gestures and a Quick Menu** (not released yet, computer tests only): Settings → Reader → Gestures gives the corner taps, the centre tap and the four swipes an action each (next chapter, bookmark, night mode, light panel, a Quick Menu of up to six actions, and more). The buttons and edge swipes stay fixed. [docs/reading-and-files.md](docs/reading-and-files.md#gestures-and-the-quick-menu)
+- **Gestures and a Quick Menu** (0.74.0, computer tests only): Settings → Reader → Gestures gives the corner taps, the centre tap and the four swipes an action each (next chapter, bookmark, night mode, light panel, a Quick Menu of up to six actions, and more). The buttons and edge swipes stay fixed. [docs/reading-and-files.md](docs/reading-and-files.md#gestures-and-the-quick-menu)
 - **Quick settings** on a swipe down: light and warmth, night mode, refresh, sleep, Wi-Fi, Sync, Library, the paper tile, and a book card that opens the Library or goes Home. One menu at a time, so menus never stack.
 
 **Tools** (Home → Plugins, built into the firmware: [docs/tools.md](docs/tools.md))
@@ -325,7 +349,9 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 
 The [roadmap](ROADMAP.md) has the details and the order. Open items right now:
 
-- Real-device testing of the newest features: MOBI and AZW books, Advanced Typography, Dice, VaultEUC with a real wheel and the Bluetooth client and keyboard.
+- Real-device testing of everything new in 0.74.0 (book map, hidden flows, gestures, FB2/HTML/RTF, auto warmth, Wikipedia, Readwise and Memos, WebDAV and FTP), then switching on the certificate check for the update check.
+- Scroll mode, an SSH terminal with SFTP, and a gamepad scaffold: next, once a device is on the bench.
+- Real-device testing of older features: MOBI and AZW books, Advanced Typography, Dice, VaultEUC with a real wheel and the Bluetooth client and keyboard.
 - Chapters and the cover for MOBI books, and pictures and links for AZW3.
 - The XTCH refresh choice and a few share-to-reader edge cases wait for device tests.
 

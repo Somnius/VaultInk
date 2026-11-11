@@ -2,6 +2,25 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.74.0 (2026-11-11)
+
+A KOReader-parity milestone: new reading tools, more book formats, and file and highlight transfer. Everything here was tried on a computer and in the simulator, not on a device.
+
+- **Book map** (More menu, EPUB): the book as one strip with a segment per chapter, a marker for where you are, ticks for bookmarks and highlights, and a "you were here" mark. Drag along the strip and let go to jump, or tap a bookmark tick to open it. There is no partial screen refresh yet, so dragging redraws the whole frame (at most five times a second). The chapter lists (Contents and the Select Chapter screen) now show each chapter's estimated start page.
+- **Hidden flows** (EPUB): long press a chapter in the chapter list (or hold Confirm on button screens) to leave it out of the page count, page number, Go to page, Go to % and the progress percent. The chapter can still be read. KOReader sync and bookmarks keep the real numbers.
+- **Gestures and the Quick Menu**: Settings > Reader > Gestures sets what the four corner taps, the centre tap and the four swipes do in the reader (next or previous page or chapter, reader menu, Quick Menu, night mode, frontlight, light panel, bookmark, refresh, screenshot, go home). Every row starts on Default, which is exactly how it worked before. The Quick Menu is a popup of up to six actions you choose. Reset gestures puts everything back. The buttons and the edge gestures can't be changed, so you can't lock yourself out.
+- **FB2, HTML and RTF books** open like text books, with Greek in UTF-8, Windows-1253 and ISO-8859-7 (RTF too). Pictures and chapters are left out. They share the "MOBI / AZW" row of the Library format filter, so every .html on the card now shows in the Library.
+- **Auto warmth by the clock**: Settings > Display turns the light warmer, and optionally night mode on, between two hours you pick. It acts only when the window starts or ends, a wake at night stays warm, and it needs the clock set.
+- **Wikipedia lookup**: when the dictionary has no entry for a word, you can look it up on Wikipedia in the book's language (a plain-text summary). The connection is always certificate-checked.
+- **Highlight exports**: Settings > Network > Highlight Exports sets a Readwise token and a Memos server. Send a book's highlights from the Clippings screen or the Highlights export. Sent highlights are remembered, so sending again skips them. The Readwise and Memos fields were written from memory and no real server was tried (docs/exports.md).
+- **WebDAV and FTP clients**: Settings > Network > WebDAV and FTP servers. Browse a server, download a file into an SD folder you choose, upload a file from the card, make a folder. FTP is not encrypted and asks before every connect, and so does http://.
+- **Certificate checks**: KOReader sync has a Check certificate switch (off by default). The update check and GitHub downloads are not checked yet, as before: that code is written and waits for a test on a real device.
+- **Battery log** (from 0.73.1) also records the battery voltage and why the device woke, and the light goes off before every sleep.
+- **Docs**: USB Drive (File Transfer over the USB-C cable) and the Power + Down screenshot combo now have guide pages.
+- **Licence note**: wolfSSL (TLS 1.3) is GPL-2.0-or-later, so the firmware binaries are distributed under the GPL terms, with the source in this repository. VaultInk's own code stays MIT (NOTICE).
+
+Not in this release: scroll mode (it needs a test on the device first), the SSH terminal and SFTP, the gamepad scaffold, and gestures as profiles inside Reading presets.
+
 ## 0.73.1 (2026-11-10)
 
 Battery in sleep (kos25k, follows #31).

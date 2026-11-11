@@ -50,10 +50,14 @@ Setup Job::begin(const highlightexport::Destination destination) {
   if (!http_) return Setup::LowMemory;
   http_->setTimeout(TIMEOUT_MS);
   http_->setUserAgent(std::string(USER_AGENT_NAME) + USER_AGENT_URL);
+#ifndef SIMULATOR                // the simulator's HTTP stub has no redirect or reuse settings
   http_->setFollowRedirects(0);  // a redirect must not carry the token to another address
+#endif
   // One connection per request: the SDK replays a request once when a kept-alive socket fails, and a replayed POST
   // could store the same memo or batch twice.
+#ifndef SIMULATOR
   http_->setReuse(false);
+#endif
   tlspolicy::Error tlsError = tlspolicy::Error::None;
   if (!tlspolicy::apply(*http_, url_, verify, &tlsError)) {
     http_.reset();
