@@ -50,6 +50,7 @@
 #include "activities/ActivityManager.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/reader/QrDisplayActivity.h"
+#include "activities/remote/RemoteServersActivity.h"
 #include "activities/util/IntervalSelectionActivity.h"
 #include "activities/util/WelcomeGuideActivity.h"
 #include "activities/vault/LiveSyncActivity.h"
@@ -198,6 +199,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   addAction(SettingsSection::Network, StrId::STR_KOREADER_SYNC, SettingAction::KOReaderSync);
   addAction(SettingsSection::Network, StrId::STR_HIGHLIGHT_EXPORTS, SettingAction::HighlightExports);
   addAction(SettingsSection::Network, StrId::STR_OPDS_SERVERS, SettingAction::OPDSBrowser);
+  addAction(SettingsSection::Network, StrId::STR_REMOTE_SERVERS, SettingAction::RemoteServers);
   addAction(SettingsSection::Network, StrId::STR_PLUGINS, SettingAction::Plugins);
 
   // OTA fetches this board's own release asset (see OtaUpdater); boards whose
@@ -401,6 +403,13 @@ void SettingsActivity::toggleSelectedSetting() {
         break;
       case SettingAction::OPDSBrowser:
         startActivityForResult(std::make_unique<OpdsServerListActivity>(renderer, mappedInput), resultHandler);
+        break;
+      case SettingAction::RemoteServers:
+        if (auto activity = makeUniqueNoThrow<RemoteServerListActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), resultHandler);
+        } else {
+          LOG_ERR("SETTINGS", "OOM: RemoteServerListActivity");
+        }
         break;
       case SettingAction::Network: {
         auto activity = makeUniqueNoThrow<WifiSelectionActivity>(renderer, mappedInput, false);

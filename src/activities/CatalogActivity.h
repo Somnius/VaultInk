@@ -71,6 +71,12 @@ class CatalogActivity : public UiListActivity {
                                              const std::vector<HttpDownloader::Header>& headers = {},
                                              const std::string* postBody = nullptr,
                                              const char* postContentType = nullptr);
+  // For catalogs that move the bytes themselves (the WebDAV and FTP browser): beginTransfer()
+  // frees the font caches and resets the progress display, transferProgress() is then called as
+  // bytes move. It redraws the bar and reads Back, the home gesture and the Cancel button into
+  // cancelDownload. `heading` replaces "Downloading..." on the progress screen (an upload).
+  void beginTransfer(const char* heading = nullptr);
+  void transferProgress(size_t done, size_t total) { onDownloadProgress(done, total); }
   void screenHeader(UiScreen& screen, const char* title);
   bool buildStatusScreen(UiScreen& screen, bool boldError = true, bool showDownloadTotal = false);
 
@@ -80,6 +86,7 @@ class CatalogActivity : public UiListActivity {
   void onDownloadProgress(size_t downloaded, size_t total);
   // Download input consumes home gestures before ActivityManager sees them.
   bool goHomeAfterCancel = false;
+  const char* transferHeading = nullptr;
   bool searchPending = false;  // NavPrevious pressed on a searchable top row
   int lastRenderedPercent = -1;
   unsigned long lastProgressUpdateMs = 0;

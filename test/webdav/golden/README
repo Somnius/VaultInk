@@ -1,0 +1,9 @@
+Hand-written PROPFIND (Depth: 1) answers in the shape each server sends. They were typed from the
+servers' documented output, not captured from a running server:
+
+  nextcloud.xml   Nextcloud (sabre/dav): "d:" prefix, extra oc:/nc: namespaces, a 404 propstat for
+                  the properties a folder lacks, percent-encoded UTF-8 names.
+  apache.xml      Apache mod_dav: "D:" prefix with ns0 attributes, lockdiscovery and supportedlock
+                  (which hold nested elements), absolute paths.
+  barebones.xml   A minimal server: DAV: as the default namespace (no prefix), whole URLs in href,
+                  no resourcetype for files, no dates.

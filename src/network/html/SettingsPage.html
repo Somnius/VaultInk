@@ -213,6 +213,7 @@
 
   <div id="wifi-container"></div>
   <div id="opds-container"></div>
+  <div id="remote-container"></div>
   <div class="card" id="livesync-card">
     <h2>LiveSync</h2>
     <p>Pull a vault from Obsidian Self-hosted LiveSync (read only). In Obsidian, open LiveSync's settings and copy the
@@ -793,6 +794,129 @@
     }
   }
 
+  // --- WebDAV and FTP servers ---
+  // The same fields as Settings > Network > WebDAV and FTP servers on the device, over
+  // /api/remotes. A stored password is never sent to this page: the field stays empty and
+  // "(set)" shows that there is one; leaving it empty keeps it.
+  let remoteServers = [];
+
+  function renderRemoteServer(srv, idx) {
+    const isNew = idx === -1;
+    const id = isNew ? 'new' : idx;
+    const ftp = srv.protocol === 'ftp';
+    return '<div class="opds-server" id="remote-' + id + '">' +
+      '<div class="setting-row">' +
+        '<span class="setting-name">Server Name</span>' +
+        '<span class="setting-control"><input type="text" id="remote-name-' + id + '" maxlength="127" value="' + escapeHtml(srv.name || '') + '"></span>' +
+      '</div>' +
+      '<div class="setting-row">' +
+        '<span class="setting-name">Protocol</span>' +
+        '<span class="setting-control"><select id="remote-protocol-' + id + '">' +
+          '<option value="webdav"' + (ftp ? '' : ' selected') + '>WebDAV</option>' +
+          '<option value="ftp"' + (ftp ? ' selected' : '') + '>FTP (not encrypted)</option>' +
+        '</select></span>' +
+      '</div>' +
+      '<div class="setting-row">' +
+        '<span class="setting-name">Address</span>' +
+        '<span class="setting-control"><input type="text" id="remote-url-' + id + '" maxlength="127" placeholder="https://server/folder" value="' + escapeHtml(srv.url || '') + '"></span>' +
+      '</div>' +
+      '<div class="setting-row">' +
+        '<span class="setting-name">Username</span>' +
+        '<span class="setting-control"><input type="text" id="remote-user-' + id + '" maxlength="127" value="' + escapeHtml(srv.username || '') + '"></span>' +
+      '</div>' +
+      '<div class="setting-row">' +
+        '<span class="setting-name">Password</span>' +
+        '<span class="setting-control"><input type="password" id="remote-pass-' + id + '" maxlength="127" autocomplete="new-password" placeholder="' + (srv.hasPassword ? '(set)' : '') + '"></span>' +
+      '</div>' +
+      '<div class="setting-row">' +
+        '<span class="setting-name">Check certificate (WebDAV over https)</span>' +
+        '<span class="setting-control"><input type="checkbox" id="remote-verify-' + id + '"' + (srv.verifyCert === false ? '' : ' checked') + '></span>' +
+      '</div>' +
+      (srv.plain ? '<p style="color:var(--label-color);">Not encrypted: the user name, the password and the files can be read on the network. The device asks before every connection.</p>' : '') +
+      '<div class="opds-actions">' +
+        '<button class="btn-small btn-save-server" onclick="saveRemoteServer(' + idx + ')">Save</button>' +
+        (isNew ? '' : '<button class="btn-small btn-delete" onclick="deleteRemoteServer(' + idx + ')">Delete</button>') +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderRemoteSection() {
+    const container = document.getElementById('remote-container');
+    let html = '<div class="card"><h2>WebDAV and FTP servers</h2>' +
+      '<p>Browse them on the device: Settings, Network, WebDAV and FTP servers. Passwords are kept on the SD card, ' +
+      'only lightly scrambled: anyone who has the card and the device can read them.</p>';
+    if (remoteServers.length === 0) {
+      html += '<p style="color:var(--label-color);text-align:center;">No servers configured</p>';
+    } else {
+      remoteServers.forEach(function(srv, idx) { html += renderRemoteServer(srv, srv.index); });
+    }
+    html += '<div style="margin-top:12px;text-align:center;">' +
+      '<button class="btn-small btn-add" onclick="addRemoteServer()">+ Add Server</button>' +
+    '</div></div>';
+    container.innerHTML = html;
+  }
+
+  async function loadRemoteServers() {
+    try {
+      const resp = await fetch('/api/remotes');
+      if (!resp.ok) throw new Error('Failed to load');
+      remoteServers = await resp.json();
+      renderRemoteSection();
+    } catch (e) {
+      console.error('Remote servers load error:', e);
+    }
+  }
+
+  function addRemoteServer() {
+    const card = document.getElementById('remote-container').querySelector('.card');
+    if (document.getElementById('remote-new')) return;
+    card.querySelector('.btn-add').parentElement.insertAdjacentHTML('beforebegin',
+      renderRemoteServer({name:'',protocol:'webdav',url:'',username:'',hasPassword:false,verifyCert:true}, -1));
+  }
+
+  async function saveRemoteServer(idx) {
+    const id = idx === -1 ? 'new' : idx;
+    const data = {
+      name: document.getElementById('remote-name-' + id).value,
+      protocol: document.getElementById('remote-protocol-' + id).value,
+      url: document.getElementById('remote-url-' + id).value.trim(),
+      username: document.getElementById('remote-user-' + id).value,
+      verifyCert: document.getElementById('remote-verify-' + id).checked,
+    };
+    // Sent only when something was typed: leaving it out keeps the stored password.
+    const pass = document.getElementById('remote-pass-' + id).value;
+    if (pass) data.password = pass;
+    if (idx >= 0) data.index = idx;
+    try {
+      const resp = await fetch('/api/remotes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      showWebToast('Server saved!', false);
+      await loadRemoteServers();
+    } catch (e) {
+      showWebToast('Error: ' + e.message, true);
+    }
+  }
+
+  async function deleteRemoteServer(idx) {
+    if (!await showWebConfirm('Delete this server?')) return;
+    try {
+      const resp = await fetch('/api/remotes/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({index: idx})
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      showWebToast('Server deleted', false);
+      await loadRemoteServers();
+    } catch (e) {
+      showWebToast('Error: ' + e.message, true);
+    }
+  }
+
 <!--#include file="shared/PluginHost.js.inc" -->
 
   // Sequential, not concurrent: the device's web server handles one client
@@ -802,6 +926,7 @@
     await loadSettings();
     await loadWifiNetworks();
     await loadOpdsServers();
+    await loadRemoteServers();
     await loadPlugins('settings');
   })();
 </script>

@@ -145,6 +145,7 @@ void CatalogActivity::navigateButtons() {
 
 void CatalogActivity::beginDownload(const std::string& title) {
   state = State::DOWNLOADING;
+  transferHeading = nullptr;
   statusMessage = title;
   downloadProgress = downloadTotal = 0;
   cancelDownload = goHomeAfterCancel = false;
@@ -197,6 +198,14 @@ HttpDownloader::DownloadError CatalogActivity::downloadFile(const std::string& u
       user, password, headers);
 }
 
+void CatalogActivity::beginTransfer(const char* heading) {
+  transferHeading = heading;
+  downloadProgress = downloadTotal = 0;
+  lastRenderedPercent = -1;
+  lastProgressUpdateMs = 0;
+  if (auto* fcm = renderer.getFontCacheManager()) fcm->releaseSdFontCaches();
+}
+
 void CatalogActivity::finishDownload(const HttpDownloader::DownloadError result) {
   if (result == HttpDownloader::ABORTED && goHomeAfterCancel) {
     onGoHome();
@@ -219,7 +228,7 @@ bool CatalogActivity::buildStatusScreen(UiScreen& screen, const bool boldError, 
   switch (state) {
     case State::DOWNLOADING:
       catalogDownloadScreen(screen, statusMessage.c_str(), downloadProgress, showDownloadTotal ? downloadTotal : 0,
-                            ACTION_CANCEL);
+                            ACTION_CANCEL, transferHeading);
       break;
     case State::ERROR:
       if (mappedInput.hasTouch()) {
