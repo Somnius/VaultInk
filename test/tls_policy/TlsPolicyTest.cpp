@@ -226,3 +226,34 @@ TEST(CaBundle, ThePublicRootsAreTheTailOfTheWholeBundle) {
   // The same bytes, not a second copy.
   EXPECT_EQ(pub + strlen(pub), ca_bundle::PEM + sizeof(ca_bundle::PEM) - 1);
 }
+
+TEST(TlsPolicy, ReadwiseIsAlwaysCheckedAgainstEveryBuiltInRoot) {
+  EXPECT_TRUE(alwaysChecked("readwise.io"));
+  EXPECT_TRUE(alwaysChecked("www.readwise.io"));
+  EXPECT_FALSE(alwaysChecked("readwise.io.evil.example"));
+  EXPECT_FALSE(alwaysChecked("notreadwise.io"));
+  // Not in the public group: the device side then gives it all the built-in roots.
+  EXPECT_FALSE(isPublicHost("readwise.io"));
+  for (const bool userVerify : {false, true}) {
+    for (const bool ca : {false, true}) {
+      EXPECT_EQ(choose("https://readwise.io/api/v2/highlights/", userVerify, ca), Mode::Verify);
+    }
+  }
+  // A ca.pem on the card is not asked for and does not replace the roots.
+  Fake fake;
+  fake.caExists = true;
+  std::string pem;
+  const Decision d = run(fake, "https://readwise.io/api/v2/highlights/", true, pem);
+  EXPECT_TRUE(d.ok());
+  EXPECT_EQ(d.mode, Mode::Verify);
+  EXPECT_EQ(fake.existsCalls, 0);
+  EXPECT_TRUE(pem.empty());
+  // No date, no request.
+  Fake noClock;
+  noClock.now = 0;
+  EXPECT_EQ(run(noClock, "https://readwise.io/api/v2/highlights/", false, pem).error, Error::NoClock);
+  // A Memos server is the user's own: unchecked until the switch is on.
+  EXPECT_EQ(choose("https://memos.example.com/api/v1/memos", false, false), Mode::Insecure);
+  EXPECT_EQ(choose("https://memos.example.com/api/v1/memos", true, false), Mode::Verify);
+  EXPECT_EQ(choose("https://memos.example.com/api/v1/memos", true, true), Mode::CustomCa);
+}

@@ -25,6 +25,7 @@
 #include "ExperimentalSettingsActivity.h"
 #include "FontDownloadActivity.h"
 #include "GesturesActivity.h"
+#include "HighlightExportSettingsActivity.h"
 #include "HomeButtonSettingsActivity.h"
 #include "HomeItemsActivity.h"
 #include "HomeRowsActivity.h"
@@ -195,6 +196,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
     addAction(SettingsSection::Network, StrId::STR_BT_PAGE_TURNER, SettingAction::Bluetooth);
   }
   addAction(SettingsSection::Network, StrId::STR_KOREADER_SYNC, SettingAction::KOReaderSync);
+  addAction(SettingsSection::Network, StrId::STR_HIGHLIGHT_EXPORTS, SettingAction::HighlightExports);
   addAction(SettingsSection::Network, StrId::STR_OPDS_SERVERS, SettingAction::OPDSBrowser);
   addAction(SettingsSection::Network, StrId::STR_PLUGINS, SettingAction::Plugins);
 
@@ -389,6 +391,13 @@ void SettingsActivity::toggleSelectedSetting() {
         break;
       case SettingAction::KOReaderSync:
         startActivityForResult(std::make_unique<KOReaderSettingsActivity>(renderer, mappedInput), resultHandler);
+        break;
+      case SettingAction::HighlightExports:
+        if (auto activity = makeUniqueNoThrow<HighlightExportSettingsActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), resultHandler);
+        } else {
+          LOG_ERR("SETTINGS", "OOM: HighlightExportSettingsActivity");
+        }
         break;
       case SettingAction::OPDSBrowser:
         startActivityForResult(std::make_unique<OpdsServerListActivity>(renderer, mappedInput), resultHandler);

@@ -415,6 +415,40 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
         KOREADER_STORE.saveToFile();
       },
       "koVerifyCert", StrId::STR_KOREADER_SYNC));
+  // --- Highlight exports (web-only here; on the device: HighlightExportSettingsActivity). The tokens are
+  // obfuscated settings, so the web page is told only whether one is set, never its value. ---
+  emit(SettingInfo::DynamicString(
+           StrId::STR_READWISE_TOKEN, [] { return EXPORT_STORE.readwiseToken(); },
+           [](const std::string& v) {
+             EXPORT_STORE.setReadwiseToken(v);
+             EXPORT_STORE.saveToFile();
+           },
+           "readwiseToken", StrId::STR_HIGHLIGHT_EXPORTS)
+           .withObfuscated());
+  emit(SettingInfo::DynamicString(
+      StrId::STR_MEMOS_SERVER_URL, [] { return EXPORT_STORE.memosUrl(); },
+      [](const std::string& v) {
+        EXPORT_STORE.setMemosUrl(v);
+        EXPORT_STORE.saveToFile();
+      },
+      "memosUrl", StrId::STR_HIGHLIGHT_EXPORTS));
+  emit(SettingInfo::DynamicString(
+           StrId::STR_MEMOS_TOKEN, [] { return EXPORT_STORE.memosToken(); },
+           [](const std::string& v) {
+             EXPORT_STORE.setMemosToken(v);
+             EXPORT_STORE.saveToFile();
+           },
+           "memosToken", StrId::STR_HIGHLIGHT_EXPORTS)
+           .withObfuscated());
+  emit(SettingInfo::DynamicEnum(
+      StrId::STR_MEMOS_CERT_CHECK, {StrId::STR_STATE_OFF, StrId::STR_STATE_ON},
+      [] { return static_cast<uint8_t>(EXPORT_STORE.memosVerifyCert()); },
+      [](uint8_t v) {
+        if (EXPORT_STORE.memosVerifyCert() == (v != 0)) return;
+        EXPORT_STORE.setMemosVerifyCert(v != 0);
+        EXPORT_STORE.saveToFile();
+      },
+      "memosVerifyCert", StrId::STR_HIGHLIGHT_EXPORTS));
   // --- Status Bar Settings (web-only, uses StatusBarSettingsActivity) ---
   emit(SettingInfo::Toggle(StrId::STR_TEXT_LIGATURES, &CrossPointSettings::textLigatures, "textLigatures",
                            StrId::STR_EXPERIMENTAL));

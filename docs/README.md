@@ -10,6 +10,7 @@ Start with the [main README](../README.md) for what VaultInk is and how to insta
 | [Reading settings and file actions](reading-and-files.md) | page backgrounds, text and Advanced Typography, the status bar and page number, the Library, search in a book, the file browser, the lock screen, the Battery page |
 | [Comics](comics.md) | the Banana Comic Converter, XTC, XTCH and CBZ |
 | [Dictionaries](dictionary.md) | looking words up |
+| [Highlight exports](exports.md) | sending a book's clippings to Readwise or a Memos server |
 | [SD-card fonts](sd-card-fonts.md) | adding your own fonts |
 | [Focus reading](focus-reading.md) | the focus reading mode |
 | [Hyphenation](hyphenation-trie-format.md) | how the hyphenation patterns are stored (Greek included) |

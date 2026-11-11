@@ -50,7 +50,9 @@ bool isPublicHost(const std::string_view host) {
 }
 
 bool alwaysChecked(const std::string_view host) {
-  return isOrUnder(host, "wikipedia.org") || (VERIFY_GITHUB && isPublicHost(host));
+  // readwise.io is not in isPublicHost: which root its certificate chains to has not been seen from a
+  // device, so it is checked against every built-in root, not only the public group.
+  return isOrUnder(host, "wikipedia.org") || isOrUnder(host, "readwise.io") || (VERIFY_GITHUB && isPublicHost(host));
 }
 
 Mode choose(const std::string_view url, const bool userVerify, const bool caFileExists) {

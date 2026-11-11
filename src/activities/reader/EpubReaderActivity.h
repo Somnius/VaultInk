@@ -245,6 +245,10 @@ class EpubReaderActivity final : public ReaderActivity {
   // Leaves the book for the Wikipedia lookup of `text` (Wi-Fi on the user's tap); it comes back
   // through the silent restart, like KOReader sync.
   void launchWikipediaLookup(std::string text);
+  // Highlight exports: the vault note as before, or the choice of where to send when Readwise or Memos is set up.
+  void exportClippingsToVault();
+  void showExportChoice();
+  void launchSendHighlights(uint8_t destination);
   // Search in a book (kos25k #24): hits stay on, highlighted, with a bar to step through them.
   struct SearchBar {
     int top = 0, height = 0;

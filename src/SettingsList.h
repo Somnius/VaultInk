@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "CrossPointSettings.h"
+#include "HighlightExportStore.h"
 #include "HomeButtonSettings.h"
 #include "KOReaderCredentialStore.h"
 #include "ReaderFontSizes.h"

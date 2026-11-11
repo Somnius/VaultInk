@@ -9,7 +9,8 @@
 //
 //  * A public host the firmware itself talks to (GitHub for updates and fonts, Wikipedia) is
 //    always checked against the built-in public roots. There is no switch for it and a ca.pem on
-//    the card does not replace those roots.
+//    the card does not replace those roots. Readwise (highlight exports) is always checked too,
+//    against every built-in root.
 //  * A server the user set up (OPDS, KOReader sync, a plugin's server) is checked only when the
 //    user asked for it: with /.crosspoint/ca.pem when that file is there, else with every built-in
 //    root. A ca.pem that cannot be read stops the request; it never falls back to the built-in
@@ -47,7 +48,7 @@ std::string hostOf(std::string_view url);
 bool isHttps(std::string_view url);
 // A host of GitHub (github.com, api.github.com, *.githubusercontent.com) or Wikipedia.
 bool isPublicHost(std::string_view host);
-// The public hosts that are always checked: Wikipedia, and GitHub once VERIFY_GITHUB is on.
+// The hosts that are always checked: Wikipedia, Readwise (readwise.io), and GitHub once VERIFY_GITHUB is on.
 bool alwaysChecked(std::string_view host);
 
 // The mode for `url`. `userVerify`: the user turned the check on for this server. `caFileExists`:

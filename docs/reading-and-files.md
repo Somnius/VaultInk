@@ -739,6 +739,8 @@ depends on the server:
 | GitHub: the update check, firmware downloads, the font list | Not checked yet (encrypted only), as before. The check is written (`VERIFY_GITHUB` in lib/TlsPolicy) and will be switched on, with no off switch, after a real device has done an update check and a download with it. (The font files themselves come over plain http after GitHub's redirect and are checked by their CRC.) |
 | Wikipedia (the lookup in the [dictionary](dictionary.md#wikipedia-when-the-dictionary-has-no-entry)) | Always, the same way. |
 | KOReader sync and clipping sync | Only with **Check certificate** on (Settings → Network → CrossPoint Sync, or the web settings page). Off by default, so a setup that worked before still works. |
+| Readwise ([highlight exports](exports.md)) | Always, against all the built-in root certificates. Not tried on a device yet. |
+| A Memos server ([highlight exports](exports.md)) | Only with **Memos: Check Certificate** on (Settings → Network → Highlight Exports). Off by default. |
 | OPDS catalogs, plugin servers | Not checked (encrypted only), as before. |
 | LiveSync | Checked by default, with its own switch and file: see [livesync.md](livesync.md#certificates). |
 

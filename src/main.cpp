@@ -38,6 +38,7 @@
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "FavouritesStore.h"
+#include "HighlightExportStore.h"
 #include "KOReaderCredentialStore.h"
 #include "LcpPassphraseStore.h"
 #include "MappedInputManager.h"
@@ -756,6 +757,7 @@ void setup() {
   FAVOURITES.load();
   I18N.setLanguage(static_cast<Language>(SETTINGS.language));
   KOREADER_STORE.loadFromFile();
+  EXPORT_STORE.loadFromFile();
   OPDS_STORE.loadFromFile();
   OPDS_TOKENS.loadFromFile();
   LCP_PASSPHRASES.loadFromFile();

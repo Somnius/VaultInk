@@ -9,6 +9,7 @@
 
 #include "ClippingStore.h"
 #include "DictionaryDefinitionActivity.h"
+#include "HighlightExportStore.h"
 #include "MappedInputManager.h"
 #include "clippings/ClippingPreview.h"
 #include "components/UITheme.h"
@@ -72,11 +73,32 @@ void EpubReaderClippingListActivity::openSelected() {
   if (confirmPopup.isActive() || nav.selected < 0 || nav.selected >= listCount()) return;
   const Clipping* clipping = CLIPPINGS.clippingAt(static_cast<size_t>(nav.selected));
   if (!clipping) return;
-  static constexpr StrId OPTIONS[] = {StrId::STR_OPEN, StrId::STR_GO_TO_PASSAGE};
-  const bool anchored = clipping->startOffset != UINT32_MAX && clipping->endOffset != UINT32_MAX;
-  confirmPopup.show(StrId::STR_CLIPPINGS, OPTIONS, anchored ? 2 : 1, 0, [this](const int index) {
-    if (index == 0) {
+  // Open, Go to passage (when the clipping knows its place), then where the book's highlights can be
+  // sent (only the destinations set up in Settings, Network, Highlight Exports).
+  enum : uint8_t { OPEN, GO_TO_PASSAGE, SEND_READWISE, SEND_MEMOS };
+  StrId options[4];
+  std::array<uint8_t, 4> actions{};
+  int count = 0;
+  const auto add = [&](const StrId label, const uint8_t action) {
+    options[count] = label;
+    actions[count++] = action;
+  };
+  add(StrId::STR_OPEN, OPEN);
+  if (clipping->startOffset != UINT32_MAX && clipping->endOffset != UINT32_MAX) {
+    add(StrId::STR_GO_TO_PASSAGE, GO_TO_PASSAGE);
+  }
+  if (EXPORT_STORE.hasReadwise()) add(StrId::STR_SEND_TO_READWISE, SEND_READWISE);
+  if (EXPORT_STORE.hasMemos()) add(StrId::STR_SEND_TO_MEMOS, SEND_MEMOS);
+  confirmPopup.show(StrId::STR_CLIPPINGS, options, count, 0, [this, actions, count](const int index) {
+    if (index < 0 || index >= count) return;
+    if (actions[index] == OPEN) {
       readSelected();
+      return;
+    }
+    if (actions[index] == SEND_READWISE || actions[index] == SEND_MEMOS) {
+      // The reader starts the job: it has to save the place and give up its memory first.
+      setResult(SendHighlightsResult{static_cast<uint8_t>(actions[index] == SEND_READWISE ? 0 : 1)});
+      finish();
       return;
     }
     const Clipping* selectedClipping = CLIPPINGS.clippingAt(static_cast<size_t>(nav.selected));
