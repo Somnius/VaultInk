@@ -5,12 +5,19 @@
 #include <strings.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
+#include <utility>
 
 namespace {
 std::string capped(const char* text) {
   std::string out = text ? text : "";
-  if (out.size() > RemoteServerStore::MAX_FIELD_BYTES) out.resize(RemoteServerStore::MAX_FIELD_BYTES);
+  if (out.size() > RemoteServerStore::MAX_FIELD_BYTES) {
+    // Cut on a character boundary, not in the middle of a UTF-8 sequence.
+    size_t cut = RemoteServerStore::MAX_FIELD_BYTES;
+    while (cut > 0 && (static_cast<unsigned char>(out[cut]) & 0xC0) == 0x80) --cut;
+    out.resize(cut);
+  }
   return out;
 }
 }  // namespace
