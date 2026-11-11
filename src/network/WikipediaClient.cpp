@@ -38,7 +38,9 @@ Result fetch(const std::string& language, const std::string& text, wikipedia::Su
   WifiPowerSaveGuard psGuard;
   http->setTimeout(TIMEOUT_MS);
   http->setUserAgent("VaultInk/" CROSSPOINT_VERSION " (https://github.com/Somnius/VaultInk)");
+#ifndef SIMULATOR  // the simulator's HTTP stub has no redirect setting
   http->setFollowRedirects(MAX_REDIRECTS);
+#endif
   tlspolicy::Error tlsError = tlspolicy::Error::None;
   if (!tlspolicy::apply(*http, url, /*userVerify=*/false, &tlsError)) {
     return tlsError == tlspolicy::Error::NoClock ? Result::NoClock : Result::Network;
