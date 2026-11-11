@@ -87,9 +87,15 @@ struct FilePathResult {
   std::string path;
 };
 
+// The clippings list: send this book's highlights to Readwise (0) or Memos (1), the values of
+// highlightexport::Destination.
+struct SendHighlightsResult {
+  uint8_t destination = 0;
+};
+
 using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult,
                                    IntervalResult, PageResult, ClippingResult, ProgressChangeResult, NetworkModeResult,
-                                   FootnoteResult, FilePathResult, BookMapResult>;
+                                   FootnoteResult, FilePathResult, BookMapResult, SendHighlightsResult>;
 
 struct ActivityResult {
   bool isCancelled = false;

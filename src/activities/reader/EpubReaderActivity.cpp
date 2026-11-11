@@ -47,6 +47,7 @@
 #include "EpubReaderUtils.h"
 #include "EpubSearchActivity.h"
 #include "FavouritesStore.h"
+#include "HighlightExportStore.h"
 #include "KOReaderCredentialStore.h"
 #include "KOReaderSyncActivity.h"
 #include "MappedInputManager.h"
@@ -60,6 +61,7 @@
 #include "RecentBooksStore.h"
 #include "SdCardFont.h"
 #include "SdCardFontSystem.h"
+#include "SendHighlightsActivity.h"
 #include "SilentRestart.h"
 #include "TextPanelRows.h"
 #include "WikipediaLookupActivity.h"
@@ -677,6 +679,10 @@ void EpubReaderActivity::openClippings() {
     if (!result.isCancelled) {
       if (const auto* progress = std::get_if<ProgressChangeResult>(&result.data)) {
         applyProgressChange(*progress);
+        return;
+      }
+      if (const auto* send = std::get_if<SendHighlightsResult>(&result.data)) {
+        launchSendHighlights(send->destination);
         return;
       }
     }
@@ -1586,19 +1592,11 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       break;
     }
     case EpubReaderMenuActivity::MenuAction::EXPORT_CLIPPINGS: {
-      std::string notePath;
-      switch (clippingexport::exportToVault(notePath)) {
-        case clippingexport::Status::Ok:
-          clippingMessage = StrId::STR_EXPORT_CLIPPINGS_DONE;
-          break;
-        case clippingexport::Status::NoVault:
-          clippingMessage = StrId::STR_EXPORT_CLIPPINGS_NO_VAULT;
-          break;
-        case clippingexport::Status::NoClippings:
-          clippingMessage = StrId::STR_NO_CLIPPINGS;
-          break;
-        default:
-          clippingMessage = StrId::STR_EXPORT_CLIPPINGS_FAILED;
+      // With Readwise or Memos set up the row asks where to; otherwise it is the vault note, as before.
+      if (EXPORT_STORE.hasReadwise() || EXPORT_STORE.hasMemos()) {
+        showExportChoice();
+      } else {
+        exportClippingsToVault();
       }
       break;
     }
@@ -1695,6 +1693,69 @@ bool EpubReaderActivity::launchKOReaderSync() {
   activityManager.replaceActivity(std::make_unique<KOReaderSyncActivity>(
       renderer, mappedInput, savedEpubPath, localPos, std::move(localKoPos), std::move(localChapterName)));
   return true;
+}
+
+void EpubReaderActivity::exportClippingsToVault() {
+  std::string notePath;
+  switch (clippingexport::exportToVault(notePath)) {
+    case clippingexport::Status::Ok:
+      clippingMessage = StrId::STR_EXPORT_CLIPPINGS_DONE;
+      break;
+    case clippingexport::Status::NoVault:
+      clippingMessage = StrId::STR_EXPORT_CLIPPINGS_NO_VAULT;
+      break;
+    case clippingexport::Status::NoClippings:
+      clippingMessage = StrId::STR_NO_CLIPPINGS;
+      break;
+    default:
+      clippingMessage = StrId::STR_EXPORT_CLIPPINGS_FAILED;
+  }
+  // The result was set but never put on the screen before (the flag below was missing).
+  showClippingMessage = true;
+  clippingMessageTime = millis();
+}
+
+void EpubReaderActivity::showExportChoice() {
+  // 0 = the vault note, 1 = Readwise, 2 = Memos; only what is set up is offered.
+  std::vector<std::string> options;
+  std::array<uint8_t, 3> targets{};
+  size_t count = 0;
+  const auto add = [&](const StrId label, const uint8_t target) {
+    options.emplace_back(I18N.get(label));
+    targets[count++] = target;
+  };
+  add(StrId::STR_EXPORT_CLIPPINGS, 0);
+  if (EXPORT_STORE.hasReadwise()) add(StrId::STR_SEND_TO_READWISE, 1);
+  if (EXPORT_STORE.hasMemos()) add(StrId::STR_SEND_TO_MEMOS, 2);
+  // The reader's one full-screen popup (it also carries the load failure messages); Back closes it.
+  loadFailurePopup.show(StrId::STR_HIGHLIGHT_EXPORTS, options, 0, [this, targets, count](const int index) {
+    if (index < 0 || static_cast<size_t>(index) >= count) return;
+    if (targets[index] == 0) {
+      exportClippingsToVault();
+      requestUpdate();
+      return;
+    }
+    launchSendHighlights(static_cast<uint8_t>(targets[index] - 1));
+  });
+  requestUpdate();
+}
+
+void EpubReaderActivity::launchSendHighlights(const uint8_t destination) {
+  if (!epub) return;
+  flushReaderSession();
+  // The way back is a restart into the book, so the position must be on the card first (as for a KOReader sync).
+  if (section && !saveProgress(currentSpineIndex, section->currentPage, section->estimatedTotalPages())) {
+    LOG_ERR("EXP", "Position could not be saved before sending highlights");
+  }
+  auto send = makeUniqueNoThrow<SendHighlightsActivity>(
+      renderer, mappedInput, epub->getPath(), epub->getTitle(), epub->getAuthor(),
+      destination == 0 ? highlightexport::Destination::Readwise : highlightexport::Destination::Memos);
+  if (!send) {
+    LOG_ERR("EXP", "OOM: send highlights activity");
+    return;
+  }
+  // Replacing the reader frees its memory for Wi-Fi and TLS; the way back is a restart into the book.
+  activityManager.replaceActivity(std::move(send));
 }
 
 void EpubReaderActivity::launchWikipediaLookup(std::string text) {

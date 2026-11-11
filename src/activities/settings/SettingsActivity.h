@@ -50,6 +50,7 @@ enum class SettingAction {
   LiveSync,
   LockScreen,
   ReadingPresets,
+  HighlightExports,
 };
 
 struct SettingInfo {
