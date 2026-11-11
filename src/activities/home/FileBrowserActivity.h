@@ -10,8 +10,9 @@
 class FileBrowserActivity final : public UiListActivity {
  public:
   // Books = standard reader browser; PickFirmware = filter to .bin only and return path via ActivityResult;
-  // PickFolder = folders only, with a first row that returns the folder shown (Move/Copy target).
-  enum class Mode { Books, PickFirmware, PickFolder };
+  // PickFolder = folders only, with a first row that returns the folder shown (Move/Copy target);
+  // PickFile = every file, returned like PickFirmware (a file to upload).
+  enum class Mode { Books, PickFirmware, PickFolder, PickFile };
 
  private:
   // File actions

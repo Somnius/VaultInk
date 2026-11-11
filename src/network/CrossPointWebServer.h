@@ -143,6 +143,10 @@ class CrossPointWebServer {
   void handleGetOpdsServers() const;
   void handlePostOpdsServer();
   void handleDeleteOpdsServer();
+  // WebDAV and FTP servers (the same fields as the device's page; a stored password is never sent back).
+  void handleGetRemoteServers() const;
+  void handlePostRemoteServer();
+  void handleDeleteRemoteServer();
 
   // Wi-Fi credential handlers
   void handleGetWifiNetworks() const;

@@ -11,7 +11,7 @@ The web server is available while the device is in **File Transfer** or
 - Upload, download, rename, move, and delete files on the SD card
 - Create folders
 - Edit many device settings from a browser
-- Manage saved Wi-Fi networks and OPDS servers
+- Manage saved Wi-Fi networks, OPDS servers and (not released yet) [WebDAV and FTP servers](webdav-ftp.md)
 - Upload and delete `.cpfont` SD-card font families
 - Accept WebDAV clients and Calibre wireless uploads
 
@@ -142,6 +142,7 @@ cards for:
 
 - Saved Wi-Fi networks
 - OPDS servers
+- WebDAV and FTP servers (not released yet)
 
 Passwords are accepted when adding or editing entries, but saved passwords are
 not returned by the API.

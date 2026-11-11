@@ -22,7 +22,10 @@ constexpr uint32_t CLOCK_SYNC_MS = 8000;
 
 bool hasOwnCa() { return Storage.exists(CA_FILE); }
 
-bool apply(freeink::SecureHttpClient& http, const std::string& url, const bool userVerify, Error* error) {
+namespace {
+// Works on anything with setCACert() and setInsecure(): the HTTP client and the bare TLS client.
+template <typename Client>
+bool applyTo(Client& http, const std::string& url, const bool userVerify, Error* error) {
   Clock clock;
   clock.now = [] { return trustedtime::trustedNow(); };
   clock.sync = [] { return trustedtime::syncNow(CLOCK_SYNC_MS); };
@@ -52,5 +55,16 @@ bool apply(freeink::SecureHttpClient& http, const std::string& url, const bool u
   }
   return true;
 }
+}  // namespace
+
+bool apply(freeink::SecureHttpClient& http, const std::string& url, const bool userVerify, Error* error) {
+  return applyTo(http, url, userVerify, error);
+}
+
+#ifndef SIMULATOR
+bool apply(freeink::SecureClient& tls, const std::string& url, const bool userVerify, Error* error) {
+  return applyTo(tls, url, userVerify, error);
+}
+#endif
 
 }  // namespace tlspolicy

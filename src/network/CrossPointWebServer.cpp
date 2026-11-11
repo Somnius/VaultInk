@@ -39,6 +39,7 @@
 #include "FontInstaller.h"
 #include "OpdsServerStore.h"
 #include "ProtectedPaths.h"
+#include "RemoteServerStore.h"
 #include "SdCardFontSystem.h"
 #include "SettingsList.h"
 #include "WebDAVHandler.h"
@@ -255,6 +256,11 @@ void CrossPointWebServer::begin() {
   server->on("/api/opds", HTTP_GET, [this] { handleGetOpdsServers(); });
   server->on("/api/opds", HTTP_POST, [this] { handlePostOpdsServer(); });
   server->on("/api/opds/delete", HTTP_POST, [this] { handleDeleteOpdsServer(); });
+
+  // WebDAV and FTP server endpoints
+  server->on("/api/remotes", HTTP_GET, [this] { handleGetRemoteServers(); });
+  server->on("/api/remotes", HTTP_POST, [this] { handlePostRemoteServer(); });
+  server->on("/api/remotes/delete", HTTP_POST, [this] { handleDeleteRemoteServer(); });
 
   // Browser-side plugins (JS on the SD card) + their generic capabilities.
   server->on("/api/plugins", HTTP_GET, [this] { handlePluginList(); });
@@ -1724,6 +1730,119 @@ void CrossPointWebServer::handleDeleteOpdsServer() {
 
   OPDS_STORE.removeServer(static_cast<size_t>(idx));
   LOG_DBG("WEB", "Deleted OPDS server at index %d", idx);
+  server->send(200, "text/plain", "OK");
+}
+
+// ---- WebDAV and FTP server API ----
+// The same fields as Settings > Network > WebDAV and FTP servers. A stored password never leaves
+// the device: the list only says whether one is set, and a save without "password" keeps it.
+
+void CrossPointWebServer::handleGetRemoteServers() const {
+  REMOTE_STORE.loadFromFile();
+  const auto& servers = REMOTE_STORE.getServers();
+
+  server->setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server->send(200, "application/json", "");
+  server->sendContent("[");
+
+  char output[640];
+  constexpr size_t outputSize = sizeof(output);
+  JsonDocument doc;
+  bool first = true;
+  for (size_t i = 0; i < servers.size(); i++) {
+    doc.clear();
+    doc["index"] = i;
+    doc["name"] = servers[i].name;
+    doc["protocol"] = servers[i].protocol == RemoteServer::Protocol::Ftp ? "ftp" : "webdav";
+    doc["url"] = servers[i].url;
+    doc["username"] = servers[i].username;
+    doc["hasPassword"] = !servers[i].password.empty();
+    doc["verifyCert"] = servers[i].verifyCert;
+    doc["plain"] = servers[i].isPlain();
+
+    const size_t written = serializeJson(doc, output, outputSize);
+    if (written >= outputSize) continue;
+    if (!first) server->sendContent(",");
+    first = false;
+    server->sendContent(output);
+    yield();
+    resetTaskWatchdogIfSubscribed();
+  }
+  server->sendContent("]");
+  server->sendContent("");
+}
+
+void CrossPointWebServer::handlePostRemoteServer() {
+  if (!server->hasArg("plain")) {
+    server->send(400, "text/plain", "Missing JSON body");
+    return;
+  }
+  const String body = server->arg("plain");
+  JsonDocument doc;
+  const DeserializationError err = deserializeJson(doc, body);
+  if (err) {
+    server->send(400, "text/plain", String("Invalid JSON: ") + err.c_str());
+    return;
+  }
+
+  RemoteServer remote;
+  remote.name = doc["name"] | std::string("");
+  remote.url = doc["url"] | std::string("");
+  remote.username = doc["username"] | std::string("");
+  remote.protocol =
+      strcmp(doc["protocol"] | "webdav", "ftp") == 0 ? RemoteServer::Protocol::Ftp : RemoteServer::Protocol::WebDav;
+  const bool hasPasswordField = doc["password"].is<const char*>() || doc["password"].is<std::string>();
+  remote.password = doc["password"] | std::string("");
+  if (remote.name.size() > RemoteServerStore::MAX_FIELD_BYTES ||
+      remote.url.size() > RemoteServerStore::MAX_FIELD_BYTES ||
+      remote.username.size() > RemoteServerStore::MAX_FIELD_BYTES ||
+      remote.password.size() > RemoteServerStore::MAX_FIELD_BYTES) {
+    server->send(400, "text/plain", "A field is too long");
+    return;
+  }
+
+  REMOTE_STORE.loadFromFile();
+  if (doc["index"].is<int>()) {
+    const int idx = doc["index"].as<int>();
+    const auto* existing = idx >= 0 ? REMOTE_STORE.getServer(static_cast<size_t>(idx)) : nullptr;
+    if (!existing) {
+      server->send(400, "text/plain", "Invalid server index");
+      return;
+    }
+    if (!hasPasswordField) remote.password = existing->password;
+    // Left out: keep what is set. The check is never switched off by leaving the field out.
+    remote.verifyCert = doc["verifyCert"] | existing->verifyCert;
+    if (!REMOTE_STORE.updateServer(static_cast<size_t>(idx), remote)) {
+      server->send(500, "text/plain", "Could not save");
+      return;
+    }
+  } else {
+    remote.verifyCert = doc["verifyCert"] | true;
+    if (!REMOTE_STORE.addServer(remote)) {
+      server->send(400, "text/plain", "Cannot add server (limit reached)");
+      return;
+    }
+  }
+  server->send(200, "text/plain", "OK");
+}
+
+void CrossPointWebServer::handleDeleteRemoteServer() {
+  if (!server->hasArg("plain")) {
+    server->send(400, "text/plain", "Missing JSON body");
+    return;
+  }
+  const String body = server->arg("plain");
+  JsonDocument doc;
+  if (deserializeJson(doc, body) || !doc["index"].is<int>()) {
+    server->send(400, "text/plain", "Missing index");
+    return;
+  }
+  REMOTE_STORE.loadFromFile();
+  const int idx = doc["index"].as<int>();
+  if (idx < 0 || !REMOTE_STORE.removeServer(static_cast<size_t>(idx))) {
+    server->send(400, "text/plain", "Invalid server index");
+    return;
+  }
   server->send(200, "text/plain", "OK");
 }
 

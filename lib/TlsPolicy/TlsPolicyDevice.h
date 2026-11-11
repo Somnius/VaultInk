@@ -1,6 +1,9 @@
 #pragma once
 
 #include <SecureHttpClient.h>
+#ifndef SIMULATOR
+#include <SecureClient.h>
+#endif
 
 #include <string>
 
@@ -20,6 +23,12 @@ inline constexpr char CA_FILE[] = "/.crosspoint/ca.pem";
 // Returns false when the request must not be sent; `http` is then left with no trust anchors, so
 // sending anyway fails at the handshake instead of going out unchecked.
 bool apply(freeink::SecureHttpClient& http, const std::string& url, bool userVerify, Error* error = nullptr);
+// The same for a bare TLS connection (the WebDAV upload writes its own request, because the HTTP
+// client can only send a body that is already in memory).
+// (Not in the simulator, whose network shims have no bare TLS client.)
+#ifndef SIMULATOR
+bool apply(freeink::SecureClient& tls, const std::string& url, bool userVerify, Error* error = nullptr);
+#endif
 
 // True when the shared ca.pem is on the card.
 bool hasOwnCa();

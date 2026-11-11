@@ -31,6 +31,7 @@ Start with the [main README](../README.md) for what VaultInk is and how to insta
 | --- | --- |
 | [Companion app](companion.md) | the Android app: files, notes, settings, typing |
 | [Web server](webserver.md), [endpoints](webserver-endpoints.md) | the browser page and its API |
+| [WebDAV and FTP servers](webdav-ftp.md) | copying files to and from your own file server (not released yet) |
 
 ## Help
 

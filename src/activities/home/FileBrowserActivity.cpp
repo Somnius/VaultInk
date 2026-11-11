@@ -129,7 +129,9 @@ void FileBrowserActivity::loadFiles() {
       continue;
     } else {
       std::string_view filename{fileNameBuffer.get()};
-      if (mode == Mode::PickFirmware) {
+      if (mode == Mode::PickFile) {
+        addEntry(std::string(filename), file);  // a file to send somewhere: any type
+      } else if (mode == Mode::PickFirmware) {
         // Firmware picker: only show .bin files.
         if (FsHelpers::checkFileExtension(filename, ".bin")) {
           addEntry(std::string(filename), file);
@@ -406,7 +408,7 @@ void FileBrowserActivity::activateSelected() {
   }
 
   // Firmware picker: select file -> return path; navigate into directories normally.
-  if (mode == Mode::PickFirmware && !isDirectory) {
+  if ((mode == Mode::PickFirmware || mode == Mode::PickFile) && !isDirectory) {
     std::string cleanBasePath = basepath;
     if (cleanBasePath.back() != '/') cleanBasePath += "/";
     ActivityResult res{FilePathResult{cleanBasePath + entry}};
@@ -979,8 +981,9 @@ void FileBrowserActivity::drawFooter() {
   const char* backLabel = (basepath == "/") ? (picker() ? tr(STR_BACK) : tr(STR_HOME)) : tr(STR_BACK);
   // In PickFirmware mode, Confirm on a .bin returns the path to the caller (not "open"); show
   // STR_SELECT instead. Directories in the same picker still descend, so keep STR_OPEN there.
-  const bool selectingFirmwareFile = mode == Mode::PickFirmware && !files.empty() && nav.selected >= 0 &&
-                                     nav.selected < listCount() && files[nav.selected].back() != '/';
+  const bool selectingFirmwareFile = (mode == Mode::PickFirmware || mode == Mode::PickFile) && !files.empty() &&
+                                     nav.selected >= 0 && nav.selected < listCount() &&
+                                     files[nav.selected].back() != '/';
   const char* confirmLabel = files.empty() ? "" : (selectingFirmwareFile ? tr(STR_SELECT) : tr(STR_OPEN));
   const auto labels = mappedInput.mapLabels(backLabel, confirmLabel, files.empty() ? "" : tr(STR_DIR_UP),
                                             files.empty() ? "" : tr(STR_DIR_DOWN));

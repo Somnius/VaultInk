@@ -89,7 +89,7 @@ Hidden dotfiles are omitted unless the device setting `showHiddenFiles` is
 enabled. `System Volume Information` and `XTCache` are always hidden/protected.
 
 The saved-credential stores (`/.crosspoint/wifi.json`, `opds.json`,
-`koreader.json`) can never be downloaded, uploaded, renamed, moved, deleted or
+`koreader.json`, `remotes.json`) can never be downloaded, uploaded, renamed, moved, deleted or
 written by a plugin over the network, however the path is spelled.
 
 ### `GET /download`
@@ -385,6 +385,51 @@ curl -X POST \
   -d '{"index":0}' \
   http://vaultink.local/api/opds/delete
 ```
+
+## WebDAV and FTP Server API
+
+The servers of Settings > Network > WebDAV and FTP servers
+([webdav-ftp.md](webdav-ftp.md)). Not released yet.
+
+### `GET /api/remotes`
+
+Lists the saved servers. Passwords are never returned, only `hasPassword`.
+`plain` is true when the connection is not encrypted (FTP, or WebDAV over
+`http://`).
+
+```json
+[
+  {
+    "index": 0,
+    "name": "Nextcloud",
+    "protocol": "webdav",
+    "url": "https://cloud.example.org/remote.php/dav/files/you",
+    "username": "you",
+    "hasPassword": true,
+    "verifyCert": true,
+    "plain": false
+  }
+]
+```
+
+### `POST /api/remotes`
+
+Adds a server, or updates one when `index` is given. `protocol` is `webdav`
+or `ftp`. On an update, a missing `password` keeps the stored one and a
+missing `verifyCert` keeps the stored switch; a new server without
+`verifyCert` has the check on. Each field is at most 127 bytes; at most 6
+servers.
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Nextcloud","protocol":"webdav","url":"https://cloud.example.org/remote.php/dav/files/you","username":"you","password":"app-password","verifyCert":true}' \
+  http://vaultink.local/api/remotes
+```
+
+### `POST /api/remotes/delete`
+
+Deletes a server by index: `{"index":0}`.
 
 ## Wi-Fi Credential API
 
