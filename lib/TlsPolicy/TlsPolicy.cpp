@@ -49,9 +49,13 @@ bool isPublicHost(const std::string_view host) {
   return isOrUnder(host, "github.com") || isOrUnder(host, "githubusercontent.com") || isOrUnder(host, "wikipedia.org");
 }
 
+bool alwaysChecked(const std::string_view host) {
+  return isOrUnder(host, "wikipedia.org") || (VERIFY_GITHUB && isPublicHost(host));
+}
+
 Mode choose(const std::string_view url, const bool userVerify, const bool caFileExists) {
   if (!isHttps(url)) return Mode::Plain;
-  if (isPublicHost(hostOf(url))) return Mode::Verify;
+  if (alwaysChecked(hostOf(url))) return Mode::Verify;
   if (!userVerify) return Mode::Insecure;
   return caFileExists ? Mode::CustomCa : Mode::Verify;
 }
@@ -60,7 +64,7 @@ Decision decide(const std::string_view url, const bool userVerify, const Clock& 
                 std::string& caPem) {
   Decision d;
   // Only ask the card when the answer can matter.
-  const bool ownServer = isHttps(url) && userVerify && !isPublicHost(hostOf(url));
+  const bool ownServer = isHttps(url) && userVerify && !alwaysChecked(hostOf(url));
   d.mode = choose(url, userVerify, ownServer && caFile.exists && caFile.exists());
   if (!d.checked()) return d;
   if (d.mode == Mode::CustomCa && caPem.empty() && (!caFile.read || !caFile.read(caPem) || caPem.empty())) {

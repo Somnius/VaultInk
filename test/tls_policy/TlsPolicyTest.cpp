@@ -83,9 +83,13 @@ TEST(TlsPolicy, PublicHostsAreExactNamesOrNamesUnderThem) {
 TEST(TlsPolicy, PublicHostsAlwaysVerifyWhateverTheUserSet) {
   for (const bool userVerify : {false, true}) {
     for (const bool ca : {false, true}) {
-      EXPECT_EQ(choose("https://api.github.com/repos/a/b", userVerify, ca), Mode::Verify);
       EXPECT_EQ(choose("https://el.wikipedia.org/api/rest_v1/page/summary/x", userVerify, ca), Mode::Verify);
-      EXPECT_EQ(choose("HTTPS://GitHub.com/a", userVerify, ca), Mode::Verify);
+      // GitHub is checked only once VERIFY_GITHUB is on; until then it keeps its old encrypted-but-unchecked mode
+      // unless the user asked for the check on that server.
+      const Mode github =
+          VERIFY_GITHUB ? Mode::Verify : (userVerify ? (ca ? Mode::CustomCa : Mode::Verify) : Mode::Insecure);
+      EXPECT_EQ(choose("https://api.github.com/repos/a/b", userVerify, ca), github);
+      EXPECT_EQ(choose("HTTPS://GitHub.com/a", userVerify, ca), github);
     }
   }
 }
@@ -133,7 +137,7 @@ TEST(TlsPolicy, AClockThatCannotBeSetStopsTheRequest) {
   Fake fake;
   fake.now = 0;
   std::string pem;
-  const Decision d = run(fake, "https://api.github.com/repos/a/b/releases/latest", false, pem);
+  const Decision d = run(fake, "https://en.wikipedia.org/api/rest_v1/page/summary/Tea", false, pem);
   EXPECT_FALSE(d.ok());
   EXPECT_EQ(d.error, Error::NoClock);
   EXPECT_EQ(d.mode, Mode::Verify);  // never downgraded to an unchecked request
@@ -144,7 +148,7 @@ TEST(TlsPolicy, AClockThatCannotBeSetStopsTheRequest) {
 TEST(TlsPolicy, AGoodClockIsNotSyncedAgain) {
   Fake fake;
   std::string pem;
-  EXPECT_TRUE(run(fake, "https://github.com/a/b", false, pem).ok());
+  EXPECT_TRUE(run(fake, "https://en.wikipedia.org/a/b", false, pem).ok());
   EXPECT_EQ(fake.syncs, 0);
 }
 
@@ -200,7 +204,7 @@ TEST(TlsPolicy, NoCaFileMeansTheBuiltInRoots) {
 
 TEST(TlsPolicy, MissingHooksFailClosed) {
   std::string pem;
-  const Decision d = decide("https://github.com/a", false, Clock{}, CaFile{}, pem);
+  const Decision d = decide("https://en.wikipedia.org/a", false, Clock{}, CaFile{}, pem);
   EXPECT_EQ(d.error, Error::NoClock);
 }
 

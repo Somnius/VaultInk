@@ -23,7 +23,7 @@ freeink::SecureHttpClient* openClient(freeink::SecureHttpClient* session, freein
                                       const std::string& url, const pluginhttp::Headers& headers) {
   // A reused session client may already have been told not to check certificates (that choice sticks), so a
   // host that is always checked gets a fresh client instead.
-  const bool freshNeeded = session && tlspolicy::isPublicHost(tlspolicy::hostOf(url));
+  const bool freshNeeded = session && tlspolicy::alwaysChecked(tlspolicy::hostOf(url));
   freeink::SecureHttpClient& http = (session && !freshNeeded) ? *session : tmp;
   http.setUserAgent("CrossPoint");
   // A plugin's own server is encrypted but not checked (as before); GitHub and
