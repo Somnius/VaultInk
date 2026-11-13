@@ -16,6 +16,7 @@
 #include <Memory.h>
 #include <ResumableFetch.h>
 #include <SecureHttpClient.h>
+#include <SunTimes.h>
 #include <TlsPolicyDevice.h>
 #include <Util.h>
 #include <WiFi.h>
@@ -1545,7 +1546,22 @@ void CrossPointWebServer::handlePostSettings() {
         break;
       }
       case SettingType::STRING: {
-        const std::string val = doc[s.key].as<std::string>();
+        std::string val = doc[s.key].as<std::string>();
+        // The location for the sun schedule is degrees with one decimal: the same check as the device keyboard.
+        if (s.key && (strcmp(s.key, "sunLatitude") == 0 || strcmp(s.key, "sunLongitude") == 0)) {
+          int tenths = 0;
+          const int limit =
+              strcmp(s.key, "sunLatitude") == 0 ? autoschedule::kMaxLatitudeTenths : autoschedule::kMaxLongitudeTenths;
+          if (val.find_first_not_of(' ') == std::string::npos) {
+            val.clear();
+          } else if (autoschedule::parseDegrees(val.c_str(), limit, tenths)) {
+            char clean[8];
+            autoschedule::formatDegrees(tenths, clean, sizeof(clean));
+            val = clean;
+          } else {
+            break;  // not degrees: leave the stored value as it is
+          }
+        }
         if (s.stringSetter) {
           s.stringSetter(val);
         } else if (s.stringMaxLen > 0) {

@@ -358,3 +358,13 @@ TEST(ReadingPresetsGestures, TenFullPresetsFitTheStoreBuffer) {
   const size_t need = serialize(list, nullptr, 0);
   EXPECT_LT(need, 7424u) << need;  // ReadingPresetsStore::save's CAP
 }
+
+TEST(ReadingPresetsGestures, APresetWithTheCurrentGesturesBeatsALayoutOnlyOne) {
+  PresetList list;
+  Gestures other = sampleGestures();
+  other.slots[0] = 5;                                             // different from the sample's first slot
+  ASSERT_TRUE(save(list, 0, sampleLayout()));                    // layout only, above
+  ASSERT_TRUE(save(list, 1, sampleLayout(), sampleGestures()));  // layout and gestures
+  EXPECT_EQ(1, list.find(sampleLayout(), sampleGestures()));     // the closer match wins
+  EXPECT_EQ(0, list.find(sampleLayout(), other));                // other gestures: the layout-only slot
+}

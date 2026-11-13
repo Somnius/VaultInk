@@ -45,7 +45,7 @@ class GeneratedFiles(unittest.TestCase):
         self.assertIn("Copyright (c) 2025 CrossPoint Reader organization, MIT License.", notice)
         self.assertIn("FreeInk SDK", notice)
         self.assertIn("wolfSSL is dual-licensed (GPL or a commercial licence). VaultInk uses it under the GPL.", notice)
-        self.assertIn("the firmware binaries are distributed under the terms of the GPL-2.0-or-later", notice)
+        self.assertIn("the firmware binaries are distributed under the terms of the\n  GPL-3.0-or-later", notice)
         for c in self.data["components"]:
             self.assertIn(f"- {c['name']}", notice)
 
@@ -169,8 +169,8 @@ class Device(unittest.TestCase):
         intro = re.search(r'^STR_LICENCES_INTRO: "(.+)"$', read("lib/I18n/translations/english.yaml"), re.M).group(1)
         self.assertEqual(
             intro,
-            "VaultInk is MIT. The firmware binary includes wolfSSL (GPL-2.0-or-later), so it is distributed "
-            "under GPL terms. Source: github.com/Somnius/VaultInk",
+            "VaultInk is MIT. The firmware binary also holds wolfSSL (GPL-2.0-or-later) and Apache-2.0 code, so it "
+            "is distributed under GPL-3.0-or-later. Source: github.com/Somnius/VaultInk",
         )
 
 

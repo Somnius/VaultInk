@@ -468,4 +468,4 @@ from it.
 
 MIT for VaultInk's own source. See [LICENSE](LICENSE).
 
-The firmware binaries also contain wolfSSL (TLS 1.3), which is GPL-2.0-or-later, so the binaries are distributed under the GPL terms, with the source in this repository. See [NOTICE](NOTICE) and [docs/licenses.md](docs/licenses.md).
+The firmware binaries also contain wolfSSL (TLS 1.3, GPL-2.0-or-later) and Apache-2.0 libraries (NimBLE-Arduino, JPEGDEC and others). Apache-2.0 is compatible with version 3 of the GPL but not version 2, so the binaries are distributed under the GPL-3.0-or-later, with the source in this repository. See [NOTICE](NOTICE) and [docs/licenses.md](docs/licenses.md).

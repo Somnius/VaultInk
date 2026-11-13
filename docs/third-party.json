@@ -46,7 +46,7 @@
       "source": "https://github.com/wolfSSL/Arduino-wolfSSL",
       "used_in": "firmware",
       "verified_from": ".pio/libdeps/x4pro/Arduino-wolfSSL/LICENSING, COPYING and the header of src/wolfssl/ssl.h",
-      "notes": "Dual-licensed: GPL or a commercial licence from wolfSSL Inc. VaultInk uses it under the GPL. Its library.json says GPL-2.0-only; the LICENSING file and the source headers say version 2 or any later version."
+      "notes": "Dual-licensed: GPL or a commercial licence from wolfSSL Inc. VaultInk uses it under the GPL. Its library.json says GPL-2.0-only; the LICENSING file and the source headers say version 2 or any later version. Source headers say version 2 or later, so it can be combined under GPL version 3, which the Apache-2.0 code in the binary needs."
     },
     {
       "name": "FreeType",
@@ -57,7 +57,7 @@
       "source": "https://freetype.org",
       "used_in": "firmware",
       "verified_from": "freeink-sdk/libs/font/FreeInkFont/third_party/freetype/LICENSE.TXT and FTL.TXT",
-      "notes": "Portions of this software are copyright (c) The FreeType Project (www.freetype.org). All rights reserved. FreeType's LICENSE.TXT offers the FreeType License or the GPL version 2 (or later) and says the FreeType License is compatible with GPL version 3 but not version 2."
+      "notes": "Portions of this software are copyright (c) The FreeType Project (www.freetype.org). All rights reserved. FreeType's LICENSE.TXT offers the FreeType License or the GPL version 2 (or later) and says the FreeType License is compatible with GPL version 3 but not version 2. The firmware binary is distributed under GPL-3.0-or-later, so FreeType is used under the FreeType License, which is compatible with GPL version 3 (not with version 2)."
     },
     {
       "name": "stb_truetype",

@@ -401,9 +401,12 @@ int PresetList::find(const Layout& layout) const {
 }
 
 int PresetList::find(const Layout& layout, const Gestures& gestures) const {
+  // A preset that holds the current gestures too is the closer match, so it wins over a layout-only one.
   for (int i = 0; i < kSlots; ++i) {
-    if (!slots[i].saved || slots[i].layout != layout) continue;
-    if (!slots[i].hasGestures || slots[i].gestures == gestures) return i;
+    if (slots[i].saved && slots[i].layout == layout && slots[i].hasGestures && slots[i].gestures == gestures) return i;
+  }
+  for (int i = 0; i < kSlots; ++i) {
+    if (slots[i].saved && slots[i].layout == layout && !slots[i].hasGestures) return i;
   }
   return -1;
 }

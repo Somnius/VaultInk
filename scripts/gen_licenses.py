@@ -45,8 +45,10 @@ NOTICE_WOLFSSL = (
     "GPL-2.0-or-later,\n"
     "  Copyright (c) wolfSSL Inc. wolfSSL is dual-licensed (GPL or a commercial licence). "
     "VaultInk uses it under the GPL.\n"
-    "  Because of that, the firmware binaries are distributed under the terms of the GPL-2.0-or-later, with the\n"
-    "  source in this repository. The source files of VaultInk itself stay under the MIT licence (see LICENSE).\n"
+    "  The firmware binary also contains Apache-2.0 code (NimBLE-Arduino, JPEGDEC and others), which is compatible\n"
+    "  with version 3 of the GPL but not version 2. So the firmware binaries are distributed under the terms of the\n"
+    "  GPL-3.0-or-later, with the source in this repository. The source files of VaultInk itself stay under the MIT\n"
+    "  licence (see LICENSE).\n"
 )
 
 
@@ -98,8 +100,10 @@ def render_md(data):
     )
     out.append(
         "VaultInk's own code is under the MIT licence (see [LICENSE](../LICENSE)). The firmware binaries also "
-        "contain wolfSSL, which is under the GPL-2.0-or-later, so the binaries are distributed under the terms "
-        "of the GPL, with the source in this repository. Every other library, font and icon keeps its own "
+        "contain wolfSSL (GPL-2.0-or-later) and libraries under the Apache-2.0 licence (NimBLE-Arduino, JPEGDEC, "
+        "PNGdec, AnimatedGIF, ESP-IDF). The Apache-2.0 licence is compatible with version 3 of the GPL but not "
+        "with version 2, so the binaries are distributed under the terms of the GPL-3.0-or-later, with the source "
+        "in this repository. Every other library, font and icon keeps its own "
         "licence, and that licence applies to it. They are all listed below.\n"
     )
     out.append("## What that means for you\n")
