@@ -7,8 +7,16 @@
     devlink.py screenshot out.png          .png or .bmp, the same picture as Power + Down
     devlink.py bench --every 60 --minutes 30 --out idle.csv
     devlink.py bench-file bench.csv        the drain per hour from a copied /.vaultink/bench.csv
+    devlink.py key CONFIRM                 press a key (BACK CONFIRM LEFT RIGHT UP DOWN; never POWER)
+    devlink.py tap 240 400                 touch a screen pixel, as a screenshot shows it
+    devlink.py swipe 400 300 80 300        a swipe from one screen pixel to another
+    devlink.py ls /debug                   list a folder of the SD card
+    devlink.py get /.vaultink/bench.csv bench.csv
+    devlink.py put note.txt /debug/note.txt
+    devlink.py flash /firmware.bin         flash a .bin that is already on the SD card; then cmd REBOOT
 
-Only the x4pro-dev build answers the JSON commands; every build answers the screenshot.
+Only the x4pro-dev build answers the JSON commands; every build answers the screenshot. The SD
+commands reach /debug, /screenshots and a few files of /.vaultink, nothing else (docs/devlink.md).
 Standard library only. On Linux and macOS the port is opened with termios; pyserial is used
 only where termios does not exist (Windows), and that path has not been run.
 """
@@ -16,6 +24,8 @@ only where termios does not exist (Windows), and that path has not been run.
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import csv
 import glob
 import json
@@ -34,6 +44,14 @@ except ImportError:  # Windows
 PANEL_WIDTH = 800
 PANEL_HEIGHT = 480
 REPLY_TIMEOUT_S = 3.0
+FLASH_TIMEOUT_S = 600.0
+KEY_NAMES = ("BACK", "CONFIRM", "LEFT", "RIGHT", "UP", "DOWN")
+MIN_HOLD_MS = 20
+MAX_HOLD_MS = 5000
+MAX_COMMAND_BYTES = 256  # the reader drops a longer line whole
+GET_CHUNK_BYTES = 2880  # the most one CMD:GET returns
+PUT_CHUNK_BYTES = 180  # the most one CMD:PUT takes
+CHUNK_TRIES = 3
 SCREENSHOT_TIMEOUT_S = 20.0
 CSV_COLUMNS = [
     "time",
@@ -60,8 +78,8 @@ class LinkError(Exception):
 # ---- parsing (no I/O; test/dev_link/test_devlink_script.py covers it) ----
 
 
-def parse_reply(line: bytes | str):
-    """The reply object of one line, or None for a log line or anything else."""
+def parse_json_line(line: bytes | str):
+    """The JSON object of one line, or None for a log line or anything else."""
     if isinstance(line, bytes):
         line = line.decode("utf-8", errors="replace")
     line = line.strip()
@@ -71,9 +89,89 @@ def parse_reply(line: bytes | str):
         reply = json.loads(line)
     except ValueError:
         return None
-    if not isinstance(reply, dict) or not isinstance(reply.get("ok"), bool):
+    return reply if isinstance(reply, dict) else None
+
+
+def parse_reply(line: bytes | str):
+    """The reply object of one line (it has "ok"), or None for a log line or anything else. A JSON
+    line without "ok" is not a reply: LS sends one for every entry and FLASH for its progress."""
+    reply = parse_json_line(line)
+    if reply is None or not isinstance(reply.get("ok"), bool):
         return None
     return reply
+
+
+# ---- keys, touches and SD files: the command texts (no I/O) ----
+
+
+def _hold(value, name: str) -> str:
+    if value is None:
+        return ""
+    if not MIN_HOLD_MS <= value <= MAX_HOLD_MS:
+        raise ValueError(f"{name} must be {MIN_HOLD_MS} to {MAX_HOLD_MS} ms")
+    return f" {value}"
+
+
+def _pixel(value: int) -> int:
+    if not 0 <= value <= 65535:
+        raise ValueError("a coordinate is a screen pixel, 0 or above")
+    return value
+
+
+def key_command(name: str, hold=None) -> str:
+    """KEY <name> [hold_ms]. The power key is refused here as it is on the reader."""
+    name = name.upper()
+    if name == "POWER":
+        raise ValueError("POWER is not allowed: the link never presses the power key")
+    if name not in KEY_NAMES:
+        raise ValueError("the key must be one of " + " ".join(KEY_NAMES))
+    return f"KEY {name}{_hold(hold, 'the hold time')}"
+
+
+def tap_command(x: int, y: int, hold=None) -> str:
+    return f"TAP {_pixel(x)} {_pixel(y)}{_hold(hold, 'the hold time')}"
+
+
+def swipe_command(x1: int, y1: int, x2: int, y2: int, ms=None) -> str:
+    return f"SWIPE {_pixel(x1)} {_pixel(y1)} {_pixel(x2)} {_pixel(y2)}{_hold(ms, 'the swipe time')}"
+
+
+def sd_path(path: str) -> str:
+    """A path on the reader's card as the commands take it. The reader decides what is allowed;
+    this only catches what can never be right before anything is sent."""
+    if not path.startswith("/") or ".." in path or "\n" in path or "\r" in path:
+        raise ValueError(f"{path!r} is not a path on the reader's SD card (it starts with / and has no '..')")
+    return path
+
+
+def put_commands(path: str, data: bytes):
+    """The CMD:PUT lines that write `data` to `path`: each as large as the 256-byte line allows,
+    180 bytes of data at most, each at the offset where the one before ended."""
+    path = sd_path(path)
+    if not data:
+        raise ValueError("an empty file cannot be sent")
+    commands = []
+    offset = 0
+    while offset < len(data):
+        room = MAX_COMMAND_BYTES - len(f"CMD:PUT {path} {offset} ".encode())
+        size = min(PUT_CHUNK_BYTES, room // 4 * 3)
+        if size < 3:
+            raise ValueError("the path is too long for a 256-byte command")
+        text = base64.b64encode(data[offset : offset + size]).decode()
+        commands.append(f"PUT {path} {offset} {text}")
+        offset += size
+    return commands
+
+
+def get_data(reply: dict, offset: int) -> bytes:
+    """The bytes of one CMD:GET reply, checked against what it says it holds."""
+    try:
+        data = base64.b64decode(reply.get("data", ""), validate=True)
+    except (binascii.Error, ValueError) as error:
+        raise LinkError("the data of a GET reply is not base64") from error
+    if reply.get("offset") != offset or reply.get("len") != len(data):
+        raise LinkError("a GET reply does not match what was asked for")
+    return data
 
 
 def parse_screenshot_start(line: bytes):
@@ -495,6 +593,58 @@ def command(port, text: str, timeout: float = REPLY_TIMEOUT_S) -> dict:
             return reply
 
 
+def command_lines(port, text: str, timeout: float = REPLY_TIMEOUT_S, on_line=None):
+    """Like command(), for LS and FLASH: returns the reply and the JSON lines that came before it
+    (entries, progress). `on_line` is called with each of those as it arrives."""
+    port.drain()
+    port.write(f"\nCMD:{text}\n".encode())
+    deadline = time.monotonic() + timeout
+    lines = []
+    while True:
+        if time.monotonic() >= deadline:
+            raise LinkError("no reply in time (is this the x4pro-dev build, awake and out of USB Drive mode?)")
+        line = parse_json_line(port.read_line(deadline))
+        if line is None:
+            continue
+        if isinstance(line.get("ok"), bool):
+            return line, lines
+        lines.append(line)
+        if on_line:
+            on_line(line)
+
+
+def get_file(port, path: str) -> tuple[dict, bytes]:
+    """Read a whole file with CMD:GET, 2880 bytes a time. Returns the last reply and the bytes; the
+    reply has ok false when the reader refused. A reply that is cut or mixed with a log line is
+    asked for again, three times at most."""
+    path = sd_path(path)
+    data = b""
+    while True:
+        for attempt in range(CHUNK_TRIES):
+            try:
+                reply = command(port, f"GET {path} {len(data)} {GET_CHUNK_BYTES}")
+                if not reply.get("ok"):
+                    return reply, data
+                part = get_data(reply, len(data))
+                break
+            except LinkError:
+                if attempt == CHUNK_TRIES - 1:
+                    raise
+        data += part
+        if reply.get("eof") or not part:
+            return reply, data
+
+
+def put_file(port, path: str, data: bytes) -> dict:
+    """Write a whole file with CMD:PUT. Returns the last reply; ok false stops it there."""
+    reply = {"ok": False, "error": "nothing sent"}
+    for text in put_commands(path, data):
+        reply = command(port, text)
+        if not reply.get("ok"):
+            break
+    return reply
+
+
 def screenshot(port, timeout: float = SCREENSHOT_TIMEOUT_S) -> bytes:
     """The raw framebuffer of CMD:SCREENSHOT (SCREENSHOT_START:<n>, n bytes, SCREENSHOT_END)."""
     port.drain()
@@ -572,6 +722,31 @@ def main(argv=None) -> int:
     run.add_argument("--out", required=True, help="CSV file, appended to")
     summary = sub.add_parser("bench-file", help="summarise a bench.csv copied from the SD card (no port needed)")
     summary.add_argument("file")
+    key = sub.add_parser("key", help="press a key: " + " ".join(KEY_NAMES) + " (never POWER)")
+    key.add_argument("name")
+    key.add_argument("--hold", type=int, help="milliseconds held (120)")
+    tap = sub.add_parser("tap", help="touch a screen pixel (as a screenshot shows it)")
+    tap.add_argument("x", type=int)
+    tap.add_argument("y", type=int)
+    tap.add_argument("--hold", type=int, help="milliseconds held (80); 500 or more is a long press")
+    swipe = sub.add_parser("swipe", help="swipe from one screen pixel to another")
+    for name in ("x1", "y1", "x2", "y2"):
+        swipe.add_argument(name, type=int)
+    swipe.add_argument("--ms", type=int, help="how long the swipe takes (250); over 700 is a drag")
+    listing = sub.add_parser("ls", help="list a folder of the SD card (/debug, /screenshots, /.vaultink)")
+    listing.add_argument("dir")
+    get = sub.add_parser("get", help="copy a file from the SD card")
+    get.add_argument("sd_path")
+    get.add_argument("file", help="where to save it on this computer")
+    put = sub.add_parser("put", help="copy a file to the SD card (/debug/..., or /.vaultink/bench.cfg)")
+    put.add_argument("file", help="the file on this computer")
+    put.add_argument("sd_path")
+    flash = sub.add_parser(
+        "flash",
+        help="flash a .bin that is already on the SD card; nothing is copied over the link, and the "
+        "reader does not restart: send `cmd REBOOT` afterwards",
+    )
+    flash.add_argument("sd_path", help="the path of the .bin on the reader's SD card, e.g. /firmware.bin")
     args = parser.parse_args(argv)
 
     if args.action == "bench-file":
@@ -590,6 +765,30 @@ def main(argv=None) -> int:
             return 0
         if args.action == "screenshot" and not args.file.lower().endswith((".png", ".bmp")):
             parser.error("the output file must end in .png or .bmp")
+        # What can be wrong before the port is opened: the command text, the local file.
+        text = None
+        payload = b""
+        if args.action == "key":
+            text = key_command(args.name, args.hold)
+        elif args.action == "tap":
+            text = tap_command(args.x, args.y, args.hold)
+        elif args.action == "swipe":
+            text = swipe_command(args.x1, args.y1, args.x2, args.y2, args.ms)
+        elif args.action == "ls":
+            text = "LS " + sd_path(args.dir)
+        elif args.action == "flash":
+            if not args.sd_path.startswith("/"):
+                raise ValueError(
+                    "flash takes the path of a .bin on the reader's SD card (e.g. /firmware.bin). Nothing is "
+                    "copied over the link: put the file on the card first (USB Drive mode or a card reader)"
+                )
+            text = "FLASH " + sd_path(args.sd_path)
+        elif args.action == "get":
+            sd_path(args.sd_path)
+        elif args.action == "put":
+            with open(args.file, "rb") as handle:
+                payload = handle.read()
+            put_commands(args.sd_path, payload)
         port = open_port(args.port)
         try:
             if args.action == "screenshot":
@@ -599,9 +798,33 @@ def main(argv=None) -> int:
                     handle.write(picture)
                 print(f"{args.file}: {len(data)} bytes from the device")
                 return 0
-            reply = command(port, "STATUS" if args.action == "status" else " ".join(args.words))
+            if args.action == "ls":
+                reply, entries = command_lines(port, text)
+                for entry in entries:
+                    size = "dir" if entry.get("dir") else str(entry.get("size", ""))
+                    print(f"{size:>10}  {entry.get('name', '')}")
+            elif args.action == "flash":
+                reply, _ = command_lines(
+                    port, text, FLASH_TIMEOUT_S, lambda line: print(json.dumps(line, ensure_ascii=False), flush=True)
+                )
+            elif args.action == "get":
+                reply, data = get_file(port, args.sd_path)
+                if reply.get("ok"):
+                    with open(args.file, "wb") as handle:
+                        handle.write(data)
+                    print(f"{args.file}: {len(data)} bytes from {args.sd_path}")
+                    return 0
+            elif args.action == "put":
+                reply = put_file(port, args.sd_path, payload)
+            elif text is not None:
+                reply = command(port, text)
+            else:
+                reply = command(port, "STATUS" if args.action == "status" else " ".join(args.words))
         finally:
             port.close()
+    except OSError as error:
+        print(f"devlink: {error}", file=sys.stderr)
+        return 2
     except (LinkError, ValueError) as error:
         print(f"devlink: {error}", file=sys.stderr)
         return 2
@@ -610,6 +833,8 @@ def main(argv=None) -> int:
             print(f"{key}: {value}")
     else:
         print(json.dumps(reply, ensure_ascii=False))
+    if args.action == "flash" and reply.get("ok"):
+        print("Written, not started: run `devlink.py cmd REBOOT` to start the new firmware.")
     return 0 if reply.get("ok") else 1
 
 

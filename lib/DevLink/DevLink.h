@@ -46,6 +46,15 @@ enum class Command : uint8_t {
   Ping,
   Help,
   Bench,  // the SD bench logger (DevLinkBench.h)
+  // The names below are in the table only with VAULTINK_DEVLINK (the developer build): every
+  // other build parses them as Unknown, and its name table is the size it was.
+  Key,    // CMD:KEY <name> [hold_ms]
+  Tap,    // CMD:TAP x y [hold_ms]
+  Swipe,  // CMD:SWIPE x1 y1 x2 y2 [ms]
+  Flash,  // CMD:FLASH <sd path>
+  Ls,     // CMD:LS <dir>
+  Get,    // CMD:GET <path> <offset> <len>
+  Put,    // CMD:PUT <path> <offset> <base64>
 };
 
 struct Parsed {
