@@ -4,6 +4,7 @@
 #include <iterator>
 #include <utility>
 
+#include "TranslateStore.h"
 #include "util/LineSpacing.h"
 #include "util/PaperTexture.h"
 
@@ -449,6 +450,32 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
         EXPORT_STORE.saveToFile();
       },
       "memosVerifyCert", StrId::STR_HIGHLIGHT_EXPORTS));
+  // --- Translation (web-only here; on the device: TranslateSettingsActivity). The API key is an obfuscated
+  // setting like the tokens above: the web page is told only whether one is set, never its value. ---
+  emit(SettingInfo::DynamicString(
+      StrId::STR_TRANSLATE_SERVER_URL, [] { return TRANSLATE_STORE.serverUrl(); },
+      [](const std::string& v) {
+        TRANSLATE_STORE.setServerUrl(v);
+        TRANSLATE_STORE.saveToFile();
+      },
+      "translateServerUrl", StrId::STR_TRANSLATION));
+  emit(SettingInfo::DynamicString(
+           StrId::STR_TRANSLATE_API_KEY, [] { return TRANSLATE_STORE.apiKey(); },
+           [](const std::string& v) {
+             TRANSLATE_STORE.setApiKey(v);
+             TRANSLATE_STORE.saveToFile();
+           },
+           "translateApiKey", StrId::STR_TRANSLATION)
+           .withObfuscated());
+  emit(SettingInfo::DynamicEnum(
+      StrId::STR_TRANSLATE_CERT_CHECK, {StrId::STR_STATE_OFF, StrId::STR_STATE_ON},
+      [] { return static_cast<uint8_t>(TRANSLATE_STORE.verifyCert()); },
+      [](uint8_t v) {
+        if (TRANSLATE_STORE.verifyCert() == (v != 0)) return;
+        TRANSLATE_STORE.setVerifyCert(v != 0);
+        TRANSLATE_STORE.saveToFile();
+      },
+      "translateVerifyCert", StrId::STR_TRANSLATION));
   // --- Status Bar Settings (web-only, uses StatusBarSettingsActivity) ---
   emit(SettingInfo::Toggle(StrId::STR_TEXT_LIGATURES, &CrossPointSettings::textLigatures, "textLigatures",
                            StrId::STR_EXPERIMENTAL));

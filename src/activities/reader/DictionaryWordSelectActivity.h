@@ -15,7 +15,9 @@
 // DictionaryDefinitionActivity or displays a status popup (Looking up,
 // Indexing, Not found, Error). When the dictionary has no entry and the reader gave a Wikipedia
 // handler, the Not found popup offers the lookup there: Confirm or a tap on the popup takes it,
-// Back or waiting dismisses it. Nothing touches the network before that tap.
+// Back or waiting dismisses it. Nothing touches the network before that tap. With a translation handler too the
+// popup offers both: Confirm or a tap on its left half is Wikipedia, the Next button (Right) or a tap on its right
+// half is Translate.
 class DictionaryWordSelectActivity final : public Activity {
  public:
   explicit DictionaryWordSelectActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
@@ -31,6 +33,8 @@ class DictionaryWordSelectActivity final : public Activity {
   // this screen (and the reader under it), so nothing here runs after it.
   using WikipediaHandler = std::function<void(std::string text)>;
   void setWikipediaHandler(WikipediaHandler handler) { wikipediaHandler = std::move(handler); }
+  // The same for the Translate offer. It is only offered next to Wikipedia's.
+  void setTranslateHandler(WikipediaHandler handler) { translateHandler = std::move(handler); }
 
   void onEnter() override;
   void loop() override;
@@ -57,6 +61,7 @@ class DictionaryWordSelectActivity final : public Activity {
   StrId popupMsg = StrId::STR_DICT_NOT_FOUND;
   unsigned long popupTime = 0;
   WikipediaHandler wikipediaHandler;
+  WikipediaHandler translateHandler;
   // Where the popup was drawn, for a tap on it (written by render, read by loop).
   int popupX = 0;
   int popupY = 0;

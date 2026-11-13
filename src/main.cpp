@@ -6,6 +6,7 @@
 #include <Epub.h>
 #include <FontCacheManager.h>
 #include <FontDecompressor.h>
+#include <Gamepad.h>
 #include <GfxRenderer.h>
 #include <HalClock.h>
 #include <HalDisplay.h>
@@ -47,6 +48,7 @@
 #include "OpdsTokenStore.h"
 #include "RecentBooksStore.h"
 #include "SdCardFontSystem.h"
+#include "TranslateStore.h"
 #include "WifiCredentialStore.h"
 #include "activities/Activity.h"
 #include "activities/ActivityManager.h"
@@ -401,8 +403,19 @@ void log(const bool error, const char* format, va_list args) {
 #endif
 }
 
-const bleturner::Host host{heap,          releaseCaches, deliver, yieldForRadio, fileTransferActive, restartIntoBook,
-                           holdFullSpeed, log,           nullptr};
+// Gamepad scaffold (lib/Gamepad): the linked device is the pad the map was learned from, and one of its buttons
+// was pressed with the book in front. A button the map does not name is left to the page turner.
+bool padRoutes(const char* addr) { return gamepad::routes(SETTINGS.gamepad, addr); }
+bool padPress(const uint32_t code, bool* acted) {
+  const gestures::Action action = gamepad::lookup(SETTINGS.gamepad, code);
+  if (action == gestures::Default) return false;
+  *acted = activityManager.remoteAction(action);
+  return true;
+}
+
+const bleturner::Host host{
+    heap, releaseCaches, deliver,   yieldForRadio, fileTransferActive, restartIntoBook, holdFullSpeed,
+    log,  nullptr,       padRoutes, padPress};
 }  // namespace pageturner
 
 constexpr char SLEEP_FRAME_FILE[] = "/.crosspoint/sleep_frame.bin";
@@ -765,6 +778,7 @@ void setup() {
   I18N.setLanguage(static_cast<Language>(SETTINGS.language));
   KOREADER_STORE.loadFromFile();
   EXPORT_STORE.loadFromFile();
+  TRANSLATE_STORE.loadFromFile();
   OPDS_STORE.loadFromFile();
   OPDS_TOKENS.loadFromFile();
   LCP_PASSPHRASES.loadFromFile();
