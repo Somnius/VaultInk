@@ -89,7 +89,7 @@ class Terminal {
   const Cell* rowPtr(uint16_t row) const;
   void markDirty(uint16_t row) { changes_.dirtyRows |= (uint64_t{1} << row); }
   void markAllDirty();
-  void clearCells(Cell* from, uint16_t count);
+  static void clearCells(Cell* from, uint16_t count);
   void eraseRow(uint16_t row, uint16_t fromCol, uint16_t toCol);
   void reset();
 

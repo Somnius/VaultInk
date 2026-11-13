@@ -1,5 +1,6 @@
 #include "SshKnownHosts.h"
 
+#include <algorithm>
 #include <cstring>
 #include <utility>
 
@@ -23,12 +24,10 @@ char lower(const char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - '
 // another field or line.
 bool hostIsPlain(const std::string_view host) {
   if (host.empty() || host.size() > 253) return false;
-  for (const char c : host) {
-    const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' ||
-                    c == '-' || c == '_' || c == ':';
-    if (!ok) return false;
-  }
-  return true;
+  return std::all_of(host.begin(), host.end(), [](const char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-' ||
+           c == '_' || c == ':';
+  });
 }
 
 struct Line {

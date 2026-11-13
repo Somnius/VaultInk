@@ -7,6 +7,15 @@
 
 #include "activities/Activity.h"
 
+// The terminal itself is only in a device build with the SSH library. Without it the screen has no
+// session, so the session's members (and the onExit and preventAutoSleep overrides, which would
+// only repeat Activity's) are not declared at all, instead of being defined as empty stubs.
+#if defined(VAULTINK_SSH) && VAULTINK_SSH && !defined(SIMULATOR)
+#define VAULTINK_SSH_TERMINAL 1
+#else
+#define VAULTINK_SSH_TERMINAL 0
+#endif
+
 /**
  * The SSH terminal (docs/ssh.md): a shell on a server, on a VT100-subset screen.
  *
@@ -40,18 +49,21 @@ class SshTerminalActivity final : public Activity {
   ~SshTerminalActivity() override;
 
   void onEnter() override;
-  void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
+#if VAULTINK_SSH_TERMINAL
+  void onExit() override;
   // Only the connection attempt keeps the device awake. An open session does not: the device's
   // usual auto-sleep applies, and sleep closes the session.
   bool preventAutoSleep() override;
+#endif
 
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
   RemoteServer server_;  // a copy; its password field holds the typed password until the sign-in is over
 
+#if VAULTINK_SSH_TERMINAL
   void showMessage(const char* text);
   void askPassword();
   void startWifi();
@@ -66,4 +78,5 @@ class SshTerminalActivity final : public Activity {
   bool keyAt(int x, int y, uint8_t& keyOut) const;
   void drawGrid();
   void drawKeys();
+#endif
 };

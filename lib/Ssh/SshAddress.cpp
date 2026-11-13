@@ -2,6 +2,8 @@
 
 #include <RemoteFiles.h>
 
+#include <algorithm>
+
 namespace sshaddr {
 
 namespace {
@@ -56,24 +58,21 @@ bool parse(std::string_view text, Address& out) {
     const std::string_view rest = authority.substr(close + 1);
     if (!rest.empty() && (rest.front() != ':' || !parsePort(rest.substr(1), result.port))) return false;
     if (host.empty()) return false;
-    for (const char c : host) {
-      if (!hostChar(c, true)) return false;
-    }
+    if (!std::all_of(host.begin(), host.end(), [](const char c) { return hostChar(c, true); })) return false;
   } else {
     const size_t colon = authority.find(':');
     host = authority.substr(0, colon);
     if (colon != std::string_view::npos && !parsePort(authority.substr(colon + 1), result.port)) return false;
     if (host.empty()) return false;
-    for (const char c : host) {
-      if (!hostChar(c, false)) return false;
-    }
+    if (!std::all_of(host.begin(), host.end(), [](const char c) { return hostChar(c, false); })) return false;
   }
   if (host.size() > 253) return false;
   result.host.assign(host);
 
   if (!path.empty() && path != "/") {
-    for (const char c : path) {
-      if (static_cast<unsigned char>(c) < 0x20 || c == 0x7F) return false;
+    if (std::any_of(path.begin(), path.end(),
+                    [](const char c) { return static_cast<unsigned char>(c) < 0x20 || c == 0x7F; })) {
+      return false;
     }
     if (!remotefiles::normalizePath(path, result.path)) return false;
   } else if (path == "/") {

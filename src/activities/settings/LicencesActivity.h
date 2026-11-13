@@ -22,7 +22,7 @@ class LicencesActivity final : public UiListActivity {
 
   int listCount() const override { return COUNT; }
   void buildScreen(UiScreen& screen) override;
-  void buildDetail(UiScreen& screen, const thirdparty::Component& component);
+  static void buildDetail(UiScreen& screen, const thirdparty::Component& component);
   void activateIndex(int index) override;
   bool handleCustomInput() override;
   const char* headerTitle() const override;

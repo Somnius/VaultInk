@@ -1,7 +1,9 @@
 #include "DevLink.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 
 namespace devlink {
 namespace {
@@ -86,13 +88,10 @@ Parsed parse(const char* line, size_t length) {
   while (nameEnd < end && !isBlank(*nameEnd)) ++nameEnd;
   const size_t nameLength = static_cast<size_t>(nameEnd - at);
 
-  parsed.command = Command::Unknown;
-  for (const Name& name : NAMES) {
-    if (strlen(name.text) == nameLength && memcmp(name.text, at, nameLength) == 0) {
-      parsed.command = name.command;
-      break;
-    }
-  }
+  const auto* const known = std::find_if(std::begin(NAMES), std::end(NAMES), [&](const Name& name) {
+    return strlen(name.text) == nameLength && memcmp(name.text, at, nameLength) == 0;
+  });
+  parsed.command = known != std::end(NAMES) ? known->command : Command::Unknown;
 
   const char* args = nameEnd;
   while (args < end && isBlank(*args)) ++args;

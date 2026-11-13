@@ -111,7 +111,7 @@ std::string decodeEntities(const std::string& in) {
       out += '&';
       continue;
     }
-    const std::string_view name(in.data() + i + 1, semi - i - 1);
+    const std::string_view name = std::string_view(in).substr(i + 1, semi - i - 1);
     uint32_t cp = 0;
     if (name == "amp") {
       cp = '&';

@@ -282,16 +282,13 @@ void handleAutoSchedule() {
   const unsigned long now = millis();
   if (lastCheckMs != 0 && now - lastCheckMs < 30000) return;
   lastCheckMs = now;
-  // cppcheck-suppress variableScope // the log line at the end prints it
-  uint8_t hour = 0;
-  // cppcheck-suppress variableScope // the log line at the end prints it
-  uint8_t minute = 0;
+  // The local time, all zero while the schedule is switched off (the log line then says 00:00).
+  struct tm local = {};
   autoschedule::Step step = autoschedule::Step::EnterDay;  // switched off: back to the day side
   if (SETTINGS.autoWarmth != 0) {
-    struct tm local;
     if (trustedtime::trustedNow() <= 0 || !halClock.isAvailable() || !halClock.localTime(local)) return;
-    hour = static_cast<uint8_t>(local.tm_hour);
-    minute = static_cast<uint8_t>(local.tm_min);
+    const auto hour = static_cast<uint8_t>(local.tm_hour);
+    const auto minute = static_cast<uint8_t>(local.tm_min);
     if (SETTINGS.autoWarmthWindow == CrossPointSettings::AUTO_WARMTH_SUN) {
       step = autoschedule::nextSun(true, sunTimesFor(local), SETTINGS.autoWarmthStart, SETTINGS.autoWarmthEnd, hour,
                                    minute, SETTINGS.autoWarmthApplied);
@@ -322,8 +319,9 @@ void handleAutoSchedule() {
   }
   SETTINGS.saveToFile();
   if (redraw) activityManager.requestUpdate();
-  LOG_INF("AUTO", "Auto warmth: %s at %02u:%02u", night ? "night" : "day", static_cast<unsigned>(hour),
-          static_cast<unsigned>(minute));
+  LOG_INF("AUTO", "Auto warmth: %s at %02u:%02u", night ? "night" : "day",
+          static_cast<unsigned>(static_cast<uint8_t>(local.tm_hour)),
+          static_cast<unsigned>(static_cast<uint8_t>(local.tm_min)));
 }
 
 // Applies the slide switch's position to the bound function at boot, on each

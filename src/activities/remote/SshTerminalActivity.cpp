@@ -12,7 +12,7 @@
 #include "fontIds.h"
 #include "network/SshDevice.h"
 
-#if defined(VAULTINK_SSH) && VAULTINK_SSH && !defined(SIMULATOR)
+#if VAULTINK_SSH_TERMINAL
 
 #include <BlePageTurner.h>
 #include <EpdFontData.h>
@@ -777,12 +777,10 @@ SshTerminalActivity::SshTerminalActivity(GfxRenderer& renderer, MappedInputManag
     : Activity("SshTerminal", renderer, mappedInput), server_(std::move(server)) {}
 SshTerminalActivity::~SshTerminalActivity() = default;
 
-bool SshTerminalActivity::preventAutoSleep() { return false; }
 void SshTerminalActivity::onEnter() {
   Activity::onEnter();
   requestUpdate();
 }
-void SshTerminalActivity::onExit() { Activity::onExit(); }
 void SshTerminalActivity::loop() {
   int x = 0;
   int y = 0;
@@ -798,19 +796,5 @@ void SshTerminalActivity::render(RenderLock&&) {
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();
 }
-void SshTerminalActivity::showMessage(const char*) {}
-void SshTerminalActivity::askPassword() {}
-void SshTerminalActivity::startWifi() {}
-void SshTerminalActivity::connectNow() {}
-void SshTerminalActivity::askHostKey() {}
-void SshTerminalActivity::enableTyping() {}
-void SshTerminalActivity::sendBytes(const std::string&) {}
-void SshTerminalActivity::scrollView(int) {}
-void SshTerminalActivity::openKeyboard() {}
-void SshTerminalActivity::askDisconnect() {}
-void SshTerminalActivity::pressKey(uint8_t) {}
-bool SshTerminalActivity::keyAt(int, int, uint8_t&) const { return false; }
-void SshTerminalActivity::drawGrid() {}
-void SshTerminalActivity::drawKeys() {}
 
 #endif
