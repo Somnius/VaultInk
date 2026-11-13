@@ -183,6 +183,12 @@ Applied apply(std::string& text, size_t& cursor, size_t maxBytes, const Event& e
       cursor = text.size();
       return Applied::Changed;
     }
+    case Special::Tab:
+    case Special::Up:
+    case Special::Down:
+    case Special::PageUp:
+    case Special::PageDown:
+      return Applied::Nothing;  // terminal keys: a text line has no use for them
     case Special::None:
       break;
   }
@@ -388,9 +394,55 @@ size_t HidTranslator::translate(uint8_t usage, uint8_t mods, Event* out, size_t 
     return 0;
   }
   if ((mods & kModCtrlAltGui) != 0) {
-    return 0;
+    // Terminal keys: Ctrl alone (no Alt, no Gui) with a letter or [ \ ] is a control character.
+    if (!terminalKeys_ || (mods & kModCtrlAltGui & ~kModCtrl) != 0) {
+      return 0;
+    }
+    uint32_t control = 0;
+    if (usage >= 0x04 && usage <= 0x1D) {
+      control = 1 + (usage - 0x04);  // Ctrl-A .. Ctrl-Z
+    } else if (usage == 0x2F) {
+      control = 0x1B;  // Ctrl-[
+    } else if (usage == 0x31) {
+      control = 0x1C;  // Ctrl-backslash
+    } else if (usage == 0x30) {
+      control = 0x1D;  // Ctrl-]
+    }
+    if (control == 0) {
+      return 0;
+    }
+    deadAccent_ = false;
+    out[0] = Event{control, Special::None};
+    return 1;
   }
   const bool shift = (mods & kModShift) != 0;
+  if (terminalKeys_) {
+    Special terminal = Special::None;
+    switch (usage) {
+      case 0x2B:
+        terminal = Special::Tab;
+        break;
+      case 0x52:
+        terminal = Special::Up;
+        break;
+      case 0x51:
+        terminal = Special::Down;
+        break;
+      case 0x4B:
+        terminal = Special::PageUp;
+        break;
+      case 0x4E:
+        terminal = Special::PageDown;
+        break;
+      default:
+        break;
+    }
+    if (terminal != Special::None) {
+      deadAccent_ = false;
+      out[0] = Event{0, terminal};
+      return 1;
+    }
+  }
 
   const Special special = specialFor(usage);
   if (special != Special::None) {

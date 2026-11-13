@@ -10,7 +10,24 @@
 // Platform-free (no Arduino/ESP/NimBLE), so it is tested on the computer.
 namespace textinput {
 
-enum class Special : uint8_t { None, Backspace, Delete, Left, Right, Home, End, Enter, Escape };
+// Tab, Up, Down, PageUp and PageDown come only from a translator with terminal keys on (the SSH terminal); a text
+// line does nothing with them.
+enum class Special : uint8_t {
+  None,
+  Backspace,
+  Delete,
+  Left,
+  Right,
+  Home,
+  End,
+  Enter,
+  Escape,
+  Tab,
+  Up,
+  Down,
+  PageUp,
+  PageDown
+};
 
 // One typed thing: a character (a Unicode code point) or a special key.
 struct Event {
@@ -65,6 +82,7 @@ enum class Layout : uint8_t { Us, Greek };
 // HID modifier bits (the SDK's KeyEvent::mods).
 constexpr uint8_t kModShift = 0x02 | 0x20;  // left or right shift
 constexpr uint8_t kModCtrlAltGui = 0x01 | 0x04 | 0x08 | 0x10 | 0x40 | 0x80;
+constexpr uint8_t kModCtrl = 0x01 | 0x10;  // left or right ctrl
 
 // Translates key presses on a keyboard that sits on the US layout. For Layout::Greek the same key position gives the
 // letter that key has on the Greek layout, and the tonos (the acute accent, on the ; key position, as on a Greek
@@ -77,6 +95,11 @@ class HidTranslator {
     deadAccent_ = false;
   }
   Layout layout() const { return layout_; }
+  // Terminal keys (off by default, for the SSH terminal): Tab, Up, Down, PageUp and PageDown become events, and
+  // Ctrl with a letter or one of [ \ ] gives the control character (Ctrl-C is code point 3, Ctrl-[ is 27). Alt and
+  // Gui combinations still give nothing.
+  void setTerminalKeys(bool on) { terminalKeys_ = on; }
+  bool terminalKeys() const { return terminalKeys_; }
 
   // Returns the number of events written to out (0, 1 or 2). Keys with Ctrl/Alt/Gui held give no typed text.
   size_t translate(uint8_t usage, uint8_t mods, Event* out, size_t cap);
@@ -84,6 +107,7 @@ class HidTranslator {
  private:
   Layout layout_;
   bool deadAccent_ = false;
+  bool terminalKeys_ = false;
 };
 
 }  // namespace textinput

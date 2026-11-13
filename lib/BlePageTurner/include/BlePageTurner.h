@@ -161,6 +161,10 @@ bool textEntry();
 enum class KeyboardLayout : uint8_t { Us, Greek };
 void setKeyboardLayout(KeyboardLayout layout);
 KeyboardLayout keyboardLayout();
+// The SSH terminal is the text-entry screen in front: Tab, the up/down arrows, PageUp/PageDown and Ctrl
+// combinations are typed too (textinput::HidTranslator::setTerminalKeys). Call after setTextEntry(true);
+// setTextEntry(false) switches it off again. Main loop.
+void setTerminalKeys(bool on);
 // Returns true when a remote press acted this pass (the host counts it as user activity).
 bool tick(const Scene& scene);
 // False: the radio is still stopping (or a start is in flight); call again next pass before

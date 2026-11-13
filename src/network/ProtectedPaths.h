@@ -11,12 +11,15 @@
 // manifest may read or write: their passwords are obfuscated with a device
 // key, so the files must stay on the device. Mirrors the getFilePath() of
 // WifiCredentialStore, OpdsServerStore, KOReaderCredentialStore and
-// RemoteServerStore (the WebDAV and FTP servers). Prefix
-// match, so the stores' temp/backup siblings are covered too.
+// RemoteServerStore (the WebDAV, FTP and SSH servers), and the SSH folder
+// (/.vaultink/ssh: the device's sealed private key and the pinned host keys,
+// docs/ssh.md). Prefix match, so the stores' temp/backup siblings and
+// everything in the SSH folder are covered too.
 namespace protectedpaths {
 
 inline constexpr const char* SENSITIVE_FILES[] = {"/.crosspoint/wifi.json", "/.crosspoint/opds.json",
-                                                  "/.crosspoint/koreader.json", "/.crosspoint/remotes.json"};
+                                                  "/.crosspoint/koreader.json", "/.crosspoint/remotes.json",
+                                                  "/.vaultink/ssh"};
 
 // SdFat also opens a name by its generated 8.3 alias (".crosspoint" is
 // CROSSP~1), which no spelling check can map back to the long name.

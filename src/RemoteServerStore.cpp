@@ -10,35 +10,13 @@
 #include <utility>
 
 namespace {
-std::string capped(const char* text) {
-  std::string out = text ? text : "";
-  if (out.size() > RemoteServerStore::MAX_FIELD_BYTES) {
-    // Cut on a character boundary, not in the middle of a UTF-8 sequence.
-    size_t cut = RemoteServerStore::MAX_FIELD_BYTES;
-    while (cut > 0 && (static_cast<unsigned char>(out[cut]) & 0xC0) == 0x80) --cut;
-    out.resize(cut);
-  }
-  return out;
-}
+std::string obfuscate(const std::string& plain) { return std::string(obfuscation::obfuscateToBase64(plain).c_str()); }
+std::string deobfuscate(const char* stored) { return obfuscation::deobfuscateFromBase64(stored); }
 }  // namespace
-
-bool RemoteServer::isPlain() const {
-  if (protocol == Protocol::Ftp) return true;
-  // Anything that is not clearly https counts as not encrypted.
-  return !(url.size() >= 8 && strncasecmp(url.c_str(), "https://", 8) == 0);
-}
 
 void RemoteServerStore::toJson(JsonDocument& doc) const {
   JsonArray arr = doc["servers"].to<JsonArray>();
-  for (const auto& server : servers) {
-    JsonObject obj = arr.add<JsonObject>();
-    obj["name"] = server.name;
-    obj["protocol"] = server.protocol == RemoteServer::Protocol::Ftp ? "ftp" : "webdav";
-    obj["url"] = server.url;
-    obj["username"] = server.username;
-    obj["password_obf"] = obfuscation::obfuscateToBase64(server.password);
-    obj["verifyCert"] = server.verifyCert;
-  }
+  for (const auto& server : servers) remoteserver::toJson(server, arr.add<JsonObject>(), obfuscate);
 }
 
 bool RemoteServerStore::fromJson(JsonVariantConst doc) {
@@ -47,16 +25,7 @@ bool RemoteServerStore::fromJson(JsonVariantConst doc) {
   servers.reserve(std::min(arr.size(), MAX_SERVERS));
   for (JsonObjectConst obj : arr) {
     if (servers.size() >= MAX_SERVERS) break;
-    RemoteServer server;
-    server.name = capped(obj["name"] | "");
-    server.url = capped(obj["url"] | "");
-    server.username = capped(obj["username"] | "");
-    server.password = obfuscation::deobfuscateFromBase64(obj["password_obf"] | "");
-    if (server.password.size() > MAX_FIELD_BYTES) server.password.clear();
-    server.protocol =
-        strcmp(obj["protocol"] | "webdav", "ftp") == 0 ? RemoteServer::Protocol::Ftp : RemoteServer::Protocol::WebDav;
-    // A file without the field (or edited by hand) gets the safe value.
-    server.verifyCert = obj["verifyCert"] | true;
+    RemoteServer server = remoteserver::fromJson(obj, deobfuscate);
     servers.push_back(std::move(server));
   }
   LOG_DBG("RMT", "Loaded %zu file servers", servers.size());

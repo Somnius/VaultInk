@@ -4,19 +4,32 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <SshAddress.h>
 
 #include <utility>
 
 #include "MappedInputManager.h"
 #include "RemoteBrowserActivity.h"
+#include "SshKeyActivity.h"
+#include "SshTerminalActivity.h"
+#include "activities/util/ConfirmationActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
+#include "network/SshDevice.h"
 
 namespace fui = freeink::ui;
 
 namespace {
 const char* protocolName(const RemoteServer::Protocol protocol) {
-  return protocol == RemoteServer::Protocol::Ftp ? "FTP" : "WebDAV";
+  switch (protocol) {
+    case RemoteServer::Protocol::Ftp:
+      return "FTP";
+    case RemoteServer::Protocol::Sftp:
+      return "SSH / SFTP";
+    case RemoteServer::Protocol::WebDav:
+    default:
+      return "WebDAV";
+  }
 }
 
 // Content below the GUI.drawHeader band, above the button hints (as the OPDS server pages).
@@ -33,8 +46,9 @@ void setListMargins(UiAppHost::UiScreen& screen, const GfxRenderer& renderer) {
 
 // ---- the list ----
 
-RemoteServerListActivity::RemoteServerListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-    : UiListActivity("RemoteServerList", renderer, mappedInput) {}
+RemoteServerListActivity::RemoteServerListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
+                                                   const bool sshOnly)
+    : UiListActivity("RemoteServerList", renderer, mappedInput), sshOnly_(sshOnly) {}
 
 void RemoteServerListActivity::onEnter() {
   UiListActivity::onEnter();
@@ -48,9 +62,13 @@ void RemoteServerListActivity::rebuildRowItems() {
   const auto& servers = REMOTE_STORE.getServers();
   rowItems_.clear();
   rowSubtitles_.clear();
+  rowServer_.clear();
   rowItems_.reserve(servers.size() + 1);
   rowSubtitles_.reserve(servers.size());
+  rowServer_.reserve(servers.size());
   for (size_t i = 0; i < servers.size(); i++) {
+    if (sshOnly_ && !servers[i].isSsh()) continue;
+    rowServer_.push_back(static_cast<int16_t>(i));
     // "FTP, not encrypted · host/path": the warning is on the list too, not only before connecting.
     std::string subtitle = protocolName(servers[i].protocol);
     if (servers[i].isPlain()) {
@@ -60,29 +78,33 @@ void RemoteServerListActivity::rebuildRowItems() {
     if (!servers[i].name.empty() && !servers[i].url.empty()) subtitle += " \xC2\xB7 " + servers[i].url;
     rowSubtitles_.push_back(std::move(subtitle));
   }
-  for (size_t i = 0; i < servers.size(); i++) {
+  for (size_t row = 0; row < rowServer_.size(); row++) {
+    const RemoteServer& server = servers[static_cast<size_t>(rowServer_[row])];
     fui::ListItem item;
-    item.label = servers[i].name.empty() ? (servers[i].url.empty() ? tr(STR_NOT_SET) : servers[i].url.c_str())
-                                         : servers[i].name.c_str();
-    item.subtitle = rowSubtitles_[i].c_str();
-    item.actionValue = static_cast<int16_t>(i);
+    item.label =
+        server.name.empty() ? (server.url.empty() ? tr(STR_NOT_SET) : server.url.c_str()) : server.name.c_str();
+    item.subtitle = rowSubtitles_[row].c_str();
+    item.actionValue = static_cast<int16_t>(row);
     rowItems_.push_back(item);
   }
   if (servers.size() < RemoteServerStore::MAX_SERVERS) {
     fui::ListItem add;
     add.label = tr(STR_ADD_SERVER);
-    add.actionValue = static_cast<int16_t>(servers.size());
+    add.actionValue = static_cast<int16_t>(rowServer_.size());
     rowItems_.push_back(add);
   }
 }
 
-const char* RemoteServerListActivity::headerTitle() const { return tr(STR_REMOTE_SERVERS); }
+const char* RemoteServerListActivity::headerTitle() const {
+  return sshOnly_ ? tr(STR_SSH_SERVERS) : tr(STR_REMOTE_SERVERS);
+}
 
 void RemoteServerListActivity::activateIndex(const int index) {
   nav.selected = index;
   app.clearTapFlash();
-  const auto serverCount = static_cast<int>(REMOTE_STORE.getCount());
-  auto page = makeUniqueNoThrow<RemoteServerActivity>(renderer, mappedInput, index < serverCount ? index : -1);
+  const auto serverRows = static_cast<int>(rowServer_.size());
+  const int storeIndex = index >= 0 && index < serverRows ? rowServer_[static_cast<size_t>(index)] : -1;
+  auto page = makeUniqueNoThrow<RemoteServerActivity>(renderer, mappedInput, storeIndex, sshOnly_);
   if (!page) {
     LOG_ERR("RMT", "OOM: server page");
     return;
@@ -110,8 +132,8 @@ void RemoteServerListActivity::buildScreen(UiScreen& screen) {
 // ---- one server ----
 
 RemoteServerActivity::RemoteServerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
-                                           const int serverIndex)
-    : UiListActivity("RemoteServer", renderer, mappedInput), serverIndex(serverIndex) {}
+                                           const int serverIndex, const bool newAsSsh)
+    : UiListActivity("RemoteServer", renderer, mappedInput), serverIndex(serverIndex), newAsSsh(newAsSsh) {}
 
 void RemoteServerActivity::onEnter() {
   UiListActivity::onEnter();
@@ -125,20 +147,31 @@ void RemoteServerActivity::onEnter() {
       serverIndex = -1;
     }
   }
+  if (isNewServer && newAsSsh && sshdevice::available()) editServer.protocol = RemoteServer::Protocol::Sftp;
   layoutRows();
 }
 
 void RemoteServerActivity::layoutRows() {
   RenderLock lock(*this);
   int n = 0;
-  if (!isNewServer && !editServer.url.empty()) rows_[n++] = Row::Connect;
+  const bool ssh = editServer.isSsh();
+  if (!isNewServer && !editServer.url.empty()) {
+    if (ssh) rows_[n++] = Row::Terminal;
+    rows_[n++] = Row::Connect;
+  }
   rows_[n++] = Row::Name;
   rows_[n++] = Row::Protocol;
   rows_[n++] = Row::Address;
   rows_[n++] = Row::Username;
-  rows_[n++] = Row::Password;
+  // An SSH password is typed at every connection and never saved: there is no row to save one.
+  if (!ssh) rows_[n++] = Row::Password;
   // FTP has no certificate to check.
   if (editServer.protocol == RemoteServer::Protocol::WebDav) rows_[n++] = Row::CheckCert;
+  if (ssh) {
+    rows_[n++] = Row::SignIn;
+    if (editServer.keyAuth) rows_[n++] = Row::PublicKey;
+    if (!isNewServer && !editServer.url.empty()) rows_[n++] = Row::ForgetHost;
+  }
   if (!isNewServer) rows_[n++] = Row::Delete;
   rowCount_ = n;
   if (nav.selected >= n) nav.selected = n - 1;
@@ -226,10 +259,31 @@ void RemoteServerActivity::activateIndex(const int index) {
       startActivityForResult(std::move(browser), [](const ActivityResult&) {});
       break;
     }
+    case Row::Terminal:
+      openTerminal();
+      break;
     case Row::Protocol:
-      editServer.protocol = editServer.protocol == RemoteServer::Protocol::WebDav ? RemoteServer::Protocol::Ftp
-                                                                                  : RemoteServer::Protocol::WebDav;
+      // WebDAV -> FTP -> SSH (where the build has it) -> WebDAV.
+      if (editServer.protocol == RemoteServer::Protocol::WebDav) {
+        editServer.protocol = RemoteServer::Protocol::Ftp;
+      } else if (editServer.protocol == RemoteServer::Protocol::Ftp && sshdevice::available()) {
+        editServer.protocol = RemoteServer::Protocol::Sftp;
+      } else {
+        editServer.protocol = RemoteServer::Protocol::WebDav;
+      }
+      // A password typed for one protocol is not sent with another, and SSH saves none.
+      editServer.password.clear();
+      if (!editServer.isSsh()) editServer.keyAuth = false;
       saveServer();
+      break;
+    case Row::SignIn:
+      toggleSignIn();
+      break;
+    case Row::PublicKey:
+      showPublicKey();
+      break;
+    case Row::ForgetHost:
+      forgetHostKey();
       break;
     case Row::CheckCert:
       editServer.verifyCert = !editServer.verifyCert;
@@ -260,8 +314,9 @@ void RemoteServerActivity::buildScreen(UiScreen& screen) {
   const fui::Rect band = screen.takeTop(static_cast<int16_t>(lineHeight * 2));
   const int16_t pad = screen.theme().headerSidePadding;
   const bool plain = !editServer.url.empty() && editServer.isPlain();
-  screen.target().text(band.inset(fui::Insets{0, pad, 0, pad}),
-                       plain ? tr(STR_REMOTE_PLAIN_HINT) : tr(STR_REMOTE_ADDRESS_HINT), hint);
+  const char* hintText = plain ? tr(STR_REMOTE_PLAIN_HINT) : tr(STR_REMOTE_ADDRESS_HINT);
+  if (editServer.isSsh()) hintText = tr(STR_SSH_ADDRESS_HINT);
+  screen.target().text(band.inset(fui::Insets{0, pad, 0, pad}), hintText, hint);
   screen.spacer(static_cast<int16_t>(metrics.verticalSpacing));
 
   for (int i = 0; i < rowCount_; i++) {
@@ -269,8 +324,23 @@ void RemoteServerActivity::buildScreen(UiScreen& screen) {
     item.actionValue = static_cast<int16_t>(i);
     switch (rows_[i]) {
       case Row::Connect:
-        item.label = tr(STR_REMOTE_BROWSE);
+        item.label = editServer.isSsh() ? tr(STR_SSH_BROWSE) : tr(STR_REMOTE_BROWSE);
         item.value = ">";
+        break;
+      case Row::Terminal:
+        item.label = tr(STR_SSH_TERMINAL);
+        item.value = ">";
+        break;
+      case Row::SignIn:
+        item.label = tr(STR_SSH_SIGN_IN);
+        item.value = editServer.keyAuth ? tr(STR_SSH_SIGN_IN_KEY) : tr(STR_SSH_SIGN_IN_PASSWORD);
+        break;
+      case Row::PublicKey:
+        item.label = tr(STR_SSH_PUBLIC_KEY);
+        item.value = ">";
+        break;
+      case Row::ForgetHost:
+        item.label = tr(STR_SSH_FORGET_HOST);
         break;
       case Row::Name:
         item.label = tr(STR_SERVER_NAME);
@@ -315,9 +385,58 @@ void RemoteServerActivity::buildScreen(UiScreen& screen) {
   screen.list(props);
 }
 
+void RemoteServerActivity::toggleSignIn() {
+  if (editServer.keyAuth) {
+    editServer.keyAuth = false;
+    saveServer();
+    return;
+  }
+  // The first use of the device key makes it (on the device, with its own random generator).
+  if (!sshdevice::hasKey()) {
+    GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
+    if (!sshdevice::createKey()) {
+      showSaveError = true;
+      requestUpdate();
+      return;
+    }
+  }
+  editServer.keyAuth = true;
+  if (saveServer()) showPublicKey();
+}
+
+void RemoteServerActivity::showPublicKey() {
+  auto page = makeUniqueNoThrow<SshKeyActivity>(renderer, mappedInput);
+  if (!page) {
+    LOG_ERR("RMT", "OOM: key page");
+    return;
+  }
+  startActivityForResult(std::move(page), [](const ActivityResult&) {});
+}
+
+void RemoteServerActivity::forgetHostKey() {
+  sshaddr::Address address;
+  if (!sshaddr::parse(editServer.url, address)) return;
+  auto dialog = makeUniqueNoThrow<ConfirmationActivity>(renderer, mappedInput, tr(STR_SSH_FORGET_HOST),
+                                                        tr(STR_SSH_FORGET_HOST_BODY));
+  if (!dialog) return;
+  startActivityForResult(std::move(dialog), [address](const ActivityResult& result) {
+    if (!result.isCancelled) sshdevice::forgetHost(address.host, address.port);
+  });
+}
+
+void RemoteServerActivity::openTerminal() {
+  auto terminal = makeUniqueNoThrow<SshTerminalActivity>(renderer, mappedInput, editServer);
+  if (!terminal) {
+    LOG_ERR("RMT", "OOM: terminal");
+    return;
+  }
+  startActivityForResult(std::move(terminal), [](const ActivityResult&) {});
+}
+
 const char* RemoteServerActivity::headerTitle() const {
   if (isNewServer) return tr(STR_ADD_SERVER);
-  return editServer.name.empty() ? tr(STR_REMOTE_SERVERS) : editServer.name.c_str();
+  if (!editServer.name.empty()) return editServer.name.c_str();
+  return editServer.isSsh() ? tr(STR_SSH_SERVERS) : tr(STR_REMOTE_SERVERS);
 }
 
 void RemoteServerActivity::drawFooter() {

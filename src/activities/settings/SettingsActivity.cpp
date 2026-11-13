@@ -60,6 +60,7 @@
 #include "components/UIThemeTokens.h"
 #include "components/UiAppHelpers.h"
 #include "fontIds.h"
+#include "network/SshDevice.h"
 #include "util/DebugLog.h"
 #include "util/PluginEvents.h"
 #include "util/VaultFiles.h"
@@ -202,6 +203,8 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   addAction(SettingsSection::Network, StrId::STR_HIGHLIGHT_EXPORTS, SettingAction::HighlightExports);
   addAction(SettingsSection::Network, StrId::STR_OPDS_SERVERS, SettingAction::OPDSBrowser);
   addAction(SettingsSection::Network, StrId::STR_REMOTE_SERVERS, SettingAction::RemoteServers);
+  // Only where the build links the SSH library (the X4 Pro).
+  if (sshdevice::available()) addAction(SettingsSection::Network, StrId::STR_SSH_SERVERS, SettingAction::SshServers);
   addAction(SettingsSection::Network, StrId::STR_PLUGINS, SettingAction::Plugins);
 
   // OTA fetches this board's own release asset (see OtaUpdater); boards whose
@@ -452,6 +455,13 @@ void SettingsActivity::toggleSelectedSetting() {
           startActivityForResult(std::move(activity), resultHandler);
         } else {
           LOG_ERR("SETTINGS", "OOM: RemoteServerListActivity");
+        }
+        break;
+      case SettingAction::SshServers:
+        if (auto activity = makeUniqueNoThrow<RemoteServerListActivity>(renderer, mappedInput, /*sshOnly=*/true)) {
+          startActivityForResult(std::move(activity), resultHandler);
+        } else {
+          LOG_ERR("SETTINGS", "OOM: SSH server list");
         }
         break;
       case SettingAction::Network: {
