@@ -77,7 +77,7 @@ private fun displayName(context: Context, uri: Uri): Pair<String, Long> {
 enum class FileKind(val icon: String) { BOOK("📘"), COMIC("📚"), NOTE("📝"), IMAGE("🖼️"), OTHER("📄") }
 
 fun fileKind(name: String): FileKind = when (name.substringAfterLast('.', "").lowercase()) {
-    "epub", "txt", "pdf", "fb2", "mobi", "azw3", "rtf", "html", "htm", "xhtml" -> FileKind.BOOK
+    "epub", "txt", "pdf", "fb2", "mobi", "azw3", "rtf", "html", "htm", "xhtml", "doc", "chm" -> FileKind.BOOK
     "cbz", "cbr", "xtc", "xtch" -> FileKind.COMIC
     "md", "markdown", "canvas", "excalidraw", "json", "yaml", "yml" -> FileKind.NOTE
     "jpg", "jpeg", "png", "gif", "bmp", "webp", "svg" -> FileKind.IMAGE

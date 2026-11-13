@@ -68,6 +68,9 @@ TEST(LibraryBookFileTest, RejectsOtherFilesAndHiddenNames) {
   EXPECT_TRUE(isLibraryBookFile("/Books/book.htm"));
   EXPECT_TRUE(isLibraryBookFile("/Books/book.xhtml"));
   EXPECT_TRUE(isLibraryBookFile("/Books/book.rtf"));
+  EXPECT_TRUE(isLibraryBookFile("/Books/book.doc"));
+  EXPECT_TRUE(isLibraryBookFile("/Books/book.chm"));
+  EXPECT_FALSE(isLibraryBookFile("/Books/book.docx"));
   EXPECT_FALSE(isLibraryBookFile("/Books/.hidden/book.fb2"));
   EXPECT_TRUE(isLibraryBookFile("/Books/book.azw"));
   EXPECT_TRUE(isLibraryBookFile("/Books/book.azw3"));

@@ -83,10 +83,13 @@ TEST(MarkupBookExtension, Fb2HtmlRtf) {
   for (const auto path : {"a.html"sv, "a.htm"sv, "a.XHTML"sv}) EXPECT_TRUE(FsHelpers::hasHtmlExtension(path));
   EXPECT_FALSE(FsHelpers::hasHtmlExtension("a.mhtml.txt"));
   EXPECT_TRUE(FsHelpers::hasRtfExtension("a.RTF"));
-  for (const auto path : {"a.fb2"sv, "a.html"sv, "a.htm"sv, "a.xhtml"sv, "a.rtf"sv}) {
+  EXPECT_TRUE(FsHelpers::hasDocExtension("a.DOC"));
+  EXPECT_FALSE(FsHelpers::hasDocExtension("a.docx"));  // zip and XML: not read
+  EXPECT_TRUE(FsHelpers::hasChmExtension("help.Chm"));
+  for (const auto path : {"a.fb2"sv, "a.html"sv, "a.htm"sv, "a.xhtml"sv, "a.rtf"sv, "a.doc"sv, "a.chm"sv}) {
     EXPECT_TRUE(FsHelpers::hasMarkupBookExtension(path));
   }
-  for (const auto path : {"a.epub"sv, "a.txt"sv, "a.md"sv, "a.mobi"sv, "a.doc"sv, "rtf"sv}) {
+  for (const auto path : {"a.epub"sv, "a.txt"sv, "a.md"sv, "a.mobi"sv, "a.docx"sv, "a.dot"sv, "rtf"sv}) {
     EXPECT_FALSE(FsHelpers::hasMarkupBookExtension(path));
   }
 }
@@ -96,7 +99,7 @@ TEST(MarkupBookExtension, Fb2HtmlRtf) {
 TEST(RandomPageBook, PicksBookFormatsOnly) {
   for (const char* path :
        {"/Books/a.epub", "/Books/a.EPUB", "/Comics/x.cbz", "/Comics/x.xtch", "/Books/p.pdf", "/Books/novel.txt",
-        "/Ελληνικά/βιβλίο.epub", "/Books/a.fb2", "/Books/a.html", "/Books/a.rtf"}) {
+        "/Ελληνικά/βιβλίο.epub", "/Books/a.fb2", "/Books/a.html", "/Books/a.rtf", "/Books/a.doc", "/Books/a.chm"}) {
     EXPECT_TRUE(FsHelpers::isRandomPageBook(path)) << path;
   }
   for (const char* path : {"/Vaults/V/note.md", "/pic.png", "/a.canvas", "/a.zip", "/Sketch.excalidraw"}) {

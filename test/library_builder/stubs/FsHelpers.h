@@ -16,6 +16,7 @@ inline bool hasMobiExtension(std::string_view path) {
 }
 inline bool hasMarkupBookExtension(std::string_view path) {
   return checkFileExtension(path, ".fb2") || checkFileExtension(path, ".html") || checkFileExtension(path, ".htm") ||
-         checkFileExtension(path, ".xhtml") || checkFileExtension(path, ".rtf");
+         checkFileExtension(path, ".xhtml") || checkFileExtension(path, ".rtf") || checkFileExtension(path, ".doc") ||
+         checkFileExtension(path, ".chm");
 }
 }  // namespace FsHelpers

@@ -198,8 +198,13 @@ bool hasHtmlExtension(std::string_view fileName) {
 
 bool hasRtfExtension(std::string_view fileName) { return checkFileExtension(fileName, ".rtf"); }
 
+bool hasDocExtension(std::string_view fileName) { return checkFileExtension(fileName, ".doc"); }
+
+bool hasChmExtension(std::string_view fileName) { return checkFileExtension(fileName, ".chm"); }
+
 bool hasMarkupBookExtension(std::string_view fileName) {
-  return hasFb2Extension(fileName) || hasHtmlExtension(fileName) || hasRtfExtension(fileName);
+  return hasFb2Extension(fileName) || hasHtmlExtension(fileName) || hasRtfExtension(fileName) ||
+         hasDocExtension(fileName) || hasChmExtension(fileName);
 }
 
 bool hasCanvasExtension(std::string_view fileName) { return checkFileExtension(fileName, ".canvas"); }
