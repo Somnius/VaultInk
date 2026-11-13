@@ -1,7 +1,9 @@
 # Developer link
 
 A few commands over the USB cable for working on the firmware: ask the reader for its state, reboot
-it, put it in flashing mode without holding a button, and log its state to a CSV file during a test.
+it, put it in flashing mode without holding a button, log its state to a CSV file during a test,
+press its keys and touch its screen from a script, fetch its bench logs and screenshots, and flash
+a firmware file that is on its SD card.
 
 **It is for developers only.** The commands exist only in the `x4pro-dev` build. That build is never
 uploaded as a release, to the web installer or to anyone's device. The builds people install
@@ -55,17 +57,28 @@ share the port, so read lines until one parses as a JSON object with an `ok` fie
 | Command | Reply |
 | --- | --- |
 | `PING` | `{"ok":true,"pong":true,"uptime_ms":...}` |
-| `HELP` | `{"ok":true,"commands":"PING HELP STATUS LOG BENCH REBOOT BOOTLOADER SCREENSHOT"}` |
+| `HELP` | `{"ok":true,"commands":"PING HELP STATUS LOG BENCH KEY TAP SWIPE FLASH LS GET PUT REBOOT BOOTLOADER SCREENSHOT"}` |
 | `STATUS` | the fields below |
 | `LOG <0-3>` | 2 and 3 turn debug lines on, 0 and 1 turn them off. Errors and info lines always print: the levels are fixed when the firmware is compiled, and the reply's `note` says so |
 | `BENCH` | the state of the SD bench log: `{"ok":true,"minutes":5,"on":true,"file":"/.vaultink/bench.csv","file_bytes":...,"rows":...,"failed":...}` (`rows` and `failed` count since boot) |
 | `BENCH <minutes>` | sets the interval, 0 to 1440; 0 is off. The same reply plus `"saved"`: the setting is on the card. See [The SD bench log](#the-sd-bench-log) |
+| `KEY <name> [hold_ms]` | presses BACK, CONFIRM, LEFT, RIGHT, UP or DOWN: `{"ok":true,"queued":2}`. See [Keys and touches](#keys-and-touches) |
+| `TAP x y [hold_ms]` | touches a screen pixel: `{"x":240,"y":400,"ok":true,"queued":2}` |
+| `SWIPE x1 y1 x2 y2 [ms]` | a swipe between two screen pixels: `{"x":..,"y":..,"x2":..,"y2":..,"ok":true,"queued":2}` |
+| `LS <dir>` | one line an entry, `{"name":"a.txt","dir":false,"size":3}`, then `{"ok":true,"count":1,"truncated":false}`. See [Files on the SD card](#files-on-the-sd-card) |
+| `GET <path> <offset> <len>` | up to 2880 bytes of a file as base64: `{"offset":0,"size":9,"data":"...","len":9,"eof":true,"ok":true}` |
+| `PUT <path> <offset> <base64>` | writes up to 180 bytes: `{"ok":true,"written":9,"size":9}` |
+| `FLASH <sd path>` | checks a `.bin` on the card and writes it to the slot that is not running; progress lines, then `{"ok":true,"action":"flash","slot":"app1",...}`. It does not restart. See [Flashing from the SD card](#flashing-from-the-sd-card) |
 | `REBOOT` | `{"ok":true,"action":"reboot"}`, then a restart 100 ms later. Like the reset button: nothing is saved first |
 | `BOOTLOADER` | `{"ok":true,"action":"bootloader"}`, then a restart into the chip's download mode, where `esptool` and `pio run -t upload` can flash it. Leaving it without flashing needs a reset of the chip; how to do that on an X4 Pro is not checked |
 | `SCREENSHOT` | not JSON: `SCREENSHOT_START:<n>`, n raw bytes, `SCREENSHOT_END` (every build) |
 | anything else | `{"ok":false,"error":"unknown"}` |
 
 A line longer than 256 bytes is dropped whole. Names are case-sensitive.
+
+`LS` and `FLASH` send more than one line. Their extra lines (an entry, a progress step) are JSON
+objects **without** an `ok` field; the line with `ok` is always the last one. So the rule above
+still holds: read until a line has `ok`.
 
 `STATUS` fields:
 
@@ -100,7 +113,19 @@ scripts/devlink.py cmd LOG 2                  # any command, the JSON reply
 scripts/devlink.py screenshot shot.png        # or .bmp; upright, like Power + Down
 scripts/devlink.py bench --every 60 --minutes 30 --out idle.csv
 scripts/devlink.py bench-file bench.csv       # the summary of a bench.csv copied from the card
+scripts/devlink.py key CONFIRM                # --hold 800 for a long press
+scripts/devlink.py tap 240 400                # a screen pixel, as in a screenshot; --hold 600
+scripts/devlink.py swipe 400 300 80 300       # --ms 250
+scripts/devlink.py ls /debug
+scripts/devlink.py get /.vaultink/bench.csv bench.csv
+scripts/devlink.py put note.txt /debug/note.txt
+scripts/devlink.py flash /firmware.bin        # a file already on the card; then: cmd REBOOT
 ```
+
+`flash` copies nothing: its argument is the path of a `.bin` **on the reader's SD card**. Put the
+file there first (USB Drive mode, or a card reader). `get` asks for 2880 bytes a time and asks
+again, three times at most, for a part that came back cut. `put` sends as much as fits a 256-byte
+line each time (about 170 bytes with a short path). `key` refuses POWER before anything is sent.
 
 It uses `--port`, else `$DEVLINK_PORT`, else the first `/dev/serial/by-id/*Espressif*JTAG*`, else the
 first `/dev/ttyACM*`. The exit code is 0 for `ok:true`, 1 for `ok:false`, 2 when there is no port or
@@ -187,6 +212,122 @@ changed under `light changed`. The figure of a group is its whole drop over its 
 the summary the script lists every stretch. Percent moves in whole steps, so over a few minutes the
 millivolts say more; use runs of half an hour or longer for the percent.
 
+## Keys and touches
+
+`KEY`, `TAP` and `SWIPE` put made-up input into a short queue. The firmware plays the queue at the
+place where it reads the real buttons and the touch controller, so a screen cannot tell the
+difference: the same press and release, the same held time, the same tap, long press and swipe,
+and the auto-sleep timer counts it as input (`idle_ms` in `STATUS` starts again).
+
+- **Keys.** `KEY <BACK|CONFIRM|LEFT|RIGHT|UP|DOWN> [hold_ms]`, held 120 ms unless you say (20 to
+  5000). The key is added to what the input library reads from the pins, through the library's own
+  hook for extra buttons, so its debounce and its timing apply. The names are the physical buttons:
+  a remapping in Settings applies to them as it does to a finger.
+- **POWER is refused**, by name: `{"ok":false,"error":"POWER is not allowed: the link never presses
+  the power key"}`. The queue cannot hold a power press at all, so the link cannot put the reader to
+  sleep or turn it off. There is no Home key command either.
+- **Touches.** `TAP x y [hold_ms]` (80 ms; 500 or more is a long press) and
+  `SWIPE x1 y1 x2 y2 [ms]` (250 ms; over 700 ms it is a drag, not a swipe). The coordinates are
+  screen pixels as a screenshot shows them, in the orientation the screen has when the command
+  arrives; a value outside the screen is moved to its edge, and the reply says which pixel was
+  used. The thresholds are the touch controller's: a tap may move 59 pixels, a swipe is 60 or more.
+  A board without a touch screen answers `this board has no touch screen`.
+- **Bounded.** The queue holds 16 events; a key, a tap and a swipe are two each (down, up), so
+  eight can wait. A ninth gets `queue full (16 events): wait and send it again`. `queued` in the
+  reply is the number of events waiting, this one included.
+- **Paced.** 50 ms pass between the end of one and the start of the next, and every state lasts at
+  least 10 ms and two passes of the input loop, so a press is never lost to the debounce however
+  fast the commands come. The times are counted on the firmware's own clock (`millis`) from the
+  moment the event before was played, not from when the command arrived: a slow pass of the loop
+  delays a release, it does not shorten a hold.
+- A tap or swipe reports the time you asked for as its held time, even when its release was played
+  late, so a tap never turns into a long press and a swipe never turns into a drag because the
+  reader was busy.
+
+```sh
+scripts/devlink.py key DOWN && scripts/devlink.py key CONFIRM
+scripts/devlink.py tap 240 400
+scripts/devlink.py screenshot after.png
+```
+
+A command returns when the event is queued, not when the screen has changed: wait for the redraw
+(or poll `STATUS` for `activity`) before the screenshot.
+
+## Files on the SD card
+
+`LS`, `GET` and `PUT` reach three folders and nothing else. The rule is an allow-list
+(`src/util/DevLinkPaths.h`, tested in `test/dev_link`):
+
+| Path | LS | GET | PUT |
+| --- | --- | --- | --- |
+| `/debug` and everything under it (the debug logs) | yes | yes | yes |
+| `/screenshots` and everything under it | yes | yes | no |
+| `/.vaultink` itself | yes (names and sizes) | | |
+| `/.vaultink/bench.csv`, `bench.old.csv`, `battery-log.tsv` | | yes | no |
+| `/.vaultink/bench.cfg` | | yes | yes |
+| everything else | no | no | no |
+
+Everything else is `{"ok":false,"error":"path refused (docs/devlink.md, Security)"}`: `/.crosspoint`
+(settings, Wi-Fi and server passwords), `/Vaults`, `/books`, the card's root, and the rest of
+`/.vaultink` (it also holds the lock PIN and the LiveSync profile and setup text, so only the four
+files above can be read there). `LS /.vaultink` shows that those files exist, not what is in them.
+
+A path has one spelling. It is refused when it does not start with `/`, holds `..` anywhere, a `.`
+part, `//`, a slash at the end (`LS` allows one), a backslash, a colon or a control byte, a part
+that starts with a blank or ends in a dot or a blank (the card would open it under another name),
+or a part that looks like a short 8.3 alias (`CROSSP~1`: a tilde followed by a digit). Upper and
+lower case are the same, as on the card. A path is 200 bytes at most and may hold blanks.
+
+- `LS <dir>` lists at most 200 entries; `truncated` says there were more.
+- `GET <path> <offset> <len>`: `len` is 1 to 2880, so a reply line stays under 4 KB (3840 base64
+  characters). `size` is the size of the file, `len` the bytes in this reply, `eof` whether the
+  file ends here. `len` and `ok` come after the data, and the data leaves the reader 540 bytes at a
+  time: check that the decoded data is `len` bytes long (`devlink.py get` does, and asks again).
+- `PUT <path> <offset> <base64>`: 180 bytes of data at most (a command line is 256 bytes). Offset
+  0 starts the file again; any other offset must be the size the file has now, so a part sent twice
+  or out of order is refused (the error carries `size`). A file written over the link is 1 MB at
+  most. An empty file cannot be written. Folders under `/debug` are made as needed. Writing
+  `/.vaultink/bench.cfg` sets the bench interval the same way `BENCH <minutes>` does (the logger
+  reads the file again).
+
+```sh
+scripts/devlink.py ls /screenshots
+scripts/devlink.py get /screenshots/screenshot-1234.bmp shot.bmp
+scripts/devlink.py get /.vaultink/bench.csv bench.csv && scripts/devlink.py bench-file bench.csv
+```
+
+So the bench log no longer needs USB Drive mode or a card reader.
+
+## Flashing from the SD card
+
+`FLASH <sd path>` is Settings → SD firmware update without the screens. It runs the same code
+(`firmware_flash`) with the same checks, in the same order:
+
+1. The path: absolute, a `.bin`, one spelling as above, anywhere on the card except `/.crosspoint`
+   and `/.vaultink`. The file is only read as a firmware image; nothing of it is sent back.
+2. The battery: refused under 30% unless USB power is in (`battery below 30% and no USB power`).
+3. The size against the slot that is not running, then the whole image: header, segment table,
+   checksum, SHA-256, the chip, and the board tag. A refused image answers
+   `{"ok":false,"error":"image refused","reason":"WRONG_BOARD","slot":"app1"}` (the reason is the
+   flasher's own name: `TOO_SMALL`, `TOO_LARGE`, `BAD_MAGIC`, `BAD_SEGMENTS`, `BAD_CHECKSUM`,
+   `BAD_SHA`, `BAD_CHIP`, `WRONG_BOARD`, `BAD_SIZE`) and nothing is written.
+4. `{"flash":"checked","bytes":...,"slot":"app1"}`, then the image is checked once more and written,
+   with a line every tenth: `{"flash":"writing","written":...,"total":...,"percent":40}`.
+5. `{"ok":true,"action":"flash","slot":"app1","bytes":...,"rebooted":false,"next":"send CMD:REBOOT
+   to start it"}`. `slot` is the label of the partition that was written.
+
+**It does not restart.** The new firmware starts at the next restart, whatever causes it: send
+`CMD:REBOOT` when you are ready. Until then the reader runs the firmware it had. A failed write
+answers `{"ok":false,"error":"flash failed","reason":"..."}`.
+
+The reader does nothing else while it writes (no screen updates, no other command), about as long
+as the Settings screen takes. `devlink.py flash` waits up to ten minutes and prints the progress.
+
+```sh
+scripts/devlink.py flash /firmware.bin && scripts/devlink.py cmd REBOOT
+scripts/devlink.py status        # "version" is the new build's
+```
+
 ## Limits
 
 - **The link dies at sleep.** The firmware closes the USB serial port before deep sleep, and
@@ -200,22 +341,49 @@ millivolts say more; use runs of half an hour or longer for the percent.
 - **A command needs its newline.** Before, `CMD:SCREENSHOT` without one still ran after a second's
   wait, during which the reader did nothing else. Now nothing waits and a line counts when it ends.
 - One reply is 767 bytes at most; a longer one comes back as `{"ok":false,"error":"reply too long"}`.
+  `GET` is the exception: its line is up to 4 KB and leaves in several writes, so a log line from
+  another task can land inside it. The line then does not parse, or its data is not `len` bytes
+  long: ask again.
+- **A touch is one finger and a straight line.** No Home key, no two-finger gestures, no power key.
+- **Injected input and a real finger at once** are not kept apart: use one or the other.
+- **While `FLASH` writes, the reader answers nothing.**
 
 ## Security
 
 A debug port that can read the SD card can read vault notes and saved passwords, with no more than
 a cable. So:
 
-- The commands are compiled into `x4pro-dev` only, and it must stay that way: never add
-  `VAULTINK_DEVLINK` to a release build.
-- The link only reads the device's state and restarts it. It has no access to files, settings or
-  input. The one thing it writes is its own bench log and that log's setting, both at fixed paths
-  in `/.vaultink/`.
+- **None of this is in a release.** Every command but `SCREENSHOT` is compiled into `x4pro-dev`
+  (and `x4pro-dev-verify`) only, and it must stay that way: never add `VAULTINK_DEVLINK` to a
+  release build. In the builds people install, the code for `KEY`, `TAP`, `SWIPE`, `LS`, `GET`,
+  `PUT` and `FLASH` does not exist: their names are not even in the command table, and a line with
+  one of them is ignored like any other unknown line.
+- A reader with the developer build obeys anyone who has the cable. What that person can and cannot
+  do:
+
+| | Allowed | Why |
+| --- | --- | --- |
+| State | `STATUS`, `LOG`, `BENCH`, `REBOOT`, `BOOTLOADER` | what the link is for |
+| Input | six keys, one-finger taps and swipes | to drive a test from a script. Never the power key: no sleep, no power-off from the cable. Injected input can do what a finger on that reader can do, no more: it opens the same screens, and it meets the same lock screen |
+| Read files | `/debug`, `/screenshots`, the bench log and its setting, the battery log | the logs and pictures a test produces |
+| Write files | `/debug/...`, `/.vaultink/bench.cfg` | test notes, and the bench interval |
+| Flash | a `.bin` on the card that passes every check of the Settings screen (chip, board, checksum, SHA-256) | the same door the Settings screen has; a wrong or broken image is refused, and the reader does not restart on its own |
+| **Never** | `/.crosspoint` (settings, Wi-Fi, OPDS, KOReader, WebDAV and FTP passwords), `/Vaults`, `/books`, the lock PIN, the LiveSync profile, anything else on the card | notes and passwords must not leave over a debug port |
+
+- The file rule is an allow-list: a path is refused unless it is one of the entries above, so a new
+  folder on the card is closed until someone opens it here. The path checks reuse
+  `src/network/ProtectedPaths.h` (the web server's rule for the password files and the device
+  folders), and traversal, case, 8.3 aliases and double slashes are tested.
+- There are no settings commands: the link cannot read or change a setting, except through the
+  screen like a finger.
+- What injected input shows on screen can be photographed with `SCREENSHOT`, in every build as
+  before. A developer reader with an open vault on screen shows that vault to the cable. Keep the
+  developer build off a reader that holds things you would not show.
 - `x4pro-dev-verify` checks more than a release does, not less. It is still a developer build.
 
-**Next slice, not built:** list, read and write SD files; read and change settings; key and touch
-injection (`CMD:KEY`, `CMD:TAP x y`); `CMD:FLASH <sd path>` through the existing SD firmware
-flasher. If any of it ever ships to users it goes behind a Developer setting that is off by default.
+**Next slice, not built:** read and change settings; a Home key and two-finger gestures for the
+input queue. If any part of the link ever ships to users it goes behind a Developer setting that
+is off by default.
 
 ## JTAG, one try
 
@@ -324,6 +492,18 @@ Everything on the device:
   [live test](#live-test-githubs-certificate);
 - every command's reply from a real reader, and that a reply is never cut or mixed with a log line
   (replies wait for room in a 1024-byte send queue and go out as one write);
+- `KEY`, `TAP` and `SWIPE` on a reader: that an injected key passes the input library's debounce
+  through its button hook (tested on a computer against a copy of the debounce rule, not against
+  the library), that a tap lands on the pixel asked for in each orientation, that `idle_ms` starts
+  again, and that the pacing is right for the real loop;
+- `LS`, `GET` and `PUT` on a real card: the names a listing returns, how long a 4 KB `GET` takes
+  and how often a log line cuts it, appending with `PUT`;
+- `FLASH` on a reader: the slot label it reports, how long it takes, that the reader keeps running
+  the old firmware until `REBOOT` and starts the new one after it, and that the serial port stays
+  up while the flash is written;
+- that the `x4pro` build did not grow: the seven new names and all new code are inside
+  `#ifdef VAULTINK_DEVLINK` (lib/DevLink, lib/hal/HalGPIO, src/util/DevLinkDevice), which only
+  `x4pro-dev` and `x4pro-dev-verify` define. No device build was run;
 - `BOOTLOADER`: it sets `RTC_CNTL_FORCE_DOWNLOAD_BOOT` and restarts, the same write the Arduino core
   makes in `usb_persist_restart(RESTART_BOOTLOADER)`. That the X4 Pro then shows up for `esptool` is
   untested;

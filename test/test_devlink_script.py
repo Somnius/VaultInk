@@ -4,7 +4,10 @@
     python3 test/test_devlink_script.py
 """
 
+import base64
+import contextlib
 import csv
+import io
 import json
 import os
 import pty
@@ -40,7 +43,7 @@ STATUS = {
 class FakeDevice:
     """Answers like the firmware on the master side of a pty; `path` is what the script opens."""
 
-    def __init__(self, framebuffer=b"", dev_build=True, lose_bytes=0, end_marker=True):
+    def __init__(self, framebuffer=b"", dev_build=True, lose_bytes=0, end_marker=True, files=None, cut_gets=0):
         self.master, slave = pty.openpty()
         self.path = os.ttyname(slave)
         self.slave = slave  # kept open so the master never sees a hang-up between two opens
@@ -48,6 +51,9 @@ class FakeDevice:
         self.dev_build = dev_build
         self.lose_bytes = lose_bytes
         self.end_marker = end_marker
+        self.files = files  # a made-up SD card: path -> bytes; None for a device without the SD commands
+        self.cut_gets = cut_gets  # this many GET replies are cut short by a log line
+        self.queued = 0
         self.seen = []
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
@@ -96,9 +102,70 @@ class FakeDevice:
             reply = {"ok": True, "pong": True}
         elif line.startswith("CMD:LOG "):
             reply = {"ok": True, "level": int(line.split()[1])}
+        elif line.startswith(("CMD:KEY ", "CMD:TAP ", "CMD:SWIPE ")):
+            self.queued += 2
+            reply = {"ok": True, "queued": self.queued}
+        elif self.files is not None and line.startswith(("CMD:LS ", "CMD:GET ", "CMD:PUT ", "CMD:FLASH ")):
+            reply = self.answer_sd(line)
+            if reply is None:
+                return
         else:
             reply = {"ok": False, "error": "unknown"}
         self.send(json.dumps(reply).encode() + b"\n")
+
+
+    def answer_sd(self, line):
+        """The framing of the SD commands. Which paths are allowed is the firmware's rule, tested in
+        test/dev_link; here everything outside /debug, /screenshots and /.vaultink is refused."""
+        refused = {"ok": False, "error": "path refused (docs/devlink.md, Security)"}
+        name, _, rest = line[4:].partition(" ")
+        if name == "LS":
+            folder = rest.rstrip("/")
+            names = sorted(path for path in self.files if path.startswith(folder + "/"))
+            if not names:
+                return refused
+            for path in names:
+                entry = {"name": path[len(folder) + 1 :], "dir": False, "size": len(self.files[path])}
+                self.send(json.dumps(entry).encode() + b"\n")
+            return {"ok": True, "count": len(names), "truncated": False}
+        if name == "FLASH":
+            if rest not in self.files:
+                return {"ok": False, "error": "cannot open the file"}
+            size = len(self.files[rest])
+            self.send(json.dumps({"flash": "checked", "bytes": size, "slot": "app1"}).encode() + b"\n")
+            self.send(b"[1300] [INF] [FW] erasing\n")
+            step = {"flash": "writing", "written": size, "total": size, "percent": 100}
+            self.send(json.dumps(step).encode() + b"\n")
+            return {"ok": True, "action": "flash", "slot": "app1", "bytes": size, "rebooted": False}
+        path, offset, last = rest.rsplit(" ", 2)
+        offset = int(offset)
+        if not path.startswith(("/debug/", "/screenshots/", "/.vaultink/")):
+            return refused
+        if name == "GET":
+            if path not in self.files:
+                return {"ok": False, "error": "no such file"}
+            data = self.files[path]
+            part = data[offset : offset + min(int(last), 2880)]
+            if self.cut_gets > 0:
+                self.cut_gets -= 1
+                self.send(b'{"offset":%d,"size":%d,"data":"QUJD[1300] [INF] [MEM] Free\n' % (offset, len(data)))
+                return None
+            return {
+                "offset": offset,
+                "size": len(data),
+                "data": base64.b64encode(part).decode(),
+                "len": len(part),
+                "eof": offset + len(part) >= len(data),
+                "ok": True,
+            }
+        current = b"" if offset == 0 else self.files.get(path, b"")
+        if offset != len(current):
+            return {"ok": False, "error": "the offset must be 0 or the size of the file", "size": len(current)}
+        part = base64.b64decode(last, validate=True)
+        if not path.startswith("/debug/") or len(part) > 180:
+            return refused
+        self.files[path] = current + part
+        return {"ok": True, "written": len(part), "size": len(self.files[path])}
 
 
 def reference_bmp_rows(framebuffer, width, height):
@@ -338,6 +405,251 @@ BENCH_FILE = """epoch,uptime_ms,battery_mv,battery_percent,usb,light_on,light_br
 0,602000,3967,77,1,0,0,128,80,150000,90000,6000000,Home,0,0,0
 0,1202000,3999,78,1,0,0,128,80,150000,90000,6000000,Home,0,0,0
 """
+
+
+class CommandTexts(unittest.TestCase):
+    def test_a_line_without_ok_is_not_a_reply(self):
+        entry = b'{"name":"a.txt","dir":false,"size":3}'
+        self.assertIsNone(devlink.parse_reply(entry))
+        self.assertEqual(devlink.parse_json_line(entry), {"name": "a.txt", "dir": False, "size": 3})
+        self.assertIsNone(devlink.parse_json_line(b"[1200] [INF] {x}"))
+        self.assertIsNone(devlink.parse_json_line(b"[1, 2]"))
+        self.assertIsNone(devlink.parse_json_line(b'{"data":"QUJD[1300] [INF] cut'))
+
+    def test_key(self):
+        self.assertEqual(devlink.key_command("CONFIRM"), "KEY CONFIRM")
+        self.assertEqual(devlink.key_command("back", 1500), "KEY BACK 1500")
+        for name in devlink.KEY_NAMES:
+            self.assertEqual(devlink.key_command(name), "KEY " + name)
+        for name in ("POWER", "power", "HOME", "", "BACK CONFIRM"):
+            with self.assertRaises(ValueError):
+                devlink.key_command(name)
+        for hold in (0, 19, 5001, -1):
+            with self.assertRaises(ValueError):
+                devlink.key_command("UP", hold)
+
+    def test_tap_and_swipe(self):
+        self.assertEqual(devlink.tap_command(240, 400), "TAP 240 400")
+        self.assertEqual(devlink.tap_command(0, 0, 700), "TAP 0 0 700")
+        self.assertEqual(devlink.swipe_command(400, 300, 80, 300), "SWIPE 400 300 80 300")
+        self.assertEqual(devlink.swipe_command(1, 2, 3, 4, 500), "SWIPE 1 2 3 4 500")
+        with self.assertRaises(ValueError):
+            devlink.tap_command(-1, 5)
+        with self.assertRaises(ValueError):
+            devlink.tap_command(1, 5, 5)
+        with self.assertRaises(ValueError):
+            devlink.swipe_command(1, 2, 3, 70000)
+        with self.assertRaises(ValueError):
+            devlink.swipe_command(1, 2, 3, 4, 6000)
+
+    def test_sd_path(self):
+        self.assertEqual(devlink.sd_path("/debug/a b.txt"), "/debug/a b.txt")
+        for path in ("debug/a.txt", "", "/debug/../.crosspoint/wifi.json", "/debug/a\nCMD:REBOOT", "./x", "~/x.bin"):
+            with self.assertRaises(ValueError):
+                devlink.sd_path(path)
+
+    def test_put_commands_fit_the_line_and_join_back(self):
+        data = random.Random(3).randbytes(1000)
+        greek = "/debug/\u039c\u03b5 \u03ba\u03b5\u03bd\u03cc.txt"
+        for path in ("/debug/a.bin", "/debug/" + "d" * 150 + ".bin", greek):
+            commands = devlink.put_commands(path, data)
+            joined = b""
+            for text in commands:
+                self.assertLessEqual(len(f"CMD:{text}".encode()), devlink.MAX_COMMAND_BYTES)
+                name, rest = text.split(" ", 1)
+                got_path, offset, encoded = rest.rsplit(" ", 2)
+                self.assertEqual((name, got_path), ("PUT", path))
+                self.assertEqual(int(offset), len(joined))
+                part = base64.b64decode(encoded, validate=True)
+                self.assertTrue(0 < len(part) <= devlink.PUT_CHUNK_BYTES)
+                joined += part
+            self.assertEqual(joined, data)
+        # 174 bytes fit a 256-byte line with this path.
+        self.assertEqual(len(devlink.put_commands("/debug/a.bin", data)), 6)
+        self.assertEqual(devlink.put_commands("/.vaultink/bench.cfg", b"5\n"), ["PUT /.vaultink/bench.cfg 0 NQo="])
+
+    def test_put_commands_that_cannot_be_sent(self):
+        with self.assertRaises(ValueError):
+            devlink.put_commands("/debug/empty.txt", b"")
+        with self.assertRaises(ValueError):
+            devlink.put_commands("/debug/" + "d" * 240, b"abc")
+        with self.assertRaises(ValueError):
+            devlink.put_commands("debug/a.txt", b"abc")
+
+    def test_get_data_is_checked(self):
+        reply = {"ok": True, "offset": 10, "size": 13, "data": "QUJD", "len": 3, "eof": True}
+        self.assertEqual(devlink.get_data(reply, 10), b"ABC")
+        for change in ({"offset": 0}, {"len": 4}, {"data": "QUJ"}, {"data": "QU JD"}, {"data": "QUJDRA=="}):
+            with self.assertRaises(devlink.LinkError):
+                devlink.get_data({**reply, **change}, 10)
+
+
+class NextSlice(unittest.TestCase):
+    """KEY, TAP, SWIPE, LS, GET, PUT and FLASH against the fake device."""
+
+    def setUp(self):
+        devlink.REPLY_TIMEOUT_S = 0.6
+        self.devices = []
+
+    def tearDown(self):
+        for device in self.devices:
+            device.close()
+
+    def device(self, **options):
+        device = FakeDevice(**options)
+        self.devices.append(device)
+        return device
+
+    def run_main(self, device, *words):
+        out = io.StringIO()
+        err = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = devlink.main(["--port", device.path, *words])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_key_tap_and_swipe(self):
+        device = self.device()
+        code, out, _ = self.run_main(device, "key", "CONFIRM")
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out), {"ok": True, "queued": 2})
+        self.assertEqual(self.run_main(device, "key", "back", "--hold", "800")[0], 0)
+        self.assertEqual(self.run_main(device, "tap", "240", "400")[0], 0)
+        self.assertEqual(self.run_main(device, "tap", "10", "20", "--hold", "600")[0], 0)
+        self.assertEqual(self.run_main(device, "swipe", "400", "300", "80", "300", "--ms", "200")[0], 0)
+        self.assertEqual(
+            device.seen,
+            [
+                "CMD:KEY CONFIRM",
+                "CMD:KEY BACK 800",
+                "CMD:TAP 240 400",
+                "CMD:TAP 10 20 600",
+                "CMD:SWIPE 400 300 80 300 200",
+            ],
+        )
+
+    def test_the_power_key_is_never_sent(self):
+        device = self.device()
+        code, _, err = self.run_main(device, "key", "POWER")
+        self.assertEqual(code, 2)
+        self.assertIn("POWER is not allowed", err)
+        self.assertEqual(self.run_main(device, "key", "SLEEP")[0], 2)
+        self.assertEqual(self.run_main(device, "tap", "5", "5", "--hold", "1")[0], 2)
+        self.assertEqual(device.seen, [])
+
+    def test_ls_prints_the_entries(self):
+        device = self.device(files={"/debug/a.txt": b"abc", "/debug/b.log": b"x" * 1200, "/books/c.epub": b"no"})
+        code, out, _ = self.run_main(device, "ls", "/debug")
+        self.assertEqual(code, 0)
+        lines = out.splitlines()
+        self.assertEqual([line.split() for line in lines[:2]], [["3", "a.txt"], ["1200", "b.log"]])
+        self.assertEqual(json.loads(lines[2]), {"ok": True, "count": 2, "truncated": False})
+        code, out, _ = self.run_main(device, "ls", "/Vaults")
+        self.assertEqual(code, 1)
+        self.assertFalse(json.loads(out)["ok"])
+
+    def test_get_copies_a_file_in_parts(self):
+        data = random.Random(5).randbytes(7000)  # three parts of 2880 at most
+        device = self.device(files={"/.vaultink/bench.csv": data, "/debug/empty.txt": b""})
+        with tempfile.TemporaryDirectory() as folder:
+            out = os.path.join(folder, "bench.csv")
+            self.assertEqual(self.run_main(device, "get", "/.vaultink/bench.csv", out)[0], 0)
+            with open(out, "rb") as handle:
+                self.assertEqual(handle.read(), data)
+            empty = os.path.join(folder, "empty.txt")
+            self.assertEqual(self.run_main(device, "get", "/debug/empty.txt", empty)[0], 0)
+            self.assertEqual(os.path.getsize(empty), 0)
+        self.assertEqual(
+            device.seen[:3],
+            [
+                "CMD:GET /.vaultink/bench.csv 0 2880",
+                "CMD:GET /.vaultink/bench.csv 2880 2880",
+                "CMD:GET /.vaultink/bench.csv 5760 2880",
+            ],
+        )
+
+    def test_get_asks_again_for_a_part_cut_by_a_log_line(self):
+        data = random.Random(6).randbytes(3000)
+        device = self.device(files={"/debug/log.txt": data}, cut_gets=2)
+        port = devlink.open_port(device.path)
+        try:
+            reply, got = devlink.get_file(port, "/debug/log.txt")
+        finally:
+            port.close()
+        self.assertTrue(reply["ok"])
+        self.assertEqual(got, data)
+        self.assertEqual(device.seen.count("CMD:GET /debug/log.txt 0 2880"), 3)
+
+    def test_get_gives_up_when_every_try_is_cut(self):
+        device = self.device(files={"/debug/log.txt": b"abc"}, cut_gets=9)
+        with tempfile.TemporaryDirectory() as folder:
+            out = os.path.join(folder, "log.txt")
+            self.assertEqual(self.run_main(device, "get", "/debug/log.txt", out)[0], 2)
+            self.assertFalse(os.path.exists(out))
+        self.assertEqual(len(device.seen), devlink.CHUNK_TRIES)
+
+    def test_get_of_a_refused_path_writes_nothing(self):
+        device = self.device(files={"/.crosspoint/wifi.json": b"secret"})
+        with tempfile.TemporaryDirectory() as folder:
+            out = os.path.join(folder, "wifi.json")
+            code, text, _ = self.run_main(device, "get", "/.crosspoint/wifi.json", out)
+            self.assertEqual(code, 1)
+            self.assertIn("path refused", text)
+            self.assertNotIn("secret", text)
+            self.assertFalse(os.path.exists(out))
+            # A path with ".." is not even sent.
+            self.assertEqual(self.run_main(device, "get", "/debug/../.crosspoint/wifi.json", out)[0], 2)
+        self.assertEqual(device.seen, ["CMD:GET /.crosspoint/wifi.json 0 2880"])
+
+    def test_put_copies_a_file_in_parts(self):
+        data = random.Random(7).randbytes(1000)
+        device = self.device(files={})
+        with tempfile.TemporaryDirectory() as folder:
+            source = os.path.join(folder, "note.bin")
+            with open(source, "wb") as handle:
+                handle.write(data)
+            code, out, _ = self.run_main(device, "put", source, "/debug/note.bin")
+            self.assertEqual(code, 0)
+            # 171 bytes fit a 256-byte line with this path.
+            self.assertEqual(json.loads(out), {"ok": True, "written": 1000 - 5 * 171, "size": 1000})
+            self.assertEqual(device.files["/debug/note.bin"], data)
+            self.assertEqual(len(device.seen), 6)
+            # Refused by the reader: stops at the first part.
+            code, out, _ = self.run_main(device, "put", source, "/Vaults/note.bin")
+            self.assertEqual(code, 1)
+            self.assertEqual(len(device.seen), 7)
+            self.assertNotIn("/Vaults/note.bin", device.files)
+            # No such local file, and an empty one: nothing is sent.
+            self.assertEqual(self.run_main(device, "put", os.path.join(folder, "missing"), "/debug/x")[0], 2)
+            empty = os.path.join(folder, "empty")
+            open(empty, "wb").close()
+            self.assertEqual(self.run_main(device, "put", empty, "/debug/x")[0], 2)
+            self.assertEqual(len(device.seen), 7)
+
+    def test_flash_prints_the_progress_and_does_not_reboot(self):
+        device = self.device(files={"/firmware.bin": b"\xe9" * 4096})
+        code, out, _ = self.run_main(device, "flash", "/firmware.bin")
+        self.assertEqual(code, 0)
+        lines = out.splitlines()
+        self.assertEqual(json.loads(lines[0])["flash"], "checked")
+        self.assertEqual(json.loads(lines[1])["percent"], 100)
+        self.assertEqual(json.loads(lines[2])["slot"], "app1")
+        self.assertIn("cmd REBOOT", lines[3])
+        self.assertEqual(device.seen, ["CMD:FLASH /firmware.bin"])  # no REBOOT was sent
+        code, out, _ = self.run_main(device, "flash", "/missing.bin")
+        self.assertEqual(code, 1)
+        self.assertNotIn("REBOOT", out)
+
+    def test_flash_takes_an_sd_path_and_copies_nothing(self):
+        device = self.device(files={})
+        with tempfile.TemporaryDirectory() as folder:
+            local = os.path.join(folder, "firmware.bin")
+            with open(local, "wb") as handle:
+                handle.write(b"\xe9" * 64)
+            code, _, err = self.run_main(device, "flash", os.path.relpath(local))
+            self.assertEqual(code, 2)
+            self.assertIn("Nothing is copied over the link", err)
+        self.assertEqual(self.run_main(device, "flash", "/fw/../firmware.bin")[0], 2)
+        self.assertEqual(device.seen, [])
 
 
 class BenchFile(unittest.TestCase):

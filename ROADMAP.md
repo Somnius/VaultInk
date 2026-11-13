@@ -673,13 +673,21 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   (version `…-x4pro-dev`, `"build":"dev"` in STATUS, the update screen says that an update installs
   the release build); `x4pro-dev-verify`, the same build with GitHub's certificate checked, for the
   live test of the Release B gate below.
+* ✅ (unreleased, computer tests only, not compiled for the device) Third slice: `CMD:KEY`
+  (BACK CONFIRM LEFT RIGHT UP DOWN; POWER is refused), `CMD:TAP x y` and `CMD:SWIPE` put input into
+  a 16-event queue that is played where the hardware is read, so screens and the auto-sleep timer
+  see it as real; `CMD:LS`, `CMD:GET` (2880 bytes a reply, base64) and `CMD:PUT` for `/debug`,
+  `/screenshots` and the bench and battery logs in `/.vaultink` only (an allow-list: no settings,
+  passwords, vaults or books); `CMD:FLASH <sd path>` runs the SD firmware update's checks and
+  writes the other slot without restarting. `devlink.py key | tap | swipe | ls | get | put | flash`.
 * Still to do: build and flash `x4pro-dev` and try every command on an X4 Pro; `BOOTLOADER` with
   esptool; the JTAG one try (`pio debug -e x4pro-dev`); the awake A/B runs from the guide, with the
   SD bench log; confirm the `x4pro` build did not grow; the live test with `x4pro-dev-verify`
   (docs/devlink.md, "Live test: GitHub's certificate").
-* Next slice (not started): SD list/read/write, settings get/set, key and touch injection,
-  `CMD:FLASH <sd path>`. Dev build only; behind a Developer setting that is off by default if it
-  ever ships.
+  Third slice on a reader: a scripted page turn, a tap, a `get` of the bench log, a flash from SD
+  followed by `REBOOT` and a `STATUS` that shows the new build.
+* Next slice (not started): settings get/set; a Home key and two-finger gestures for the input
+  queue. Dev build only; behind a Developer setting that is off by default if it ever ships.
 * Not planned: debugging over Wi-Fi, framebuffer streaming.
 
 ## 💤 Battery (needs the device)

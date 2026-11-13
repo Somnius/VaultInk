@@ -2,6 +2,9 @@
 
 #include <Arduino.h>
 #include <InputManager.h>
+#ifdef VAULTINK_DEVLINK
+#include <DevLinkInput.h>
+#endif
 
 // Display SPI pins (custom pins for XteinkX4, not hardware SPI defaults)
 #define EPD_SCLK 8   // SPI Clock
@@ -71,6 +74,13 @@ class HalGPIO {
   // Start button GPIO and setup SPI for screen and SD card
   void begin();
   void prepareForDeepSleep();
+
+#ifdef VAULTINK_DEVLINK
+  // Developer build only (docs/devlink.md): the queue of made-up keys and touches that CMD:KEY,
+  // CMD:TAP and CMD:SWIPE fill. update() plays it: a key goes into the input library through its
+  // button hook, a touch is answered by the touch methods below in place of the controller.
+  static devlink::InputInjector& devInput();
+#endif
 
   // Button input methods
   void update();

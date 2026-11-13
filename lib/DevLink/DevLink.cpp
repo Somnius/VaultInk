@@ -22,6 +22,15 @@ constexpr Name NAMES[] = {
     {"PING", Command::Ping},
     {"HELP", Command::Help},
     {"BENCH", Command::Bench},
+#ifdef VAULTINK_DEVLINK
+    {"KEY", Command::Key},
+    {"TAP", Command::Tap},
+    {"SWIPE", Command::Swipe},
+    {"FLASH", Command::Flash},
+    {"LS", Command::Ls},
+    {"GET", Command::Get},
+    {"PUT", Command::Put},
+#endif
 };
 
 // One slot is kept for the closing brace and one for the terminator.
@@ -92,7 +101,13 @@ Parsed parse(const char* line, size_t length) {
   return parsed;
 }
 
-const char* commandList() { return "PING HELP STATUS LOG BENCH REBOOT BOOTLOADER SCREENSHOT"; }
+const char* commandList() {
+#ifdef VAULTINK_DEVLINK
+  return "PING HELP STATUS LOG BENCH KEY TAP SWIPE FLASH LS GET PUT REBOOT BOOTLOADER SCREENSHOT";
+#else
+  return "PING HELP STATUS LOG BENCH REBOOT BOOTLOADER SCREENSHOT";
+#endif
+}
 
 bool parseUnsigned(const char* text, const size_t length, uint32_t& value) {
   if (!text || length == 0 || length > 10) return false;

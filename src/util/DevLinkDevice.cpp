@@ -5,7 +5,9 @@
 #include <Arduino.h>
 #include <BatteryMonitor.h>
 #include <BlePageTurner.h>
+#include <DevLinkArgs.h>
 #include <DevLinkBench.h>
+#include <GfxRenderer.h>
 #include <HalFrontlight.h>
 #include <HalGPIO.h>
 #include <HalMemory.h>
@@ -14,17 +16,24 @@
 #include <Logging.h>
 #include <TrustedTime.h>
 #include <WiFi.h>
+#include <esp_ota_ops.h>
 #include <esp_sleep.h>
 #include <esp_system.h>
 #include <soc/rtc_cntl_reg.h>
 #include <soc/soc.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
+#include <string>
 
 #include "CrossPointSettings.h"
 #include "activities/ActivityManager.h"
 #include "activities/RenderLock.h"
+#include "network/FirmwareFlasher.h"
+#include "util/DevLinkPaths.h"
+
+extern GfxRenderer renderer;  // main.cpp
 
 namespace devlinkdevice {
 namespace {
@@ -247,6 +256,340 @@ void replyLog(const devlink::Parsed& parsed) {
   reply(json);
 }
 
+// ---- keys and touches (CMD:KEY, CMD:TAP, CMD:SWIPE) ----
+// The events go into HalGPIO's queue and are played where the hardware is read, so the screens,
+// the gestures and the auto-sleep timer see them as input. The power key is never pressed.
+
+constexpr char QUEUE_FULL[] = "queue full (16 events): wait and send it again";
+
+void replyQueued(devlink::JsonLine& json) {
+  json.addBool("ok", true).addUnsigned("queued", HalGPIO::devInput().queued());
+  reply(json);
+}
+
+void replyKey(const devlink::Parsed& parsed) {
+  devlink::KeyArgs key;
+  switch (devlink::parseKeyArgs(parsed.args, parsed.argsLength, key)) {
+    case devlink::KeyName::Power:
+      replyError("POWER is not allowed: the link never presses the power key");
+      return;
+    case devlink::KeyName::Unknown:
+      replyError("usage: KEY <BACK|CONFIRM|LEFT|RIGHT|UP|DOWN> [hold_ms 20-5000]");
+      return;
+    case devlink::KeyName::Ok:
+      break;
+  }
+  if (!HalGPIO::devInput().queueKey(key.button, key.holdMs)) {
+    replyError(QUEUE_FULL);
+    return;
+  }
+  devlink::JsonLine json;
+  replyQueued(json);
+}
+
+void replyTouch(const devlink::Parsed& parsed, const bool swipe) {
+  devlink::TouchArgs touch;
+  const bool parsedOk = swipe ? devlink::parseSwipeArgs(parsed.args, parsed.argsLength, touch)
+                              : devlink::parseTapArgs(parsed.args, parsed.argsLength, touch);
+  if (!parsedOk) {
+    replyError(swipe ? "usage: SWIPE x1 y1 x2 y2 [ms 20-5000]" : "usage: TAP x y [hold_ms 20-5000]");
+    return;
+  }
+  if (!gpio.hasTouch()) {
+    replyError("this board has no touch screen");
+    return;
+  }
+  // Screen pixels as a screenshot shows them, held inside the screen, then turned into panel
+  // pixels with the orientation the screen has now.
+  const uint16_t screenWidth = static_cast<uint16_t>(std::max(renderer.getScreenWidth(), 1));
+  const uint16_t screenHeight = static_cast<uint16_t>(std::max(renderer.getScreenHeight(), 1));
+  const uint16_t panelWidth = renderer.getDisplayWidth();
+  const uint16_t panelHeight = renderer.getDisplayHeight();
+  const uint8_t orientation = static_cast<uint8_t>(renderer.getOrientation());
+  const uint16_t x1 = devlink::clampToExtent(touch.x1, screenWidth);
+  const uint16_t y1 = devlink::clampToExtent(touch.y1, screenHeight);
+  const uint16_t x2 = devlink::clampToExtent(touch.x2, screenWidth);
+  const uint16_t y2 = devlink::clampToExtent(touch.y2, screenHeight);
+  uint16_t px1 = 0;
+  uint16_t py1 = 0;
+  uint16_t px2 = 0;
+  uint16_t py2 = 0;
+  devlink::logicalToPanel(orientation, x1, y1, panelWidth, panelHeight, px1, py1);
+  devlink::logicalToPanel(orientation, x2, y2, panelWidth, panelHeight, px2, py2);
+  devlink::InputInjector& input = HalGPIO::devInput();
+  input.setPanel(panelWidth, panelHeight);
+  if (!input.queueTouch(px1, py1, px2, py2, touch.holdMs)) {
+    replyError(QUEUE_FULL);
+    return;
+  }
+  devlink::JsonLine json;
+  json.addUnsigned("x", x1).addUnsigned("y", y1);
+  if (swipe) json.addUnsigned("x2", x2).addUnsigned("y2", y2);
+  replyQueued(json);
+}
+
+// ---- the SD card (CMD:LS, CMD:GET, CMD:PUT) and CMD:FLASH ----
+// Only the paths devlinkpaths::isAllowed lets through (util/DevLinkPaths.h).
+
+constexpr char PATH_REFUSED[] = "path refused (docs/devlink.md, Security)";
+constexpr size_t LS_MAX_ENTRIES = 200;
+constexpr uint32_t GET_MAX_BYTES = 2880;  // 3840 base64 characters: the reply line stays under 4 KB
+constexpr size_t PUT_MAX_BYTES = 180;     // what fits a 256-byte command line as base64
+constexpr uint32_t PUT_MAX_FILE_BYTES = 1024 * 1024;
+constexpr uint16_t FLASH_MIN_BATTERY_PERCENT = 30;
+
+void sendText(const char* text) { send(text, strlen(text)); }
+
+void replyLs(const devlink::Parsed& parsed) {
+  std::string path(parsed.args, parsed.argsLength);
+  if (path.size() > 1 && path.back() == '/') path.pop_back();
+  if (!devlinkpaths::isAllowed(path, devlinkpaths::Access::List)) {
+    replyError(PATH_REFUSED);
+    return;
+  }
+  HalFile dir = Storage.open(path.c_str());
+  if (!dir || !dir.isDirectory()) {
+    if (dir) dir.close();
+    replyError("no such folder");
+    return;
+  }
+  size_t count = 0;
+  bool truncated = false;
+  for (HalFile entry = dir.openNextFile(); entry; entry = dir.openNextFile()) {
+    if (count >= LS_MAX_ENTRIES) {
+      truncated = true;
+      entry.close();
+      break;
+    }
+    char name[128] = {};
+    entry.getName(name, sizeof(name));
+    const bool isDir = entry.isDirectory();
+    const size_t size = isDir ? 0 : entry.fileSize();
+    entry.close();
+    // One line an entry, without "ok": the line with "ok" ends the list.
+    devlink::JsonLine line;
+    line.addString("name", name).addBool("dir", isDir).addUnsigned("size", size);
+    reply(line);
+    ++count;
+  }
+  dir.close();
+  devlink::JsonLine json;
+  json.addBool("ok", true).addUnsigned("count", count).addBool("truncated", truncated);
+  reply(json);
+}
+
+void replyGet(const devlink::Parsed& parsed) {
+  devlink::FileArgs args;
+  if (!devlink::parseGetArgs(parsed.args, parsed.argsLength, args) || args.length == 0 || args.length > GET_MAX_BYTES) {
+    replyError("usage: GET <path> <offset> <len 1-2880>");
+    return;
+  }
+  const std::string path(args.path, args.pathLength);
+  if (!devlinkpaths::isAllowed(path, devlinkpaths::Access::Read)) {
+    replyError(PATH_REFUSED);
+    return;
+  }
+  HalFile file = Storage.open(path.c_str());
+  if (!file || file.isDirectory()) {
+    if (file) file.close();
+    replyError("no such file");
+    return;
+  }
+  const size_t size = file.fileSize();
+  if (args.offset > size || !file.seek(args.offset)) {
+    file.close();
+    replyError("offset past the end of the file");
+    return;
+  }
+  // The data goes out as it is read, 540 bytes (720 characters) at a time, so nothing large is
+  // held; "len" and "ok" come last and say whether all of it was read.
+  char text[96];
+  snprintf(text, sizeof(text), "{\"offset\":%u,\"size\":%u,\"data\":\"", static_cast<unsigned>(args.offset),
+           static_cast<unsigned>(size));
+  sendText(text);
+  uint32_t total = 0;
+  bool failed = false;
+  while (total < args.length) {
+    uint8_t raw[540];
+    char encoded[720];
+    const size_t want = std::min<size_t>(sizeof(raw), args.length - total);
+    const int got = file.read(raw, want);
+    if (got < 0) {
+      failed = true;
+      break;
+    }
+    if (got == 0) break;
+    send(encoded, devlink::base64Encode(raw, static_cast<size_t>(got), encoded, sizeof(encoded)));
+    total += static_cast<uint32_t>(got);
+    if (static_cast<size_t>(got) < want) break;
+  }
+  file.close();
+  if (failed) {
+    snprintf(text, sizeof(text), "\",\"len\":%u,\"ok\":false,\"error\":\"read failed\"}\n",
+             static_cast<unsigned>(total));
+  } else {
+    snprintf(text, sizeof(text), "\",\"len\":%u,\"eof\":%s,\"ok\":true}\n", static_cast<unsigned>(total),
+             args.offset + total >= size ? "true" : "false");
+  }
+  sendText(text);
+}
+
+void replyPut(const devlink::Parsed& parsed) {
+  devlink::FileArgs args;
+  if (!devlink::parsePutArgs(parsed.args, parsed.argsLength, args)) {
+    replyError("usage: PUT <path> <offset> <base64, 180 bytes at most>");
+    return;
+  }
+  const std::string path(args.path, args.pathLength);
+  if (!devlinkpaths::isAllowed(path, devlinkpaths::Access::Write)) {
+    replyError(PATH_REFUSED);
+    return;
+  }
+  uint8_t data[PUT_MAX_BYTES];
+  size_t length = 0;
+  if (!devlink::base64Decode(args.data, args.dataLength, data, sizeof(data), length) || length == 0) {
+    replyError("the data is not base64, or is over 180 bytes");
+    return;
+  }
+  if (args.offset > PUT_MAX_FILE_BYTES || args.offset + length > PUT_MAX_FILE_BYTES) {
+    replyError("a file written over the link is 1 MB at most");
+    return;
+  }
+  // Offset 0 starts the file again; any other offset must be the file's size, so a part that is
+  // sent twice or out of order is refused and not written in the wrong place.
+  oflag_t flags = O_WRONLY | O_CREAT | O_TRUNC;
+  if (args.offset > 0) {
+    size_t size = 0;
+    bool isFile = false;
+    if (Storage.exists(path.c_str())) {
+      HalFile existing = Storage.open(path.c_str());
+      if (existing) {
+        isFile = !existing.isDirectory();
+        size = isFile ? existing.fileSize() : 0;
+        existing.close();
+      }
+    }
+    if (!isFile || size != args.offset) {
+      devlink::JsonLine json;
+      json.addBool("ok", false)
+          .addString("error", "the offset must be 0 or the size of the file")
+          .addUnsigned("size", size);
+      reply(json);
+      return;
+    }
+    flags = O_WRONLY | O_APPEND;
+  } else {
+    Storage.ensureDirectoryExists(devlinkpaths::parentOf(path).c_str());
+  }
+  HalFile file = Storage.open(path.c_str(), flags);
+  if (!file) {
+    replyError("cannot open the file for writing");
+    return;
+  }
+  const bool written = file.write(data, length) == length;
+  file.close();
+  if (devlinkpaths::lowered(path) == BENCH_SETTING_FILE) {
+    // The bench setting changed under the logger: read it again on the next pass.
+    bench = BenchState{};
+  }
+  if (!written) {
+    replyError("write failed");
+    return;
+  }
+  devlink::JsonLine json;
+  json.addBool("ok", true).addUnsigned("written", length).addUnsigned("size", args.offset + length);
+  reply(json);
+}
+
+// A line every tenth of the way; without "ok", so the host knows more is coming.
+void flashProgress(const size_t written, const size_t total, void* ctx) {
+  auto* lastTenth = static_cast<unsigned*>(ctx);
+  const unsigned tenth = total > 0 ? static_cast<unsigned>(static_cast<uint64_t>(written) * 10 / total) : 0;
+  if (tenth == *lastTenth) return;
+  *lastTenth = tenth;
+  devlink::JsonLine json;
+  json.addString("flash", "writing")
+      .addUnsigned("written", written)
+      .addUnsigned("total", total)
+      .addUnsigned("percent", tenth * 10);
+  reply(json);
+}
+
+void replyFlashRefused(const char* error, const char* reason, const char* slot) {
+  devlink::JsonLine json;
+  json.addBool("ok", false).addString("error", error).addString("reason", reason).addString("slot", slot);
+  reply(json);
+}
+
+// The checks of Settings -> SD firmware update (SdFirmwareUpdateActivity): the size against the
+// slot, then the whole image (header, segments, checksum, SHA-256, chip, board tag), then
+// firmware_flash writes it to the slot that is not running and points the next boot at it. No
+// restart here: the host sends CMD:REBOOT when it wants the new firmware.
+void replyFlash(const devlink::Parsed& parsed) {
+  const std::string path(parsed.args, parsed.argsLength);
+  if (!devlinkpaths::isAllowed(path, devlinkpaths::Access::Flash)) {
+    replyError("path refused: an absolute path to a .bin on the card, no '..', not in the device's own folders");
+    return;
+  }
+  uint16_t percent = 0;
+  {
+    RenderLock lock;  // the themes read the gauge from the render task
+    percent = powerManager.getBatteryPercentage();
+  }
+  if (percent < FLASH_MIN_BATTERY_PERCENT && !gpio.isUsbConnected()) {
+    devlink::JsonLine json;
+    json.addBool("ok", false)
+        .addString("error", "battery below 30% and no USB power")
+        .addUnsigned("battery_percent", percent);
+    reply(json);
+    return;
+  }
+  HalFile file;
+  if (!Storage.openFileForRead("DEVLINK", path.c_str(), file) || !file) {
+    replyError("cannot open the file");
+    return;
+  }
+  const size_t size = file.fileSize();
+  file.close();
+  const esp_partition_t* dest = esp_ota_get_next_update_partition(nullptr);
+  if (!dest) {
+    replyError("no slot to write to");
+    return;
+  }
+  char slot[sizeof(dest->label) + 1] = {};
+  memcpy(slot, dest->label, sizeof(dest->label));
+  if (size > dest->size) {
+    replyFlashRefused("image refused", "TOO_LARGE", slot);
+    return;
+  }
+  const auto checked = firmware_flash::validateImageFile(path.c_str(), dest->size);
+  if (checked != firmware_flash::Result::OK) {
+    replyFlashRefused("image refused", firmware_flash::resultName(checked), slot);
+    return;
+  }
+  {
+    devlink::JsonLine json;
+    json.addString("flash", "checked").addUnsigned("bytes", size).addString("slot", slot);
+    reply(json);
+  }
+  LOG_INF("DEVLINK", "CMD:FLASH %s (%u bytes) to %s", path.c_str(), static_cast<unsigned>(size), slot);
+  unsigned lastTenth = 0;
+  // Checked again inside, as the Settings screen does: the card can change between the two.
+  const auto result = firmware_flash::flashFromSdPath(path.c_str(), flashProgress, &lastTenth);
+  if (result != firmware_flash::Result::OK) {
+    replyFlashRefused("flash failed", firmware_flash::resultName(result), slot);
+    return;
+  }
+  devlink::JsonLine json;
+  json.addBool("ok", true)
+      .addString("action", "flash")
+      .addString("slot", slot)
+      .addUnsigned("bytes", size)
+      .addBool("rebooted", false)
+      .addString("next", "send CMD:REBOOT to start it");
+  reply(json);
+}
+
 // Give the last reply time to leave the queue before the USB port goes away. Not flush(): with the
 // 1 ms timeout it marks the host as gone after one millisecond without progress.
 void drainBeforeRestart() { delay(100); }
@@ -277,6 +620,27 @@ void handle(const devlink::Parsed& parsed, const unsigned long msSinceInput, con
       return;
     case devlink::Command::Bench:
       replyBench(parsed);
+      return;
+    case devlink::Command::Key:
+      replyKey(parsed);
+      return;
+    case devlink::Command::Tap:
+      replyTouch(parsed, false);
+      return;
+    case devlink::Command::Swipe:
+      replyTouch(parsed, true);
+      return;
+    case devlink::Command::Ls:
+      replyLs(parsed);
+      return;
+    case devlink::Command::Get:
+      replyGet(parsed);
+      return;
+    case devlink::Command::Put:
+      replyPut(parsed);
+      return;
+    case devlink::Command::Flash:
+      replyFlash(parsed);
       return;
     case devlink::Command::Reboot: {
       devlink::JsonLine json;

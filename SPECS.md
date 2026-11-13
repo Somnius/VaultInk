@@ -609,6 +609,50 @@ reports AES key recovery on the S3 with voltage fault injection.
     known name and then ignored, like the other names); everything else is behind
     `#ifdef VAULTINK_DEVLINK` or the macro default. Not measured: no device build was run.
 
+- Developer link, third slice (unreleased, host tests only, not compiled for the device). All of
+  it inside `#ifdef VAULTINK_DEVLINK`; no version bump.
+  - Input: lib/DevLink/DevLinkInput.{h,cpp} `devlink::InputInjector`, a FIFO of 16 events
+    (KeyDown/KeyUp/TouchDown/TouchUp), each due a delay after the one before was played (50 ms
+    between gestures, the hold time between down and up), and never before a pass of the input
+    loop ran 10 ms or more after the last event (the SDK's debounce takes a state read unchanged
+    for more than 5 ms). `HalGPIO::update()` calls `advance(millis())` before `inputMgr.update()`.
+    Keys: `HalGPIO::begin()` registers `InputManager::setButtonHook`, the SDK's seam for extra
+    buttons, which ORs the injector's mask (bits 0-5 only; the power bit cannot be queued) into the
+    state the SDK debounces, so press/release edges and held time are the SDK's. Touch: the SDK
+    has no seam, so HalGPIO's touch methods (`wasTouchTap`, `wasTouchDown`, `wasTouchReleased`,
+    `isTouchTapCandidate`, `isTouchHeldAt`, `wasTouchLongPress`, `wasSwipe`, `wasTouchActivity`,
+    `lastTouchHeldMs`, `suppressTouchContact`) ask the injector first; it copies the SDK's
+    thresholds (28 px hold slop, 59 px tap slop, 60 px swipe, 700 ms swipe limit, 500 ms long
+    press) in panel pixels and returns the middle of a pixel as 0..1 so
+    `GfxRenderer::tapToLogical` gives the pixel back. Commands take screen pixels;
+    `devlink::logicalToPanel` is the inverse of `tapToLogical` for the four orientations.
+    MappedInputManager and main.cpp are unchanged: `wasAnyPressed` / `wasTouchActivity` reset the
+    auto-sleep timer as for real input.
+  - Files: `src/util/DevLinkPaths.h` `devlinkpaths::isAllowed(path, List|Read|Write|Flash)`, an
+    allow-list over one canonical spelling (`isPlainPath`), reusing `protectedpaths::isShortAlias`,
+    `isSensitivePath` and `isInDeviceFolder`. `/debug/**` list/read/write, `/screenshots/**`
+    list/read, `/.vaultink` list, read of `bench.csv`, `bench.old.csv`, `bench.cfg`,
+    `battery-log.tsv`, write of `bench.cfg`; Flash: any `.bin` outside the device folders. LS: 200
+    entries at most, one JSON line each without `ok`. GET: 1-2880 bytes, streamed as 540-byte
+    pieces of base64 with `len`, `eof` and `ok` after the data. PUT: 180 bytes a command, offset 0
+    truncates, any other offset must equal the file size, 1 MB cap. lib/DevLink/DevLinkArgs.{h,cpp}:
+    `splitArgs`, `parseKeyArgs` (POWER is its own result), `parseTapArgs`, `parseSwipeArgs`,
+    `parseGetArgs` / `parsePutArgs` (split from the end, so a path keeps its blanks), strict base64.
+  - FLASH: battery under 30% without USB refuses; `esp_ota_get_next_update_partition`, size check,
+    `firmware_flash::validateImageFile`, then `firmware_flash::flashFromSdPath` (which validates
+    again and switches otadata); progress lines every 10%; the reply names the partition label; no
+    `ESP.restart()`.
+  - Tests: test/dev_link builds two programs: DevLinkTest (the table as shipped builds compile it,
+    35 tests; `CMD:FLASH` is Unknown there) and DevLinkDevTest with `VAULTINK_DEVLINK=1` (46
+    tests: names, arguments, base64, the queue against a copy of the SDK debounce at loop steps of
+    1 to 300 ms, the path rule with traversal, case, 8.3 aliases, trimmed names and double
+    slashes). scripts/devlink.py: `key`, `tap`, `swipe`, `ls`, `get`, `put`, `flash` (an SD path;
+    it copies nothing and sends no REBOOT); 41 tests in test/test_devlink_script.py.
+  - Shipped builds: seven more values in `devlink::Command` (an enum, no bytes); their names and
+    everything else are compiled only with `VAULTINK_DEVLINK`, so the name table is the size it
+    was. Not measured: no device build was run. Relies on PlatformIO passing `build_flags` to the
+    libraries in lib/ (as `LOG_DBG_RUNTIME` for lib/Logging already does).
+
 ## 14. Licences and credits
 
 - VaultInk: MIT, keeping CrossPoint's copyright notice.
