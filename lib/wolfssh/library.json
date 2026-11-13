@@ -1,0 +1,12 @@
+{
+  "name": "wolfssh",
+  "version": "1.6.0",
+  "description": "wolfSSH 1.6.0 (GPL-3.0-or-later), vendored: SSH client and SFTP client on the wolfCrypt already in the firmware. Compiled only in builds with VAULTINK_SSH=1. See UPSTREAM.md.",
+  "license": "GPL-3.0-or-later",
+  "build": {
+    "srcDir": "vaultink",
+    "includeDir": "."
+  },
+  "frameworks": "*",
+  "platforms": "*"
+}
