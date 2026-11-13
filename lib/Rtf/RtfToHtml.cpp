@@ -124,6 +124,8 @@ const char* statusText(const Status status) {
       return "not an RTF file";
     case Status::WriteError:
       return "write error";
+    case Status::TooBig:
+      return "too big";
   }
   return "?";
 }
@@ -578,10 +580,13 @@ Status streamHtml(void* ctx, const Read read, const std::string_view title, cons
       first = false;
     }
     if (n == 0) break;
-    if (!converter->feed(reinterpret_cast<const char*>(buf), static_cast<size_t>(n))) return Status::WriteError;
+    if (!converter->feed(reinterpret_cast<const char*>(buf), static_cast<size_t>(n))) {
+      return out->tooBig() ? Status::TooBig : Status::WriteError;
+    }
   }
   converter->finish();
-  return out->tail() ? Status::Ok : Status::WriteError;
+  if (out->tail()) return Status::Ok;
+  return out->tooBig() ? Status::TooBig : Status::WriteError;
 }
 
 }  // namespace rtf

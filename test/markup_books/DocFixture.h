@@ -316,10 +316,12 @@ struct MemSource {
   std::string data;
   size_t step = 4096;
   size_t reads = 0;
+  size_t failAfter = SIZE_MAX;  // the reads after this many fail, like a card that stops answering
 
   static int readAt(void* ctx, uint32_t offset, uint8_t* buf, size_t size) {
     auto* self = static_cast<MemSource*>(ctx);
     self->reads++;
+    if (self->reads > self->failAfter) return -1;
     if (offset >= self->data.size()) return 0;
     const size_t n = std::min({size, self->step, self->data.size() - offset});
     memcpy(buf, self->data.data() + offset, n);

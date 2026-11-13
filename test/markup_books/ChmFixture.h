@@ -459,6 +459,8 @@ struct ChmOptions {
   uint32_t controlCache = 0;          // 0: the number that fits the reset interval
   uint32_t controlWindow = 0;         // 0: the window, in the version's units
   std::vector<ChmFile> extraEntries;  // directory entries written as they are, pointing where they say
+  std::string rawFirstEntry;          // bytes written as they are before the first directory entry
+  uint64_t claimedPlainSize = 0;      // not 0: the ResetTable says the section unpacks to this much
   uint32_t overlapCount = 0;          // this many more pages, all pointing at the first page's bytes
 };
 
@@ -540,13 +542,16 @@ inline std::string buildChm(const std::vector<ChmFile>& files, const ChmOptions&
     add32(control, 0);
     std::string table;
     add32(table, 2);
-    add32(table, static_cast<uint32_t>(stream.frameStart.size()));
+    const uint64_t claimed = options.claimedPlainSize ? options.claimedPlainSize : plain.size();
+    const size_t entries =
+        std::max<size_t>(stream.frameStart.size(), static_cast<size_t>((claimed + FRAME - 1) / FRAME));
+    add32(table, static_cast<uint32_t>(entries));
     add32(table, 8);
     add32(table, 0x28);
-    add64(table, plain.size());
+    add64(table, claimed);
     add64(table, stream.bytes.size());
     add64(table, FRAME);
-    for (const uint32_t start : stream.frameStart) add64(table, start);
+    for (size_t i = 0; i < entries; i++) add64(table, i < stream.frameStart.size() ? stream.frameStart[i] : 0);
     // The three entries below are not read by lib/Chm; they are here, laid out as in a real file, so that other
     // programs (7-Zip) take the file for what it is.
     std::string nameList;
@@ -586,7 +591,7 @@ inline std::string buildChm(const std::vector<ChmFile>& files, const ChmOptions&
 
   // PMGL chunks: a 20-byte header, the entries, and the unused rest (its size is in the header).
   std::vector<std::string> chunks;
-  std::string body;
+  std::string body = options.rawFirstEntry;
   const auto closeChunk = [&]() {
     std::string chunk = "PMGL";
     add32(chunk, options.chunkSize - 0x14 - static_cast<uint32_t>(body.size()));

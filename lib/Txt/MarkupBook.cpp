@@ -1,5 +1,6 @@
 #include "MarkupBook.h"
 
+#include <Arduino.h>
 #include <ChmBook.h>
 #include <DocToHtml.h>
 #include <Epub/BookMetadataCache.h>
@@ -39,7 +40,9 @@ blocksource::Source sourceOf(HalFile& file) {
 // only: with none free the book is refused, the internal heap is left alone.
 void* psramAlloc(size_t size) { return HalMemory::allocatePsram(size).release(); }
 void psramRelease(void* block) { HalMemory::PsramDeleter()(static_cast<uint8_t*>(block)); }
-constexpr chm::Memory CHM_MEMORY{psramAlloc, psramRelease};
+// A big help file unpacks for a long time: the other tasks get a turn every few frames.
+void pauseForOthers() { vTaskDelay(1); }
+constexpr chm::Memory CHM_MEMORY{psramAlloc, psramRelease, pauseForOthers};
 
 }  // namespace
 
@@ -109,11 +112,13 @@ bool MarkupBook::streamHtml(const std::string& filepath, Print& out) {
     LOG_DBG("MKB", "Streamed %s: %s", filepath.c_str(), rtf::statusText(status));
   } else if (FsHelpers::hasDocExtension(filepath)) {
     const doc::Status status = doc::streamHtml(sourceOf(file), info.title, writePrint, &out);
-    ok = status == doc::Status::Ok || status == doc::Status::Truncated;  // a damaged file shows what it has
+    // Truncated: the file itself is damaged or cut, and shows what it has. A read that failed, a page too big
+    // or no text is a failure: the page is thrown away and the next open tries again.
+    ok = status == doc::Status::Ok || status == doc::Status::Truncated;
     LOG_DBG("MKB", "Streamed %s: %s", filepath.c_str(), doc::statusText(status));
   } else if (FsHelpers::hasChmExtension(filepath)) {
     const chm::Status status = chm::streamHtml(sourceOf(file), info.title, writePrint, &out, CHM_MEMORY);
-    ok = status == chm::Status::Ok || status == chm::Status::Truncated;
+    ok = status == chm::Status::Ok || status == chm::Status::Truncated;  // as for a .doc
     LOG_DBG("MKB", "Streamed %s: %s", filepath.c_str(), chm::statusText(status));
   } else {
     const htmlbook::Status status = htmlbook::streamHtml(&file, readFile, info.title, writePrint, &out);

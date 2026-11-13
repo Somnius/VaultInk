@@ -5,6 +5,7 @@ add_executable(MarkupBooksTest
   CodePageTest.cpp
   DocToHtmlTest.cpp
   Fb2ToHtmlTest.cpp
+  HostileBooksTest.cpp
   HtmlBookTest.cpp
   RtfToHtmlTest.cpp
   ${REPO_ROOT}/lib/Chm/ChmBook.cpp

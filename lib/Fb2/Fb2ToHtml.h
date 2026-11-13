@@ -35,7 +35,7 @@ inline constexpr size_t MAX_INFO_TEXT = 200;
 inline constexpr size_t MAX_DEPTH = 64;
 inline constexpr size_t MAX_PARSER_MEMORY = 64 * 1024;
 
-enum class Status : uint8_t { Ok, Truncated, IoError, Oom, NotFb2, Malformed, TooDeep, WriteError };
+enum class Status : uint8_t { Ok, Truncated, IoError, Oom, NotFb2, Malformed, TooDeep, WriteError, TooBig };
 const char* statusText(Status status);
 
 struct Info {

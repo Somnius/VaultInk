@@ -29,7 +29,7 @@ inline constexpr const char* CACHE_VERSION_TAG = "<!-- HTML_CACHE_VERSION: 1 -->
 inline constexpr size_t SNIFF_SIZE = 4096;
 inline constexpr size_t MAX_TITLE = 200;
 
-enum class Status : uint8_t { Ok, IoError, Oom, Unsupported, WriteError };
+enum class Status : uint8_t { Ok, IoError, Oom, Unsupported, WriteError, TooBig };
 const char* statusText(Status status);
 
 struct Info {

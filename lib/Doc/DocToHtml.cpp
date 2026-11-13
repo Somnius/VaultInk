@@ -327,6 +327,7 @@ class TextWriter {
   }
 
   void rule() { out_.write("<hr/>\n"); }
+  bool ok() const { return out_.ok(); }
   bool wroteText() const { return wroteText_; }
 
  private:
@@ -582,7 +583,9 @@ class Document {
   }
 
   // The main text, then the footnotes and the endnotes after a rule each.
-  Status text(TextWriter& writer) {
+  // With `firstLetterOnly` it stops at the first character that shows (the check for a document with no text).
+  Status text(TextWriter& writer, const bool firstLetterOnly = false) {
+    firstLetterOnly_ = firstLetterOnly;
     budget_ = word_.size();
     Status status = range(0, ccpText_, writer);
     writer.endPart();
@@ -623,6 +626,8 @@ class Document {
       uint32_t bytes = (last - first) * width;
       while (bytes > 0) {
         const uint32_t take = bytes < TEXT_CHUNK ? bytes : static_cast<uint32_t>(TEXT_CHUNK);
+        if (firstLetterOnly_ && writer.wroteText()) return Status::Ok;
+        if (!writer.ok()) return Status::WriteError;
         if (take > budget_ || !cfb_.read(word_, at, buf, take)) return Status::Truncated;
         budget_ -= take;
         if (compressed) {
@@ -654,6 +659,7 @@ class Document {
   uint32_t plc_ = 0;
   uint32_t pieces_ = 0;
   uint32_t budget_ = 0;
+  bool firstLetterOnly_ = false;
 };
 
 }  // namespace
@@ -680,6 +686,8 @@ const char* statusText(const Status status) {
       return "damaged";
     case Status::WriteError:
       return "write error";
+    case Status::NoText:
+      return "no text in it";
   }
   return "?";
 }
@@ -687,9 +695,17 @@ const char* statusText(const Status status) {
 Status readInfo(const Source& source, Info& info) {
   std::unique_ptr<Document> document(new (std::nothrow) Document(source));
   if (!document) return Status::Oom;
-  const Status status = document->open();
+  Status status = document->open();
+  if (status == Status::Ok) {
+    // Is there anything to read? The text is run into nothing, up to its first letter.
+    xhtml::Out nothing([](void*, const char*, size_t) { return true; }, nullptr);
+    TextWriter writer(nothing);
+    status = document->text(writer, true);
+    if (status == Status::Ok || status == Status::Truncated) status = writer.wroteText() ? Status::Ok : Status::NoText;
+  }
+  if (status != Status::Ok && source.ioFailed) return Status::IoError;
   if (status == Status::Ok) document->info(info);
-  return status;
+  return source.ioFailed ? Status::IoError : status;
 }
 
 Status streamHtml(const Source& source, const std::string_view title, const xhtml::Emit emit, void* emitCtx) {
@@ -697,11 +713,14 @@ Status streamHtml(const Source& source, const std::string_view title, const xhtm
   std::unique_ptr<xhtml::Out> out(new (std::nothrow) xhtml::Out(emit, emitCtx));
   if (!document || !out) return Status::Oom;
   Status status = document->open();
-  if (status != Status::Ok) return status;
+  if (status != Status::Ok) return source.ioFailed ? Status::IoError : status;
   out->head(CACHE_VERSION_TAG, title);
   TextWriter writer(*out);
   status = document->text(writer);
-  if (!out->tail()) return Status::WriteError;
+  if (!out->tail()) return out->tooBig() ? Status::TooBig : Status::WriteError;
+  // A read that failed is the card's doing, not the file's: the cut page is not the book.
+  if (source.ioFailed) return Status::IoError;
+  if (!writer.wroteText()) return Status::NoText;
   return status;
 }
 

@@ -25,6 +25,11 @@
 //  - MAX_TOC_FILE bytes of the contents file are read: pages listed past it come in directory order;
 //  - one directory chunk (MAX_CHUNK_SIZE at most; larger: Unsupported), MAX_DIR_CHUNKS chunks (more: TooBig);
 //  - MAX_FILE_SIZE (TooBig);
+//  - the compressed section unpacks to MAX_PLAIN_SIZE and MAX_RATIO times its size at most (TooBig);
+//  - frames unpacked for one book: 4 for each frame the section has, 2 for each page (what going back costs
+//    with the usual reset every 2 frames), 256 more, and MAX_DECODED bytes in all (TooComplex): a file made so
+//    that every page starts the unpacking again from far back;
+//  - xhtml::MAX_PAGE_BYTES of page written (TooBig);
 //  - more page bytes than the file can hold (entries that overlap): the pages stop there (Truncated).
 
 #include <BlockSource.h>
@@ -46,10 +51,16 @@ inline constexpr size_t MAX_TOC_TITLE = 160;
 inline constexpr size_t MAX_TITLE_POOL = 64 * 1024;
 inline constexpr uint32_t MAX_TOC_FILE = 4 * 1024 * 1024;
 inline constexpr size_t MAX_TITLE = 200;
+// The compressed section may unpack to this much, and to MAX_RATIO times its packed size, at most (TooBig).
+inline constexpr uint32_t MAX_PLAIN_SIZE = 256u * 1024 * 1024;
+inline constexpr uint32_t MAX_RATIO = 64;
+// The most that is unpacked for one book, counting a frame again each time it is unpacked again (the unpacker
+// only goes forward: a page that lies before the last one starts again from the reset before it).
+inline constexpr uint32_t MAX_DECODED = 256u * 1024 * 1024;
 
 enum class Status : uint8_t {
   Ok,
-  Truncated,  // some pages are missing or cut (a damaged file, or a cap): what was read is in the page
+  Truncated,  // some pages are missing or cut because the file itself is damaged or past a cap: that is the book
   IoError,
   Oom,
   NotChm,
@@ -57,7 +68,8 @@ enum class Status : uint8_t {
   TooBig,
   Corrupt,
   NoPages,
-  WriteError
+  WriteError,
+  TooComplex  // reading it would unpack the same frames over and over (MAX_DECODED, the frame budget)
 };
 const char* statusText(Status status);
 
@@ -73,11 +85,16 @@ using Source = blocksource::Source;
 struct Memory {
   void* (*alloc)(size_t size) = nullptr;
   void (*release)(void* block) = nullptr;
+  // Called every few frames unpacked and every 64 KB of pages read, so a long book lets the other tasks run
+  // (the device gives vTaskDelay(1)). May be null.
+  void (*pause)() = nullptr;
 };
 
 // The checks that refuse a file, and the title and language.
 Status readInfo(const Source& source, Info& info, const Memory& memory = {});
 // Every page as one XHTML page. `title` goes in <title>. Ok and Truncated both leave a complete page.
+// Truncated is only for what the file itself lacks. A failed read (IoError), no memory (Oom), a page past
+// xhtml::MAX_PAGE_BYTES (TooBig) and TooComplex mean the page must not be kept.
 Status streamHtml(const Source& source, std::string_view title, xhtml::Emit emit, void* emitCtx,
                   const Memory& memory = {});
 

@@ -349,7 +349,7 @@ class Parser {
     }
     if (kind == K_SKIP) skip_++;
     stack_[depth_++] = kind;
-    if (out_ && !out_->ok()) fail(Status::WriteError);
+    if (out_ && !out_->ok()) fail(out_->tooBig() ? Status::TooBig : Status::WriteError);
   }
 
   void close(const uint8_t kind) {
@@ -440,7 +440,7 @@ class Parser {
   void end() {
     if (depth_ == 0) return;
     close(stack_[--depth_]);
-    if (out_ && !out_->ok()) fail(Status::WriteError);
+    if (out_ && !out_->ok()) fail(out_->tooBig() ? Status::TooBig : Status::WriteError);
   }
 
   static void cutAtCharacter(std::string& text, size_t size) {
@@ -462,7 +462,7 @@ class Parser {
     if (textDepth_ == 0) return;  // white space between blocks
     wroteText_ = true;
     out_->escaped(chunk);
-    if (!out_->ok()) fail(Status::WriteError);
+    if (!out_->ok()) fail(out_->tooBig() ? Status::TooBig : Status::WriteError);
   }
 
   xhtml::Out* out_;
@@ -506,6 +506,8 @@ const char* statusText(const Status status) {
       return "nested too deep";
     case Status::WriteError:
       return "write error";
+    case Status::TooBig:
+      return "too big";
   }
   return "?";
 }
@@ -527,7 +529,8 @@ Status streamHtml(void* ctx, const Read read, const std::string_view title, cons
   const Status status = parser->run(ctx, read, 0);
   if (status != Status::Ok && status != Status::Truncated) return status;
   if (status == Status::Truncated) parser->closeAll();
-  return out->tail() ? status : Status::WriteError;
+  if (out->tail()) return status;
+  return out->tooBig() ? Status::TooBig : Status::WriteError;
 }
 
 }  // namespace fb2

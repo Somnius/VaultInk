@@ -23,7 +23,8 @@
 //  - MAX_PIECES entries in the piece table: TooBig;
 //  - more text bytes than the WordDocument stream holds (pieces that overlap): the text stops there (Truncated);
 //  - MAX_FIELD_DEPTH nested fields: a deeper field is hidden whole;
-//  - MAX_INFO_TEXT bytes of title or author: cut.
+//  - MAX_INFO_TEXT bytes of title or author: cut;
+//  - xhtml::MAX_PAGE_BYTES of page: TooBig.
 
 #include <BlockSource.h>
 #include <XhtmlOut.h>
@@ -46,7 +47,7 @@ inline constexpr size_t MAX_INFO_TEXT = 200;
 
 enum class Status : uint8_t {
   Ok,
-  Truncated,  // the text was cut short (a damaged or cut file): what was read is in the page
+  Truncated,  // the file itself is damaged or cut short: what was read is in the page, and that is the book
   IoError,
   Oom,
   NotDoc,
@@ -54,7 +55,8 @@ enum class Status : uint8_t {
   Encrypted,
   TooBig,
   Corrupt,
-  WriteError
+  WriteError,
+  NoText  // nothing to read in it (pictures only, or empty)
 };
 const char* statusText(Status status);
 
@@ -66,9 +68,12 @@ struct Info {
 
 using Source = blocksource::Source;
 
-// The checks that refuse a file, and the title, author and language.
+// The checks that refuse a file (NoText among them: the text is read up to its first letter), and the title,
+// author and language.
 Status readInfo(const Source& source, Info& info);
 // The whole document as one XHTML page. `title` goes in <title>. Ok and Truncated both leave a complete page.
+// Truncated is only for a file that is damaged or cut short itself. A read that fails inside the file (the
+// card) is IoError and a page past xhtml::MAX_PAGE_BYTES is TooBig: both mean the page must not be kept.
 Status streamHtml(const Source& source, std::string_view title, xhtml::Emit emit, void* emitCtx);
 
 }  // namespace doc
