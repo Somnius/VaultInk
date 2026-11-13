@@ -2,10 +2,12 @@ find_package(EXPAT REQUIRED)
 
 add_executable(MarkupBooksTest
   CodePageTest.cpp
+  DocToHtmlTest.cpp
   Fb2ToHtmlTest.cpp
   HtmlBookTest.cpp
   RtfToHtmlTest.cpp
   ${REPO_ROOT}/lib/CodePage/CodePage.cpp
+  ${REPO_ROOT}/lib/Doc/DocToHtml.cpp
   ${REPO_ROOT}/lib/Fb2/Fb2ToHtml.cpp
   ${REPO_ROOT}/lib/Html/HtmlBook.cpp
   ${REPO_ROOT}/lib/Rtf/RtfToHtml.cpp
@@ -16,12 +18,17 @@ add_executable(MarkupBooksTest
 
 target_include_directories(MarkupBooksTest PRIVATE
   ${REPO_ROOT}/lib/CodePage
+  ${REPO_ROOT}/lib/Doc
   ${REPO_ROOT}/lib/Fb2
   ${REPO_ROOT}/lib/Html
   ${REPO_ROOT}/lib/Rtf
   ${REPO_ROOT}/lib/Mobi
   ${REPO_ROOT}/lib/Epub
   ${REPO_ROOT}/lib/XmlParserUtils
+)
+
+target_compile_definitions(MarkupBooksTest PRIVATE
+  MARKUP_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
 )
 
 target_link_libraries(MarkupBooksTest PRIVATE
