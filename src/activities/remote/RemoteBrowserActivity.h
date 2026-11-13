@@ -10,12 +10,16 @@
 #include "network/RemoteFsClient.h"
 
 /**
- * Browses a WebDAV or FTP server: tap a folder to enter it, tap a file to download it into the
+ * Browses a WebDAV, FTP or SFTP server: tap a folder to enter it, tap a file to download it into the
  * chosen SD folder, "Upload a file here" to send one picked from the card, "New folder".
  *
  * Wi-Fi comes up when this screen opens (a user action) and goes down when it closes
  * (CatalogActivity::onExit); nothing here uses a timer or wakes the device. A server that is not
  * encrypted (FTP, or WebDAV over http://) asks first, every time the screen opens.
+ *
+ * SFTP (docs/ssh.md): the password is typed when the screen opens (never saved; with the device's
+ * key there is none), a first connection shows the server's key fingerprint and asks, and a
+ * changed key stops with "Host key changed".
  */
 class RemoteBrowserActivity final : public CatalogActivity {
  public:
@@ -46,11 +50,17 @@ class RemoteBrowserActivity final : public CatalogActivity {
   void buildScreen(UiScreen& screen) override;
   void drawFooter() override;
   void startBrowse() override;
+  void retryBrowse() override;
   void downloadFinished(bool cancelled) override;
   void onBackButton() override;
 
   static void provideRow(void* ctx, uint16_t index, freeink::ui::ListItem& item);
   void connect();
+  // SFTP: the password for this visit, then connect().
+  void askSshPassword();
+  // SFTP, first connection: show the fingerprint; yes pins the key and reads the folder again.
+  void askHostKey();
+  void wipePassword();
   void releaseEntries();
   void failWith(remotefs::Error error);
   void chooseSaveFolder();

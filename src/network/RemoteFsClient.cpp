@@ -11,8 +11,15 @@ std::unique_ptr<Client> makeClient(const RemoteServer& server, const bool plainC
     error = Error::PlainRefused;
     return nullptr;
   }
-  return server.protocol == RemoteServer::Protocol::Ftp ? makeFtpClient(server, error)
-                                                        : makeWebDavClient(server, error);
+  switch (server.protocol) {
+    case RemoteServer::Protocol::Ftp:
+      return makeFtpClient(server, error);
+    case RemoteServer::Protocol::Sftp:
+      return makeSftpClient(server, error);
+    case RemoteServer::Protocol::WebDav:
+    default:
+      return makeWebDavClient(server, error);
+  }
 }
 
 }  // namespace remotefs
