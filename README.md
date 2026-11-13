@@ -350,7 +350,8 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 The [roadmap](ROADMAP.md) has the details and the order. Open items right now:
 
 - Real-device testing of everything new in 0.74.0 (book map, hidden flows, gestures, FB2/HTML/RTF, auto warmth, Wikipedia, Readwise and Memos, WebDAV and FTP), then switching on the certificate check for the update check.
-- Scroll mode, an SSH terminal with SFTP, and a gamepad scaffold: next, once a device is on the bench.
+- Scroll mode (Settings → Reader → Continuous scrolling, off by default) is written and host-tested but has never run on a device: the whole screen refreshes on every step, and ghosting and speed are unknown. See [Continuous scrolling](docs/reading-and-files.md#continuous-scrolling-not-released-never-seen-on-a-device).
+- An SSH terminal with SFTP, and a gamepad scaffold: next, once a device is on the bench.
 - Real-device testing of older features: MOBI and AZW books, Advanced Typography, Dice, VaultEUC with a real wheel and the Bluetooth client and keyboard.
 - Chapters and the cover for MOBI books, and pictures and links for AZW3.
 - The XTCH refresh choice and a few share-to-reader edge cases wait for device tests.
