@@ -1,6 +1,8 @@
 add_executable(DevLinkTest
   DevLinkTest.cpp
+  DevLinkBenchTest.cpp
   ${REPO_ROOT}/lib/DevLink/DevLink.cpp
+  ${REPO_ROOT}/lib/DevLink/DevLinkBench.cpp
 )
 
 target_include_directories(DevLinkTest PRIVATE

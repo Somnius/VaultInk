@@ -21,6 +21,7 @@ constexpr Name NAMES[] = {
     {"BOOTLOADER", Command::Bootloader},
     {"PING", Command::Ping},
     {"HELP", Command::Help},
+    {"BENCH", Command::Bench},
 };
 
 // One slot is kept for the closing brace and one for the terminator.
@@ -91,7 +92,7 @@ Parsed parse(const char* line, size_t length) {
   return parsed;
 }
 
-const char* commandList() { return "PING HELP STATUS LOG REBOOT BOOTLOADER SCREENSHOT"; }
+const char* commandList() { return "PING HELP STATUS LOG BENCH REBOOT BOOTLOADER SCREENSHOT"; }
 
 bool parseUnsigned(const char* text, const size_t length, uint32_t& value) {
   if (!text || length == 0 || length > 10) return false;

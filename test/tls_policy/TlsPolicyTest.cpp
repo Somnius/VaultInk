@@ -257,3 +257,18 @@ TEST(TlsPolicy, ReadwiseIsAlwaysCheckedAgainstEveryBuiltInRoot) {
   EXPECT_EQ(choose("https://memos.example.com/api/v1/memos", true, false), Mode::Verify);
   EXPECT_EQ(choose("https://memos.example.com/api/v1/memos", true, true), Mode::CustomCa);
 }
+
+// The switch is a build flag (-DVAULTINK_VERIFY_GITHUB=1, env:x4pro-dev-verify). CMake builds this file both ways:
+// TlsPolicyTest with the default and TlsPolicyVerifyGithubTest with the flag.
+TEST(TlsPolicy, GithubIsAlwaysCheckedOnlyWithTheSwitchOn) {
+  EXPECT_EQ(alwaysChecked("api.github.com"), VERIFY_GITHUB);
+  EXPECT_EQ(alwaysChecked("github.com"), VERIFY_GITHUB);
+  EXPECT_EQ(alwaysChecked("objects.githubusercontent.com"), VERIFY_GITHUB);
+  EXPECT_FALSE(alwaysChecked("github.com.evil.example"));
+  EXPECT_TRUE(alwaysChecked("en.wikipedia.org"));  // never depends on the switch
+#if VAULTINK_VERIFY_GITHUB
+  EXPECT_TRUE(VERIFY_GITHUB);
+#else
+  EXPECT_FALSE(VERIFY_GITHUB);  // the default, which every shipped build gets
+#endif
+}

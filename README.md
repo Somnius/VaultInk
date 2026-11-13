@@ -424,7 +424,8 @@ mkdir -p fs_/books && cp some-book.epub fs_/books/
 Arrow keys are the buttons, Enter is OK, Escape is Back, and the mouse works as touch.
 
 For work on the firmware there is a developer build, `pio run -e x4pro-dev`, that answers status,
-reboot and flashing-mode commands over the USB cable (`scripts/devlink.py`). It is never a release
+reboot and flashing-mode commands over the USB cable (`scripts/devlink.py`) and can log the battery
+to the SD card for drain tests with the cable out. Its version ends in `-dev`. It is never a release
 build and has not been tried on a device yet: [docs/devlink.md](docs/devlink.md).
 
 ## Translating

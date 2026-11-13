@@ -45,6 +45,7 @@ enum class Command : uint8_t {
   Bootloader,
   Ping,
   Help,
+  Bench,  // the SD bench logger (DevLinkBench.h)
 };
 
 struct Parsed {

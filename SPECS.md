@@ -581,6 +581,33 @@ reports AES key recovery on the S3 with voltage fault injection.
   scripts/devlink.py (stdlib, termios): status, cmd, screenshot to PNG/BMP, bench to CSV with
   reconnects; 17 tests against a fake device on a pty (test/test_devlink_script.py). No SD, settings,
   input injection or flashing over the link: next slice. Unverified: everything on the device.
+- Developer link, second slice (unreleased, host tests only, not compiled for the device):
+  - SD bench log, `VAULTINK_DEVLINK` only. `CMD:BENCH [minutes 0-1440]`; the interval lives in
+    `/.vaultink/bench.cfg` (no file = off, the default). `devlinkdevice::benchTick()` runs in
+    `loop()` after the serial block (so after the USB Drive early return), never in the sleep path,
+    no timer, no radio. A due row takes `RenderLock(Mode::Try)` for the two battery reads and
+    retries next pass when the render task holds it; then one open/append/close of
+    `/.vaultink/bench.csv`. At 256 KB (`BENCH_FILE_CAP`) the file is renamed to `bench.old.csv`.
+    Columns: epoch (0 = clock not trusted), uptime_ms, battery_mv, battery_percent, usb, light_on,
+    light_brightness, light_warmth, cpu_mhz, heap_free, heap_min, psram_free, activity, wifi, ble,
+    wake_cause. Pure parts in lib/DevLink/DevLinkBench.{h,cpp} (`formatBenchRow` into a fixed
+    192-byte buffer, `benchFileAction`, `benchDue` with unsigned millis arithmetic,
+    `parseBenchMinutes`), a separate file so only the dev build links it; 10 host tests in
+    test/dev_link/DevLinkBenchTest.cpp. `scripts/devlink.py bench-file <path>` prints the percent
+    and mV drop per hour per awake stretch, grouped by light off / on / changed / cable in
+    (7 more tests in test/test_devlink_script.py, 24 in all).
+  - Developer label: `[env:x4pro-dev]` sets `CROSSPOINT_VERSION` to `<version>-x4pro-dev` (the
+    X4 Pro flags moved to `[x4pro_flags]`, which env:x4pro and env:x4pro-dev both use, so the
+    version is defined once per build); STATUS adds `"build":"dev"` and `bench_minutes`.
+    `OtaUpdater::isUpdateNewer` is unchanged (three numbers): an equal release is not offered, a
+    higher one is, and under `VAULTINK_DEVLINK` OtaUpdateActivity then draws "Developer build:
+    Update installs the release build" and logs the decision at info level.
+  - `tlspolicy::VERIFY_GITHUB` = `VAULTINK_VERIFY_GITHUB != 0`, a macro that defaults to 0 in
+    TlsPolicy.h. Only `[env:x4pro-dev-verify]` (= x4pro-dev + `-DVAULTINK_VERIFY_GITHUB=1`) sets
+    it. test/tls_policy builds its tests twice (TlsPolicyTest, TlsPolicyVerifyGithubTest).
+  - Shipped builds: one more entry in the command name table of lib/DevLink (`BENCH`, parsed as a
+    known name and then ignored, like the other names); everything else is behind
+    `#ifdef VAULTINK_DEVLINK` or the macro default. Not measured: no device build was run.
 
 ## 14. Licences and credits
 

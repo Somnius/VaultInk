@@ -6,6 +6,7 @@
     devlink.py cmd LOG 2
     devlink.py screenshot out.png          .png or .bmp, the same picture as Power + Down
     devlink.py bench --every 60 --minutes 30 --out idle.csv
+    devlink.py bench-file bench.csv        the drain per hour from a copied /.vaultink/bench.csv
 
 Only the x4pro-dev build answers the JSON commands; every build answers the screenshot.
 Standard library only. On Linux and macOS the port is opened with termios; pyserial is used
@@ -158,6 +159,192 @@ def csv_row(status, now: float) -> dict:
             value = int(value)
         row[column] = value
     return row
+
+
+# ---- the SD bench log (/.vaultink/bench.csv, written by the reader itself; no port needed) ----
+
+BENCH_FILE_COLUMNS = [
+    "epoch",
+    "uptime_ms",
+    "battery_mv",
+    "battery_percent",
+    "usb",
+    "light_on",
+    "light_brightness",
+    "light_warmth",
+    "cpu_mhz",
+    "heap_free",
+    "heap_min",
+    "psram_free",
+    "activity",
+    "wifi",
+    "ble",
+    "wake_cause",
+]
+BENCH_GROUPS = ["light off", "light on", "light changed", "cable in"]
+
+
+def parse_bench_file(lines):
+    """The rows of a bench.csv as dicts (numbers as int, activity as text), and how many lines were
+    skipped. A header line is not a row, wherever it is (two files may be joined); a line with the
+    wrong number of fields or a field that is not a number (a write cut by a power loss) is skipped."""
+    rows = []
+    skipped = 0
+    for cells in csv.reader(lines):
+        if not cells or cells == BENCH_FILE_COLUMNS:
+            continue
+        if len(cells) != len(BENCH_FILE_COLUMNS):
+            skipped += 1
+            continue
+        row = {}
+        try:
+            for column, cell in zip(BENCH_FILE_COLUMNS, cells):
+                row[column] = cell if column == "activity" else int(cell)
+        except ValueError:
+            skipped += 1
+            continue
+        rows.append(row)
+    return rows, skipped
+
+
+def bench_stretches(rows):
+    """One stretch for every two rows in a row that the reader stayed awake between, and the number
+    of breaks. uptime_ms starts again at every boot and a wake from sleep is a boot, so a row whose
+    uptime is not above the one before starts a new run: that pair is a break, not a stretch. The
+    time of a stretch comes from uptime_ms, not from the clock, which may be unset (epoch 0) or
+    corrected by a sync."""
+    stretches = []
+    breaks = 0
+    for before, after in zip(rows, rows[1:]):
+        elapsed_ms = after["uptime_ms"] - before["uptime_ms"]
+        if elapsed_ms <= 0:
+            breaks += 1
+            continue
+        hours = elapsed_ms / 3_600_000
+        if before["usb"] or after["usb"]:
+            group = "cable in"  # the cable feeds the reader: not a drain figure
+        elif before["light_on"] and after["light_on"]:
+            group = "light on"
+        elif not before["light_on"] and not after["light_on"]:
+            group = "light off"
+        else:
+            group = "light changed"
+        percent_drop = before["battery_percent"] - after["battery_percent"]
+        mv_drop = before["battery_mv"] - after["battery_mv"]
+        stretches.append(
+            {
+                "epoch": before["epoch"],
+                "uptime_ms": before["uptime_ms"],
+                "minutes": elapsed_ms / 60_000,
+                "hours": hours,
+                "group": group,
+                "percent_from": before["battery_percent"],
+                "percent_to": after["battery_percent"],
+                "mv_from": before["battery_mv"],
+                "mv_to": after["battery_mv"],
+                "percent_drop": percent_drop,
+                "mv_drop": mv_drop,
+                "percent_per_hour": percent_drop / hours,
+                "mv_per_hour": mv_drop / hours,
+                "activity": after["activity"],
+            }
+        )
+    return stretches, breaks
+
+
+def bench_groups(stretches):
+    """Per group: the stretches, their minutes, and the drop per hour over all of them together
+    (the whole drop over the whole time, so a long stretch counts for more than a short one)."""
+    groups = []
+    for name in BENCH_GROUPS:
+        members = [stretch for stretch in stretches if stretch["group"] == name]
+        if not members:
+            continue
+        hours = sum(stretch["hours"] for stretch in members)
+        groups.append(
+            {
+                "group": name,
+                "stretches": len(members),
+                "minutes": hours * 60,
+                "percent_per_hour": sum(stretch["percent_drop"] for stretch in members) / hours,
+                "mv_per_hour": sum(stretch["mv_drop"] for stretch in members) / hours,
+            }
+        )
+    return groups
+
+
+def _is_number(text: str) -> bool:
+    try:
+        float(text)
+    except ValueError:
+        return False
+    return True
+
+
+def text_table(header, lines) -> str:
+    """Plain columns: text to the left, numbers to the right."""
+    table = [header] + lines
+    widths = [max(len(row[i]) for row in table) for i in range(len(header))]
+    numeric = [all(_is_number(row[i]) for row in lines) for i in range(len(header))]
+    out = []
+    for row in table:
+        cells = [cell.rjust(widths[i]) if numeric[i] else cell.ljust(widths[i]) for i, cell in enumerate(row)]
+        out.append("  ".join(cells).rstrip())
+    return "\n".join(out)
+
+
+def bench_file_report(lines, name: str = "bench.csv") -> str:
+    """The summary `bench-file` prints. A drop is positive when the battery went down."""
+    rows, skipped = parse_bench_file(lines)
+    stretches, breaks = bench_stretches(rows)
+    out = [
+        f"{name}: {len(rows)} rows, {len(stretches)} awake stretches, "
+        f"{breaks} breaks (sleep or restart), {skipped} lines skipped"
+    ]
+    if not stretches:
+        out.append("No two rows from the same time awake: nothing to work out.")
+        return "\n".join(out)
+    out.append("")
+    out.append("Drop per hour while awake (positive: the battery went down)")
+    out.append(
+        text_table(
+            ["state", "stretches", "minutes", "percent/h", "mV/h"],
+            [
+                [
+                    group["group"],
+                    str(group["stretches"]),
+                    f"{group['minutes']:.1f}",
+                    f"{group['percent_per_hour']:.2f}",
+                    f"{group['mv_per_hour']:.1f}",
+                ]
+                for group in bench_groups(stretches)
+            ],
+        )
+    )
+    out.append("")
+    out.append("Every stretch")
+    stretch_lines = []
+    for stretch in stretches:
+        if stretch["epoch"] > 0:
+            start = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stretch["epoch"]))
+        else:
+            start = f"up {stretch['uptime_ms'] / 60_000:.1f} min"
+        stretch_lines.append(
+            [
+                start,
+                f"{stretch['minutes']:.1f}",
+                stretch["group"],
+                f"{stretch['percent_from']}>{stretch['percent_to']}",
+                f"{stretch['mv_from']}>{stretch['mv_to']}",
+                f"{stretch['percent_per_hour']:.2f}",
+                f"{stretch['mv_per_hour']:.1f}",
+                stretch["activity"],
+            ]
+        )
+    out.append(
+        text_table(["start", "minutes", "state", "percent", "mV", "percent/h", "mV/h", "screen"], stretch_lines)
+    )
+    return "\n".join(out)
 
 
 # ---- the port ----
@@ -383,8 +570,18 @@ def main(argv=None) -> int:
     run.add_argument("--every", type=float, default=60, help="seconds between polls (60)")
     run.add_argument("--minutes", type=float, default=30, help="how long to run (30)")
     run.add_argument("--out", required=True, help="CSV file, appended to")
+    summary = sub.add_parser("bench-file", help="summarise a bench.csv copied from the SD card (no port needed)")
+    summary.add_argument("file")
     args = parser.parse_args(argv)
 
+    if args.action == "bench-file":
+        try:
+            with open(args.file, newline="", encoding="utf-8", errors="replace") as handle:
+                print(bench_file_report(handle, os.path.basename(args.file)))
+        except OSError as error:
+            print(f"devlink: {error}", file=sys.stderr)
+            return 2
+        return 0
     try:
         if args.action == "bench":
             if args.every <= 0 or args.minutes <= 0:

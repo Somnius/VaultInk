@@ -106,7 +106,7 @@ TEST(Parse, EveryListedCommandParses) {
     start = end + 1;
     ++count;
   }
-  EXPECT_EQ(count, 7);
+  EXPECT_EQ(count, 8);
 }
 
 TEST(Parse, LinesThatAreNotCommands) {

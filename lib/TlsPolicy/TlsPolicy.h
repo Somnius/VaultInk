@@ -28,7 +28,12 @@ namespace tlspolicy {
 // real handshake with its P-384 chains on a device yet, and a failure there would stop Wi-Fi updates for everyone.
 // The code for it is all here: turn this on after a device has done an update check, a font download and a
 // Wikipedia lookup (ROADMAP, Release B gate). Wikipedia is new, so it is always checked.
-inline constexpr bool VERIFY_GITHUB = false;
+// A build can turn it on with -DVAULTINK_VERIFY_GITHUB=1. Only env:x4pro-dev-verify does (the developer build for
+// that live test, docs/devlink.md); every other build leaves the macro alone and gets false.
+#ifndef VAULTINK_VERIFY_GITHUB
+#define VAULTINK_VERIFY_GITHUB 0
+#endif
+inline constexpr bool VERIFY_GITHUB = (VAULTINK_VERIFY_GITHUB) != 0;
 
 enum class Mode : uint8_t {
   Plain,     // not https: nothing to check

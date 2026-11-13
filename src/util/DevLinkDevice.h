@@ -21,6 +21,13 @@ void noteWakeCause(int cause);
 // main.cpp answers it the same way in every build. REBOOT and BOOTLOADER do not return.
 void handle(const devlink::Parsed& parsed, unsigned long msSinceInput, uint32_t droppedLines);
 
+// The SD bench logger: while it is switched on (CMD:BENCH <minutes>), appends one row to
+// /.vaultink/bench.csv when the interval has passed. Call it from the main loop only, after the
+// USB Drive early return (the card is not ours there). It never waits: when the screen is being
+// drawn it does nothing and tries again on the next pass. It starts no radio and no timer, and
+// does not run in or before sleep.
+void benchTick();
+
 }  // namespace devlinkdevice
 
 #endif  // VAULTINK_DEVLINK

@@ -1072,6 +1072,9 @@ void loop() {
 #endif
     break;  // one line a pass
   }
+#ifdef VAULTINK_DEVLINK
+  devlinkdevice::benchTick();  // the SD bench log; off unless CMD:BENCH turned it on
+#endif
 
   if (gpio.wasAnyPressed() || gpio.wasAnyReleased() || gpio.wasTouchActivity() || halTiltSensor.hadActivity() ||
       remoteActed || activityManager.preventAutoSleep()) {

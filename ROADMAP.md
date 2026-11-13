@@ -666,8 +666,17 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   build, a serial line reader that never waits (in every build; `CMD:SCREENSHOT` is unchanged),
   `CMD:STATUS`, `LOG`, `REBOOT`, `BOOTLOADER`, `PING`, `HELP` with one JSON line each, and
   `scripts/devlink.py` (status, cmd, screenshot, bench to CSV). [docs/devlink.md](docs/devlink.md)
+* ✅ (unreleased, computer tests only, not compiled for the device) Second slice: the SD bench log
+  for drain tests with the cable out (`CMD:BENCH <minutes>`, off by default, a CSV row every N
+  minutes while awake to `/.vaultink/bench.csv`, capped at 256 KB, no radio and no timer;
+  `devlink.py bench-file` turns the file into drop per hour by light state); the developer label
+  (version `…-x4pro-dev`, `"build":"dev"` in STATUS, the update screen says that an update installs
+  the release build); `x4pro-dev-verify`, the same build with GitHub's certificate checked, for the
+  live test of the Release B gate below.
 * Still to do: build and flash `x4pro-dev` and try every command on an X4 Pro; `BOOTLOADER` with
-  esptool; the JTAG one try (`pio debug -e x4pro-dev`); the awake A/B runs from the guide.
+  esptool; the JTAG one try (`pio debug -e x4pro-dev`); the awake A/B runs from the guide, with the
+  SD bench log; confirm the `x4pro` build did not grow; the live test with `x4pro-dev-verify`
+  (docs/devlink.md, "Live test: GitHub's certificate").
 * Next slice (not started): SD list/read/write, settings get/set, key and touch injection,
   `CMD:FLASH <sd path>`. Dev build only; behind a Developer setting that is off by default if it
   ever ships.

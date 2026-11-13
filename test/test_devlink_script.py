@@ -327,5 +327,92 @@ class Link(unittest.TestCase):
         self.assertEqual(table[4]["cpu_mhz"], "80")
 
 
+BENCH_FILE = """epoch,uptime_ms,battery_mv,battery_percent,usb,light_on,light_brightness,light_warmth,cpu_mhz,heap_free,heap_min,psram_free,activity,wifi,ble,wake_cause
+1794571200,1000,4000,80,0,0,0,128,80,150000,90000,6000000,Reader,0,0,0
+1794571500,301000,3998,80,0,0,0,128,80,150000,90000,6000000,Reader,0,0,0
+1794571800,601000,3994,79,0,0,0,128,80,150000,90000,6000000,Reader,0,0,0
+1794572100,901000,3990,79,0,1,40,128,80,150000,90000,6000000,Reader,0,0,0
+1794572400,1201000,3980,78,0,1,40,128,80,150000,90000,6000000,Reader,0,0,0
+1794572700,1501000,3970,77,0,1,40,128,160,150000,90000,6000000,Home,0,0,0
+0,2000,3969,77,0,0,0,128,160,150000,90000,6000000,Home,0,0,0
+0,602000,3967,77,1,0,0,128,80,150000,90000,6000000,Home,0,0,0
+0,1202000,3999,78,1,0,0,128,80,150000,90000,6000000,Home,0,0,0
+"""
+
+
+class BenchFile(unittest.TestCase):
+    def test_rows_and_what_is_skipped(self):
+        text = BENCH_FILE + "1794572700,15\n" + BENCH_FILE.splitlines()[0] + "\n1,2,x,4,0,0,0,0,0,0,0,0,A,0,0,0\n"
+        rows, skipped = devlink.parse_bench_file(text.splitlines())
+        self.assertEqual(len(rows), 9)
+        self.assertEqual(skipped, 2)  # the cut line and the one with a letter; the second header is not a row
+        self.assertEqual(rows[0]["battery_mv"], 4000)
+        self.assertEqual(rows[5]["activity"], "Home")
+        self.assertEqual(devlink.BENCH_FILE_COLUMNS, BENCH_FILE.splitlines()[0].split(","))
+
+    def test_the_columns_are_the_ones_the_firmware_writes(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "lib", "DevLink", "DevLinkBench.cpp"), encoding="utf-8") as handle:
+            # The header is one string written as adjacent literals: join them.
+            text = "".join(handle.read().split()).replace('""', "")
+        self.assertIn('"' + ",".join(devlink.BENCH_FILE_COLUMNS) + '\\n"', text)
+
+    def test_stretches(self):
+        rows, _ = devlink.parse_bench_file(BENCH_FILE.splitlines())
+        stretches, breaks = devlink.bench_stretches(rows)
+        self.assertEqual(breaks, 1)  # the uptime started again: a sleep or a restart
+        self.assertEqual(
+            [stretch["group"] for stretch in stretches],
+            ["light off", "light off", "light changed", "light on", "light on", "cable in", "cable in"],
+        )
+        first = stretches[0]
+        self.assertAlmostEqual(first["minutes"], 5.0)
+        self.assertAlmostEqual(first["mv_per_hour"], 24.0)  # 2 mV in 5 minutes
+        self.assertAlmostEqual(first["percent_per_hour"], 0.0)
+        self.assertAlmostEqual(stretches[4]["percent_per_hour"], 12.0)  # 1 percent in 5 minutes
+        self.assertEqual(stretches[4]["activity"], "Home")
+        self.assertAlmostEqual(stretches[5]["minutes"], 10.0)  # from the uptime: the clock was not set
+        self.assertLess(stretches[6]["mv_per_hour"], 0)  # charging
+
+    def test_groups_weigh_by_time(self):
+        rows, _ = devlink.parse_bench_file(BENCH_FILE.splitlines())
+        groups = {group["group"]: group for group in devlink.bench_groups(devlink.bench_stretches(rows)[0])}
+        self.assertEqual(list(groups), ["light off", "light on", "light changed", "cable in"])
+        self.assertEqual(groups["light off"]["stretches"], 2)
+        self.assertAlmostEqual(groups["light off"]["minutes"], 10.0)
+        self.assertAlmostEqual(groups["light off"]["mv_per_hour"], 36.0)  # 6 mV in 10 minutes
+        self.assertAlmostEqual(groups["light off"]["percent_per_hour"], 6.0)
+        self.assertAlmostEqual(groups["light on"]["mv_per_hour"], 120.0)  # 20 mV in 10 minutes
+        self.assertAlmostEqual(groups["light on"]["percent_per_hour"], 12.0)
+        # 2 mV down in 10 minutes, then 32 mV up in 10: 30 mV up in 20 minutes.
+        self.assertAlmostEqual(groups["cable in"]["mv_per_hour"], -90.0)
+
+    def test_report(self):
+        report = devlink.bench_file_report(BENCH_FILE.splitlines(), "bench.csv")
+        lines = report.splitlines()
+        self.assertEqual(lines[0], "bench.csv: 9 rows, 7 awake stretches, 1 breaks (sleep or restart), 0 lines skipped")
+        self.assertIn("state          stretches  minutes  percent/h   mV/h", lines)
+        self.assertIn("light off              2     10.0       6.00   36.0", lines)
+        self.assertIn("light on               2     10.0      12.00  120.0", lines)
+        self.assertIn("cable in               2     20.0      -3.00  -90.0", lines)
+        self.assertTrue(any(line.startswith("up 0.0 min") and line.endswith("Home") for line in lines), report)
+        self.assertTrue(any("80>79" in line and "3998>3994" in line for line in lines), report)
+
+    def test_a_file_without_a_stretch(self):
+        one = "\n".join(BENCH_FILE.splitlines()[:2])
+        report = devlink.bench_file_report(one.splitlines(), "one.csv")
+        self.assertIn("1 rows, 0 awake stretches", report)
+        self.assertIn("nothing to work out", report)
+        self.assertIn("0 rows", devlink.bench_file_report([], "empty.csv"))
+
+    def test_main_bench_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "bench.csv")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(BENCH_FILE)
+            self.assertEqual(devlink.main(["bench-file", path]), 0)
+            self.assertEqual(devlink.main(["bench-file", os.path.join(folder, "missing.csv")]), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

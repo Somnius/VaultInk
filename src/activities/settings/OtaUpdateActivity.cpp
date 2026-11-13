@@ -48,6 +48,11 @@ void OtaUpdateActivity::onWifiSelectionComplete(const bool success) {
     return;
   }
 
+#ifdef VAULTINK_DEVLINK
+  // A developer build is never a release: say in the log what the check found and what it means.
+  LOG_INF("OTA", "Developer build %s, latest release %s: %s", CROSSPOINT_VERSION, updater.getLatestVersion().c_str(),
+          updater.isUpdateNewer() ? "offered, installing it replaces this developer build" : "not newer, not offered");
+#endif
   if (!updater.isUpdateNewer()) {
     LOG_DBG("OTA", "No new update available");
     {
@@ -152,6 +157,12 @@ void OtaUpdateActivity::render(RenderLock&&) {
     y += height;
     renderer.drawText(UI_10_FONT_ID, side, y, (std::string(tr(STR_NEW_VERSION)) + updater.getLatestVersion()).c_str(),
                       true, EpdFontFamily::BOLD);
+#ifdef VAULTINK_DEVLINK
+    // Never offered silently over a developer build (English only: this build is not for users).
+    y += height;
+    renderer.drawText(UI_10_FONT_ID, side, y, "Developer build: Update installs the release build", true,
+                      EpdFontFamily::BOLD);
+#endif
     y += height + metrics.verticalSpacing;
     renderer.drawLine(side, y, pageWidth - side, y);
     y += metrics.verticalSpacing;
