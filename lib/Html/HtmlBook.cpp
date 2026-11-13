@@ -189,6 +189,7 @@ void sniff(std::string_view head, Info& info) {
       break;
     }
   }
+  info.named = named;
   info.title = decodeTitle(rawTitle, info.encoding);
 }
 

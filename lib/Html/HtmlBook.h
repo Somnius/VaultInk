@@ -37,6 +37,7 @@ struct Info {
   std::string language;  // from <html lang>, two letters; empty when there is none
   codepage::Id encoding = codepage::Id::Utf8;
   bool utf16 = false;
+  bool named = false;  // a BOM or the page names the encoding (lib/Chm falls back to the file's code page)
   size_t bomSize = 0;
 };
 
