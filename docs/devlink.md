@@ -176,3 +176,12 @@ Everything on the device:
   timeout, so bytes can be lost. The script then reports that `SCREENSHOT_END` did not follow;
 - JTAG as a whole;
 - the script on Windows (pyserial path).
+
+## Known limits from the review (0.74.0 + 1)
+
+- **BOOTLOADER on battery:** the ROM download mode does not run the app's power hold. With the cable plugged in it waits for esptool; on battery it either powers off or sits there and drains the pack until a chip reset. Use it with the cable in. Nothing is saved before REBOOT or BOOTLOADER. Not checked on a real X4 Pro.
+- **STATUS can pause the screen for a moment:** it takes the render lock and reads the battery gauge over I2C, and sends its reply with the 1 ms TX timeout. A STATUS during a long redraw waits for it, and a polling host (the `bench` mode) may log a `none` row for that poll. Poll no faster than once a minute.
+- **CMD:LOG 0** switches off the same debug flag the SD "Debug Logs" setting uses, so the SD log loses its debug lines until the next boot.
+- **A stray fragment** (bytes without a newline, such as a typed key) is forgotten after one second of silence; `devlink.py` also sends a bare newline before each command.
+- **Screenshot framing:** the 48,000 bytes go out in one write under the 1 ms TX timeout, and log lines from other tasks can land inside them (this was always so). The script reports a missing SCREENSHOT_END; take the screenshot again, with debug logs off.
+- **devlink.py port search:** with no `--port` it uses `/dev/ttyACM*`; if another device is plugged in, name the port.

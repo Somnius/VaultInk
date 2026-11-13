@@ -1056,7 +1056,7 @@ void loop() {
   for (int budget = 512; budget > 0 && logSerial.available() > 0; --budget) {
     const int incoming = logSerial.read();
     if (incoming < 0) break;
-    if (!serialLines.feed(static_cast<char>(incoming))) continue;
+    if (!serialLines.feed(static_cast<char>(incoming), millis())) continue;
     const devlink::Parsed parsed = devlink::parse(serialLines.line(), serialLines.length());
     if (parsed.command == devlink::Command::Screenshot && parsed.argsLength == 0) {
       const uint32_t bufferSize = display.getBufferSize();

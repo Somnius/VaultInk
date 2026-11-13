@@ -76,6 +76,8 @@ class FakeDevice:
             return
 
     def answer(self, line):
+        if not line.startswith("CMD:"):
+            return  # the real reader ignores a line that is not a command, such as the bare newline the host sends first
         self.seen.append(line)
         # What a real port is full of: log lines, one of them with braces.
         self.send(b"[1200] [INF] [MEM] Free: 150000 bytes\n[1201] [DBG] [X] {not json}\n")

@@ -16,7 +16,10 @@ class LineAssembler {
 
   // Takes one byte. True when it completed a line: line() and length() then hold it (without the
   // line end) until the next feed(). An empty line is a line too, with length 0.
-  bool feed(char c);
+  bool feed(char c, uint32_t nowMs = 0);
+  // A half-finished line is forgotten when the next byte comes this long after the last one (a stray
+  // keystroke must not glue itself to the next command, as the old read with a timeout never allowed).
+  static constexpr uint32_t IDLE_DROP_MS = 1000;
 
   const char* line() const { return buffer; }
   size_t length() const { return ready ? used : 0; }
@@ -27,6 +30,7 @@ class LineAssembler {
   char buffer[MAX_LINE + 1] = {};
   size_t used = 0;
   uint32_t droppedLines = 0;
+  uint32_t lastByteMs = 0;
   bool ready = false;     // buffer holds a finished line; the next byte starts a new one
   bool skipping = false;  // inside a line that was too long
 };

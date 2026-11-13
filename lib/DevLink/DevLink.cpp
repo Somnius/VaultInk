@@ -28,11 +28,17 @@ constexpr size_t FIELD_LIMIT = JsonLine::CAPACITY - 2;
 
 }  // namespace
 
-bool LineAssembler::feed(const char c) {
+bool LineAssembler::feed(const char c, const uint32_t nowMs) {
   if (ready) {
     ready = false;
     used = 0;
   }
+  // Unsigned subtraction: a wrapped clock still gives the gap. A caller that passes no time (0) never expires.
+  if (nowMs != 0 && used > 0 && nowMs - lastByteMs > IDLE_DROP_MS) {
+    used = 0;
+    skipping = false;
+  }
+  if (nowMs != 0) lastByteMs = nowMs;
   if (c == '\r') return false;
   if (c == '\n') {
     if (skipping) {

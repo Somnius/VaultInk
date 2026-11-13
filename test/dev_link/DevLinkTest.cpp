@@ -239,3 +239,30 @@ TEST(JsonLine, AnEscapeCutAtTheCapIsLeftOutWhole) {
   EXPECT_TRUE(json.tooLong());
   EXPECT_STREQ(json.finish(), "{\"ok\":false,\"error\":\"reply too long\"}");
 }
+
+TEST(DevLinkLines, AStaleFragmentIsForgottenAfterAPause) {
+  devlink::LineAssembler lines;
+  for (const char c : std::string("xx")) EXPECT_FALSE(lines.feed(c, 1000));
+  bool done = false;
+  for (const char c : std::string("CMD:PING\n")) done = lines.feed(c, 5000);  // 4 s later
+  ASSERT_TRUE(done);
+  EXPECT_EQ(std::string(lines.line(), lines.length()), "CMD:PING");
+}
+
+TEST(DevLinkLines, ABurstIsNotCutByThePause) {
+  devlink::LineAssembler lines;
+  bool done = false;
+  uint32_t now = 100;
+  for (const char c : std::string("CMD:PING\n")) done = lines.feed(c, now += 5);
+  ASSERT_TRUE(done);
+  EXPECT_EQ(std::string(lines.line(), lines.length()), "CMD:PING");
+}
+
+TEST(DevLinkLines, AWrappedClockStillGivesTheGap) {
+  devlink::LineAssembler lines;
+  EXPECT_FALSE(lines.feed('x', 0xFFFFFF00u));
+  bool done = false;
+  for (const char c : std::string("CMD:PING\n")) done = lines.feed(c, 0x00001000u);  // 4,352 ms later, wrapped
+  ASSERT_TRUE(done);
+  EXPECT_EQ(std::string(lines.line(), lines.length()), "CMD:PING");
+}

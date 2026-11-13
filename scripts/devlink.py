@@ -298,9 +298,11 @@ def open_port(path: str | None):
 def command(port, text: str, timeout: float = REPLY_TIMEOUT_S) -> dict:
     """Send CMD:<text> and return its JSON reply, skipping the log lines around it."""
     port.drain()
-    port.write(f"CMD:{text}\n".encode())
+    port.write(f"\nCMD:{text}\n".encode())  # a bare newline first ends any stray fragment the reader holds
     deadline = time.monotonic() + timeout
     while True:
+        if time.monotonic() >= deadline:  # a device that only logs must not keep this loop going
+            raise LinkError("no reply in time (is this the x4pro-dev build, awake and out of USB Drive mode?)")
         reply = parse_reply(port.read_line(deadline))
         if reply is not None:
             return reply
@@ -309,7 +311,7 @@ def command(port, text: str, timeout: float = REPLY_TIMEOUT_S) -> dict:
 def screenshot(port, timeout: float = SCREENSHOT_TIMEOUT_S) -> bytes:
     """The raw framebuffer of CMD:SCREENSHOT (SCREENSHOT_START:<n>, n bytes, SCREENSHOT_END)."""
     port.drain()
-    port.write(b"CMD:SCREENSHOT\n")
+    port.write(b"\nCMD:SCREENSHOT\n")
     deadline = time.monotonic() + timeout
     while True:
         size = parse_screenshot_start(port.read_line(deadline))
