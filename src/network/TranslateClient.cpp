@@ -111,7 +111,7 @@ Result fetch(const translate::Pair& pair, const std::string& text, translate::Re
 
   out = ownServer ? parser->finishLibreTranslate(answered) : parser->finishMyMemory(answered);
   if (out.status != translate::Status::Ok && !out.detail.empty()) {
-    LOG_ERR("TRN", "The service said: %.120s", out.detail.c_str());
+    LOG_ERR("TRN", "The service refused or failed (status %d)", status);  // never the text: it holds the selection
   }
   return resultOf(out.status);
 }

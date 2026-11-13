@@ -79,3 +79,9 @@ SDK; that is not done here.
 - The Gamepad Buttons screen on a reader or in the simulator (the firmware with this change has not been
   compiled for the device).
 - Memory and battery with a pad connected (the radio rules are the page turner's, unchanged).
+
+## Known limits from the review
+
+- Gamepad button edges that arrive while the lock screen is up are not read then: they wait in the radio's queue and are applied when a book is in front again (only the Home screen drains the queue early). Do not map buttons to actions you would not want applied late.
+- The 'Gamepad Buttons' view is offered for any linked device, so a plain page-turner remote can be learned into the pad path; leave it alone unless you want a button-to-action map for that remote.
+- The pad path acts on each press without the rest-frame filter that learning uses.

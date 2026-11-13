@@ -212,6 +212,7 @@ Limits:
 - Where a paragraph ends exactly at a page's end, the gap after it is not drawn between the two pages. A box with a border or a drop cap that is cut by the top of the view is drawn cut.
 - XTC/XTCH and comics are not text pages and don't scroll. Changing the switch does not move you: the view starts at the top of the open page.
 - Every scroll step is counted as a page turn by the reading log.
+- A jump that lands on the page already at the top of the screen (a search hit, a footnote return or a bookmark on that page) does not move the view if the target is a few lines above the top line. Turn to another page and back, or scroll up. The last screen of a book saves the page that holds its top line, so the book-end percentage can stay just under 100. Each scroll step writes a small position file (`scroll.bin`) next to the reading position. The Footnotes list is built from the first page on screen only. These are known limits from the review, not yet fixed.
 
 ## The More menu in a book (0.70.0)
 
