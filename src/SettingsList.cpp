@@ -152,6 +152,16 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Enum(StrId::STR_EVEN_WORD_GAPS, &CrossPointSettings::evenWordGaps,
                          {StrId::STR_STATE_OFF, StrId::STR_GAPS_SLIGHT, StrId::STR_GAPS_MEDIUM}, "evenWordGaps",
                          StrId::STR_CAT_READER));
+  // Scroll mode (kos25k #30): its own rows in Settings > Reader, the switch also in the book's Text panel.
+  emit(SettingInfo::Toggle(StrId::STR_SCROLL_MODE, &CrossPointSettings::scrollMode, "scrollMode",
+                           StrId::STR_CAT_READER));
+  emit(
+      SettingInfo::Enum(StrId::STR_SCROLL_STEP, &CrossPointSettings::scrollStep,
+                        {StrId::STR_SCROLL_STEP_3, StrId::STR_SCROLL_STEP_5, StrId::STR_SCROLL_STEP_10,
+                         StrId::STR_SCROLL_STEP_HALF, StrId::STR_SCROLL_STEP_TWO_THIRDS, StrId::STR_SCROLL_STEP_SCREEN},
+                        "scrollStep", StrId::STR_CAT_READER));
+  emit(SettingInfo::Value(StrId::STR_SCROLL_REFRESH, &CrossPointSettings::scrollRefreshEvery, {1, 30, 1},
+                          "scrollRefreshEvery", StrId::STR_CAT_READER));
   emit(SettingInfo::Enum(StrId::STR_READING_PAPER, &CrossPointSettings::readingPaper,
                          {std::begin(paper_texture::NAMES), std::end(paper_texture::NAMES)}, "readingPaper",
                          StrId::STR_CAT_READER));

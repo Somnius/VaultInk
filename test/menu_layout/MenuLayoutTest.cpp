@@ -56,6 +56,20 @@ TEST(MenuLayout, MoveShiftsTheOthers) {
   EXPECT_EQ(ids, (std::vector<int>{1, 2, 3, 5, 4}));
 }
 
+TEST(MenuLayout, ATextPanelOrderSavedBeforeARowWasAddedStillLoads) {
+  // 0.73.0 had 13 Text rows (0-12); Continuous scrolling is row 13 (kos25k #30). A saved order of the 13 keeps
+  // its order and its hidden rows, and the new row comes last.
+  std::vector<int> rows14;
+  for (int i = 0; i < 14; ++i) rows14.push_back(i);
+  const std::string saved = encode({12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11});
+  EXPECT_EQ(saved.size(), 13u);
+  EXPECT_EQ(fullOrder(rows14, saved), (std::vector<int>{12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13}));
+  EXPECT_EQ(arrange(rows14, saved, maskOf(5) | maskOf(11), 0),
+            (std::vector<int>{12, 0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 13}));
+  // All 14 fit the stored field (char textMenuOrder[24]).
+  EXPECT_LT(encode(rows14).size(), 24u);
+}
+
 TEST(MenuLayout, IdsOutsideTheMaskNeverCrash) {
   EXPECT_EQ(maskOf(-1), 0u);
   EXPECT_EQ(maskOf(32), 0u);
