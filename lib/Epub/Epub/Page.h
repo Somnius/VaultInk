@@ -118,6 +118,20 @@ class PageBorderBox final : public PageElement {
   bool serialize(HalFile& file) override;
   PageElementTag getTag() const override { return TAG_PageBorderBox; }
   static std::unique_ptr<PageBorderBox> deserialize(HalFile& file);
+  // Scroll mode (kos25k #30): keep the part of the box inside [top, bottom) of its page. A cut edge loses its
+  // border, as at a page break. False when nothing of the box is left.
+  bool clipVertically(const int top, const int bottom) {
+    const int boxTop = yPos;
+    const int boxBottom = yPos + height;
+    const int newTop = std::max(boxTop, top);
+    const int newBottom = std::min(boxBottom, bottom);
+    if (newBottom <= newTop) return false;
+    if (newTop > boxTop) sides[0].width = 0;
+    if (newBottom < boxBottom) sides[2].width = 0;
+    yPos = static_cast<int16_t>(newTop);
+    height = static_cast<uint16_t>(newBottom - newTop);
+    return true;
+  }
   void renderBackground(GfxRenderer& renderer, int xOffset, int yOffset) const;
 };
 

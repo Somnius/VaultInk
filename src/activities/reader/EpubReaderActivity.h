@@ -5,8 +5,10 @@
 #include <Epub/PageLink.h>
 #include <Epub/Section.h>
 #include <Gestures.h>
+#include <ScrollView.h>
 
 #include <atomic>
+#include <map>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -25,6 +27,7 @@
 namespace linkupdate {
 struct Plan;
 }
+class PageLine;
 
 class EpubReaderActivity final : public ReaderActivity {
   std::shared_ptr<Epub> epub;
@@ -111,6 +114,50 @@ class EpubReaderActivity final : public ReaderActivity {
   std::vector<EpubReaderMenuActivity::MenuItem> moreItems;
   bool pdfStyledLoaded = true;  // the Style setting the PDF's text was last built with (kos25k #29)
   std::vector<int> textRows;    // the Text panel's rows, in the reader's own order (kos25k #15)
+
+  // Scroll mode (Settings > Reader > Continuous scrolling, kos25k #30, lib/ScrollView). The page cache stays as
+  // it is; the screen shows a view that starts at row scrollRow of section->currentPage and runs on into the
+  // pages after it. Everything that goes by page (progress, bookmarks, KOReader sync, the book map, hidden
+  // chapters) sees section->currentPage: the page that holds the view's top line. A scroll stops at the
+  // chapter's end, as a page turn does; the next step opens the next chapter.
+  bool scrollModeActive() const;
+  // Builds the view for this draw as one Page (lines moved to their place on screen), after applying the
+  // queued scroll. nullptr: draw the plain page instead; scrollBuildError says when that was a failed build.
+  std::unique_ptr<Page> composeScrollView(const ReaderRenderSpec& spec, int viewHeight);
+  bool scrollBuildThrough(int page, const ReaderRenderSpec& spec);
+  void resetScrollView();
+  void saveScrollRow();
+  bool chapterHasClippings() const;
+  uint16_t clippingWordCount(const PageLine& line, int fontId) const;
+  int scrollRow = 0;                  // the view's top row in section->currentPage
+  int scrollAnchorSpine = -1;         // the chapter and page scrollRow belongs to: after any jump the page differs
+  int scrollAnchorPage = -1;          // and the view starts at the new page's top
+  std::atomic<int> pendingScroll{0};  // steps queued by pageTurn() for the next draw (+ = forward)
+  std::atomic<int> pendingScrollPixels{0};    // a swipe's length for that scroll, 0 = the Scroll step setting
+  int pendingTurnPixels = 0;                  // the same, held with a turn that waits for the turn guard
+  int scrollEndOfSpine = -1;                  // going back into this chapter: open it on its last screen
+  std::atomic<bool> scrollEndVisible{false};  // the view drawn last shows the chapter's last line
+  enum class ScrollBuildError : uint8_t { None, Failed, Refused };
+  ScrollBuildError scrollBuildError = ScrollBuildError::None;
+  bool scrollLoadFailed = false;
+  // Rows of the chapter's pages seen so far (a page load each), dropped with the section.
+  std::map<int, std::vector<scrollview::Row>> scrollRowsCache;
+  // The view on screen: which page each part came from (a long press is given to its page), and for every
+  // element of the composed Page its page and the index of its first word there (highlights go by both).
+  struct ScrollSegment {
+    int page;
+    int yShift;
+    int top;
+    int bottom;
+  };
+  std::vector<ScrollSegment> scrollSegments;
+  std::vector<uint16_t> scrollElementPage;
+  std::vector<uint16_t> scrollElementWordStart;
+  // <cache>/scroll.bin: chapter, page and row (u16 LE each), so a book reopens on the same line.
+  int scrollSavedSpine = -1;
+  int scrollSavedPage = -1;
+  int scrollSavedRow = -1;
+  bool scrollFileExists = false;
 
   // Footnote support
   std::vector<FootnoteEntry> currentPageFootnotes;

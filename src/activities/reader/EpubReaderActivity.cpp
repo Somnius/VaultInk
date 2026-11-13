@@ -14,6 +14,7 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <ScrollView.h>
 #include <Translate.h>
 #include <TrustedTime.h>
 #include <Txt.h>
@@ -26,6 +27,7 @@
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <cstdlib>
 #include <functional>
 #include <iterator>
 #include <limits>
@@ -340,6 +342,32 @@ bool EpubReaderActivity::loadBook() {
     }
   }
 
+  // Scroll mode: the row the view started at when the book was last drawn, if it is of the same chapter and page.
+  resetScrollView();
+  scrollRow = 0;
+  scrollAnchorSpine = -1;
+  scrollAnchorPage = -1;
+  scrollSavedSpine = scrollSavedPage = scrollSavedRow = -1;
+  const std::string scrollPath = epub->getCachePath() + "/scroll.bin";
+  scrollFileExists = Storage.exists(scrollPath.c_str());
+  if (scrollFileExists && SETTINGS.scrollMode) {
+    HalFile sf;
+    uint8_t d[6];
+    if (Storage.openFileForRead("ERS", scrollPath, sf) && sf.read(d, sizeof(d)) == static_cast<int>(sizeof(d))) {
+      const int spine = d[0] | (d[1] << 8);
+      const int page = d[2] | (d[3] << 8);
+      const int row = d[4] | (d[5] << 8);
+      if (spine == currentSpineIndex && page == nextPageNumber) {
+        scrollRow = row;
+        scrollAnchorSpine = spine;
+        scrollAnchorPage = page;
+        scrollSavedSpine = spine;
+        scrollSavedPage = page;
+        scrollSavedRow = row;
+      }
+    }
+  }
+
   if (currentSpineIndex == 0) {
     int textSpineIndex = epub->getSpineIndexForTextReference();
     if (textSpineIndex != 0) {
@@ -507,11 +535,25 @@ void EpubReaderActivity::openDictionaryWordSelect() {
   startClipSelection(-1, -1, ClipSelectionActivity::Mode::Lookup);
 }
 
-void EpubReaderActivity::startClipSelection(const int initialX, const int initialY,
-                                            const ClipSelectionActivity::Mode mode) {
+void EpubReaderActivity::startClipSelection(const int initialX, int initialY, const ClipSelectionActivity::Mode mode) {
   if (!section || !epub || section->currentPage < 0 || section->currentPage >= section->pageCount) return;
 
-  const int pageNumber = section->currentPage;
+  int pageNumber = section->currentPage;
+  // Scroll mode: the selection screen shows a whole page. A long press goes to the page its line came from,
+  // at that line's place in the page; without a touch it is the page of the view's top line.
+  if (initialX >= 0 && scrollModeActive() && !scrollSegments.empty()) {
+    int viewTop, viewRight, viewBottom, viewLeft;
+    renderer.getOrientedViewableTRBL(&viewTop, &viewRight, &viewBottom, &viewLeft);
+    const int viewY = initialY - viewTop - SETTINGS.screenMargin;
+    const ScrollSegment* hit = nullptr;
+    for (const auto& segment : scrollSegments) {
+      if (viewY >= segment.top) hit = &segment;
+    }
+    if (hit && hit->page >= 0 && hit->page < section->pageCount) {
+      pageNumber = hit->page;
+      initialY -= hit->yShift;
+    }
+  }
   const uint16_t pageCount = section->pageCount;
   const uint16_t spineIndex = static_cast<uint16_t>(currentSpineIndex);
   std::vector<std::unique_ptr<Page>> pages;
@@ -832,6 +874,23 @@ void EpubReaderActivity::loop() {
   } else {
     touch = ReaderUtils::detectTouchPageTurn(renderer, mappedInput, rtlBook);
   }
+  // Scroll mode: a swipe up or down the page scrolls by its length (a step at least). The edge swipes keep their
+  // own meaning (menu, light panel, Home), and a gesture set on swipe up or down in Settings > Gestures wins.
+  int swipeScrollPixels = 0;
+  if (scrollModeActive() && SETTINGS.touchReaderControls && mappedInput.hasTouch() && !touch.prev && !touch.next &&
+      gestureAction == gestures::None && !mappedInput.wasGlobalEdgeSwipe() &&
+      !ReaderUtils::isTouchMenuGesture(renderer, mappedInput, false)) {
+    int startX = 0;
+    int startY = 0;
+    int endX = 0;
+    int endY = 0;
+    const auto dir = mappedInput.wasSwipe(&startX, &startY, &endX, &endY);
+    if (dir == MappedInputManager::SwipeDir::Up || dir == MappedInputManager::SwipeDir::Down) {
+      // A finger moving up pulls the text up: forward.
+      touch = {dir == MappedInputManager::SwipeDir::Down, dir == MappedInputManager::SwipeDir::Up, 0};
+      swipeScrollPixels = std::max(1, std::abs(endY - startY));
+    }
+  }
 
   if (showBookmarkMessage && (millis() - bookmarkMessageTime) >= ReaderUtils::BOOKMARK_MESSAGE_DURATION_MS) {
     showBookmarkMessage = false;
@@ -1110,6 +1169,8 @@ void EpubReaderActivity::loop() {
     }
     const bool forward = pendingManualTurn > 0;
     pendingManualTurn = 0;
+    pendingScrollPixels = pendingTurnPixels;
+    pendingTurnPixels = 0;
     const bool succeeded = pageTurn(forward);
     notePageTurn(forward, succeeded);
     if (succeeded && pendingManualTurnTouch) haptic_feedback::touchAction();
@@ -1164,9 +1225,11 @@ void EpubReaderActivity::loop() {
   if (turnGuardActive) {
     pendingManualTurn = prevTriggered ? -1 : 1;
     pendingManualTurnTouch = touch.prev || touch.next;
+    pendingTurnPixels = swipeScrollPixels;
     return;
   }
 
+  pendingScrollPixels = swipeScrollPixels;
   const bool succeeded = pageTurn(!prevTriggered);
   notePageTurn(!prevTriggered, succeeded);
   if (succeeded && (touch.prev || touch.next)) haptic_feedback::touchAction();
@@ -1861,8 +1924,19 @@ bool EpubReaderActivity::pageTurn(bool isForwardTurn) {
     RenderLock lock;
     clearDeferredReposition();
   }
+  // Scroll mode: the turn becomes a scroll that the next draw works out (it needs the pages' lines). Only at
+  // the chapter's ends does it fall through to the chapter change below.
+  // (Not while the plain page is shown because no view could be made: then it is a page turn as ever.)
+  const bool scrolling = scrollModeActive() && !scrollSegments.empty();
+  const int swipePixels = pendingScrollPixels.exchange(0);
+  if (scrolling && (isForwardTurn ? !scrollEndVisible.load() : (section->currentPage > 0 || scrollRow > 0))) {
+    pendingScrollPixels = swipePixels;
+    pendingScroll += isForwardTurn ? 1 : -1;
+    lastPageTurnTime = millis();
+    return true;
+  }
   if (isForwardTurn) {
-    if (section->currentPage < section->pageCount - 1 || section->isBuilding()) {
+    if (!scrolling && (section->currentPage < section->pageCount - 1 || section->isBuilding())) {
       section->currentPage++;
       lastPageTurnTime = millis();
       return true;
@@ -1888,6 +1962,7 @@ bool EpubReaderActivity::pageTurn(bool isForwardTurn) {
       nextPageNumber = 0;
       pendingPageJump = std::numeric_limits<uint16_t>::max();
       currentSpineIndex--;
+      scrollEndOfSpine = scrolling ? currentSpineIndex : -1;  // open it on its last screen
       section.reset();
       lastPageTurnTime = millis();
       return true;
@@ -1906,8 +1981,9 @@ bool EpubReaderActivity::skipPages(int amount) {
     section.reset();
     return true;
   } else {
-    if (section->currentPage > 0) {
+    if (section->currentPage > 0 || (scrollModeActive() && scrollRow > 0)) {
       section->currentPage = 0;
+      scrollRow = 0;
       return true;
     } else if (currentSpineIndex > 0) {
       RenderLock lock;
@@ -2044,6 +2120,216 @@ bool EpubReaderActivity::skipLoopDelay() {
   return overlay == Overlay::None && !buildHeapPaused && backgroundBuildWanted();
 }
 
+bool EpubReaderActivity::scrollModeActive() const { return SETTINGS.scrollMode != 0 && epub != nullptr; }
+
+void EpubReaderActivity::resetScrollView() {
+  scrollSegments.clear();
+  scrollElementPage.clear();
+  scrollElementWordStart.clear();
+  scrollEndVisible = false;
+  pendingScroll = 0;
+  pendingScrollPixels = 0;
+  scrollLoadFailed = false;
+}
+
+bool EpubReaderActivity::chapterHasClippings() const {
+  if (!CLIPPINGS.hasClippings()) return false;
+  for (size_t i = 0; i < CLIPPINGS.clippingCount(); ++i) {
+    if (CLIPPINGS.clippingAt(i)->spineIndex == currentSpineIndex) return true;
+  }
+  return false;
+}
+
+// The words of a line that the highlight code numbers (the same test as drawClippingHighlights).
+uint16_t EpubReaderActivity::clippingWordCount(const PageLine& line, const int fontId) const {
+  const auto& block = line.getBlock();
+  if (!block || !block->valid()) return 0;
+  uint16_t count = 0;
+  for (uint16_t i = 0; i < block->wordCount(); ++i) {
+    const char* text = block->wordText(i);
+    if (!clippingText::hasVisibleText(text)) continue;
+    const auto style = static_cast<EpdFontFamily::Style>(block->wordStyle(i) & ~EpdFontFamily::UNDERLINE);
+    const int width = renderer.getTextAdvanceX(clippingWordFont(renderer, fontId, *block, i), text, style,
+                                               block->getBlockStyle().characterSpacing);
+    if (width > 0) ++count;
+  }
+  return count;
+}
+
+// True when `page` can be loaded. A chapter that is still being laid out is built on as far as that page; false
+// at the chapter's end, or after a failed build (scrollBuildError says which).
+bool EpubReaderActivity::scrollBuildThrough(const int page, const ReaderRenderSpec& spec) {
+  if (page < static_cast<int>(section->pageCount)) return true;
+  if (scrollBuildError != ScrollBuildError::None) return false;
+  if ((!section->isPartial() && !section->isBuilding()) || section->isBuildComplete()) return false;
+  if (!makeRoomForChapterBuild()) {
+    scrollBuildError = ScrollBuildError::Refused;
+    return false;
+  }
+  if (!section->isBuilding() && !section->startBuild(spec)) {
+    scrollBuildError = ScrollBuildError::Failed;
+    return false;
+  }
+  while (!section->isBuildComplete() && page >= static_cast<int>(section->pageCount)) {
+    if (!section->buildSomeMore(BUILD_PAGES_PER_CHUNK)) {
+      scrollBuildError = ScrollBuildError::Failed;
+      return false;
+    }
+  }
+  return page < static_cast<int>(section->pageCount);
+}
+
+std::unique_ptr<Page> EpubReaderActivity::composeScrollView(const ReaderRenderSpec& spec, const int viewHeight) {
+  const int fontId = SETTINGS.getReaderFontId();
+  const int lineHeight = std::max(1, renderer.getLineHeight(fontId, spec.lineCompression));
+  const int mergeGap = std::max(2, lineHeight / 3);
+  scrollBuildError = ScrollBuildError::None;
+  scrollLoadFailed = false;
+  // Before the first lookup: the view math keeps pointers into the cache while it runs.
+  if (scrollRowsCache.size() > 24) scrollRowsCache.clear();
+
+  // A page's rows: its text lines, images and rules. Drop caps and boxes follow the lines they belong to.
+  const auto rowsOf = [&](const int page) -> const std::vector<scrollview::Row>* {
+    if (page < 0) return nullptr;
+    const auto cached = scrollRowsCache.find(page);
+    if (cached != scrollRowsCache.end()) return &cached->second;
+    if (!scrollBuildThrough(page, spec)) return nullptr;
+    const auto loaded = section->loadPage(page);
+    if (!loaded) {
+      scrollLoadFailed = true;
+      return nullptr;
+    }
+    std::vector<scrollview::Item> items;
+    items.reserve(loaded->elements.size());
+    for (const auto& element : loaded->elements) {
+      switch (element->getTag()) {
+        case TAG_PageLine:
+          items.push_back({element->yPos, static_cast<int16_t>(lineHeight)});
+          break;
+        case TAG_PageImage:
+          items.push_back({element->yPos,
+                           std::max<int16_t>(1, static_cast<const PageImage&>(*element).getImageBlock().getHeight())});
+          break;
+        case TAG_PageHorizontalRule:
+          items.push_back({element->yPos, 2});
+          break;
+        default:
+          break;
+      }
+    }
+    return &scrollRowsCache.emplace(page, scrollview::buildRows(std::move(items), mergeGap)).first->second;
+  };
+
+  scrollview::Pos pos{section->currentPage, 0};
+  const bool anchored = scrollAnchorSpine == currentSpineIndex && scrollAnchorPage == section->currentPage;
+  const int steps = pendingScroll.exchange(0);
+  const int swipePixels = pendingScrollPixels.exchange(0);
+  if (anchored) pos.row = scrollRow;
+  if (scrollEndOfSpine == currentSpineIndex) {
+    // Came back from the next chapter: its last screen, a full one.
+    pos = scrollview::endStart({static_cast<int>(section->pageCount) - 1, 0}, viewHeight, rowsOf);
+  } else if (anchored && steps != 0) {
+    pos = scrollview::scroll(pos, steps, scrollview::stepFor(SETTINGS.scrollStep, viewHeight, lineHeight), swipePixels,
+                             viewHeight, rowsOf);
+  }
+  scrollEndOfSpine = -1;
+  const scrollview::View view = scrollview::compose(pos, viewHeight, rowsOf);
+  if (scrollBuildError != ScrollBuildError::None || scrollLoadFailed || view.segments.empty()) return nullptr;
+
+  auto composed = makeUniqueNoThrow<Page>();
+  if (!composed) {
+    LOG_ERR("ERS", "OOM: scroll view page");
+    return nullptr;
+  }
+  std::vector<ScrollSegment> segments;
+  std::vector<uint16_t> elementPage;
+  std::vector<uint16_t> elementWordStart;
+  const bool wantWords = chapterHasClippings();
+  for (const scrollview::Segment& segment : view.segments) {
+    const std::vector<scrollview::Row>* rows = rowsOf(segment.page);
+    auto source = section->loadPage(segment.page);
+    if (!rows || !source || rows->empty()) return nullptr;
+    const int rowCount = static_cast<int>(rows->size());
+    const int lastRow = segment.firstRow + segment.rowCount - 1;
+    // What of a box stays: down from the first row kept, up to the end of the last one. A page's first and
+    // last rows keep the box's own padding.
+    const int cutTop = segment.firstRow > 0 ? (*rows)[static_cast<size_t>(segment.firstRow)].top : INT16_MIN;
+    const int cutBottom = lastRow + 1 < rowCount
+                              ? (*rows)[static_cast<size_t>(lastRow)].top + (*rows)[static_cast<size_t>(lastRow)].height
+                              : INT16_MAX;
+    if (segments.empty()) {
+      composed->visibleTextOffset = source->visibleTextOffset;
+      composed->footnotes = std::move(source->footnotes);
+    }
+    uint16_t wordIndex = 0;
+    for (auto& element : source->elements) {
+      const PageElementTag tag = element->getTag();
+      const uint16_t wordStart = wordIndex;
+      if (wantWords && tag == TAG_PageLine) {
+        wordIndex =
+            static_cast<uint16_t>(wordIndex + clippingWordCount(static_cast<const PageLine&>(*element), fontId));
+      }
+      bool keep;
+      if (tag == TAG_PageBorderBox) {
+        keep = static_cast<PageBorderBox&>(*element).clipVertically(cutTop, cutBottom);
+      } else {
+        const int row = scrollview::rowAt(*rows, element->yPos);
+        keep = row >= segment.firstRow && row <= lastRow;
+      }
+      if (!keep) continue;
+      element->yPos = static_cast<int16_t>(element->yPos + segment.yShift);
+      composed->elements.push_back(std::move(element));
+      elementPage.push_back(static_cast<uint16_t>(segment.page));
+      elementWordStart.push_back(wordStart);
+    }
+    for (PageLink& link : source->links) {
+      const int row = scrollview::rowAt(*rows, link.y + link.height / 2);
+      if (row < segment.firstRow || row > lastRow || composed->links.size() >= Page::MAX_LINKS_PER_PAGE) continue;
+      link.y = static_cast<int16_t>(link.y + segment.yShift);
+      composed->links.push_back(link);
+    }
+    segments.push_back({segment.page, segment.yShift, segment.top, segment.bottom});
+  }
+
+  const scrollview::Segment& first = view.segments.front();
+  section->currentPage = first.page;
+  scrollRow = first.firstRow;
+  scrollAnchorSpine = currentSpineIndex;
+  scrollAnchorPage = first.page;
+  scrollEndVisible = view.reachesEnd;
+  scrollSegments = std::move(segments);
+  scrollElementPage = std::move(elementPage);
+  scrollElementWordStart = std::move(elementWordStart);
+  return composed;
+}
+
+// The view's top row, so the book reopens on the same line. Written only when it moved.
+void EpubReaderActivity::saveScrollRow() {
+  if (!section || !epub) return;
+  const int page = section->currentPage;
+  if (scrollSavedSpine == currentSpineIndex && scrollSavedPage == page && scrollSavedRow == scrollRow) return;
+  if (currentSpineIndex < 0 || currentSpineIndex > 0xFFFF || page < 0 || page > 0xFFFF || scrollRow < 0 ||
+      scrollRow > 0xFFFF) {
+    return;
+  }
+  const uint8_t data[6] = {static_cast<uint8_t>(currentSpineIndex & 0xFF),
+                           static_cast<uint8_t>(currentSpineIndex >> 8),
+                           static_cast<uint8_t>(page & 0xFF),
+                           static_cast<uint8_t>(page >> 8),
+                           static_cast<uint8_t>(scrollRow & 0xFF),
+                           static_cast<uint8_t>(scrollRow >> 8)};
+  HalFile f;
+  if (!Storage.openFileForWrite("ERS", epub->getCachePath() + "/scroll.bin", f)) return;
+  if (f.write(data, sizeof(data)) != sizeof(data)) {
+    LOG_ERR("ERS", "Failed to write the scroll row");
+    return;
+  }
+  scrollFileExists = true;
+  scrollSavedSpine = currentSpineIndex;
+  scrollSavedPage = page;
+  scrollSavedRow = scrollRow;
+}
+
 void EpubReaderActivity::renderBook() {
   currentPageLinks.clear();
   if (!epub) return;
@@ -2105,6 +2391,7 @@ void EpubReaderActivity::renderBook() {
     LOG_DBG("ERS", "Loading file: %s, index: %d", filepath.c_str(), currentSpineIndex);
     section = std::unique_ptr<Section>(new Section(epub, currentSpineIndex, renderer));
     partialRebuildStartFailed = false;
+    scrollRowsCache.clear();  // rows of the section just replaced
 
     const bool cacheLoaded = section->loadSectionFile(renderSpec);
     if (cacheLoaded) {
@@ -2311,6 +2598,31 @@ void EpubReaderActivity::renderBook() {
 
   applyDeferredReposition();
 
+  // Scroll mode: work out the view before anything is drawn (it may lay out more of the chapter).
+  std::unique_ptr<Page> scrollPage;
+  if (scrollModeActive() && section->pageCount > 0 && section->currentPage >= 0 &&
+      section->currentPage < section->pageCount) {
+    scrollPage = composeScrollView(renderSpec, viewportHeight);
+    if (scrollBuildError != ScrollBuildError::None) {
+      const bool refused = scrollBuildError == ScrollBuildError::Refused;
+      scrollBuildError = ScrollBuildError::None;
+      LOG_ERR("ERS", "Scroll view: section build %s", refused ? "refused" : "failed");
+      resetScrollView();
+      section.reset();
+      showBuildError(refused ? tr(STR_BT_BUILD_REFUSED) : nullptr);
+      return;
+    }
+    if (!scrollPage) resetScrollView();  // the plain page below
+  } else {
+    resetScrollView();
+    scrollEndOfSpine = -1;
+    if (!SETTINGS.scrollMode && scrollFileExists) {
+      Storage.remove((epub->getCachePath() + "/scroll.bin").c_str());
+      scrollFileExists = false;
+      scrollAnchorSpine = scrollAnchorPage = -1;
+    }
+  }
+
   renderer.clearScreen();
 
   if (section->pageCount == 0) {
@@ -2337,7 +2649,13 @@ void EpubReaderActivity::renderBook() {
   updateBookmarkFlag();
 
   {
-    auto p = section->loadPage(section->currentPage);
+    const bool scrollView = static_cast<bool>(scrollPage);
+    auto p = scrollView ? std::move(scrollPage) : section->loadPage(section->currentPage);
+    // A cleaning refresh every N scrolls: the whole frame is redrawn with a fast refresh on every step.
+    if (scrollView) {
+      pagesUntilFullRefresh =
+          scrollview::capRefreshCounter(pagesUntilFullRefresh, std::max<int>(1, SETTINGS.scrollRefreshEvery));
+    }
     if (!p) {
       LOG_ERR("ERS", "Failed to load page from SD - clearing section cache");
       automaticPageTurnActive = false;
@@ -2386,6 +2704,7 @@ void EpubReaderActivity::renderBook() {
       lastSavedPageCount = section->estimatedTotalPages();
     }
   }
+  if (!search.active && !scrollSegments.empty()) saveScrollRow();
 
   showPendingSyncSaveError();
 
@@ -2808,7 +3127,10 @@ void EpubReaderActivity::drawClippingHighlights(const Page& page, const int font
 
   const auto started = millis();
   size_t highlightedWords = 0;
-  const uint16_t currentPage = static_cast<uint16_t>(section->currentPage);
+  uint16_t currentPage = static_cast<uint16_t>(section->currentPage);
+  // A scroll view is made of lines of several pages; a highlight is kept by page and word number there.
+  const bool scrollView = !scrollElementPage.empty() && scrollElementPage.size() == page.elements.size() &&
+                          scrollElementWordStart.size() == page.elements.size();
   const uint32_t layoutSignature =
       readerRenderSpecSignature(SETTINGS.readerRenderSpec(buildViewportWidth, buildViewportHeight));
   const auto isHighlighted = [&](const uint16_t wordIndex, const TextBlock::SourceRange range) {
@@ -2834,8 +3156,14 @@ void EpubReaderActivity::drawClippingHighlights(const Page& page, const int font
   };
 
   uint16_t pageWordIndex = 0;
+  size_t elementIndex = 0;
   for (const auto& element : page.elements) {
+    const size_t thisElement = elementIndex++;
     if (element->getTag() != TAG_PageLine) continue;
+    if (scrollView) {
+      currentPage = scrollElementPage[thisElement];
+      pageWordIndex = scrollElementWordStart[thisElement];
+    }
     const auto& line = static_cast<const PageLine&>(*element);
     const auto& block = line.getBlock();
     if (!block || !block->valid()) continue;
@@ -3683,6 +4011,7 @@ void EpubReaderActivity::renderOverlay() {
       if (row == 4) GUI.setCheckboxRow(item, SETTINGS.hyphenationEnabled);
       if (row == 5) GUI.setCheckboxRow(item, SETTINGS.focusReadingEnabled);
       if (row == 12) GUI.setCheckboxRow(item, SETTINGS.embeddedStyle != 0);
+      if (row == 13) GUI.setCheckboxRow(item, SETTINGS.scrollMode != 0);
     };
   } else {
     model.panelTitle = tr(STR_TOOL_MORE);
@@ -3855,7 +4184,15 @@ void EpubReaderActivity::handleOverlayInput() {
         // Style (kos25k #29): a book's own styling on or off; for a PDF's text, its headings, bold and italic.
         SETTINGS.embeddedStyle = SETTINGS.embeddedStyle ? 0 : 1;
         applyTextSettingLive();
-
+      } else if (textRow == 13) {
+        // Continuous scrolling (kos25k #30): the same pages either way, so nothing is laid out again; the view
+        // starts at the top of the page that is open.
+        SETTINGS.scrollMode = SETTINGS.scrollMode ? 0 : 1;
+        SETTINGS.saveToFile();
+        scrollRow = 0;
+        pendingScroll = 0;
+        discardOverlayPage();
+        requestUpdate();
       } else {
         // Enum rows open the Settings-style option picker.
         showTextRowPopup(textRow);

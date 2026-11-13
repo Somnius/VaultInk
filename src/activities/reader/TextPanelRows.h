@@ -19,6 +19,7 @@ inline constexpr StrId ROWS[] = {StrId::STR_FONT,
                                  StrId::STR_SCREEN_MARGIN,
                                  StrId::STR_PARAGRAPH_INDENTATION,
                                  StrId::STR_EXPERIMENTAL,
-                                 StrId::STR_EMBEDDED_STYLE};  // 0.73.0 (kos25k #29): a checkbox, PDFs too
+                                 StrId::STR_EMBEDDED_STYLE,  // 0.73.0 (kos25k #29): a checkbox, PDFs too
+                                 StrId::STR_SCROLL_MODE};    // kos25k #30: a checkbox
 inline constexpr int COUNT = static_cast<int>(std::size(ROWS));
 }  // namespace textpanel

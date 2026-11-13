@@ -14,6 +14,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Screenshots](#screenshots)
 - [Reading presets](#reading-presets-0700)
 - [Book menu options](#book-menu-options-0730)
+- [Continuous scrolling](#continuous-scrolling-not-released-never-seen-on-a-device)
 - [The More menu in a book](#the-more-menu-in-a-book-0700)
 - [Go to page](#go-to-page-0680)
 - [Hidden chapters](#hidden-chapters-left-out-of-the-page-count)
@@ -188,6 +189,29 @@ In the file each such preset has a `"gestures"` block with two lists, `slots` (n
 ## Book menu options (0.73.0)
 
 **Settings → Reader → Book menu options** (the last row) arranges the reader's toolbar panels (kos25k #15). The first row picks the panel, **More** or **Text**. The second says what a tap on an entry does: **moves it** (tap an entry to pick it up, then tap where it goes) or **shows or hides it** (the switch on each row). The last row puts the panel back to the default. In More, **Back** (in a note) and **Go home** can't be hidden, and a panel is never left empty. An entry that only exists sometimes (Footnotes, Bookmarks, a note's Edit) keeps the place you gave it for when it shows up. **Contents** is the chapter list of the book, so there is nothing to arrange there. The classic list menu is not changed.
+
+## Continuous scrolling (not released, never seen on a device)
+
+**Settings → Reader → Continuous scrolling** (kos25k #30) makes an EPUB, and anything else the EPUB reader shows (vault notes among them), scroll instead of turning pages. It is off by default, and with it off nothing changes. The same switch is a checkbox at the bottom of the book's **Text** panel, and **Settings → Reader → Book menu options → Text** can move or hide it like the other rows (an order you saved before keeps its order; the new row comes last).
+
+**Not tested on a real device.** The code was written and its position math is host-tested, but it has never run on a panel, and it was not compiled for the device when this was written. How much ghosting the steps leave and how long a step takes are unknown.
+
+How it works:
+
+- The text is laid out exactly as for pages: justified text, hyphenation, word spacing, fonts and margins are the same, and the page cache is not rebuilt. The screen shows a view that starts at any line and runs on into the next page's lines until it is full. Only whole lines are shown.
+- **The whole screen is redrawn on every step.** The panel has no partial refresh, so there is no smooth scrolling: a step is a fast full-frame refresh, and a cleaning (half) refresh comes every N steps. **Clean screen every N scrolls** sets N (1 to 30, default 8). A view with a picture cleans the screen on the next step, as a page with a picture does.
+- **Scroll step**: 3, 5 or 10 lines, half the screen (default), two thirds, or the screen less one line. A step never passes a line that was not on screen.
+- Buttons, taps and the Bluetooth page turner: whatever turned a page scrolls one step, forward or back. The tap zones are the ones of your page-turn settings (they are not top and bottom zones). Automatic page turn scrolls a step each time.
+- Touch: a swipe up or down the page scrolls by about the swipe's length, one line at least. Swipes from the screen edges keep their meaning, and a gesture you set on swipe up or down in Settings → Reader → Gestures wins over scrolling.
+- A chapter does not join the next one. The last screen of a chapter ends with its last line; the next step opens the next chapter at its top, and a step back from a chapter's top opens the last screen of the one before. A hold for the chapter skip works as before (back goes to the chapter's top first).
+- The place in the book is the page that holds the top line. Progress, bookmarks, KOReader sync, the book map, Go to page, hidden chapters and the status bar's page number all go by that page, so they work the same in both modes, and a book synced with a device that turns pages opens at the same page. Any jump (a bookmark, the contents, a search hit, a link) starts at the top of its page. The top line itself is kept in `scroll.bin` next to the book's progress, so the book reopens on the same line.
+
+Limits:
+
+- A long press (highlight, dictionary) opens the usual selection screen, which shows a whole page: the page of the line you pressed. The Footnotes list is that of the page holding the top line.
+- Where a paragraph ends exactly at a page's end, the gap after it is not drawn between the two pages. A box with a border or a drop cap that is cut by the top of the view is drawn cut.
+- XTC/XTCH and comics are not text pages and don't scroll. Changing the switch does not move you: the view starts at the top of the open page.
+- Every scroll step is counted as a page turn by the reading log.
 
 ## The More menu in a book (0.70.0)
 
