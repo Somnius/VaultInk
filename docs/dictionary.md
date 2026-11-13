@@ -127,6 +127,104 @@ Good to know:
 - It needs a dictionary to be set: the offer is part of the dictionary's Not found message. It is
   in EPUB books only, like the dictionary.
 - It can't be reached from the lock screen or in USB Drive mode: both come before a book is open.
+- With the translation lookup below, the same message offers both: it reads **Not found. Wikipedia or
+  Translate?**, Confirm or a tap on its left half is Wikipedia.
+
+
+## Translate when the dictionary has no entry
+
+Not released yet: tested on a computer only (the addresses, the request, reading the answers and the error
+messages). It has not been compiled for the reader or tried on one, and the reader's own connection to the
+service has never been made.
+
+The same **Not found** message offers a translation next to Wikipedia: it reads
+**Not found. Wikipedia or Translate?**
+
+- **Confirm**, or a tap on the left half of the message, is Wikipedia. The **Next** button (Right), or a tap on
+  the right half, is Translate. **Back**, a tap anywhere else, or waiting about eight seconds dismisses it.
+- The first time, a question says what will be sent and where. **Cancel** goes back to the book: nothing is
+  sent and Wi-Fi is not turned on. It is asked once for MyMemory and once for a server of your own (again if
+  you change the server's address).
+- Then it works like the Wikipedia lookup: Wi-Fi comes on, the translation shows on the definition screen with
+  the name of the service and the two languages under it, for example `MyMemory (en > el)`, Wi-Fi is off again
+  before you read it, and **Back** returns to the book through the same quiet restart.
+
+**What is sent: only the word or phrase you selected and the two language codes.** Not the book's title, not
+the sentence around the selection, no account, no e-mail address. The request also carries the firmware's name
+and version as the client, like the Wikipedia lookup. The service sees your network address, as any website
+does.
+
+Which languages: from the book's own language (its `dc:language`) into the language of the menus. A book in
+the menu language is translated into English instead. An English book under English menus has nothing to
+translate into, and the reader says so without connecting.
+
+### Where it goes
+
+**MyMemory** (translated.net), with no key and no setup, unless you set a server of your own:
+
+- The address is `https://api.mymemory.translated.net/get?q=<selection>&langpair=<from>|<to>`.
+- Its published limits, read on 2026-11-13 at <https://mymemory.translated.net/doc/usagelimits.php> and
+  <https://mymemory.translated.net/doc/spec.php>: "Free, anonymous usage is limited to 5000 chars/day", and one
+  request is "Max 500 bytes". A selection over 500 bytes is refused on the reader before anything is sent (500
+  bytes is about 500 Latin letters or 250 Greek ones). The optional e-mail parameter that raises the daily
+  limit is not sent.
+- Its terms (<https://mymemory.translated.net/terms-and-conditions>) allow "Automated and systematic API access
+  by machines" and forbid, among other things, "translating more than one paragraph at once".
+- MyMemory is a translation memory with machine translation behind it. A single word often comes back as
+  another meaning than the one in your book, or unchanged: the test query "book" from English to Greek came back
+  as "book".
+- It needs the book's language. A book that does not say its language cannot be sent to MyMemory, because its
+  documentation describes no way to detect the language.
+- The connection is always checked against the certificates built into the firmware (its chain ends at Amazon
+  Root CA 1, which is one of them). There is no switch for it.
+
+**A LibreTranslate server of your own**, in **Settings → Network → Translation**:
+
+| Row | What it is |
+| --- | --- |
+| LibreTranslate Server Address | For example `https://translate.example.org` or `http://192.168.1.20:5000`. Empty means MyMemory, and the row then shows "MyMemory". |
+| LibreTranslate API Key | Only if your server asks for one. It is stored like the other tokens (mixed with the device's hardware address, not encryption), never shown again on the reader and never sent to the web settings page, which only says whether one is set. |
+| LibreTranslate: Check Certificate | Off by default, like every server of your own: the connection is encrypted but the certificate is not checked. On: checked against `/.crosspoint/ca.pem` when that file is there, else against the built-in roots. |
+
+- With an address set, only your server is asked; MyMemory is never used as a fallback.
+- The request is `POST <address>/translate` with a JSON body `{"q", "source", "target", "format": "text"}` and
+  `"api_key"` when set, as in <https://docs.libretranslate.com/>. A book with no language is sent with
+  `"source": "auto"`, so the server detects it.
+- An `http://` address sends the selection and the key unencrypted. Use it on your own network only.
+- The hosted libretranslate.com asks for an API key (see its site); a server you run yourself needs none unless you set one.
+
+### Messages
+
+| Message | What happened |
+| --- | --- |
+| No translation found | The service answered with no text. |
+| Selection too long to translate | Over 500 bytes. Nothing was sent. |
+| Book language unknown or same as the menus | No language to translate from (MyMemory) or into. Nothing was sent. |
+| This language pair is not supported | The service does not know one of the two languages. |
+| Translation limit reached. Try later | MyMemory's daily allowance is used up, or your server says slow down (429). |
+| Server refused: check the API key | Your server answered 403, or asked for a key. |
+| Check the server address in Settings | The address is not an `http://` or `https://` one. |
+| Couldn't reach the translation service | No connection, or the certificate check failed. |
+| Unknown date: the certificate cannot be checked | The clock has no date and it could not be set from the network. Nothing is sent. |
+| Server error. Try again later | The service failed (5xx). |
+| ca.pem could not be read | Check Certificate is on and `/.crosspoint/ca.pem` is there but empty or unreadable. Nothing is sent. |
+| Not Enough Memory | Too little free memory for a secure connection. Try again after the book reopens. |
+| Couldn't read the answer | Not a translation (a sign-in page of a public network, for example). |
+
+### Not verified
+
+- Anything on a reader or in the simulator: the popup with two choices and its width in Greek, the question
+  before the first use, the result screen, free memory during the request, the return to the page.
+- A TLS handshake from the reader with api.mymemory.translated.net. The chain was read and checked on a
+  computer with OpenSSL against the firmware's root list on 2026-11-13.
+- What MyMemory sends when the daily limit is reached. The reader takes HTTP 429, `"responseStatus": 429`,
+  `"quotaFinished": true` or a text starting with "MYMEMORY WARNING" as that; this shape is from memory, the
+  limit itself was never hit. The normal answer and the two language errors were captured from the live service.
+- Whether the daily limit is counted per network address.
+- A real LibreTranslate server: its answers are tested from the examples in its documentation, and the wording
+  of its error messages (used to tell an unknown language from a missing key on a 400) is from memory.
+- It needs a dictionary to be set, like the Wikipedia offer: both are part of the dictionary's Not found
+  message. EPUB books only.
 
 
 ## Where to find dictionaries

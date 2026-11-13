@@ -120,7 +120,9 @@ void DictionaryWordSelectActivity::performLookup() {
       case Dictionary::LookupResult::NotFound:
       default:
         popup = Popup::NotFound;
-        popupMsg = wikipediaHandler ? StrId::STR_WIKI_OFFER : StrId::STR_DICT_NOT_FOUND;
+        popupMsg = !wikipediaHandler  ? StrId::STR_DICT_NOT_FOUND
+                   : translateHandler ? StrId::STR_TRANSLATE_OFFER
+                                      : StrId::STR_WIKI_OFFER;
         break;
     }
   }
@@ -139,14 +141,19 @@ void DictionaryWordSelectActivity::loop() {
     int ty = 0;
     const bool tapped = mappedInput.wasScreenTapped(tx, ty);
     const bool onPopup = tapped && tx >= popupX && tx < popupX + popupW && ty >= popupY && ty < popupY + popupH;
-    if (onPopup || mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-      // The handler puts the Wikipedia screen in place of the reader and this screen. Should it
-      // not manage to, the offer is gone and the popup times out like a plain Not found.
+    // With both offers the popup's right half is Translate, as its text reads ("Wikipedia or Translate?").
+    const bool translateSide = onPopup && translateHandler && tx >= popupX + popupW / 2;
+    const bool wantsTranslate =
+        translateHandler && (translateSide || mappedInput.wasReleased(MappedInputManager::Button::Right));
+    if (wantsTranslate || onPopup || mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+      // The handler puts the Wikipedia (or translation) screen in place of the reader and this screen. Should
+      // it not manage to, the offer is gone and the popup times out like a plain Not found.
       WikipediaHandler handler;
       {
-        RenderLock lock;  // render() looks at the handler to pick the popup's hints
-        handler = std::move(wikipediaHandler);
+        RenderLock lock;  // render() looks at the handlers to pick the popup's hints
+        handler = std::move(wantsTranslate ? translateHandler : wikipediaHandler);
         wikipediaHandler = nullptr;
+        translateHandler = nullptr;
       }
       popupTime = millis();
       handler(lookupText);
@@ -175,7 +182,8 @@ void DictionaryWordSelectActivity::render(RenderLock&&) {
 
   if (popup != Popup::None) {
     if (popup == Popup::NotFound && wikipediaHandler) {
-      const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_LOOKUP), "", "");
+      const auto labels = translateHandler ? mappedInput.mapLabels(tr(STR_BACK), "Wikipedia", "", tr(STR_TRANSLATE))
+                                           : mappedInput.mapLabels(tr(STR_BACK), tr(STR_LOOKUP), "", "");
       GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     }
     const Rect box = GUI.drawPopup(renderer, I18N.get(popupMsg));

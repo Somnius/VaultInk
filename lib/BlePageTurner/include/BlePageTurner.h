@@ -130,6 +130,14 @@ struct Host {
   void (*log)(bool error, const char* format, va_list args);
   // Probe builds: print the heap block by block under `tag`. May be null.
   void (*heapMap)(const char* tag);
+  // A host with a button map of its own for one device (a gamepad). Both may be null, and a host that leaves
+  // them null sees no change. padRoutes is asked once per link, with the linked device's address: true when
+  // the host's map is for that device. While it is, every raw press of the book in front goes to padPress
+  // first: true when the host's map names the button (*acted: the book took it), and then neither the remote's
+  // table nor the key mapping sees that press. A button it does not name goes on as before, with the key
+  // mapping read from the raw edge.
+  bool (*padRoutes)(const char* addr) = nullptr;
+  bool (*padPress)(uint32_t code, bool* acted) = nullptr;
 };
 
 // Home is the first screen after boot with its first frame up; only a build with the S3 profile

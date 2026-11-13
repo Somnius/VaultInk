@@ -269,13 +269,28 @@ bool serveReader() {
     drainRemote();
     const Peer peer = port::linked();
     router.table = tableFor(config->remotes, config->remoteCount, peer.addr, peer.name);
+    router.pad = host->padRoutes != nullptr && host->padPress != nullptr && host->padRoutes(peer.addr);
     router.chosen = true;
   }
   const bool viaTable = routes(router.table);
+  // The host's own button map for this device (a gamepad): its buttons go to the host first. With it the raw
+  // edges decide everything, as with a table, so a frame never acts once here and once more as a key.
+  const bool viaPad = router.pad;
   while (port::popRaw(raw)) {
-    if (!viaTable) continue;
-    const Action a = onRawEdge(*router.table, raw.code(), raw.pressed, raw.atMs,
-                               pageActionFor(*config, raw.keycode, raw.mods), router.wait);
+    if (!viaTable && !viaPad) continue;
+    if (viaPad && raw.pressed) {
+      bool took = false;
+      if (host->padPress(raw.code(), &took)) {
+        acted = took || acted;
+        say(false, "raw %u:%u=%02X down -> pad%s\n", raw.reportId, raw.byteIndex, raw.value,
+            took ? "" : " (not taken)");
+        continue;
+      }
+    }
+    const Action legacy = pageActionFor(*config, raw.keycode, raw.mods);
+    const Action a = viaTable      ? onRawEdge(*router.table, raw.code(), raw.pressed, raw.atMs, legacy, router.wait)
+                     : raw.pressed ? legacy
+                                   : Action::None;
     acted = act(a) || acted;  // act first, log after: the log line is not on the page's clock
     say(false, "raw %u:%u=%02X %s -> %s\n", raw.reportId, raw.byteIndex, raw.value, raw.pressed ? "down" : "up",
         actionName(a));
@@ -287,7 +302,7 @@ bool serveReader() {
   }
   while (port::popKey(key)) {
     // With a table the raw edge already decided this frame: its key event is only logged.
-    const Action a = viaTable ? Action::None : pageActionFor(*config, key.keycode, key.mods);
+    const Action a = viaTable || viaPad ? Action::None : pageActionFor(*config, key.keycode, key.mods);
     // One line for EVERY key taken: the diagnostic path for someone holding a real remote.
     say(false, "key 0x%02X mods 0x%02X %s -> %s\n", key.keycode, key.mods, key.pressed ? "down" : "up",
         a == Action::PrevPage   ? "previous"

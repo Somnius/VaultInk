@@ -78,4 +78,13 @@ Site (the loader page):
 'not verified' means no licence file was available to read. The full table, with the file each
 licence was read from, is in docs/licenses.md.
 
+Online services the firmware can ask, only when the user starts the lookup. No code or data of theirs is in
+this repository:
+
+- Wikipedia (Wikimedia Foundation): article summaries for the Wikipedia lookup.
+- MyMemory (Translated, https://mymemory.translated.net): translations for the translation lookup, through its
+  keyless API. Each result is shown with the credit "MyMemory".
+- LibreTranslate (https://libretranslate.com): only a server the user sets up
+  and names in the settings is asked.
+
 See the licence files and headers inside each directory for the full terms.

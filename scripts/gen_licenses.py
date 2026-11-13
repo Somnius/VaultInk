@@ -266,6 +266,13 @@ def render_notice_block(data):
     parts.append(
         "\n'not verified' means no licence file was available to read. The full table, with the file each\n"
         "licence was read from, is in docs/licenses.md.\n\n"
+        "Online services the firmware can ask, only when the user starts the lookup. No code or data of theirs is in\n"
+        "this repository:\n\n"
+        "- Wikipedia (Wikimedia Foundation): article summaries for the Wikipedia lookup.\n"
+        "- MyMemory (Translated, https://mymemory.translated.net): translations for the translation lookup, through its\n"
+        "  keyless API. Each result is shown with the credit \"MyMemory\".\n"
+        "- LibreTranslate (https://libretranslate.com): only a server the user sets up\n"
+        "  and names in the settings is asked.\n\n"
     )
     return "".join(parts)
 

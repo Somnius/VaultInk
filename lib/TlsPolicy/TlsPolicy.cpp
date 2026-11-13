@@ -54,7 +54,12 @@ bool isPublicHost(const std::string_view host) {
 bool alwaysChecked(const std::string_view host) {
   // readwise.io is not in isPublicHost: which root its certificate chains to has not been seen from a
   // device, so it is checked against every built-in root, not only the public group.
-  return isOrUnder(host, "wikipedia.org") || isOrUnder(host, "readwise.io") || (VERIFY_GITHUB && isPublicHost(host));
+  // api.mymemory.translated.net (the translation lookup) is the same: checked against every built-in root. Read with
+  // `openssl s_client` on 2026-11-13: mymemory.translated.net -> Amazon RSA 2048 M04 -> Amazon Root CA 1, which is in
+  // the self-hosted group of CaBundle.h, and the chain verifies with that one root alone (not with the public group).
+  // Only that one name is listed, not translated.net. Not seen: the handshake on a device.
+  return isOrUnder(host, "wikipedia.org") || isOrUnder(host, "readwise.io") || host == "api.mymemory.translated.net" ||
+         (VERIFY_GITHUB && isPublicHost(host));
 }
 
 Mode choose(const std::string_view url, const bool userVerify, const bool caFileExists) {

@@ -529,6 +529,80 @@ TEST_F(TickTest, KeyPathWithoutATableTurnsOnPressesOnly) {
   EXPECT_FALSE(pass(fake::reading())) << "a turn the book refused is no user activity";
 }
 
+// A host with a button map of its own for the linked device (a gamepad, lib/Gamepad): its buttons go to the host,
+// every other button keeps turning pages by the key read from the same raw edge, and no frame acts twice.
+TEST_F(TickTest, HostPadMapTakesItsButtonsAndLeavesTheOthersToTheKeyMapping) {
+  host().padAddr = "7d:de:5c:bd:ae:ca";
+  host().padButtons = {0x010004};
+  running();
+  link("Some Pad");
+  pass(fake::reading());
+  EXPECT_EQ(host().padRouteCalls, 1u);
+  // A mapped button whose frame the decoder also read as Right: the host gets it, the page does not turn.
+  edge(0x010004, true, bleturner::kUsageRight);
+  radio().keys = {{bleturner::kUsageRight, 0, true}};
+  EXPECT_TRUE(pass(fake::reading()));
+  EXPECT_EQ(host().padPresses, (std::vector<uint32_t>{0x010004}));
+  EXPECT_TRUE(host().delivered.empty());
+  EXPECT_TRUE(logged("raw 1:0=04 down -> pad"));
+  // Its release does nothing.
+  edge(0x010004, false);
+  EXPECT_FALSE(pass(fake::reading()));
+  EXPECT_EQ(host().padPresses.size(), 1u);
+  // A button the map does not name: the key of its raw press turns the page, once, on the press only.
+  edge(0x010008, true, bleturner::kUsageRight);
+  radio().keys = {{bleturner::kUsageRight, 0, true}};
+  EXPECT_TRUE(pass(fake::reading()));
+  edge(0x010008, false, bleturner::kUsageRight);
+  radio().keys = {{bleturner::kUsageRight, 0, false}};
+  pass(fake::reading());
+  EXPECT_EQ(host().delivered, (std::vector<Action>{Action::NextPage}));
+  EXPECT_EQ(host().padPresses.size(), 1u);
+  EXPECT_EQ(host().padRouteCalls, 1u) << "asked once per link, not per press";
+}
+
+TEST_F(TickTest, HostPadPressTheBookRefusedIsNoUserActivity) {
+  host().padAddr = "7d:de:5c:bd:ae:ca";
+  host().padButtons = {0x010004};
+  host().padTaken = false;
+  running();
+  link("Some Pad");
+  pass(fake::reading());
+  edge(0x010004, true);
+  EXPECT_FALSE(pass(fake::reading()));
+  EXPECT_EQ(host().padPresses.size(), 1u);
+  EXPECT_TRUE(logged("down -> pad (not taken)"));
+}
+
+TEST_F(TickTest, HostPadMapComesBeforeTheRemotesOwnTable) {
+  host().padAddr = "7d:de:5c:bd:ae:ca";
+  host().padButtons = {0x030102};
+  running();
+  link("Free3-R");  // has a built-in table that names 0x030102 and 0x030008
+  pass(fake::reading());
+  edge(0x030102, true);
+  pass(fake::reading());
+  edge(0x030102, false);
+  edge(0x030008, true, 0x30);
+  pass(fake::reading());
+  EXPECT_EQ(host().padPresses, (std::vector<uint32_t>{0x030102}));
+  EXPECT_EQ(host().delivered, (std::vector<Action>{Action::PrevChapter}));
+}
+
+TEST_F(TickTest, AHostPadMapForAnotherDeviceChangesNothing) {
+  host().padAddr = "11:22:33:44:55:66";
+  host().padButtons = {0x010004};
+  running();
+  link("Some Remote");
+  pass(fake::reading());
+  edge(0x010004, true, bleturner::kUsageRight);
+  radio().keys = {{bleturner::kUsageRight, 0, true}};
+  EXPECT_TRUE(pass(fake::reading()));
+  EXPECT_TRUE(host().padPresses.empty());
+  EXPECT_EQ(host().delivered, (std::vector<Action>{Action::NextPage}));
+  EXPECT_TRUE(logged("key 0x4F mods 0x00 down -> next"));
+}
+
 TEST_F(TickTest, WithATableTheKeyEventOfTheSameFrameIsOnlyLogged) {
   running();
   link("Free3-R");

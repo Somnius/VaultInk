@@ -245,6 +245,9 @@ class EpubReaderActivity final : public ReaderActivity {
   // Leaves the book for the Wikipedia lookup of `text` (Wi-Fi on the user's tap); it comes back
   // through the silent restart, like KOReader sync.
   void launchWikipediaLookup(std::string text);
+  // The same for the online translation of `text` (lib/Translate): from the book's language into the menu
+  // language. What is sent, and the question asked before the first use, are TranslateLookupActivity's.
+  void launchTranslateLookup(std::string text);
   // Highlight exports: the vault note as before, or the choice of where to send when Readwise or Memos is set up.
   void exportClippingsToVault();
   void showExportChoice();
@@ -331,6 +334,7 @@ class EpubReaderActivity final : public ReaderActivity {
   bool pageTurn(bool isForward) override;
   bool skipPages(int amount) override;
   bool remoteShortcut(bool readerMenu) override;
+  bool remoteAction(uint8_t gestureAction) override;
   bool isAtEndOfBook() const override;
   void onReturnFromEndOfBook() override;
 

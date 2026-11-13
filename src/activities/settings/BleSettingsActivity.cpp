@@ -11,11 +11,14 @@
 #include "I18nKeys.h"
 #include "MappedInputManager.h"
 #include "components/UITheme.h"
+#include "util/GestureLabels.h"
 
 namespace fui = freeink::ui;
 
 namespace {
-enum class MenuAction : int16_t { Enable, KeyboardTyping, Scan, Paired, Mapping };
+enum class MenuAction : int16_t { Enable, KeyboardTyping, Scan, Paired, Mapping, Gamepad };
+// The row after the gamepad's actions: clear every button.
+constexpr int16_t PAD_RESET_ROW = gamepad::kLearnableCount;
 constexpr bleturner::Action MAP_ACTIONS[] = {bleturner::Action::NextPage,    bleturner::Action::PrevPage,
                                              bleturner::Action::NextChapter, bleturner::Action::PrevChapter,
                                              bleturner::Action::Confirm,     bleturner::Action::Back,
@@ -40,6 +43,8 @@ void BleSettingsActivity::loop() {
   // Holding Confirm on an action clears it (touch: a long press on the row, onRowLongPress).
   if (view == View::Mapping && mappedInput.wasLongPressed(MappedInputManager::Button::Confirm, CLEAR_HOLD_MS)) {
     clearMapping(nav.selected);
+  } else if (view == View::Gamepad && mappedInput.wasLongPressed(MappedInputManager::Button::Confirm, CLEAR_HOLD_MS)) {
+    clearPadButton(nav.selected);
   }
   UiListActivity::loop();
   if (millis() - lastPollMs < 250) return;
@@ -47,6 +52,7 @@ void BleSettingsActivity::loop() {
   // A remote being paired that links becomes the chosen one: save it.
   if (SETTINGS.ble.enabled && bleturner::service()) SETTINGS.saveToFile();
   if (learnAction != bleturner::Action::None) stepLearning();
+  if (padLearn != 0) stepPadLearning();
   if (signature() == shownSignature) return;  // an e-ink repaint only when something changed
   refresh();
   requestUpdate();
@@ -62,6 +68,8 @@ const char* BleSettingsActivity::headerTitle() const {
       return tr(STR_BT_PAIRED_REMOTES);
     case View::Mapping:
       return tr(STR_BT_MAP_BUTTONS);
+    case View::Gamepad:
+      return tr(STR_GAMEPAD_BUTTONS);
   }
   return tr(STR_BT_PAGE_TURNER);
 }
@@ -71,6 +79,7 @@ void BleSettingsActivity::showView(const View target) {
     RenderLock lock(*this);
     view = target;
     learnAction = bleturner::Action::None;
+    padLearn = 0;
     learnNote = nullptr;
     nav.reset();
   }
@@ -79,8 +88,9 @@ void BleSettingsActivity::showView(const View target) {
 }
 
 void BleSettingsActivity::onBackButton() {
-  if (learnAction != bleturner::Action::None) {
+  if (learning()) {
     learnAction = bleturner::Action::None;
+    padLearn = 0;
     learnNote = nullptr;
     refresh();
     requestUpdate();
@@ -157,6 +167,9 @@ void BleSettingsActivity::refresh() {
       add(tr(STR_BT_PAIRED_REMOTES), static_cast<int16_t>(MenuAction::Paired), st.running);
       auto& mapping = add(tr(STR_BT_MAP_BUTTONS), static_cast<int16_t>(MenuAction::Mapping), st.connected);
       if (!st.connected) mapping.subtitle = tr(STR_BT_CONNECT_REMOTE);
+      // Gamepad scaffold: buttons only, never tried with a real pad (docs/gamepad.md).
+      auto& pad = add(tr(STR_GAMEPAD_BUTTONS), static_cast<int16_t>(MenuAction::Gamepad), st.connected);
+      pad.subtitle = st.connected ? tr(STR_GAMEPAD_EXPERIMENTAL) : tr(STR_BT_CONNECT_REMOTE);
       break;
     }
     case View::Scan:
@@ -196,6 +209,31 @@ void BleSettingsActivity::refresh() {
       }
       break;
     }
+    case View::Gamepad: {
+      // The map belongs to one pad: another pad's buttons are not shown as this one's, and learning a button
+      // of this pad starts a new map (the first row says so).
+      const bool mine = gamepad::sameAddr(SETTINGS.gamepad.addr, bleturner::linked().addr);
+      const bool others = !mine && SETTINGS.gamepad.count > 0;
+      for (int i = 0; i < gamepad::kLearnableCount; ++i) {
+        const uint8_t action = gamepad::kLearnable[i];
+        auto& row = add(I18N.get(gesturelabels::action(action)), static_cast<int16_t>(i), st.connected && !learning());
+        const uint32_t button = mine ? gamepad::buttonFor(SETTINGS.gamepad, action) : 0;
+        if (button != 0) {
+          gamepad::formatCode(padValues[i], sizeof(padValues[i]), button);
+          row.value = padValues[i];
+        } else {
+          row.value = tr(STR_NOT_SET);
+        }
+        if (!st.connected)
+          row.subtitle = tr(STR_BT_CONNECT_REMOTE);
+        else if (action == padLearn)
+          row.subtitle = tr(STR_BT_PRESS_REMOTE);
+        else if (i == 0)
+          row.subtitle = learnNote != nullptr ? learnNote : others ? tr(STR_GAMEPAD_OTHER_PAD) : nullptr;
+      }
+      add(tr(STR_GAMEPAD_RESET), PAD_RESET_ROW, SETTINGS.gamepad.count > 0 && !learning());
+      break;
+    }
   }
   if (nav.selected >= static_cast<int>(rows.size())) nav.selected = static_cast<int>(rows.size()) - 1;
 }
@@ -230,6 +268,9 @@ void BleSettingsActivity::activateIndex(const int index) {
         case MenuAction::Mapping:
           showView(View::Mapping);
           return;
+        case MenuAction::Gamepad:
+          showView(View::Gamepad);
+          return;
       }
       break;
     case View::Scan:
@@ -247,11 +288,26 @@ void BleSettingsActivity::activateIndex(const int index) {
       break;
     case View::Paired: {
       const std::string addr = bleturner::bond(static_cast<uint8_t>(code)).addr;
-      if (bleturner::forget(addr.c_str())) SETTINGS.saveToFile();
+      bool changed = bleturner::forget(addr.c_str());
+      // A forgotten gamepad takes its button map with it.
+      if (gamepad::sameAddr(SETTINGS.gamepad.addr, addr.c_str())) {
+        gamepad::reset(SETTINGS.gamepad);
+        changed = true;
+      }
+      if (changed) SETTINGS.saveToFile();
       break;
     }
     case View::Mapping:
       startLearning(code);
+      break;
+    case View::Gamepad:
+      if (code == PAD_RESET_ROW) {
+        gamepad::reset(SETTINGS.gamepad);
+        SETTINGS.saveToFile();
+        learnNote = tr(STR_BT_MAPPING_CLEARED);
+      } else {
+        startPadLearning(code);
+      }
       break;
   }
   refresh();
@@ -333,8 +389,85 @@ void BleSettingsActivity::keepLearned(const bool hold) {
   learnNote = tr(STR_BT_MAPPING_SAVED);
 }
 
+void BleSettingsActivity::startPadLearning(const int index) {
+  if (index < 0 || index >= gamepad::kLearnableCount || !bleturner::status().connected) return;
+  bleturner::Event ev;
+  while (bleturner::pollEvent(ev)) {
+  }  // presses from before the row was chosen are not the answer
+  padLearn = gamepad::kLearnable[index];
+  padListener = gamepad::Listener{};
+  const auto peer = bleturner::linked();
+  strncpy(learnAddr, peer.addr, sizeof(learnAddr) - 1);
+  learnSinceMs = millis();
+  learnNote = nullptr;
+}
+
+void BleSettingsActivity::stepPadLearning() {
+  const auto peer = bleturner::linked();
+  if (!bleturner::status().connected || strcmp(peer.addr, learnAddr) != 0) {
+    padLearn = 0;
+    learnNote = tr(STR_BT_CONNECT_REMOTE);
+    refresh();
+    requestUpdate();
+    return;
+  }
+  const uint8_t action = padLearn;
+  bleturner::Event ev;
+  while (padLearn == action && bleturner::pollEvent(ev)) {
+    // A press restarts the wait, so a button held for a while is not cut off by it.
+    if (ev.pressed) learnSinceMs = millis();
+    const uint32_t button = gamepad::hear(padListener, ev.code, ev.pressed, ev.wasRest);
+    if (button != 0) keepPadButton(button);
+  }
+  if (padLearn == action && millis() - learnSinceMs >= gamepad::kLearnWaitMs) {
+    // A pad that never reports the release still gets its button; nothing heard at all ends the wait.
+    const uint32_t button = gamepad::heardAtTimeout(padListener);
+    if (button != 0) {
+      keepPadButton(button);
+    } else {
+      padLearn = 0;
+      learnNote = tr(STR_BT_NO_KEY);
+    }
+  }
+  if (padLearn != action) {
+    refresh();
+    requestUpdate();
+  }
+}
+
+void BleSettingsActivity::keepPadButton(const uint32_t code) {
+  const uint8_t action = padLearn;
+  padLearn = 0;
+  switch (gamepad::learn(SETTINGS.gamepad, learnAddr, code, action)) {
+    case gamepad::Learned::Saved:
+    case gamepad::Learned::NewPad:
+      learnNote = tr(STR_BT_MAPPING_SAVED);
+      break;
+    case gamepad::Learned::Moved:
+      // The button did something else before: say that the other action lost it.
+      learnNote = tr(STR_GAMEPAD_MOVED);
+      break;
+    case gamepad::Learned::Refused:
+    default:
+      learnNote = tr(STR_BT_KEYS_NOT_SAVED);
+      return;
+  }
+  SETTINGS.saveToFile();
+}
+
+void BleSettingsActivity::clearPadButton(const int index) {
+  if (index < 0 || index >= gamepad::kLearnableCount || learning()) return;
+  if (!gamepad::sameAddr(SETTINGS.gamepad.addr, bleturner::linked().addr)) return;  // another pad's map: not shown
+  if (!gamepad::clear(SETTINGS.gamepad, gamepad::kLearnable[index])) return;
+  SETTINGS.saveToFile();
+  learnNote = tr(STR_BT_MAPPING_CLEARED);
+  refresh();
+  requestUpdate();
+}
+
 void BleSettingsActivity::onRowLongPress(const int index) {
   if (view == View::Mapping) clearMapping(index);
+  if (view == View::Gamepad) clearPadButton(index);
 }
 
 void BleSettingsActivity::clearMapping(const int index) {

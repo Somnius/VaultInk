@@ -48,6 +48,7 @@
 #include "SilentRestart.h"
 #include "StatusBarSettingsActivity.h"
 #include "TextSettingsActivity.h"
+#include "TranslateSettingsActivity.h"
 #include "activities/ActivityManager.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/reader/QrDisplayActivity.h"
@@ -200,6 +201,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   }
   addAction(SettingsSection::Network, StrId::STR_KOREADER_SYNC, SettingAction::KOReaderSync);
   addAction(SettingsSection::Network, StrId::STR_HIGHLIGHT_EXPORTS, SettingAction::HighlightExports);
+  addAction(SettingsSection::Network, StrId::STR_TRANSLATION, SettingAction::Translation);
   addAction(SettingsSection::Network, StrId::STR_OPDS_SERVERS, SettingAction::OPDSBrowser);
   addAction(SettingsSection::Network, StrId::STR_REMOTE_SERVERS, SettingAction::RemoteServers);
   addAction(SettingsSection::Network, StrId::STR_PLUGINS, SettingAction::Plugins);
@@ -442,6 +444,13 @@ void SettingsActivity::toggleSelectedSetting() {
           startActivityForResult(std::move(activity), resultHandler);
         } else {
           LOG_ERR("SETTINGS", "OOM: HighlightExportSettingsActivity");
+        }
+        break;
+      case SettingAction::Translation:
+        if (auto activity = makeUniqueNoThrow<TranslateSettingsActivity>(renderer, mappedInput)) {
+          startActivityForResult(std::move(activity), resultHandler);
+        } else {
+          LOG_ERR("SETTINGS", "OOM: TranslateSettingsActivity");
         }
         break;
       case SettingAction::OPDSBrowser:

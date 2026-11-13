@@ -52,6 +52,7 @@ enum class SettingAction {
   LockScreen,
   ReadingPresets,
   HighlightExports,
+  Translation,
 };
 
 struct SettingInfo {

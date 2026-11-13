@@ -258,6 +258,36 @@ TEST(TlsPolicy, ReadwiseIsAlwaysCheckedAgainstEveryBuiltInRoot) {
   EXPECT_EQ(choose("https://memos.example.com/api/v1/memos", true, true), Mode::CustomCa);
 }
 
+TEST(TlsPolicy, MyMemoryIsAlwaysCheckedAgainstEveryBuiltInRootAndALibreTranslateServerIsTheUsersOwn) {
+  const char* const url = "https://api.mymemory.translated.net/get?q=book&langpair=en%7Cel";
+  EXPECT_TRUE(alwaysChecked("api.mymemory.translated.net"));
+  // Only that one name: not its parent, a sibling, or a look-alike.
+  EXPECT_FALSE(alwaysChecked("translated.net"));
+  EXPECT_FALSE(alwaysChecked("mymemory.translated.net"));
+  EXPECT_FALSE(alwaysChecked("x.api.mymemory.translated.net"));
+  EXPECT_FALSE(alwaysChecked("api.mymemory.translated.net.evil.example"));
+  // Its root (Amazon Root CA 1) is in the self-hosted group, so it must get every built-in root.
+  EXPECT_FALSE(isPublicHost("api.mymemory.translated.net"));
+  for (const bool userVerify : {false, true}) {
+    for (const bool ca : {false, true}) EXPECT_EQ(choose(url, userVerify, ca), Mode::Verify);
+  }
+  Fake fake;
+  fake.caExists = true;
+  std::string pem;
+  const Decision d = run(fake, url, false, pem);
+  EXPECT_TRUE(d.ok());
+  EXPECT_EQ(d.mode, Mode::Verify);
+  EXPECT_EQ(fake.existsCalls, 0);
+  Fake noClock;
+  noClock.now = 0;
+  EXPECT_EQ(run(noClock, url, false, pem).error, Error::NoClock);
+  // A LibreTranslate server is the user's own: unchecked until its switch is on, plain when it is http.
+  EXPECT_EQ(choose("https://lt.example.org/translate", false, false), Mode::Insecure);
+  EXPECT_EQ(choose("https://lt.example.org/translate", true, false), Mode::Verify);
+  EXPECT_EQ(choose("https://lt.example.org/translate", true, true), Mode::CustomCa);
+  EXPECT_EQ(choose("http://192.168.1.20:5000/translate", true, true), Mode::Plain);
+}
+
 // The switch is a build flag (-DVAULTINK_VERIFY_GITHUB=1, env:x4pro-dev-verify). CMake builds this file both ways:
 // TlsPolicyTest with the default and TlsPolicyVerifyGithubTest with the flag.
 TEST(TlsPolicy, GithubIsAlwaysCheckedOnlyWithTheSwitchOn) {

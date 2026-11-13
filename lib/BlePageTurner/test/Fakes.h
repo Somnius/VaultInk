@@ -80,6 +80,12 @@ struct HostState {
   bool fullSpeed = false;
   std::vector<std::string> logs;
   std::vector<std::string> maps;
+  // The host's own button map for one device (Host::padRoutes, Host::padPress): none unless a test sets it.
+  std::string padAddr;
+  std::vector<uint32_t> padButtons;
+  std::vector<uint32_t> padPresses;
+  bool padTaken = true;
+  unsigned padRouteCalls = 0;
 };
 HostState& host();
 const bleturner::Host& hostFns();

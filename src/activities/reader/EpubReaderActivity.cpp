@@ -14,6 +14,7 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <Translate.h>
 #include <TrustedTime.h>
 #include <Txt.h>
 #include <TxtToHtml.h>
@@ -64,6 +65,7 @@
 #include "SendHighlightsActivity.h"
 #include "SilentRestart.h"
 #include "TextPanelRows.h"
+#include "TranslateLookupActivity.h"
 #include "WikipediaLookupActivity.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/settings/ReadingPresetsActivity.h"
@@ -605,6 +607,7 @@ void EpubReaderActivity::startClipSelection(const int initialX, const int initia
       }
       // Offered only when the dictionary has no entry, and only acted on by a tap.
       lookup->setWikipediaHandler([this](std::string text) { launchWikipediaLookup(std::move(text)); });
+      lookup->setTranslateHandler([this](std::string text) { launchTranslateLookup(std::move(text)); });
       startActivityForResult(std::move(lookup), [this](const ActivityResult& result) {
         if (!result.isCancelled) openDictionaryWordSelect();
       });
@@ -1778,6 +1781,26 @@ void EpubReaderActivity::launchWikipediaLookup(std::string text) {
   activityManager.replaceActivity(std::move(lookup));
 }
 
+void EpubReaderActivity::launchTranslateLookup(std::string text) {
+  if (!epub) return;
+  flushReaderSession();
+  // The way back is a restart into the book, so the position must be on the card first (as for a Wikipedia lookup).
+  if (section && !saveProgress(currentSpineIndex, section->currentPage, section->estimatedTotalPages())) {
+    LOG_ERR("TRN", "Position could not be saved before the translation");
+  }
+  // From the book's own language into the menu language (a book in the menu language: into English).
+  const char* uiCode = LANGUAGE_CODES[static_cast<int>(SETTINGS.language)];
+  auto lookup = makeUniqueNoThrow<TranslateLookupActivity>(
+      renderer, mappedInput, epub->getPath(), translate::languagePair(epub->getLanguage(), uiCode ? uiCode : ""),
+      std::move(text));
+  if (!lookup) {
+    LOG_ERR("TRN", "OOM: translation lookup activity");
+    return;
+  }
+  // Replacing the reader frees its memory for Wi-Fi and TLS; the way back is a restart into the book.
+  activityManager.replaceActivity(std::move(lookup));
+}
+
 void EpubReaderActivity::applyInitialOrientation() {
   ReaderActivity::applyInitialOrientation();
   appliedOrientation = SETTINGS.orientation;
@@ -1981,6 +2004,18 @@ bool EpubReaderActivity::remoteShortcut(const bool readerMenu) {
   } else {
     openReaderMenu();
   }
+  return true;
+}
+
+// A learned gamepad button (lib/Gamepad). It takes the Quick Menu's way in: the action is left for the next loop
+// pass, which runs it through runReaderAction like a row picked there, so a button does exactly what the gesture
+// or the Quick Menu row of the same name does.
+bool EpubReaderActivity::remoteAction(const uint8_t gestureAction) {
+  const uint8_t action = gestures::sanitizeSlot(gestureAction);
+  if (action == gestures::Default || action == gestures::None) return false;
+  if (quickMenuPopup.isActive() || pendingQuickAction != gestures::None) return false;
+  automaticPageTurnActive = false;
+  pendingQuickAction = static_cast<gestures::Action>(action);
   return true;
 }
 

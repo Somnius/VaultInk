@@ -5,6 +5,7 @@
 #include <BoardConfig.h>
 #include <FontCacheManager.h>
 #include <FsHelpers.h>
+#include <Gestures.h>
 #include <HalDisplay.h>
 #include <HalFrontlight.h>
 #include <HalPowerManager.h>
@@ -584,6 +585,28 @@ bool ActivityManager::remoteShortcut(const bool readerMenu) {
     return false;
   }
   return reader->remoteShortcut(readerMenu);
+}
+
+bool ActivityManager::remoteAction(const uint8_t gestureAction) {
+  switch (gestureAction) {
+    case gestures::NextPage:
+      return remoteTurn(true, false);
+    case gestures::PrevPage:
+      return remoteTurn(false, false);
+    case gestures::NextChapter:
+      return remoteTurn(true, true);
+    case gestures::PrevChapter:
+      return remoteTurn(false, true);
+    default:
+      break;
+  }
+  if (!isForegroundReader()) return false;
+  auto* reader = static_cast<ReaderActivity*>(currentActivity.get());
+  if (!remoteTurnAccepted(reader->pageRendered.load(std::memory_order_acquire), RenderLock::peek(),
+                          reader->inputOverPage())) {
+    return false;
+  }
+  return reader->remoteAction(gestureAction);
 }
 
 bool ActivityManager::remoteTurn(const bool forward, const bool chapter) {
