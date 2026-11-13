@@ -9,7 +9,8 @@ Start with the [main README](../README.md) for what VaultInk is and how to insta
 | [Book formats](book-formats.md) | EPUB, TXT, PDF, MOBI, AZW, XTC, CBZ: what opens and what doesn't |
 | [Reading settings and file actions](reading-and-files.md) | page backgrounds, text and Advanced Typography, the status bar and page number, the Library, search in a book, the file browser, the lock screen, the Battery page |
 | [Comics](comics.md) | the Banana Comic Converter, XTC, XTCH and CBZ |
-| [Dictionaries](dictionary.md) | looking words up |
+| [Dictionaries](dictionary.md) | looking words up, Wikipedia and online translation when the dictionary has no entry |
+| [Gamepad buttons](gamepad.md) | the buttons of a Bluetooth gamepad for the reader's actions (not released, never tried with a real pad) |
 | [Highlight exports](exports.md) | sending a book's clippings to Readwise or a Memos server |
 | [SD-card fonts](sd-card-fonts.md) | adding your own fonts |
 | [Focus reading](focus-reading.md) | the focus reading mode |

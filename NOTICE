@@ -24,4 +24,13 @@ Third-party code and assets in this repository keep their own licences:
   Because of that, the firmware binaries are distributed under the terms of the GPL-2.0-or-later, with the
   source in this repository. The source files of VaultInk itself stay under the MIT licence (see LICENSE).
 
+Online services the firmware can ask, only when the user starts the lookup. No code or data of theirs is in
+this repository:
+
+- Wikipedia (Wikimedia Foundation): article summaries for the Wikipedia lookup.
+- MyMemory (Translated, https://mymemory.translated.net): translations for the translation lookup, through its
+  keyless API. Each result is shown with the credit "MyMemory".
+- LibreTranslate (https://libretranslate.com): only a server the user sets up
+  and names in the settings is asked.
+
 See the licence files and headers inside each directory for the full terms.
