@@ -458,7 +458,7 @@ void ActivityManager::goToReader(std::string path, const bool allowFastInitialRe
   if (MarkupBook::isMarkupBook(path) && !MarkupBook::probe(path, nullptr, &markupEncrypted)) {
     {
       RenderLock lock;
-      GUI.drawPopup(renderer, tr(markupEncrypted ? STR_DOC_ENCRYPTED : STR_MOBI_UNREADABLE));
+      GUI.drawPopup(renderer, markupEncrypted ? tr(STR_DOC_ENCRYPTED) : tr(STR_MOBI_UNREADABLE));
     }
     delay(2500);
     randompage::take();

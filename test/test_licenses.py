@@ -107,7 +107,7 @@ class Data(unittest.TestCase):
         # The flag that links it is set where the licence text says it is: the X4 Pro builds.
         ini = read("platformio.ini")
         self.assertIn("-DVAULTINK_SSH=1", ini)
-        self.assertEqual(ini.count("${vaultink_ssh.build_flags}"), 3)
+        self.assertEqual(ini.count("${vaultink_ssh.build_flags}"), 4)
 
     def test_no_gpl2_only_component(self):
         # A GPL-2.0-only component could not be in a GPL-3.0-or-later binary.
