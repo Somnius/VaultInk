@@ -435,6 +435,27 @@ fetch the debug logs and screenshots, and flash a firmware file from the SD card
 in `-dev`. It is never a release build and has not been tried on a device yet:
 [docs/devlink.md](docs/devlink.md).
 
+## Help us debug
+
+If you hit a bug and want to help find it, there is a **developer build** you can install from the
+[install page](https://somnius.github.io/VaultInk/#developer-build) ("Developer build (read-only
+debugging)"). It is the same firmware plus a read-only serial link: over the USB cable it answers a
+status request, prints its log and sends a screenshot. It cannot be told to press keys, read your
+books or notes, change settings or flash anything. Installing it replaces your current firmware;
+the normal Install button puts the release back.
+
+With it on the reader, open the [debug page](https://somnius.github.io/VaultInk/debug.html) in
+Chrome or Edge on a computer, press Connect, and create a report: the status by default, log lines
+and screenshots only if you tick them. The page replaces Wi-Fi names, addresses, server names and
+file paths before you save the file, as well as it can, and shows you the text so you can check
+it. Nothing is uploaded by the page. Attach the report to a
+[debug report issue](https://github.com/Somnius/VaultInk/issues/new?template=debug_report.yml)
+(issues are public) or e-mail it to me@lefteros.com.
+
+The page and the developer build are new and have not been tried on a reader yet; Windows is
+untested and phones are not supported yet. [docs/debug-page.md](docs/debug-page.md) has the steps
+and the Linux notes, [docs/devlink.md](docs/devlink.md) what the link can and cannot do.
+
 ## Translating
 
 The menus are in English and Greek, and many other languages from CrossPoint Reader are partly

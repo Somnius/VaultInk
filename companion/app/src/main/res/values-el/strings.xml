@@ -99,6 +99,10 @@
     <string name="about_repo">Πηγαίος κώδικας και issues (GitHub)</string>
     <string name="about_project_page">Σελίδα του έργου</string>
     <string name="about_releases">Εκδόσεις</string>
+    <string name="about_debug">Βοήθησέ μας να βρούμε σφάλματα</string>
+    <string name="about_debug_note">Βρήκες σφάλμα στη συσκευή; Μια έκδοση του firmware για προγραμματιστές και μια σελίδα εντοπισμού σφαλμάτων φτιάχνουν μια αναφορά που μπορείς να στείλεις. Η σελίδα θέλει Chrome ή Edge σε υπολογιστή και καλώδιο USB· δεν δουλεύει ακόμα σε κινητό. Τίποτα δεν ανεβαίνει πουθενά: αποθηκεύεις την αναφορά και τη στέλνεις εσύ.</string>
+    <string name="about_debug_page">Η σελίδα εντοπισμού σφαλμάτων</string>
+    <string name="about_debug_guide">Πώς φτιάχνεις μια αναφορά (GitHub, στα αγγλικά)</string>
     <string name="about_stack_app">Αυτή η εφαρμογή</string>
     <string name="about_stack_firmware">Firmware VaultInk</string>
     <string name="about_licences">Άδειες ανοιχτού κώδικα</string>

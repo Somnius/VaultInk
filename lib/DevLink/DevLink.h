@@ -5,6 +5,23 @@
 
 // The serial command link (docs/devlink.md). Platform-free and heap-free, so the host tests in
 // test/dev_link cover it. The firmware feeds it bytes from the USB serial port and only dispatches.
+// Three kinds of build (docs/devlink.md):
+//   neither macro           the builds people install: only CMD:SCREENSHOT is answered.
+//   VAULTINK_DEVLINK        the link is compiled in. With VAULTINK_DEVLINK_USER it is the read-only
+//                           link of the user-installable developer build (x4pro-dev-user): PING HELP
+//                           STATUS LOG BENCH REBOOT SCREENSHOT and nothing else.
+//   + VAULTINK_DEVLINK_FULL the developer's own builds (x4pro-dev, x4pro-dev-verify): also
+//                           BOOTLOADER, KEY, TAP, SWIPE, FLASH, LS, GET and PUT.
+#if defined(VAULTINK_DEVLINK_FULL) && !defined(VAULTINK_DEVLINK)
+#error "VAULTINK_DEVLINK_FULL needs VAULTINK_DEVLINK"
+#endif
+#if defined(VAULTINK_DEVLINK_USER) && !defined(VAULTINK_DEVLINK)
+#error "VAULTINK_DEVLINK_USER needs VAULTINK_DEVLINK"
+#endif
+#if defined(VAULTINK_DEVLINK_USER) && defined(VAULTINK_DEVLINK_FULL)
+#error "VAULTINK_DEVLINK_USER is the read-only link: it cannot be built with VAULTINK_DEVLINK_FULL"
+#endif
+
 namespace devlink {
 
 // Collects bytes into lines without ever waiting for more. A line ends at '\n'; every '\r' is
@@ -46,8 +63,9 @@ enum class Command : uint8_t {
   Ping,
   Help,
   Bench,  // the SD bench logger (DevLinkBench.h)
-  // The names below are in the table only with VAULTINK_DEVLINK (the developer build): every
-  // other build parses them as Unknown, and its name table is the size it was.
+  // The names below are in the table only with VAULTINK_DEVLINK_FULL (the developer's own
+  // builds): every other build, the read-only x4pro-dev-user included, parses them as Unknown,
+  // and its name table is the size it was.
   Key,    // CMD:KEY <name> [hold_ms]
   Tap,    // CMD:TAP x y [hold_ms]
   Swipe,  // CMD:SWIPE x1 y1 x2 y2 [ms]

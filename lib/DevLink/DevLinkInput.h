@@ -5,8 +5,8 @@
 // the input library's own button state (its button hook), so debounce, press and release edges and
 // the held time are the real ones; a touch is answered by this class in place of the touch
 // controller, with the controller's own thresholds. Platform-free and heap-free: the caller passes
-// the firmware's millis() clock. Compiled only with VAULTINK_DEVLINK.
-#ifdef VAULTINK_DEVLINK
+// the firmware's millis() clock. Compiled only with VAULTINK_DEVLINK_FULL.
+#ifdef VAULTINK_DEVLINK_FULL
 
 #include <cstddef>
 #include <cstdint>
@@ -114,4 +114,4 @@ class InputInjector {
 
 }  // namespace devlink
 
-#endif  // VAULTINK_DEVLINK
+#endif  // VAULTINK_DEVLINK_FULL

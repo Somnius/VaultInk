@@ -5,9 +5,17 @@ it, put it in flashing mode without holding a button, log its state to a CSV fil
 press its keys and touch its screen from a script, fetch its bench logs and screenshots, and flash
 a firmware file that is on its SD card.
 
-**It is for developers only.** The commands exist only in the `x4pro-dev` build. That build is never
-uploaded as a release, to the web installer or to anyone's device. The builds people install
-(`x4pro-gh_release`) answer one command, `CMD:SCREENSHOT`, as they always did, and ignore the rest.
+There are three kinds of build:
+
+| Build | Who it is for | What the link does |
+| --- | --- | --- |
+| `x4pro-gh_release` (the release) | everyone | answers one command, `CMD:SCREENSHOT`, as it always did, and ignores the rest |
+| `x4pro-dev-user` (the developer build on the install page) | a user who wants to help find a bug | **read-only**: `PING`, `HELP`, `STATUS`, `LOG`, `BENCH`, `REBOOT`, `SCREENSHOT`. See [The build users may install](#the-build-users-may-install) |
+| `x4pro-dev`, `x4pro-dev-verify` | developers only | everything on this page |
+
+**`x4pro-dev` and `x4pro-dev-verify` are for developers only.** They are never uploaded as a
+release, to the web installer or to anyone's device: they can press keys, read and write files on
+the SD card and flash. The build users may install has none of that code.
 
 Nothing here has run on a device yet: the parser, the replies and the host script are tested on a
 computer, the firmware part is written from the source of the Arduino core and has not been compiled
@@ -22,7 +30,9 @@ pio run -e x4pro-dev -t upload
 `x4pro-dev` is `x4pro` (same board, partition table, flags and `-Os`) plus four things:
 
 - The version text ends in `-dev` (`0.74.0-x4pro-dev`), see [The developer label](#the-developer-label).
-- `-DVAULTINK_DEVLINK=1` compiles the commands in.
+- `-DVAULTINK_DEVLINK=1` compiles the link in, and `-DVAULTINK_DEVLINK_FULL=1` the commands that act
+  on the reader (`BOOTLOADER`, `KEY`, `TAP`, `SWIPE`, `FLASH`, `LS`, `GET`, `PUT`). Only this build
+  and `x4pro-dev-verify` define `VAULTINK_DEVLINK_FULL`.
 - `-DLOG_DBG_RUNTIME=1` makes debug log lines switchable, so `CMD:LOG` has something to switch. They
   start off, unless Settings → System → Debug Logs is on.
 - `debug_tool = esp-builtin` for JTAG (below).
@@ -30,14 +40,78 @@ pio run -e x4pro-dev -t upload
 A second build, `x4pro-dev-verify`, is `x4pro-dev` with GitHub's certificate checked. It is for one
 test: [Live test: GitHub's certificate](#live-test-githubs-certificate).
 
+## The build users may install
+
+Decided on 2026-11-13: a user may install a developer build to help find a bug, as long as it can
+only be read. That build is `x4pro-dev-user`. `scripts/deploy_web_installer.sh` builds it next to
+the release and publishes it as `manifest-dev.json` for the "Developer build" button of the
+[install page](https://somnius.github.io/VaultInk/#developer-build); the
+[debug page](https://somnius.github.io/VaultInk/debug.html) talks to it
+([docs/debug-page.md](debug-page.md)).
+
+It is the release build (`x4pro-gh_release`: same board, partition table and flags) with these
+differences:
+
+- The version text ends in `-dev` (`0.74.0-dev`), with everything under
+  [The developer label](#the-developer-label).
+- `-DVAULTINK_DEVLINK=1 -DVAULTINK_DEVLINK_USER=1`: the read-only link.
+- `-DLOG_LEVEL=2 -DLOG_DBG_RUNTIME=1`: debug log lines are in the firmware (the release has none)
+  and stay off until `CMD:LOG 2` or Settings → System → Debug Logs turns them on.
+
+What it answers, and what it does not:
+
+| | |
+| --- | --- |
+| **Answers** | `PING`, `HELP`, `STATUS` (with `"build":"dev-user"`), `LOG <0-3>`, `BENCH [minutes]`, `REBOOT`, `SCREENSHOT` |
+| **Refuses** | `BOOTLOADER`: `{"ok":false,"error":"BOOTLOADER is not in this build (read-only developer link)"}` |
+| **Does not know** | `KEY`, `TAP`, `SWIPE`, `FLASH`, `LS`, `GET`, `PUT`: `{"ok":false,"error":"unknown"}`. Their names are not in its command table and their code is not in the image |
+
+"Read-only" means: nothing the cable sends can press a key, touch the screen, read or write a
+file of yours, read or change a setting, or install firmware. Three commands do change something,
+and that is all of it: `LOG` switches debug lines on and off until the next restart, `REBOOT`
+restarts the reader (like its reset button), and `BENCH <minutes>` makes the reader write its own
+battery numbers to `/.vaultink/bench.csv` on the card (and the interval to `bench.cfg`); the cable
+cannot read those files back.
+
+How it is kept that way:
+
+- The code for input, files, flashing and the download mode is inside `#ifdef VAULTINK_DEVLINK_FULL`
+  (lib/DevLink/DevLinkArgs, lib/DevLink/DevLinkInput, lib/hal/HalGPIO, src/util/DevLinkDevice.cpp),
+  and `lib/DevLink/DevLink.h` stops the build with an error when `VAULTINK_DEVLINK_USER` and
+  `VAULTINK_DEVLINK_FULL` are both set.
+- `test/dev_link/DevLinkUserTest.cpp` builds the command table as this build does and checks that
+  the seven names parse as unknown and are not in `HELP`.
+- The deploy script refuses to publish an `x4pro-dev-user` image that holds the full link's `HELP`
+  text.
+
+Privacy rules for this build and for the debug page:
+
+- Anyone with the reader and a cable can read `STATUS`, the log and a screenshot of what is on the
+  screen. `STATUS` holds little (version, memory, battery, the name of the screen). The log, with
+  debug lines on, can hold the names of books, notes and folders, Wi-Fi names and server addresses.
+  A screenshot shows whatever is on the screen. So the developer build is for a reader in your own
+  hands, for as long as the bug hunt lasts; the page says how to go back to the release.
+- The link never gives out SD files, passwords, settings or input in this build.
+- The debug page uploads nothing. A report is a file the user saves: `STATUS` by default, log lines
+  and each screenshot only when ticked, with a best-effort redaction the user reads and can edit
+  before saving. GitHub issues are public; e-mail stays the private route
+  ([docs/debug-logs.md](debug-logs.md)).
+- The page has no `BOOTLOADER` button (the build has no such command either).
+
+The update check treats it like the other developer builds: a release with the same three numbers
+is not offered, a higher one is, and installing it puts the release build back. The update file
+the check asks for is exactly `vaultink-<version>-x4pro.bin`; the developer build is attached to
+a release only as `vaultink-<version>-x4pro-dev-factory.bin`, a name the check never asks for.
+
 ## The developer label
 
 So that a developer build is never taken for a release:
 
-- Its version is `0.74.0-x4pro-dev` (the release is `0.74.0-x4pro`). It is the one version text of
-  the firmware, so About, the boot screen, the Settings title, the web server's status, the
+- Its version is `0.74.0-x4pro-dev` (`0.74.0-dev` for `x4pro-dev-user`; the release, `x4pro-gh_release`, is `0.74.0`). It
+  is the one version text of the firmware, so About, the boot screen, the Settings title, the web server's status, the
   `User-Agent` of its requests and the update screen all show it.
-- `STATUS` has `"version":"0.74.0-x4pro-dev"` and `"build":"dev"`.
+- `STATUS` has `"version":"0.74.0-x4pro-dev"` and `"build":"dev"` (`"0.74.0-dev"` and
+  `"build":"dev-user"` for `x4pro-dev-user`).
 - **The update check.** It compares the three numbers only, as in every build. A release with the
   same numbers is not offered (0.74.0 over 0.74.0-x4pro-dev: "no update"). A release with higher
   numbers is offered, and installing it replaces the developer build with the release build, so the
@@ -53,6 +127,10 @@ Send a line `CMD:<NAME> [arguments]` ending in a newline, at any baud rate (it i
 reader answers with one line of JSON: `{"ok":true,...}` or `{"ok":false,"error":"..."}`. Log lines
 share the port, so read lines until one parses as a JSON object with an `ok` field.
 `scripts/devlink.py` does that.
+
+The table is `x4pro-dev`. `x4pro-dev-user` answers `PING`, `HELP`, `STATUS`, `LOG`, `BENCH`,
+`REBOOT` and `SCREENSHOT` the same way, lists only those in `HELP`, refuses `BOOTLOADER` and
+answers `unknown` to the rest ([The build users may install](#the-build-users-may-install)).
 
 | Command | Reply |
 | --- | --- |
@@ -85,7 +163,7 @@ still holds: read until a line has `ok`.
 | Field | Meaning |
 | --- | --- |
 | `version` | the firmware version, `0.74.0-x4pro-dev` |
-| `build` | always `dev`: only the developer build has `STATUS` |
+| `build` | `dev` (`x4pro-dev`, `x4pro-dev-verify`) or `dev-user` (the read-only `x4pro-dev-user`): only developer builds have `STATUS` |
 | `uptime_ms` | milliseconds since boot (a wake from sleep is a boot) |
 | `heap_free`, `heap_min_free`, `heap_largest` | internal RAM: free now, the lowest it has been, the largest free block |
 | `psram_free` | free PSRAM |
@@ -354,13 +432,17 @@ scripts/devlink.py status        # "version" is the new build's
 A debug port that can read the SD card can read vault notes and saved passwords, with no more than
 a cable. So:
 
-- **None of this is in a release.** Every command but `SCREENSHOT` is compiled into `x4pro-dev`
-  (and `x4pro-dev-verify`) only, and it must stay that way: never add `VAULTINK_DEVLINK` to a
-  release build. In the builds people install, the code for `KEY`, `TAP`, `SWIPE`, `LS`, `GET`,
-  `PUT` and `FLASH` does not exist: their names are not even in the command table, and a line with
-  one of them is ignored like any other unknown line.
-- A reader with the developer build obeys anyone who has the cable. What that person can and cannot
-  do:
+- **None of this is in a release.** Every command but `SCREENSHOT` is compiled into the developer
+  builds only, and it must stay that way: never add `VAULTINK_DEVLINK` to a release build. In the
+  release, the code for `KEY`, `TAP`, `SWIPE`, `LS`, `GET`, `PUT` and `FLASH` does not exist: their
+  names are not even in the command table, and a line with one of them is ignored like any other
+  unknown line.
+- **The build users may install is read-only.** `x4pro-dev-user` has the state commands and
+  nothing that acts: no input, no files, no flashing, no download mode
+  ([The build users may install](#the-build-users-may-install)). Never add
+  `VAULTINK_DEVLINK_FULL` to it; `x4pro-dev` and `x4pro-dev-verify` are the only builds with that
+  flag and they are never published.
+- A reader with `x4pro-dev` obeys anyone who has the cable. What that person can and cannot do:
 
 | | Allowed | Why |
 | --- | --- | --- |
@@ -383,8 +465,8 @@ a cable. So:
 - `x4pro-dev-verify` checks more than a release does, not less. It is still a developer build.
 
 **Next slice, not built:** read and change settings; a Home key and two-finger gestures for the
-input queue. If any part of the link ever ships to users it goes behind a Developer setting that
-is off by default.
+input queue. Those stay in `x4pro-dev` (`VAULTINK_DEVLINK_FULL`): nothing that reads files or
+settings or injects input goes into the build users may install.
 
 ## JTAG, one try
 
@@ -503,8 +585,14 @@ Everything on the device:
   the old firmware until `REBOOT` and starts the new one after it, and that the serial port stays
   up while the flash is written;
 - that the `x4pro` build did not grow: the seven new names and all new code are inside
-  `#ifdef VAULTINK_DEVLINK` (lib/DevLink, lib/hal/HalGPIO, src/util/DevLinkDevice), which only
+  `#ifdef VAULTINK_DEVLINK_FULL` (lib/DevLink, lib/hal/HalGPIO, src/util/DevLinkDevice), which only
   `x4pro-dev` and `x4pro-dev-verify` define. No device build was run;
+- `x4pro-dev-user`: that it compiles and fits (it is the release build with debug log lines kept
+  in, `LOG_LEVEL=2`, so it is larger than the release; how much is not measured), its replies on a
+  reader, and that the release build is byte for byte what it was (the slice-3 code moved from
+  `#ifdef VAULTINK_DEVLINK` to `#ifdef VAULTINK_DEVLINK_FULL`; the release defines neither);
+- the debug page and the "Developer build" button on a real reader, on any system
+  ([docs/debug-page.md](debug-page.md) lists it);
 - `BOOTLOADER`: it sets `RTC_CNTL_FORCE_DOWNLOAD_BOOT` and restarts, the same write the Arduino core
   makes in `usb_persist_restart(RESTART_BOOTLOADER)`. That the X4 Pro then shows up for `esptool` is
   untested;

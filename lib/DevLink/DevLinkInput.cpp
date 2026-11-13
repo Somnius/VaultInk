@@ -1,6 +1,6 @@
 #include "DevLinkInput.h"
 
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
 
 namespace devlink {
 namespace {
@@ -198,4 +198,4 @@ void InputInjector::noteRealTouch() {
 
 }  // namespace devlink
 
-#endif  // VAULTINK_DEVLINK
+#endif  // VAULTINK_DEVLINK_FULL

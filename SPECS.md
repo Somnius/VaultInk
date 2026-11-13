@@ -643,7 +643,8 @@ reports AES key recovery on the S3 with voltage fault injection.
     again and switches otadata); progress lines every 10%; the reply names the partition label; no
     `ESP.restart()`.
   - Tests: test/dev_link builds two programs: DevLinkTest (the table as shipped builds compile it,
-    35 tests; `CMD:FLASH` is Unknown there) and DevLinkDevTest with `VAULTINK_DEVLINK=1` (46
+    35 tests; `CMD:FLASH` is Unknown there) and DevLinkDevTest with `VAULTINK_DEVLINK=1`
+    (and, since the debug page, `VAULTINK_DEVLINK_FULL=1`; 46
     tests: names, arguments, base64, the queue against a copy of the SDK debounce at loop steps of
     1 to 300 ms, the path rule with traversal, case, 8.3 aliases, trimmed names and double
     slashes). scripts/devlink.py: `key`, `tap`, `swipe`, `ls`, `get`, `put`, `flash` (an SD path;
@@ -652,6 +653,40 @@ reports AES key recovery on the S3 with voltage fault injection.
     everything else are compiled only with `VAULTINK_DEVLINK`, so the name table is the size it
     was. Not measured: no device build was run. Relies on PlatformIO passing `build_flags` to the
     libraries in lib/ (as `LOG_DBG_RUNTIME` for lib/Logging already does).
+  - Three macros since the debug page (2026-11-13; host tests only, no device build run):
+    `VAULTINK_DEVLINK` compiles the link in (line dispatch, PING, HELP, STATUS, LOG, BENCH, REBOOT,
+    the "Developer build" lines of the update screen, the 1024-byte TX queue);
+    `VAULTINK_DEVLINK_FULL` adds BOOTLOADER, KEY, TAP, SWIPE, FLASH, LS, GET, PUT (all of
+    lib/DevLink/DevLinkArgs and DevLinkInput, the injector in lib/hal/HalGPIO, the handlers in
+    src/util/DevLinkDevice.cpp); `VAULTINK_DEVLINK_USER` marks the read-only build and is a
+    compile error together with `_FULL` (lib/DevLink/DevLink.h). `[env:x4pro-dev]` and
+    `x4pro-dev-verify` define DEVLINK + FULL (behaviour as before). `[env:x4pro-dev-user]` extends
+    `x4pro-gh_release` with its flag list written out again plus DEVLINK + USER, `LOG_LEVEL=2`,
+    `LOG_DBG_RUNTIME=1` and the version `<version>-dev`; STATUS says `"build":"dev-user"`, HELP
+    lists seven names, BOOTLOADER answers an error. The release defines none of the three, so
+    its preprocessed source is what it was. test/dev_link: a third program, DevLinkUserTest (4
+    tests), 85 in all.
+  - Debug page: site/debug.html (one static page, plain JS, Web Serial, vendor filter 0x303a,
+    115200) + site/debuglib.js (no DOM; UMD so Node can load it): `createStreamParser` (lines
+    from arbitrary chunks, CR dropped, `SCREENSHOT_START:<n>` switches to exactly n raw bytes,
+    then `SCREENSHOT_END` within 20 lines, 8192-byte line cap, `reset()` for a lost port),
+    `parseJsonLine`/`parseReply`/`parseScreenshotStart` and `rotateFramebuffer` ported from
+    scripts/devlink.py (800x480 1-bit to 480x800, checked against devlink.py by hash),
+    `statusRows`, `redact` (URLs, e-mail, MAC, IPv6, IPv4, SSIDs in the firmware's log wording,
+    SD paths and file names with the ending kept, host names, the user's own words) and
+    `buildRedactedReport` (redaction over the note, STATUS values and log lines only).
+    test/debuglib_test.js: 35 cases, `node test/debuglib_test.js`, no packages. The page keeps
+    5000 log lines, one command at a time (3 s reply timeout, 20 s for a picture), reopens the
+    port on the browser's `connect` event, never writes reader text as HTML, and uploads nothing.
+  - Publishing: scripts/deploy_web_installer.sh builds `x4pro-gh_release` then `x4pro-dev-user`,
+    refuses a developer image that holds the full link's HELP text, writes `manifest-dev.json`
+    (name "VaultInk (developer build)", version `<version>-dev`) and
+    `vaultink-x4pro-dev-factory.bin` to gh-pages, and attaches
+    `vaultink-<version>-x4pro-dev-factory.bin` to the release (the update check asks for exactly
+    `vaultink-<tag>-x4pro.bin`, compared with strcmp in lib/JsonParser/ReleaseJsonParser.cpp).
+    `--dry-run` stops before the first push. scripts/deploy_site_only.sh republishes the developer
+    image from the release when it is there; without `manifest-dev.json` the install page hides
+    the button. Neither script has been run with these changes.
 
 ## 14. Licences and credits
 

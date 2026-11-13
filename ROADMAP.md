@@ -687,7 +687,22 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   Third slice on a reader: a scripted page turn, a tap, a `get` of the bench log, a flash from SD
   followed by `REBOOT` and a `STATUS` that shows the new build.
 * Next slice (not started): settings get/set; a Home key and two-finger gestures for the input
-  queue. Dev build only; behind a Developer setting that is off by default if it ever ships.
+  queue. `x4pro-dev` only (`VAULTINK_DEVLINK_FULL`), never in the build users may install.
+* ✅ (unreleased, computer tests only, not compiled for the device, not tried in a browser) Debug
+  page and a developer build users may install (decided 2026-11-13: allowed, read-only):
+  `x4pro-dev-user` = the release build + a read-only link (PING, HELP, STATUS, LOG, BENCH, REBOOT,
+  SCREENSHOT; no BOOTLOADER, keys, touches, SD files or flashing: that code is now behind
+  `VAULTINK_DEVLINK_FULL`, which only `x4pro-dev` and `x4pro-dev-verify` define);
+  `site/debug.html` + `site/debuglib.js` (Web Serial, desktop Chrome/Edge: live log, STATUS table,
+  screenshot, a report with opt-in log lines and screenshots and a best-effort redaction the user
+  checks before saving; nothing is uploaded); a "Developer build" section on the install page
+  (`manifest-dev.json`); `deploy_web_installer.sh` builds and publishes it and has `--dry-run`; a
+  Debug Report issue form; "Help us debug" in the README and in the companion's About.
+  [docs/debug-page.md](docs/debug-page.md)
+* Still to do for the debug page: build `x4pro-dev-user` and check its size; run
+  `deploy_web_installer.sh --dry-run`; try the page on a reader on Linux and Windows (COM port and
+  driver: unverified); reconnect after sleep; Android Chrome (unverified, not supported yet); the
+  companion debug view over USB (later).
 * Not planned: debugging over Wi-Fi, framebuffer streaming.
 
 ## 🚧 Open-source licences (2026-11-13)

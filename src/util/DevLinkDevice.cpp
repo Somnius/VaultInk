@@ -5,7 +5,6 @@
 #include <Arduino.h>
 #include <BatteryMonitor.h>
 #include <BlePageTurner.h>
-#include <DevLinkArgs.h>
 #include <DevLinkBench.h>
 #include <GfxRenderer.h>
 #include <HalFrontlight.h>
@@ -16,11 +15,8 @@
 #include <Logging.h>
 #include <TrustedTime.h>
 #include <WiFi.h>
-#include <esp_ota_ops.h>
 #include <esp_sleep.h>
 #include <esp_system.h>
-#include <soc/rtc_cntl_reg.h>
-#include <soc/soc.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -30,8 +26,18 @@
 #include "CrossPointSettings.h"
 #include "activities/ActivityManager.h"
 #include "activities/RenderLock.h"
+
+// The developer's own builds only (x4pro-dev, x4pro-dev-verify): input injection, the SD card,
+// flashing and the download mode. The read-only link of x4pro-dev-user compiles none of it.
+#ifdef VAULTINK_DEVLINK_FULL
+#include <DevLinkArgs.h>
+#include <esp_ota_ops.h>
+#include <soc/rtc_cntl_reg.h>
+#include <soc/soc.h>
+
 #include "network/FirmwareFlasher.h"
 #include "util/DevLinkPaths.h"
+#endif
 
 extern GfxRenderer renderer;  // main.cpp
 
@@ -97,7 +103,11 @@ void replyStatus(const unsigned long msSinceInput, const uint32_t droppedLines) 
   devlink::JsonLine json;
   json.addBool("ok", true)
       .addString("version", CROSSPOINT_VERSION)
+#ifdef VAULTINK_DEVLINK_FULL
       .addString("build", "dev")
+#else
+      .addString("build", "dev-user")  // the read-only link (x4pro-dev-user)
+#endif
       .addUnsigned("uptime_ms", millis())
       .addUnsigned("heap_free", heap.freeBytes)
       .addUnsigned("heap_min_free", heap.minFreeBytes)
@@ -255,6 +265,9 @@ void replyLog(const devlink::Parsed& parsed) {
 #endif
   reply(json);
 }
+
+#ifdef VAULTINK_DEVLINK_FULL
+// Everything from here to the matching #endif is in the developer's own builds only.
 
 // ---- keys and touches (CMD:KEY, CMD:TAP, CMD:SWIPE) ----
 // The events go into HalGPIO's queue and are played where the hardware is read, so the screens,
@@ -590,6 +603,8 @@ void replyFlash(const devlink::Parsed& parsed) {
   reply(json);
 }
 
+#endif  // VAULTINK_DEVLINK_FULL
+
 // Give the last reply time to leave the queue before the USB port goes away. Not flush(): with the
 // 1 ms timeout it marks the host as gone after one millisecond without progress.
 void drainBeforeRestart() { delay(100); }
@@ -621,6 +636,7 @@ void handle(const devlink::Parsed& parsed, const unsigned long msSinceInput, con
     case devlink::Command::Bench:
       replyBench(parsed);
       return;
+#ifdef VAULTINK_DEVLINK_FULL
     case devlink::Command::Key:
       replyKey(parsed);
       return;
@@ -642,6 +658,7 @@ void handle(const devlink::Parsed& parsed, const unsigned long msSinceInput, con
     case devlink::Command::Flash:
       replyFlash(parsed);
       return;
+#endif
     case devlink::Command::Reboot: {
       devlink::JsonLine json;
       json.addBool("ok", true).addString("action", "reboot");
@@ -650,6 +667,7 @@ void handle(const devlink::Parsed& parsed, const unsigned long msSinceInput, con
       ESP.restart();
       return;
     }
+#ifdef VAULTINK_DEVLINK_FULL
     case devlink::Command::Bootloader: {
       devlink::JsonLine json;
       json.addBool("ok", true).addString("action", "bootloader");
@@ -662,6 +680,12 @@ void handle(const devlink::Parsed& parsed, const unsigned long msSinceInput, con
       esp_restart();
       return;
     }
+#else
+    case devlink::Command::Bootloader:
+      // The name is in every build's table; the read-only link does not act on it.
+      replyError("BOOTLOADER is not in this build (read-only developer link)");
+      return;
+#endif
     default:
       replyError("unknown");
       return;

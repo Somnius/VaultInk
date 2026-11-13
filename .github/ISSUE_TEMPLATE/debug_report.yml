@@ -1,0 +1,61 @@
+name: Debug Report
+description: Send a report made with the debug page (developer build)
+title: "Short, descriptive title of the problem"
+labels: ["debug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping debug VaultInk! This form is for a report made with the
+        [debug page](https://somnius.github.io/VaultInk/debug.html) on a reader that runs the developer build.
+        [How to install it and make a report](https://github.com/Somnius/VaultInk/blob/main/docs/debug-page.md).
+
+        **Issues are public.** Everyone can read what you post here. The debug page replaces Wi-Fi names,
+        addresses, server names and file paths, but it can miss a name: read the report before you paste it.
+        If you would rather not post it, email it to me@lefteros.com instead.
+
+  - type: input
+    id: version
+    attributes:
+      label: Affected Version
+      description: The version in the report (STATUS) or on the boot screen. A developer build ends in -dev.
+      placeholder: Ex. 0.74.0-dev
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What Happened
+      description: What the reader did, and what you expected it to do.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Clearly list the steps that lead to the problem.
+      placeholder: |
+        1. Go to '...'
+        2. Select '...'
+        3. Crash
+    validations:
+      required: true
+
+  - type: textarea
+    id: report
+    attributes:
+      label: Debug Report
+      description: Paste the text of the report file from the debug page (vaultink-report-....txt). You can drag and drop screenshots below it.
+      render: shell
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I removed names and addresses I don't want public.
+          required: true

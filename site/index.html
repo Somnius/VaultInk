@@ -184,6 +184,9 @@
     .install.disabled button[slot=activate] { cursor: not-allowed; }
     .version { color: var(--muted); font-size: .9rem; margin: 10px 0 0; }
     .aside h3 { margin-top: 1.4rem; }
+    details.dev > summary { cursor: pointer; font-weight: 600; color: var(--ink); font-size: 1.05rem; padding: 6px 0; }
+    details.dev[open] > summary { margin-bottom: 8px; }
+    details.dev .card { max-width: 72ch; margin-top: 12px; }
     .aside ul { padding-left: 20px; margin: .4em 0; }
     .aside li { margin: .4em 0; }
 
@@ -449,6 +452,53 @@
             <a href="https://github.com/Somnius/VaultInk/tree/main/docs">docs</a> cover the rest.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section id="developer-build">
+    <div class="wrap">
+      <p class="eyebrow sans">Help us debug</p>
+      <h2>Developer build (read-only debugging)</h2>
+      <p class="lead">Only if you want to help find a bug. Most people don't need this.</p>
+      <details class="dev" id="devDetails">
+        <summary class="sans">Show the developer build</summary>
+        <div class="notice" role="note">
+          <strong>For helping debug.</strong> It is the same firmware plus a read-only serial link:
+          over the USB cable it answers a status request, prints its log and sends a screenshot, so
+          the <a href="debug.html">debug page</a> can make a report. It cannot be told to press keys,
+          read your books or notes, change settings or flash anything. <strong>Installing it replaces
+          your current firmware.</strong> Update back with the normal button above, or from the reader
+          under <kbd>Settings → System → Check for Updates</kbd> when the next release is out.
+        </div>
+        <p>Anyone who has the reader and a cable can read that status and log and take a screenshot of
+          what is on the screen, so keep the normal firmware on a reader that leaves your hands. The log
+          can hold the names of books, notes and Wi-Fi networks; the
+          <a href="https://github.com/Somnius/VaultInk/blob/main/docs/debug-page.md">debug page guide</a>
+          and <a href="https://github.com/Somnius/VaultInk/blob/main/docs/devlink.md">docs/devlink.md</a>
+          say what the link can and cannot do.</p>
+        <div class="card">
+          <p id="devMissing" hidden><strong>The developer build is not published for this version
+            yet.</strong></p>
+          <div id="devInstall">
+            <p>Put the X4 Pro into boot mode and connect it, as in steps 3 and 4 above. The installer
+              offers to erase the device first, as in step 5; installing does not touch the SD card.</p>
+            <label class="agree sans">
+              <input type="checkbox" id="devAgree" aria-controls="devInstallBox">
+              <span>I understand this replaces my current firmware with a developer build, and that I
+                update back with the normal Install button.</span>
+            </label>
+            <div class="install disabled" id="devInstallBox">
+              <esp-web-install-button manifest="manifest-dev.json">
+                <button slot="activate" id="devInstallBtn" disabled>Install the developer build</button>
+                <span slot="unsupported">Your browser can't flash devices. Please use Chrome or Edge on a computer.</span>
+                <span slot="not-allowed">Flashing needs a secure (https) page.</span>
+              </esp-web-install-button>
+            </div>
+            <p class="version sans" id="devVersion"></p>
+          </div>
+          <p>Then open the <a href="debug.html">debug page</a>, connect, and create a report.</p>
+        </div>
+      </details>
     </div>
   </section>
 
@@ -933,6 +983,25 @@
     if (!("serial" in navigator)) return;
     box.classList.toggle("disabled", !agree.checked);
     installBtn.disabled = !agree.checked;
+  });
+  // The developer build: its own tick box, its version from its own manifest. Without that file
+  // (a version published before the developer build existed) the button is not offered.
+  const devAgree = document.getElementById("devAgree");
+  devAgree.addEventListener("change", () => {
+    if (!("serial" in navigator)) return;
+    document.getElementById("devInstallBox").classList.toggle("disabled", !devAgree.checked);
+    document.getElementById("devInstallBtn").disabled = !devAgree.checked;
+  });
+  if (!("serial" in navigator)) devAgree.disabled = true;
+  const devDetails = document.getElementById("devDetails");
+  const openDevFromLink = () => { if (location.hash === "#developer-build") devDetails.open = true; };
+  window.addEventListener("hashchange", openDevFromLink);
+  openDevFromLink();
+  fetch("manifest-dev.json").then(r => { if (!r.ok) throw new Error("none"); return r.json(); }).then(m => {
+    document.getElementById("devVersion").textContent = "Version " + m.version + " · built " + (m.built || "");
+  }).catch(() => {
+    document.getElementById("devInstall").hidden = true;
+    document.getElementById("devMissing").hidden = false;
   });
   // Back to top, shown once the page is scrolled past the first screen.
   const toTop = document.getElementById("toTop");

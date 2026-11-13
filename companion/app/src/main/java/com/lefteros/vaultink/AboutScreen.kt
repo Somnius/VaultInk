@@ -27,6 +27,9 @@ const val REPO_URL = "https://github.com/Somnius/VaultInk"
 const val PROJECT_URL = "https://lefteros.com/en/apps/vaultink"
 const val RELEASES_URL = "https://github.com/Somnius/VaultInk/releases"
 const val LICENCES_URL = "https://github.com/Somnius/VaultInk/blob/main/docs/licenses.md"
+// The debug page (desktop Chrome or Edge, with the reader on a USB cable) and its guide.
+const val DEBUG_PAGE_URL = "https://somnius.github.io/VaultInk/debug.html"
+const val DEBUG_GUIDE_URL = "https://github.com/Somnius/VaultInk/blob/main/docs/debug-page.md"
 
 // What this app is built with: the dependencies and settings in app/build.gradle.kts.
 private val APP_STACK = listOf("Kotlin", "Jetpack Compose", "Material 3", "Kotlin coroutines", "OkHttp",
@@ -67,6 +70,13 @@ fun AboutScreen(onBack: () -> Unit) {
             TextButton(onClick = { open(REPO_URL) }) { Text(stringResource(R.string.about_repo)) }
             TextButton(onClick = { open(PROJECT_URL) }) { Text(stringResource(R.string.about_project_page)) }
             TextButton(onClick = { open(RELEASES_URL) }) { Text(stringResource(R.string.about_releases)) }
+        }
+
+        Text(stringResource(R.string.about_debug), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.about_debug_note), style = MaterialTheme.typography.bodySmall)
+        Column {
+            TextButton(onClick = { open(DEBUG_PAGE_URL) }) { Text(stringResource(R.string.about_debug_page)) }
+            TextButton(onClick = { open(DEBUG_GUIDE_URL) }) { Text(stringResource(R.string.about_debug_guide)) }
         }
 
         Text(stringResource(R.string.about_stack_app), style = MaterialTheme.typography.titleMedium)

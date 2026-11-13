@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Republish the web installer page (site/) to gh-pages without a new release: the firmware image and
-# manifest stay those of the current version's release (downloaded from it, not rebuilt).
+# Republish the web installer page (site/, with debug.html and debuglib.js) to gh-pages without a
+# new release: the firmware image and manifest stay those of the current version's release
+# (downloaded from it, not rebuilt). The developer build is republished too when the release has
+# its image (vaultink-<version>-x4pro-dev-factory.bin); without it there is no manifest-dev.json
+# and the page says the developer build is not published for this version.
 #
 #   scripts/deploy_site_only.sh
 set -euo pipefail
@@ -31,6 +34,26 @@ cat > "$OUT/manifest.json" <<EOT
   ]
 }
 EOT
+if gh release download "$VERSION" -p "vaultink-${VERSION}-x4pro-dev-factory.bin" -D "$OUT" 2>/dev/null; then
+  mv "$OUT/vaultink-${VERSION}-x4pro-dev-factory.bin" "$OUT/vaultink-x4pro-dev-factory.bin"
+  cat > "$OUT/manifest-dev.json" <<EOT
+{
+  "name": "VaultInk (developer build)",
+  "version": "${VERSION}-dev",
+  "built": "$(git log -1 --format=%cs "$VERSION")",
+  "commit": "$(git rev-parse --short "$VERSION^{commit}")",
+  "new_install_prompt_erase": true,
+  "builds": [
+    { "chipFamily": "ESP32-S3", "parts": [ { "path": "vaultink-x4pro-dev-factory.bin", "offset": 0 } ] }
+  ]
+}
+EOT
+else
+  echo "Release $VERSION has no developer build image: the page will not offer it." >&2
+fi
+for page in debug.html debuglib.js; do
+  [[ -s "$OUT/$page" ]] || { echo "site/$page is missing: the debug page would not be published." >&2; exit 1; }
+done
 touch "$OUT/.nojekyll"
 cd "$OUT"
 git init -q -b gh-pages

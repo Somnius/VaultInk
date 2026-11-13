@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 #include <InputManager.h>
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
 #include <DevLinkInput.h>
 #endif
 
@@ -75,8 +75,8 @@ class HalGPIO {
   void begin();
   void prepareForDeepSleep();
 
-#ifdef VAULTINK_DEVLINK
-  // Developer build only (docs/devlink.md): the queue of made-up keys and touches that CMD:KEY,
+#ifdef VAULTINK_DEVLINK_FULL
+  // VAULTINK_DEVLINK_FULL only (x4pro-dev, docs/devlink.md): the queue of made-up keys and touches that CMD:KEY,
   // CMD:TAP and CMD:SWIPE fill. update() plays it: a key goes into the input library through its
   // button hook, a touch is answered by the touch methods below in place of the controller.
   static devlink::InputInjector& devInput();

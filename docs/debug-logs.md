@@ -18,6 +18,11 @@ to send, and you send them yourself.
 5. Turn the setting off again if you like. **Settings → System → Clear Debug Logs** deletes the
    folder.
 
+There is a second way, with a computer and a USB cable: the [debug page](debug-page.md) reads the
+status, the log and a screenshot from a reader with the developer build and makes a report whose
+names and addresses are replaced before you save it. That report can go into a GitHub issue if you
+have read it and are fine with it being public; e-mail stays the private way.
+
 ## What's in the folder
 
 - `log-0.txt` is the newest log. When it reaches 256 KB it becomes `log-1.txt`, and so on up to

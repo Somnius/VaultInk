@@ -1,6 +1,6 @@
 #include "DevLinkArgs.h"
 
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
 
 #include <cstring>
 
@@ -238,4 +238,4 @@ bool base64Decode(const char* text, const size_t length, uint8_t* out, const siz
 
 }  // namespace devlink
 
-#endif  // VAULTINK_DEVLINK
+#endif  // VAULTINK_DEVLINK_FULL

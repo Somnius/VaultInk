@@ -40,7 +40,7 @@ Start with the [main README](../README.md) for what VaultInk is and how to insta
 
 | Guide | What is in it |
 | --- | --- |
-| [Developer link](devlink.md) | the `x4pro-dev` build: status, reboot and flashing-mode commands over USB, `scripts/devlink.py`, JTAG |
+| [Developer link](devlink.md) | the developer builds: status, reboot and flashing-mode commands over USB, `scripts/devlink.py`, JTAG; the read-only build users may install (`x4pro-dev-user`) and its privacy rules |
 
 ## Help
 
@@ -48,6 +48,7 @@ Start with the [main README](../README.md) for what VaultInk is and how to insta
 | --- | --- |
 | [Troubleshooting](troubleshooting.md) | common problems |
 | [Debug logs](debug-logs.md) | saving logs to report a bug |
+| [The debug page](debug-page.md) | help us debug: install the developer build, connect it to the debug page in Chrome or Edge, make a report |
 | [Fix a bricked Xteink](fix-bricked-xteink.md) | getting a device back |
 | [Translating](translating.md), [translators](translators.md), [i18n](i18n.md) | adding or fixing a language |
 

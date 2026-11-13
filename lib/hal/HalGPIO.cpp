@@ -10,7 +10,7 @@
 // Global HalGPIO instance
 HalGPIO gpio;
 
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
 namespace {
 devlink::InputInjector injector;
 uint8_t injectedButtons() { return injector.buttonMask(); }
@@ -114,7 +114,7 @@ void HalGPIO::begin() {
   _deviceType = DeviceType::X4;
 #endif
   inputMgr.begin();
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   // The input library ORs this into the buttons it reads, so an injected key is debounced and
   // timed like a real one. No board of this firmware sets another hook.
   InputManager::setButtonHook(injectedButtons);
@@ -122,11 +122,11 @@ void HalGPIO::begin() {
 }
 
 void HalGPIO::update() {
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   injector.advance(millis());  // before the read below, which asks the hook for the keys
 #endif
   inputMgr.update();
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   if (inputMgr.wasTouchActivity()) injector.noteRealTouch();
 #endif
   const uint8_t pageButtons = inputMgr.capacitivePageButtonMask();
@@ -180,72 +180,72 @@ bool HalGPIO::isToggleSwitchOn() const { return inputMgr.isToggleSwitchOn(); }
 
 bool HalGPIO::wasHomeKeyLongPressed() const { return inputMgr.wasHomeKeyLongPressed(); }
 
-// With VAULTINK_DEVLINK every touch method asks the injected touch first and the controller second.
+// With VAULTINK_DEVLINK_FULL every touch method asks the injected touch first and the controller second.
 bool HalGPIO::wasTouchTap(float& nx, float& ny) const {
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   if (injector.wasTouchTap(nx, ny)) return true;
 #endif
   return inputMgr.wasTouchTap(nx, ny);
 }
 
 bool HalGPIO::wasTouchDown(float& nx, float& ny) const {
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   if (injector.wasTouchPressed(nx, ny)) return true;
 #endif
   return inputMgr.wasTouchPressedAt(nx, ny);
 }
 
 bool HalGPIO::wasTouchReleased() const {
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   if (injector.wasTouchReleased()) return true;
 #endif
   return inputMgr.wasTouchReleased();
 }
 
 bool HalGPIO::isTouchTapCandidate(float& nx, float& ny, unsigned long& heldMs) const {
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   if (injector.isTouchTapCandidate(nx, ny, heldMs)) return true;
 #endif
   return inputMgr.isTouchTapCandidate(nx, ny, heldMs);
 }
 
 bool HalGPIO::isTouchHeldAt(float& nx, float& ny) const {
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   if (injector.isTouchHeldAt(nx, ny)) return true;
 #endif
   return inputMgr.isTouchHeldAt(nx, ny);
 }
 
 bool HalGPIO::wasTouchLongPress(float& nx, float& ny) const {
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   if (injector.wasTouchLongPress(nx, ny)) return true;
 #endif
   return inputMgr.wasTouchLongPress(nx, ny);
 }
 
 void HalGPIO::suppressTouchContact() {
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   injector.suppressTouchContact();
 #endif
   inputMgr.suppressTouchContact();
 }
 
 unsigned long HalGPIO::lastTouchHeldMs() const {
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   if (injector.ownsLastTouch()) return injector.lastTouchHeldMs();
 #endif
   return inputMgr.lastTouchHeldMs();
 }
 
 bool HalGPIO::wasSwipe(float& nxStart, float& nyStart, float& nxEnd, float& nyEnd) const {
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   if (injector.wasSwipe(nxStart, nyStart, nxEnd, nyEnd)) return true;
 #endif
   return inputMgr.wasSwipe(nxStart, nyStart, nxEnd, nyEnd);
 }
 
 bool HalGPIO::wasTouchActivity() const {
-#ifdef VAULTINK_DEVLINK
+#ifdef VAULTINK_DEVLINK_FULL
   if (injector.wasTouchActivity()) return true;
 #endif
   return inputMgr.wasTouchActivity();

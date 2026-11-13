@@ -2,8 +2,8 @@
 
 // Arguments of the developer build's commands (docs/devlink.md): KEY, TAP, SWIPE, GET, PUT, and
 // base64. Platform-free and heap-free, tested in test/dev_link. Compiled only with
-// VAULTINK_DEVLINK: no other build has any of it.
-#ifdef VAULTINK_DEVLINK
+// VAULTINK_DEVLINK_FULL (x4pro-dev, x4pro-dev-verify): no other build has any of it.
+#ifdef VAULTINK_DEVLINK_FULL
 
 #include <cstddef>
 #include <cstdint>
@@ -83,4 +83,4 @@ bool base64Decode(const char* text, size_t length, uint8_t* out, size_t capacity
 
 }  // namespace devlink
 
-#endif  // VAULTINK_DEVLINK
+#endif  // VAULTINK_DEVLINK_FULL

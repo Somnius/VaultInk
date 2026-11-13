@@ -100,6 +100,10 @@
     <string name="about_repo">Source code and issues (GitHub)</string>
     <string name="about_project_page">Project page</string>
     <string name="about_releases">Releases</string>
+    <string name="about_debug">Help us debug</string>
+    <string name="about_debug_note">Found a bug on the reader? A developer build of the firmware and a debug page make a report you can send. The page needs Chrome or Edge on a computer and a USB cable; it does not work on a phone yet. Nothing is uploaded: you save the report and send it yourself.</string>
+    <string name="about_debug_page">The debug page</string>
+    <string name="about_debug_guide">How to make a debug report (GitHub)</string>
     <string name="about_stack_app">This app</string>
     <string name="about_stack_firmware">VaultInk firmware</string>
     <string name="about_licences">Open-source licences</string>
