@@ -13,6 +13,6 @@ inline bool hasMobiExtension(std::string_view name) {
 }
 inline bool hasMarkupBookExtension(std::string_view name) {
   return name.ends_with(".fb2") || name.ends_with(".html") || name.ends_with(".htm") || name.ends_with(".xhtml") ||
-         name.ends_with(".rtf");
+         name.ends_with(".rtf") || name.ends_with(".doc") || name.ends_with(".chm");
 }
 }  // namespace FsHelpers

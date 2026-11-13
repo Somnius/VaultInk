@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<office:document xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" office:version="1.2" office:mimetype="application/vnd.oasis.opendocument.text">
+<office:meta><dc:title>VaultInk test document</dc:title><meta:initial-creator>Test Writer</meta:initial-creator><dc:creator>Test Writer</dc:creator></office:meta>
+<office:body><office:text>
+<text:h text:outline-level="1">Chapter one</text:h>
+<text:p>First paragraph with a caf&#233; and &#8220;quotes&#8221; &amp; an ampersand &lt;tag&gt;.</text:p>
+<text:p>&#932;&#959; &#946;&#953;&#946;&#955;&#943;&#959; &#949;&#943;&#957;&#945;&#953; &#949;&#948;&#974;.</text:p>
+<text:p>A link: <text:a xlink:type="simple" xlink:href="http://example.com/">link text</text:a> and after.</text:p>
+<text:p>Page <text:page-number text:select-page="current">1</text:page-number> and a note<text:note text:id="ftn1" text:note-class="footnote"><text:note-citation>1</text:note-citation><text:note-body><text:p>The footnote text.</text:p></text:note-body></text:note> here.</text:p>
+<table:table table:name="T1"><table:table-column table:number-columns-repeated="2"/>
+<table:table-row><table:table-cell><text:p>a1</text:p></table:table-cell><table:table-cell><text:p>b1</text:p></table:table-cell></table:table-row>
+<table:table-row><table:table-cell><text:p>a2</text:p></table:table-cell><table:table-cell><text:p>b2</text:p></table:table-cell></table:table-row>
+</table:table>
+<text:p>Line one<text:line-break/>line two<text:tab/>tabbed.</text:p>
+<text:p>Last paragraph.</text:p>
+</office:text></office:body></office:document>

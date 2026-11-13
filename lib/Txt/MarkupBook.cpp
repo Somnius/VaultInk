@@ -1,8 +1,11 @@
 #include "MarkupBook.h"
 
+#include <ChmBook.h>
+#include <DocToHtml.h>
 #include <Epub/BookMetadataCache.h>
 #include <Fb2ToHtml.h>
 #include <FsHelpers.h>
+#include <HalMemory.h>
 #include <HalStorage.h>
 #include <HtmlBook.h>
 #include <Logging.h>
@@ -20,6 +23,24 @@ bool writePrint(void* ctx, const char* data, size_t size) {
   return static_cast<Print*>(ctx)->write(reinterpret_cast<const uint8_t*>(data), size) == size;
 }
 
+// DOC and CHM are containers: they are read at any offset, not front to back.
+int readFileAt(void* ctx, uint32_t offset, uint8_t* buf, size_t size) {
+  auto* file = static_cast<HalFile*>(ctx);
+  if (!file->seek(offset)) return -1;
+  return file->read(buf, size);
+}
+
+blocksource::Source sourceOf(HalFile& file) {
+  const size_t size = file.size();
+  return blocksource::Source{&file, readFileAt, size > UINT32_MAX ? UINT32_MAX : static_cast<uint32_t>(size)};
+}
+
+// The CHM reader's big blocks (the LZX window, 64 KB as a rule and 2 MB at most, and its tables) come from PSRAM
+// only: with none free the book is refused, the internal heap is left alone.
+void* psramAlloc(size_t size) { return HalMemory::allocatePsram(size).release(); }
+void psramRelease(void* block) { HalMemory::PsramDeleter()(static_cast<uint8_t*>(block)); }
+constexpr chm::Memory CHM_MEMORY{psramAlloc, psramRelease};
+
 }  // namespace
 
 bool MarkupBook::isMarkupBook(std::string_view path) { return FsHelpers::hasMarkupBookExtension(path); }
@@ -27,10 +48,13 @@ bool MarkupBook::isMarkupBook(std::string_view path) { return FsHelpers::hasMark
 const char* MarkupBook::cacheVersionTag(std::string_view path) {
   if (FsHelpers::hasFb2Extension(path)) return fb2::CACHE_VERSION_TAG;
   if (FsHelpers::hasRtfExtension(path)) return rtf::CACHE_VERSION_TAG;
+  if (FsHelpers::hasDocExtension(path)) return doc::CACHE_VERSION_TAG;
+  if (FsHelpers::hasChmExtension(path)) return chm::CACHE_VERSION_TAG;
   return htmlbook::CACHE_VERSION_TAG;
 }
 
-bool MarkupBook::probe(const std::string& filepath, Info* info) {
+bool MarkupBook::probe(const std::string& filepath, Info* info, bool* encrypted) {
+  if (encrypted) *encrypted = false;
   HalFile file;
   if (!Storage.openFileForRead("MKB", filepath, file)) return false;
   Info local;
@@ -46,6 +70,17 @@ bool MarkupBook::probe(const std::string& filepath, Info* info) {
     const rtf::Status status = rtf::readInfo(&file, readFile, found);
     if (status != rtf::Status::Ok) problem = rtf::statusText(status);
     result = Info{std::move(found.title), std::move(found.author), std::move(found.language)};
+  } else if (FsHelpers::hasDocExtension(filepath)) {
+    doc::Info found;
+    const doc::Status status = doc::readInfo(sourceOf(file), found);
+    if (status != doc::Status::Ok) problem = doc::statusText(status);
+    if (status == doc::Status::Encrypted && encrypted) *encrypted = true;
+    result = Info{std::move(found.title), std::move(found.author), std::move(found.language)};
+  } else if (FsHelpers::hasChmExtension(filepath)) {
+    chm::Info found;
+    const chm::Status status = chm::readInfo(sourceOf(file), found, CHM_MEMORY);
+    if (status != chm::Status::Ok) problem = chm::statusText(status);
+    result = Info{std::move(found.title), "", std::move(found.language)};
   } else {
     htmlbook::Info found;
     const htmlbook::Status status = htmlbook::readInfo(&file, readFile, found);
@@ -72,6 +107,14 @@ bool MarkupBook::streamHtml(const std::string& filepath, Print& out) {
     const rtf::Status status = rtf::streamHtml(&file, readFile, info.title, writePrint, &out);
     ok = status == rtf::Status::Ok;
     LOG_DBG("MKB", "Streamed %s: %s", filepath.c_str(), rtf::statusText(status));
+  } else if (FsHelpers::hasDocExtension(filepath)) {
+    const doc::Status status = doc::streamHtml(sourceOf(file), info.title, writePrint, &out);
+    ok = status == doc::Status::Ok || status == doc::Status::Truncated;  // a damaged file shows what it has
+    LOG_DBG("MKB", "Streamed %s: %s", filepath.c_str(), doc::statusText(status));
+  } else if (FsHelpers::hasChmExtension(filepath)) {
+    const chm::Status status = chm::streamHtml(sourceOf(file), info.title, writePrint, &out, CHM_MEMORY);
+    ok = status == chm::Status::Ok || status == chm::Status::Truncated;
+    LOG_DBG("MKB", "Streamed %s: %s", filepath.c_str(), chm::statusText(status));
   } else {
     const htmlbook::Status status = htmlbook::streamHtml(&file, readFile, info.title, writePrint, &out);
     ok = status == htmlbook::Status::Ok;

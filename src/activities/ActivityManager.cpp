@@ -452,11 +452,13 @@ void ActivityManager::goToReader(std::string path, const bool allowFastInitialRe
     }
   }
 
-  // An .fb2 that is not FictionBook XML, an .rtf that is not RTF or a UTF-16 .html is refused the same way.
-  if (MarkupBook::isMarkupBook(path) && !MarkupBook::probe(path)) {
+  // An .fb2 that is not FictionBook XML, an .rtf that is not RTF, a UTF-16 .html, a .doc older than Word 97 or a
+  // .chm with no pages is refused the same way; a .doc with a password says so.
+  bool markupEncrypted = false;
+  if (MarkupBook::isMarkupBook(path) && !MarkupBook::probe(path, nullptr, &markupEncrypted)) {
     {
       RenderLock lock;
-      GUI.drawPopup(renderer, tr(STR_MOBI_UNREADABLE));
+      GUI.drawPopup(renderer, tr(markupEncrypted ? STR_DOC_ENCRYPTED : STR_MOBI_UNREADABLE));
     }
     delay(2500);
     randompage::take();
