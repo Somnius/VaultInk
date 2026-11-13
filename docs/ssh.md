@@ -2,8 +2,10 @@
 
 VaultInk on the X4 Pro can open a shell on your own server and copy files over SFTP.
 
-Status: written and tested on the computer, **not yet built with PlatformIO, run on a device or
-released**. What was checked and what was not is at the end of this page.
+Status: written and tested on the computer, **not yet run on a device or released**. The first
+version built with PlatformIO for the X4 Pro; the security fixes made after that build (host key
+file, key exchange, time limits) are tested on the computer only. What was checked and what was
+not is at the end of this page.
 
 - Where: **Settings → Network → SSH servers**. The same servers also show in **WebDAV and FTP
   servers**, where SSH is a third protocol.
@@ -30,8 +32,8 @@ Then **Terminal** opens the shell and **Browse files (SFTP)** opens the file bro
 The password is typed on the device at every connection. It is **never saved**: not on the SD
 card, not in the settings, not by the web settings page (the page drops a password sent for an SSH
 server). In the terminal it is wiped from memory when the sign-in is over. In the file browser it
-is kept in memory while the browser is open, so a dropped connection can be opened again, and
-wiped when you leave.
+is wiped once the sign-in is over too; if the connection drops later, **Retry** asks for the
+password again.
 
 The server must allow password sign-in (`PasswordAuthentication yes`). Servers that only offer
 "keyboard-interactive" are not supported: use the key.
@@ -57,7 +59,12 @@ device's own random generator. The private half never leaves the device.
 One key serves every server. **Make a new key** on that screen replaces it: the old line stops
 working everywhere and has to be replaced on each server.
 
-## The server's key
+## Host keys
+
+A host key is the server's own key. It is how the device knows it is talking to your server and
+not to something in between.
+
+### First connection
 
 The first time you connect to a server the device shows its key fingerprint
 (`ssh-ed25519 SHA256:...`) and asks. Compare it with the server's own before you say **Trust**:
@@ -66,18 +73,54 @@ The first time you connect to a server the device shows its key fingerprint
 ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
 ```
 
-Cancel is the preselected answer. After *Trust* the key is saved and every later connection must
-show the same key.
+Cancel is the preselected answer. After *Trust* the key is saved ("pinned") and every later
+connection must show the same key. The device asks for an Ed25519 host key first, then ECDSA
+P-256, then RSA (`rsa-sha2-256`).
 
-If the server later shows another key, the device stops with **Host key changed** and does not
-connect. There is no "connect anyway". If the server was reinstalled and the new key is right,
-open the server's page and use **Forget the server's key**; the next connection asks again.
+A server may exchange keys again in the middle of a session (OpenSSH's `RekeyLimit`, or after
+about 1 GB). The device then accepts only the very key the session started with.
 
-The device asks for an Ed25519 host key first, then ECDSA P-256, then RSA (`rsa-sha2-256`).
+### The file
+
+The pinned keys are in `/.vaultink/ssh/known_hosts` on the SD card, in OpenSSH's format: one
+`host keytype key` line per server (`[host]:port` when the port is not 22). The last line is
+
+```
+# vaultink-mac <64 hex digits>
+```
+
+a keyed checksum (HMAC-SHA256) over the pinned lines. Its key is made from the device's secret,
+which is in the chip and not on the card. So someone who has only the card cannot take a pin out
+(to get a fresh "Trust?" question for his own server) or put one in (to have his key accepted
+without a question): the device sees that the file is not the one it wrote. Comments and blank
+lines are not covered and may be added. Do not edit the key lines by hand: the device will then
+refuse the file.
+
+### What the messages mean
+
+| Message | What happened | What to do |
+| --- | --- | --- |
+| **Unknown server key** | Nothing is pinned for this server yet. | Compare the fingerprint, then *Trust* or Cancel. |
+| **Host key changed** | The server showed another key than the pinned one. Not connected. | If the server was reinstalled and the new key is right: **Forget the server's key** on the server's page, then connect and compare again. If not, something is in between: do not connect. |
+| **Host key changed during the session** | A key exchange in the middle of a session showed another key. Disconnected. | The same as above. |
+| **known_hosts could not be read** | The file is there but could not be read whole, is too big, or is not text. Not connected, and the device does not ask to trust anything. | Check the SD card. To start again: **Forget all host keys**. |
+| **known_hosts was changed outside the device** | The checksum line is missing or wrong: the file was edited on a computer, comes from another reader, or the device's flash was erased. Not connected. | **Forget all host keys**, then pin each server again, comparing the fingerprints. |
+
+There is no "connect anyway" for any of these. In the last two cases the device writes nothing to
+the file, so the pins in it are not lost by an accident; only *Forget all host keys* removes it.
+
+**Forget all host keys** is the last row of Settings → Network → SSH servers (it shows when there
+is a file). It deletes the file after a question; every server then asks again at its next
+connection.
 
 ## The terminal
 
-- The top line always says **Connected to *host* as *user***.
+- The top line says **Connected to *host* as *user***.
+- Connecting has one time limit for the key exchange and the sign-in together (30 seconds). Back,
+  or a tap on the screen, cancels it. Opening the network connection itself can take up to 8
+  seconds and cannot be cancelled.
+- A key the server does not take within 3 seconds ends the session with "The session ended": the
+  screen does not hang on a dead connection.
 - The screen is 80 columns wide when the panel's long side is across (60 on the short side), and
   as many rows as fit; the last 500 lines can be scrolled back.
 - Output is collected and the panel is redrawn at most twice a second; a full refresh follows a
@@ -107,6 +150,9 @@ the text fields.
 - **No full-screen programs.** vim, nano, htop, less, tmux, mc and the like need an alternate
   screen and fast redraws; an e-ink panel has neither. The terminal says so when a program asks
   for one. Use line programs: `ls`, `cat`, `tail`, `grep`, `git`, `apt`, `systemctl`.
+- That note takes the place of the top line for about six seconds. A server (or a file you
+  `cat`) can therefore hide "Connected to *host* as *user*" for a few seconds by sending the
+  alternate-screen sequence (`ESC [ ? 1049 h`). It cannot change what the line says.
 - The terminal tells the server it is `xterm` (the library's fixed choice). Sequences it does not
   know are ignored. If a program misbehaves, `export TERM=vt100` on the server helps.
 - Black and white: colours are dropped, bold is drawn heavier, underline and inverse are drawn
@@ -132,6 +178,9 @@ folder chosen at the top, **Upload a file here**, **New folder**.
 - Symbolic links are followed for up to 32 entries per folder; the rest of the links, devices and
   sockets are not shown.
 - No delete, rename or resume. An upload replaces a file of the same name on the server.
+- A download never writes more than the size the listing gave, and never more than 2 GB. A read
+  the server refuses in the middle fails the download (the `.part` is removed); it is not taken
+  for the end of the file. A full card fails it the same way.
 - Not tried with files over 1 GB.
 
 ## Security
@@ -145,12 +194,19 @@ folder chosen at the top, **Upload a file here**, **New folder**.
     device's secret (which lives in the chip's flash, not on the card). The card alone does not
     give the key away; the card moved to another reader cannot open it. Someone with both the
     card and the device open on a bench can.
-  - `known_hosts`: the pinned server keys, in OpenSSH's format.
+  - `known_hosts`: the pinned server keys, in OpenSSH's format, with a checksum line keyed from
+    the same device secret (see [Host keys](#host-keys)).
 - That folder is closed to the web server, to plugins, to files coming from servers and to the
   developer link.
 - If the device is lost: remove its line from `authorized_keys` on your servers.
 - Erasing the device's flash makes a new device secret; the key file then cannot be opened and a
-  new key has to be made.
+  new key has to be made, and `known_hosts` counts as changed (*Forget all host keys*).
+- The typed password: the device's copies are wiped when the sign-in is over. The on-screen
+  keyboard's own buffer is cleared where the terminal and the browser receive it; memory the
+  keyboard screen freed earlier is not.
+- Known limit: whether the SD card says "no such file" for a `known_hosts` that is there is up to
+  the card and its driver; a card that hides the file looks like a first use, and the device then
+  asks before trusting, as on any first connection.
 
 ## Memory
 
@@ -160,8 +216,9 @@ folder chosen at the top, **Upload a file here**, **New folder**.
   board places in PSRAM too.
 - The key exchange and the sign-in need small blocks from the internal heap. Before connecting,
   the device checks for 60 KB free with a 24 KB block and refuses with "not enough memory"
-  otherwise. These two numbers are a first choice: the real need has not been measured on a
-  device yet.
+  otherwise. **These two numbers are a first choice: the real need has not been measured on a
+  device yet.** Too low and a connection fails half way with a memory error; too high and it is
+  refused when it would have worked.
 - SSH is opened from Settings, not from a book, so the reader's memory is not in use. Leaving the
   screen restarts the device (into Settings from the terminal, to Home from the file browser), as
   the other network screens do, to give the heap back.
@@ -204,8 +261,11 @@ generation and the sealed key file; first connection (unknown key, the fingerpri
 `ssh-keygen -l`); a changed key (refused); a wrong key and a wrong password (refused, each
 offered once); SFTP home, mkdir, upload, download, rename, stat, listing of 700 entries and a
 listing stopped at a cap; a shell through the terminal emulator (pty size, a resize, Ctrl-C,
-3000 lines of output, exit); a server that never answers (timeout, cancel); and the same first
-connection against an ECDSA and an RSA host key.
+3000 lines of output, exit); new session keys in the middle of an SFTP session and of a shell,
+with typing right behind the request; a read the server refuses (not taken for the end of a
+file); the known_hosts checksum with the real HMAC; a server that never answers (timeout,
+cancel) and one that sends a byte now and then (the 30-second limit, set to 1.5 s in the test);
+and the same first connection against an ECDSA and an RSA host key.
 
 What that does **not** show: anything on the ESP32 (the PlatformIO build, heap use, speed, the
 Wi-Fi socket, the screens, the e-ink redraw), a successful password sign-in (the test server
