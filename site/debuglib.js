@@ -351,7 +351,13 @@
       counts[token] = (counts[token] || 0) + 1;
       return "<" + token + ">";
     };
-    let out = String(text);
+    // A line longer than any real log line is cut, so the patterns below cannot stall the tab.
+    let out = String(text)
+      .split("\n")
+      .map(function (line) {
+        return line.length > 2000 ? line.slice(0, 2000) + " <cut>" : line;
+      })
+      .join("\n");
 
     // The user's own list first, before anything else changes the text.
     const extra = ((options && options.extraWords) || [])
@@ -403,8 +409,11 @@
     );
 
     // IPv4 (a version like 0.74.0 has three numbers and is kept).
-    out = out.replace(/(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.]*\.\d)(?!\w)/g, function () {
-      return put("ip");
+    out = out.replace(/(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.]*\.\d)(?!\w)/g, function (match) {
+      const ok = match.split(".").every(function (n) {
+        return Number(n) <= 255;
+      });
+      return ok ? put("ip") : match;
     });
 
     // Wi-Fi names, in the wording the firmware's log uses, and the general "connected to <name>".
