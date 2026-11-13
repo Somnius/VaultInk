@@ -149,6 +149,10 @@ class ActivityManager {
   bool remoteTurn(bool forward, bool chapter);
   // A remote button mapped to the reader menu (true) or to a new clipping (false).
   bool remoteShortcut(bool readerMenu);
+  // A learned gamepad button (lib/Gamepad) mapped to a reader action (a gestures::Action value). Page and
+  // chapter turns go the remote's way (remoteTurn); the others reach the book in front under the same gate as
+  // remoteShortcut. False when nothing took it.
+  bool remoteAction(uint8_t gestureAction);
   bool handleForcedRefresh();
   bool skipLoopDelay() const;
   ScreenshotInfo getScreenshotInfo() const;

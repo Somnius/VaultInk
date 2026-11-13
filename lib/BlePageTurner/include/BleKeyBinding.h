@@ -246,6 +246,7 @@ struct Router {
   const RemoteTable* table = nullptr;
   bool chosen = false;
   bool linked = false;
+  bool pad = false;  // the host has a button map of its own for the linked device (Host::padRoutes)
   HoldWait wait;
 
   void follow(const bool isLinked) {

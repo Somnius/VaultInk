@@ -36,8 +36,21 @@ void hostLog(bool error, const char* format, va_list args) {
   theHost.logs.push_back(std::string(error ? "ERR " : "INF ") + line);
 }
 void hostMap(const char* tag) { theHost.maps.push_back(tag); }
-const bleturner::Host kHost{hostHeap,    hostRelease, hostDeliver, hostYield, hostTransfer,
-                            hostRestart, hostHold,    hostLog,     hostMap};
+bool hostPadRoutes(const char* addr) {
+  ++theHost.padRouteCalls;
+  return !theHost.padAddr.empty() && theHost.padAddr == addr;
+}
+bool hostPadPress(const uint32_t code, bool* acted) {
+  for (const uint32_t button : theHost.padButtons) {
+    if (button != code) continue;
+    theHost.padPresses.push_back(code);
+    *acted = theHost.padTaken;
+    return true;
+  }
+  return false;
+}
+const bleturner::Host kHost{hostHeap, hostRelease, hostDeliver, hostYield,     hostTransfer, hostRestart,
+                            hostHold, hostLog,     hostMap,     hostPadRoutes, hostPadPress};
 }  // namespace
 
 Radio& radio() { return theRadio; }

@@ -1,6 +1,7 @@
 #include "CrossPointSettings.h"
 
 #include <BlePageTurnerJson.h>
+#include <GamepadJson.h>
 #include <I18n.h>
 #include <Logging.h>
 #include <ObfuscationUtils.h>
@@ -148,6 +149,7 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   }
 
   bleturner::writeJson(ble, doc);
+  gamepad::writeJson(gamepad, doc);
 }
 
 bool CrossPointSettings::fromJson(JsonVariantConst doc) {
@@ -361,6 +363,7 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
     keyboardLayouts = doc["keyboardLayouts"].as<uint16_t>();
   }
 
+  gamepad::readJson(gamepad, doc);
   if (!bleturner::readJson(ble, doc)) {
     needsResave = true;
   }

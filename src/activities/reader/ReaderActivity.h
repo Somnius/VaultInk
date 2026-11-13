@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -55,6 +56,9 @@ class ReaderActivity : public Activity {
   virtual bool skipPages(int amount) { return pageTurn(amount > 0); }
   // A Bluetooth remote asks for the reader menu (true) or a new clipping (false).
   virtual bool remoteShortcut(bool /*readerMenu*/) { return false; }
+  // A learned gamepad button asks for a reader action that is not a page or chapter turn (a gestures::Action
+  // value, lib/Gestures). False: this reader has no such action.
+  virtual bool remoteAction(uint8_t /*gestureAction*/) { return false; }
   virtual bool isAtEndOfBook() const = 0;
   virtual void onReturnFromEndOfBook() {}
 

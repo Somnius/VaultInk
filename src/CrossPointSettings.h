@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <BlePageTurner.h>
 #include <Epub/ReaderRenderSpec.h>
+#include <Gamepad.h>
 #include <Gestures.h>
 #include <PersistableStore.h>
 
@@ -502,6 +503,10 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t searchType = 0;   // 0 = part of a word matches, 1 = whole words only
   // Bluetooth page turner, saved under the keys lib/BlePageTurner reads and writes (BlePageTurnerJson.h).
   bleturner::Config ble;
+  // Gamepad scaffold (lib/Gamepad): the buttons of one Bluetooth gamepad mapped to reader actions, learned in
+  // Settings > Network > Bluetooth Page Turner > Gamepad Buttons. Empty by default: nothing changes for anyone.
+  // Saved under gamepadAddr and gamepadButtons, only while a button is mapped.
+  gamepad::Map gamepad;
   // Quick Resume: keep current content visible with moon icon instead of showing a static sleep screen.
   uint8_t quickResumeSleepScreen = QUICK_RESUME_NEVER;
 
