@@ -1,5 +1,7 @@
 #pragma once
 
+#include <SshKnownHosts.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -58,11 +60,16 @@ struct Login {
   bool useKey = false;
   uint8_t keySeed[32]{};  // the device key, when useKey
   uint8_t keyPublic[32]{};
-  // The pinned keys (the known_hosts text). The Session never changes it: on HostKeyUnknown the
-  // caller asks the user and adds hostKey().blob itself.
+  // The pinned keys (the known_hosts text, already verified by the caller: sshkh::verify). The
+  // Session never changes the file: on HostKeyUnknown the caller asks the user and adds
+  // hostKey().blob itself. Taken over by the Session (left empty).
   std::string knownHosts;
+  // Checked while waiting for the server, during the key exchange and the sign-in too.
   const bool* cancel = nullptr;
+  // The longest wait for one answer...
   uint32_t timeoutMs = 20000;
+  // ...and for the key exchange and the sign-in as a whole, however the server spaces its bytes.
+  uint32_t deadlineMs = 30000;
 };
 
 struct DirEntry {
@@ -87,11 +94,19 @@ class Session {
   const HostKey& hostKey() const { return hostKey_; }
   // The last wolfSSH error number, for the log.
   int lastLibraryError() const { return lastError_; }
+  // The session ended because a later key exchange showed another host key than the first one.
+  bool hostKeyChangedMidSession() const { return keyCheck_.signedIn && keyCheck_.verdict == Error::HostKeyChanged; }
+  // Asks for new session keys now (servers and wolfSSH do it by themselves after a time or a
+  // byte count). The exchange runs inside the next reads. For the live test of the rekey rule.
+  Error rekey();
 
   // --- shell ---
   // Never waits: > 0 bytes of output, 0 nothing right now, < 0 the session is over.
   int readShell(uint8_t* buf, size_t len);
+  // Waits at most shellWriteTimeoutMs for the server to take the bytes; past that the session is
+  // closed (connected() turns false) and Network comes back.
   Error writeShell(const uint8_t* data, size_t len);
+  void setShellWriteTimeout(uint32_t ms) { shellWriteTimeoutMs_ = ms; }
   Error resizeShell(uint16_t cols, uint16_t rows);
 
   // --- SFTP ---
@@ -125,15 +140,19 @@ class Session {
     Socket* socket = nullptr;
     const bool* cancel = nullptr;
     uint32_t timeoutMs = 20000;
+    // The whole-attempt deadline of connect(): 0 when none is running.
+    uint32_t deadlineStart = 0;
+    uint32_t deadlineMs = 0;
     bool blocking = true;
     bool aborted = false;
     bool timedOut = false;
     bool closed = false;
   };
   struct KeyCheck {
-    const Login* login = nullptr;
+    sshkh::KeyGate* gate = nullptr;
     HostKey* seen = nullptr;
     Error verdict = Error::Ok;
+    bool signedIn = false;  // the sign-in is over: only the key that passed then is accepted
   };
   struct AuthState {
     Login* login = nullptr;
@@ -150,7 +169,9 @@ class Session {
   void freeAll();
 
   Io io_;
+  sshkh::KeyGate gate_;
   KeyCheck keyCheck_;
+  uint32_t shellWriteTimeoutMs_ = 3000;
   AuthState auth_;
   HostKey hostKey_;
   void* ctx_ = nullptr;  // WOLFSSH_CTX*
@@ -164,6 +185,9 @@ class Session {
 
 // --- the device key and the fingerprint (wolfCrypt) ---
 
+// The MAC of the known_hosts file (sshkh::Mac): HMAC-SHA256 under SHA-256("ssh-known-hosts:" ||
+// secret), `secret` being the device secret. Its own label, so it is not the key of the key file.
+bool knownHostsMac(const uint8_t secret[32], const std::string& canonicalText, uint8_t out[32]);
 // "SHA256:..." of a key blob. Empty on failure.
 std::string fingerprintOf(const uint8_t* blob, size_t len);
 // A new Ed25519 key from wolfCrypt's random generator.

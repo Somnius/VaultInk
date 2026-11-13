@@ -274,6 +274,7 @@ void Terminal::escape(const uint8_t c) {
       state_ = State::Csi;
       paramCount_ = 0;
       paramStarted_ = false;
+      paramOverflow_ = false;
       csiPrefix_ = 0;
       csiIntermediate_ = false;
       memset(params_, 0, sizeof(params_));
@@ -329,14 +330,25 @@ void Terminal::csiByte(const uint8_t c) {
   if (c >= '0' && c <= '9') {
     if (!paramStarted_) {
       paramStarted_ = true;
-      if (paramCount_ < MAX_PARAMS) ++paramCount_;
+      // A ninth parameter and those after it are dropped whole: their digits go nowhere.
+      if (paramCount_ < MAX_PARAMS) {
+        ++paramCount_;
+      } else {
+        paramOverflow_ = true;
+      }
     }
-    if (paramCount_ >= 1 && paramCount_ <= MAX_PARAMS) {
+    if (!paramOverflow_ && paramCount_ >= 1) {
       uint32_t value = static_cast<uint32_t>(params_[paramCount_ - 1]) * 10 + (c - '0');
       params_[paramCount_ - 1] = static_cast<uint16_t>(std::min<uint32_t>(value, 9999));
     }
   } else if (c == ';' || c == ':') {
-    if (!paramStarted_ && paramCount_ < MAX_PARAMS) ++paramCount_;  // an empty parameter
+    if (!paramStarted_) {  // an empty parameter
+      if (paramCount_ < MAX_PARAMS) {
+        ++paramCount_;
+      } else {
+        paramOverflow_ = true;
+      }
+    }
     paramStarted_ = false;
   } else if (c == '?' || c == '>' || c == '<' || c == '=') {
     csiPrefix_ = static_cast<char>(c);

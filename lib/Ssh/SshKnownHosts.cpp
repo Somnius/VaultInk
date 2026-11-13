@@ -1,6 +1,7 @@
 #include "SshKnownHosts.h"
 
 #include <cstring>
+#include <utility>
 
 namespace sshkh {
 
@@ -201,6 +202,142 @@ size_t remove(std::string& knownHosts, const std::string_view host, const uint16
   });
   if (removed > 0) knownHosts.swap(kept);
   return removed;
+}
+
+std::string canonical(const std::string_view knownHosts) {
+  std::string out;
+  forEachLine(knownHosts, [&](const size_t start, const size_t end) {
+    Line line;
+    if (!parseLine(knownHosts.substr(start, end - start), line)) return;
+    for (const char c : line.host) out += lower(c);
+    out += ' ';
+    out.append(line.type);
+    out += ' ';
+    out.append(line.key);
+    out += '\n';
+  });
+  return out;
+}
+
+namespace {
+constexpr size_t MAC_PREFIX_LEN = sizeof(MAC_PREFIX) - 1;
+
+int hexValue(const char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  return -1;
+}
+
+bool isMacLine(const std::string_view line) { return line.substr(0, MAC_PREFIX_LEN) == MAC_PREFIX; }
+
+std::string_view trimmedLine(std::string_view line) {
+  while (!line.empty() && (line.back() == '\r' || line.back() == ' ' || line.back() == '\t')) line.remove_suffix(1);
+  return line;
+}
+
+// Differences are OR-ed over the whole length, so how long it takes says nothing about where.
+bool sameBytes(const uint8_t* a, const uint8_t* b, const size_t len) {
+  uint8_t diff = 0;
+  for (size_t i = 0; i < len; ++i) diff = static_cast<uint8_t>(diff | (a[i] ^ b[i]));
+  return diff == 0;
+}
+}  // namespace
+
+FileState verify(const bool present, const bool readOk, const std::string_view text, const Mac& mac) {
+  if (!present) return FileState::Missing;
+  if (!readOk || text.size() > MAX_FILE_BYTES) return FileState::Unreadable;
+  for (const char c : text) {
+    const auto u = static_cast<unsigned char>(c);
+    if (u == 0 || (u < 0x20 && c != '\n' && c != '\r' && c != '\t') || u == 0x7F) return FileState::Unreadable;
+  }
+  // Exactly one MAC line, and nothing but blank lines after it.
+  size_t macLines = 0;
+  bool macIsLast = false;
+  uint8_t stored[32] = {};
+  bool wellFormed = false;
+  forEachLine(text, [&](const size_t start, const size_t end) {
+    const std::string_view line = trimmedLine(text.substr(start, end - start));
+    if (line.empty()) return;
+    if (!isMacLine(line)) {
+      macIsLast = false;
+      return;
+    }
+    ++macLines;
+    macIsLast = true;
+    const std::string_view hex = line.substr(MAC_PREFIX_LEN);
+    wellFormed = hex.size() == 64;
+    for (size_t i = 0; wellFormed && i < 32; ++i) {
+      const int hi = hexValue(hex[i * 2]);
+      const int lo = hexValue(hex[i * 2 + 1]);
+      if (hi < 0 || lo < 0) {
+        wellFormed = false;
+      } else {
+        stored[i] = static_cast<uint8_t>((hi << 4) | lo);
+      }
+    }
+  });
+  if (macLines != 1 || !macIsLast || !wellFormed) return FileState::Changed;
+  uint8_t wanted[32] = {};
+  if (!mac.compute || !mac.compute(mac.ctx, canonical(text), wanted)) return FileState::Unreadable;
+  return sameBytes(stored, wanted, sizeof(wanted)) ? FileState::Good : FileState::Changed;
+}
+
+bool seal(std::string& text, const Mac& mac) {
+  std::string body;
+  body.reserve(text.size() + 96);
+  const std::string_view view(text);
+  forEachLine(view, [&](const size_t start, const size_t end) {
+    const std::string_view raw = view.substr(start, end - start);
+    if (isMacLine(trimmedLine(raw))) return;
+    body.append(raw);
+    body += '\n';
+  });
+  uint8_t value[32] = {};
+  if (!mac.compute || !mac.compute(mac.ctx, canonical(body), value)) return false;
+  static constexpr char HEX[] = "0123456789abcdef";
+  body += MAC_PREFIX;
+  for (const uint8_t b : value) {
+    body += HEX[b >> 4];
+    body += HEX[b & 0x0F];
+  }
+  body += '\n';
+  text.swap(body);
+  return true;
+}
+
+void KeyGate::begin(std::string knownHosts, std::string host, const uint16_t port) {
+  knownHosts_ = std::move(knownHosts);
+  host_ = std::move(host);
+  port_ = port;
+  accepted_.clear();
+  signedIn_ = false;
+  last_ = Verdict::Unknown;
+}
+
+void KeyGate::reset() { begin(std::string(), std::string(), 22); }
+
+bool KeyGate::accept(const uint8_t* keyBlob, const size_t keyBlobLen) {
+  if (!keyBlob || keyBlobLen == 0 || keyBlobLen > MAX_KEY_BLOB_BYTES) {
+    last_ = Verdict::Mismatch;
+    return false;
+  }
+  if (signedIn_) {
+    // A later key exchange: only the key this session started with.
+    const bool same =
+        !accepted_.empty() && accepted_.size() == keyBlobLen && sameBytes(accepted_.data(), keyBlob, keyBlobLen);
+    last_ = same ? Verdict::Match : Verdict::Mismatch;
+    return same;
+  }
+  last_ = check(knownHosts_, host_, port_, keyBlob, keyBlobLen);
+  if (last_ != Verdict::Match) return false;
+  accepted_.assign(keyBlob, keyBlob + keyBlobLen);
+  return true;
+}
+
+bool KeyGate::signedIn() {
+  signedIn_ = true;
+  knownHosts_.clear();  // not needed again: the accepted key is the rule from here on
+  return !accepted_.empty();
 }
 
 std::string fingerprint(const uint8_t sha256[32]) { return "SHA256:" + base64Encode(sha256, 32, false); }

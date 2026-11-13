@@ -333,3 +333,44 @@ TEST(SshRedrawPolicy, WorksAcrossTheMillisecondWrap) {
   EXPECT_EQ(policy.poll(0xFFFFFFF0u), RedrawPolicy::Action::None);
   EXPECT_EQ(policy.poll(0x00000100u), RedrawPolicy::Action::Fast);  // 528 ms later, past the wrap
 }
+
+// More parameters than the terminal keeps (8): the extra ones are dropped whole. Their digits must
+// not run into the eighth.
+TEST(SshTerminal, ParametersPastTheEighthAreIgnored) {
+  {
+    // SGR with nine parameters: the eighth is 0 (reset). Folding the ninth's "7" into it would
+    // make 07 = inverse, or with "1" then "7" something else again.
+    Screen screen;
+    screen.term.feed("\x1b[1;1;1;1;1;1;1;0;7mx");
+    EXPECT_EQ(screen.term.line(0)[0].attr, 0);
+  }
+  {
+    // The eighth parameter is 4 (underline); a ninth "9" must not make it 49.
+    Screen screen;
+    screen.term.feed("\x1b[0;0;0;0;0;0;0;4;9mx");
+    EXPECT_EQ(screen.term.line(0)[0].attr, sshterm::ATTR_UNDERLINE);
+  }
+  {
+    // Many more, with empty ones: nothing moves, and the sequence still ends where it ends.
+    Screen screen;
+    screen.term.feed(
+        "ab\x1b[1;2;3;4;5;6;7;8;;9;10;;;11;12345678"
+        "C"
+        "X");
+    // CSI C with first parameter 1: one column right.
+    EXPECT_EQ(screen.term.rowText(0), "ab X");
+  }
+  {
+    // A cursor position whose two real parameters are followed by a crowd.
+    Screen screen;
+    screen.term.feed("\x1b[2;3;9;9;9;9;9;9;9;9;9HX");
+    EXPECT_EQ(screen.term.rowText(1), "  X");
+  }
+  {
+    // The next sequence starts clean.
+    Screen screen;
+    screen.term.feed("\x1b[1;1;1;1;1;1;1;1;1;1m\x1b[0mx\x1b[3;2Hy");
+    EXPECT_EQ(screen.term.line(0)[0].attr, 0);
+    EXPECT_EQ(screen.term.rowText(2), " y");
+  }
+}

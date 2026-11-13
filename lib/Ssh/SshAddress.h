@@ -28,6 +28,15 @@ constexpr uint32_t MODE_FILE = 0100000;
 inline bool isDirMode(const uint32_t mode) { return (mode & MODE_TYPE_MASK) == MODE_DIR; }
 inline bool isFileMode(const uint32_t mode) { return (mode & MODE_TYPE_MASK) == MODE_FILE; }
 
+// How much a download may write. With a size from the listing: never more than that (a server
+// that keeps sending is cut off). Without one: never more than MAX_DOWNLOAD_BYTES.
+inline constexpr uint64_t MAX_DOWNLOAD_BYTES = uint64_t{2} * 1024 * 1024 * 1024;
+// May `more` bytes be added to the `received` ones? `expectedSize` 0 means unknown.
+constexpr bool downloadMayTake(const uint64_t received, const uint64_t more, const uint64_t expectedSize) {
+  const uint64_t limit = expectedSize != 0 && expectedSize < MAX_DOWNLOAD_BYTES ? expectedSize : MAX_DOWNLOAD_BYTES;
+  return received <= limit && more <= limit - received;
+}
+
 // The path on the server for `dir` (as the browser knows it: "/" is the start folder) under the
 // start folder `base` (absolute). False when the result would climb above `base`.
 bool remotePath(std::string_view base, std::string_view dir, std::string& out);

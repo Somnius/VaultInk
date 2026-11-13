@@ -103,3 +103,28 @@ TEST(SshAddress, RemotePathStaysUnderTheStartFolder) {
   EXPECT_FALSE(sshaddr::remotePath("home/me", "/", out));
   EXPECT_FALSE(sshaddr::remotePath("", "/", out));
 }
+
+TEST(SshAddress, ADownloadStopsAtItsBound) {
+  using sshaddr::downloadMayTake;
+  using sshaddr::MAX_DOWNLOAD_BYTES;
+  // The size is known: up to it, and not one byte more.
+  EXPECT_TRUE(downloadMayTake(0, 8192, 100000));
+  EXPECT_TRUE(downloadMayTake(91808, 8192, 100000));  // ends exactly at the size
+  EXPECT_FALSE(downloadMayTake(91809, 8192, 100000));
+  EXPECT_FALSE(downloadMayTake(100000, 1, 100000));
+  EXPECT_TRUE(downloadMayTake(100000, 0, 100000));
+  EXPECT_FALSE(downloadMayTake(100001, 0, 100000));
+  EXPECT_TRUE(downloadMayTake(0, 1, 1));
+  EXPECT_FALSE(downloadMayTake(0, 2, 1));
+  // The size is unknown: the hard cap.
+  EXPECT_TRUE(downloadMayTake(0, 8192, 0));
+  EXPECT_TRUE(downloadMayTake(MAX_DOWNLOAD_BYTES - 8192, 8192, 0));
+  EXPECT_FALSE(downloadMayTake(MAX_DOWNLOAD_BYTES - 8191, 8192, 0));
+  EXPECT_FALSE(downloadMayTake(MAX_DOWNLOAD_BYTES, 1, 0));
+  // A size above the cap does not lift it, and huge numbers do not wrap around.
+  EXPECT_FALSE(downloadMayTake(MAX_DOWNLOAD_BYTES, 1, MAX_DOWNLOAD_BYTES * 4));
+  EXPECT_FALSE(downloadMayTake(UINT64_MAX, 1, 0));
+  EXPECT_FALSE(downloadMayTake(1, UINT64_MAX, 0));
+  EXPECT_FALSE(downloadMayTake(UINT64_MAX - 1, UINT64_MAX - 1, 100));
+  EXPECT_EQ(MAX_DOWNLOAD_BYTES, 2147483648ull);
+}

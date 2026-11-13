@@ -131,7 +131,8 @@ class Terminal {
   uint16_t params_[MAX_PARAMS]{};
   uint8_t paramCount_ = 0;
   bool paramStarted_ = false;
-  char csiPrefix_ = 0;  // '?', '>' or 0
+  bool paramOverflow_ = false;  // more than MAX_PARAMS parameters: the rest are ignored
+  char csiPrefix_ = 0;          // '?', '>' or 0
   bool csiIntermediate_ = false;
 
   uint32_t utf8Code_ = 0;

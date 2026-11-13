@@ -39,7 +39,7 @@ nice -n 10 xargs -P "$JOBS" -I{} sh -c 'gcc $FLAGS -c "{}" -o "$BUILD_DIR/obj/$(
 gcc -c "$HERE/host_stubs.c" -o "$BUILD_DIR/obj/host_stubs.o" || exit 1
 nice -n 10 g++ -std=gnu++20 -fno-exceptions $FLAGS -Wall -Wextra \
   "$HERE/ssh_live_test.cpp" "$REPO/lib/SshClient/SshSession.cpp" "$REPO/lib/Ssh/SshKey.cpp" \
-  "$REPO/lib/Ssh/SshKnownHosts.cpp" "$REPO/lib/Ssh/SshTerminal.cpp" "$BUILD_DIR"/obj/*.o -lm \
+  "$REPO/lib/Ssh/SshKnownHosts.cpp" "$REPO/lib/Ssh/SshTerminal.cpp" "$BUILD_DIR"/obj/*.o -lm -pthread \
   -o "$BUILD_DIR/ssh_live_test" || exit 1
 
 echo "== throwaway sshd on 127.0.0.1:$PORT"

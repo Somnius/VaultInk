@@ -12,11 +12,13 @@
 #include <wolfssl/wolfcrypt/aes.h>
 #include <wolfssl/wolfcrypt/ed25519.h>
 #include <wolfssl/wolfcrypt/hash.h>
+#include <wolfssl/wolfcrypt/hmac.h>
 #include <wolfssl/wolfcrypt/random.h>
 
 #include <cstring>
 #include <memory>
 #include <new>
+#include <utility>
 
 namespace sshclient {
 
@@ -29,10 +31,39 @@ constexpr char HOST_KEY_ALGOS[] = "ssh-ed25519,ecdsa-sha2-nistp256,rsa-sha2-256"
 WOLFSSH* sshOf(void* p) { return static_cast<WOLFSSH*>(p); }
 WOLFSSH_CTX* ctxOf(void* p) { return static_cast<WOLFSSH_CTX*>(p); }
 
+// While waiting for the other side: stop for a cancel, for this call's timeout, and for the
+// deadline of the whole connection attempt (a server that answers one byte at a time restarts the
+// per-call timeout every time, so only the deadline bounds the sign-in as a whole).
+int stopWaiting(Session::Io& io, const uint32_t callStart) {
+  if (io.cancel && *io.cancel) {
+    io.aborted = true;
+    return WS_CBIO_ERR_GENERAL;
+  }
+  const uint32_t now = io.socket->nowMs();
+  if (static_cast<uint32_t>(now - callStart) >= io.timeoutMs ||
+      (io.deadlineMs != 0 && static_cast<uint32_t>(now - io.deadlineStart) >= io.deadlineMs)) {
+    io.timedOut = true;
+    return WS_CBIO_ERR_TIMEOUT;
+  }
+  return 0;
+}
+
+// The deadline also counts when data keeps arriving.
+bool pastDeadline(Session::Io& io) {
+  if (io.deadlineMs == 0 || static_cast<uint32_t>(io.socket->nowMs() - io.deadlineStart) < io.deadlineMs) return false;
+  io.timedOut = true;
+  return true;
+}
+
 int ioRecv(WOLFSSH*, void* buf, word32 sz, void* ctx) {
   auto* io = static_cast<Session::Io*>(ctx);
   if (!io || !io->socket) return WS_CBIO_ERR_GENERAL;
   const uint32_t start = io->socket->nowMs();
+  if (pastDeadline(*io)) return WS_CBIO_ERR_TIMEOUT;
+  if (io->cancel && *io->cancel) {
+    io->aborted = true;
+    return WS_CBIO_ERR_GENERAL;
+  }
   for (;;) {
     const int n = io->socket->read(static_cast<uint8_t*>(buf), sz);
     if (n > 0) return n;
@@ -41,14 +72,8 @@ int ioRecv(WOLFSSH*, void* buf, word32 sz, void* ctx) {
       return WS_CBIO_ERR_CONN_CLOSE;
     }
     if (!io->blocking) return WS_CBIO_ERR_WANT_READ;
-    if (io->cancel && *io->cancel) {
-      io->aborted = true;
-      return WS_CBIO_ERR_GENERAL;
-    }
-    if (static_cast<uint32_t>(io->socket->nowMs() - start) >= io->timeoutMs) {
-      io->timedOut = true;
-      return WS_CBIO_ERR_TIMEOUT;
-    }
+    const int stop = stopWaiting(*io, start);
+    if (stop != 0) return stop;
     io->socket->idle();
   }
 }
@@ -59,6 +84,11 @@ int ioSend(WOLFSSH*, void* buf, word32 sz, void* ctx) {
   auto* io = static_cast<Session::Io*>(ctx);
   if (!io || !io->socket) return WS_CBIO_ERR_GENERAL;
   const uint32_t start = io->socket->nowMs();
+  if (pastDeadline(*io)) return WS_CBIO_ERR_TIMEOUT;
+  if (io->cancel && *io->cancel) {
+    io->aborted = true;
+    return WS_CBIO_ERR_GENERAL;
+  }
   for (;;) {
     const int n = io->socket->write(static_cast<const uint8_t*>(buf), sz);
     if (n > 0) return n;
@@ -66,14 +96,8 @@ int ioSend(WOLFSSH*, void* buf, word32 sz, void* ctx) {
       io->closed = true;
       return WS_CBIO_ERR_CONN_CLOSE;
     }
-    if (io->cancel && *io->cancel) {
-      io->aborted = true;
-      return WS_CBIO_ERR_GENERAL;
-    }
-    if (static_cast<uint32_t>(io->socket->nowMs() - start) >= io->timeoutMs) {
-      io->timedOut = true;
-      return WS_CBIO_ERR_TIMEOUT;
-    }
+    const int stop = stopWaiting(*io, start);
+    if (stop != 0) return stop;
     io->socket->idle();
   }
 }
@@ -82,7 +106,14 @@ int ioSend(WOLFSSH*, void* buf, word32 sz, void* ctx) {
 // key exchange; the caller reads why from the verdict.
 int hostKeyCheck(const byte* publicKey, word32 publicKeySz, void* ctx) {
   auto* check = static_cast<Session::KeyCheck*>(ctx);
-  if (!check || !check->login || !check->seen || !publicKey || publicKeySz == 0) return -1;
+  if (!check || !check->gate || !check->seen || !publicKey || publicKeySz == 0) return -1;
+  // A key exchange after the sign-in (the server's RekeyLimit, or wolfSSH's own after about 1 GB):
+  // the gate passes only the key this session began with, and the first picture of the key is kept.
+  if (check->signedIn) {
+    if (check->gate->accept(publicKey, publicKeySz)) return 0;
+    check->verdict = Error::HostKeyChanged;
+    return -1;
+  }
   check->seen->blob.assign(publicKey, publicKey + publicKeySz);
   check->seen->type = sshkh::keyType(publicKey, publicKeySz);
   check->seen->fingerprint = fingerprintOf(publicKey, publicKeySz);
@@ -90,7 +121,8 @@ int hostKeyCheck(const byte* publicKey, word32 publicKeySz, void* ctx) {
     check->verdict = Error::Protocol;
     return -1;
   }
-  switch (sshkh::check(check->login->knownHosts, check->login->host, check->login->port, publicKey, publicKeySz)) {
+  check->gate->accept(publicKey, publicKeySz);
+  switch (check->gate->lastVerdict()) {
     case sshkh::Verdict::Match:
       check->verdict = Error::Ok;
       return 0;
@@ -158,7 +190,9 @@ void Session::freeAll() {
   fileHandleLen_ = 0;
   sshkey::wipe(auth_.privateDer, sizeof(auth_.privateDer));
   auth_.login = nullptr;
-  keyCheck_.login = nullptr;
+  keyCheck_.signedIn = false;
+  gate_.reset();
+  io_.deadlineMs = 0;
 }
 
 Error Session::fail(const int libraryResult) {
@@ -205,7 +239,12 @@ Error Session::connect(Login& login, const bool sftp, const uint16_t cols, const
   io_.timeoutMs = login.timeoutMs;
   io_.blocking = true;
   io_.aborted = io_.timedOut = io_.closed = false;
-  keyCheck_ = KeyCheck{&login, &hostKey_, Error::Ok};
+  // One deadline for the key exchange and the sign-in together, counted from here.
+  io_.deadlineStart = io_.socket->nowMs();
+  io_.deadlineMs = login.deadlineMs;
+  gate_.begin(std::move(login.knownHosts), login.host, login.port);
+  login.knownHosts.clear();
+  keyCheck_ = KeyCheck{&gate_, &hostKey_, Error::Ok, false};
   auth_.login = &login;
   auth_.passwordAsked = auth_.keyAsked = 0;
   auth_.publicBlob.clear();
@@ -252,8 +291,12 @@ Error Session::connect(Login& login, const bool sftp, const uint16_t cols, const
   sshkey::wipe(login.keySeed, sizeof(login.keySeed));
   sshkey::wipe(auth_.privateDer, sizeof(auth_.privateDer));
   auth_.login = nullptr;
-  keyCheck_.login = nullptr;
   io_.cancel = nullptr;
+  io_.deadlineMs = 0;
+  // From here the callback compares with the key that passed above (it stays in the gate for the
+  // life of the session). A sign-in that somehow passed without a key check is not a session.
+  if (result == Error::Ok && !gate_.signedIn()) result = Error::Protocol;
+  keyCheck_.signedIn = result == Error::Ok;
 
   if (result != Error::Ok) {
     const int keep = lastError_;
@@ -261,6 +304,8 @@ Error Session::connect(Login& login, const bool sftp, const uint16_t cols, const
     lastError_ = keep;
     return result;
   }
+  // The counts were for the sign-in; later failures are not sign-in failures.
+  auth_.passwordAsked = auth_.keyAsked = 0;
   open_ = true;
   sftp_ = sftp;
   if (!sftp && cols > 0 && rows > 0) resizeShell(cols, rows);
@@ -284,6 +329,13 @@ int Session::readShell(uint8_t* buf, const size_t len) {
     error = n > 0 ? 0 : wolfSSH_get_error(sshOf(ssh_));
   }
   io_.blocking = true;
+  // A key exchange in the middle of the session showed another host key: over, whatever else
+  // wolfSSH reports for this read.
+  if (hostKeyChangedMidSession()) {
+    lastError_ = error;
+    open_ = false;
+    return -1;
+  }
   if (n > 0) return n;
   if (io_.closed || io_.timedOut) {
     lastError_ = error;
@@ -310,21 +362,38 @@ Error Session::writeShell(const uint8_t* data, size_t len) {
   if (!connected() || sftp_) return Error::NotConnected;
   io_.blocking = true;
   io_.aborted = io_.timedOut = false;
+  // Typed keys are a few bytes: a server that does not take them within this is gone, and the
+  // screen must not hang on it.
+  const uint32_t usualTimeout = io_.timeoutMs;
+  io_.timeoutMs = shellWriteTimeoutMs_;
+  struct Restore {
+    Io& io;
+    uint32_t value;
+    ~Restore() { io.timeoutMs = value; }
+  } restore{io_, usualTimeout};
+  const uint32_t stallStart = io_.socket->nowMs();
   int stalls = 0;
   while (len > 0) {
     const int n = wolfSSH_stream_send(sshOf(ssh_), const_cast<byte*>(data), static_cast<word32>(len));
     if (n > 0) {
       data += n;
       len -= static_cast<size_t>(n);
-      stalls = 0;
       continue;
     }
     const int error = wolfSSH_get_error(sshOf(ssh_));
-    // The server has to read first (its window is full) or new keys are being agreed: the caller's
-    // next readShell() moves that along. A few short waits, then give up on these bytes.
-    if ((error == WS_WINDOW_FULL || error == WS_REKEYING || error == WS_WANT_WRITE) && ++stalls < 50) {
-      io_.socket->idle();
-      continue;
+    // The server has to read first (its window is full) or new keys are being agreed. Both end
+    // when the server's next packets are taken in, so take in what has arrived (without waiting;
+    // shell output met on the way stays buffered for readShell()) and try again, within the limit.
+    if ((error == WS_WINDOW_FULL || error == WS_REKEYING || error == WS_WANT_WRITE || error == WS_WANT_READ) &&
+        !hostKeyChangedMidSession() && static_cast<uint32_t>(io_.socket->nowMs() - stallStart) < shellWriteTimeoutMs_) {
+      ++stalls;
+      io_.blocking = false;
+      wolfSSH_worker(sshOf(ssh_), nullptr);
+      io_.blocking = true;
+      if (!io_.closed) {
+        io_.socket->idle();
+        continue;
+      }
     }
     open_ = false;
     return fail(n);
@@ -479,12 +548,13 @@ Error Session::sftpRead(const uint64_t offset, uint8_t* buf, const size_t len, s
     got = static_cast<size_t>(n);
     return Error::Ok;
   }
-  // The end of the file comes as a status answer (EOF), which is not a failure of the connection.
-  if (!io_.aborted && !io_.timedOut && !io_.closed) {
-    const int error = wolfSSH_get_error(sshOf(ssh_));
-    if (n == 0 || error == WS_EOF || error == WS_SUCCESS || error == WS_SFTP_STATUS_NOT_OK) return Error::Ok;
-  }
-  return sftpFail(n, true);
+  // wolfSSH gives 0 for the server's end-of-file answer (and only for that or a plain OK); every
+  // other status, and every broken read, is negative. So 0 is the one way a file ends: a failure
+  // in the middle of a file is a failed download, never a short file.
+  if (n == 0 && !io_.aborted && !io_.timedOut && !io_.closed) return Error::Ok;
+  const Error error = sftpFail(n, true);
+  // "Not there" makes no sense for a file that is open: the read was refused or broke.
+  return error == Error::NotFound ? Error::Refused : error;
 }
 
 Error Session::sftpWrite(uint64_t offset, const uint8_t* data, size_t len) {
@@ -545,6 +615,15 @@ Error Session::sftpRemove(const std::string& path) {
   return Error::Ok;
 }
 
+Error Session::rekey() {
+  if (!connected()) return Error::NotConnected;
+  io_.aborted = io_.timedOut = false;
+  const int ret = wolfSSH_TriggerKeyExchange(sshOf(ssh_));
+  if (ret == WS_SUCCESS) return Error::Ok;
+  open_ = false;
+  return fail(ret);
+}
+
 void Session::close() {
   if (ssh_ && open_ && !io_.closed && !io_.timedOut && !io_.aborted) {
     // A short goodbye: the server is not waited for longer than this.
@@ -602,6 +681,28 @@ bool sealKey(const uint8_t secret[32], uint8_t out[32]) {
   return ok;
 }
 }  // namespace
+
+bool knownHostsMac(const uint8_t secret[32], const std::string& canonicalText, uint8_t out[32]) {
+  static constexpr char LABEL[] = "ssh-known-hosts:";
+  uint8_t input[sizeof(LABEL) - 1 + 32];
+  uint8_t key[32];
+  memcpy(input, LABEL, sizeof(LABEL) - 1);
+  memcpy(input + sizeof(LABEL) - 1, secret, 32);
+  bool ok = wc_Sha256Hash(input, sizeof(input), key) == 0;
+  sshkey::wipe(input, sizeof(input));
+  // wolfSSL's Hmac is a few hundred bytes with its hash states: heap, like the Aes above.
+  std::unique_ptr<Hmac> hmac{new (std::nothrow) Hmac};
+  ok = ok && hmac && wc_HmacInit(hmac.get(), nullptr, INVALID_DEVID) == 0;
+  if (ok) {
+    ok = wc_HmacSetKey(hmac.get(), WC_SHA256, key, sizeof(key)) == 0 &&
+         wc_HmacUpdate(hmac.get(), reinterpret_cast<const byte*>(canonicalText.data()),
+                       static_cast<word32>(canonicalText.size())) == 0 &&
+         wc_HmacFinal(hmac.get(), out) == 0;
+    wc_HmacFree(hmac.get());
+  }
+  sshkey::wipe(key, sizeof(key));
+  return ok;
+}
 
 bool generateKey(uint8_t seed[32], uint8_t publicKey[32]) {
   Rng rng;

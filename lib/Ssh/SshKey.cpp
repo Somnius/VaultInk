@@ -59,4 +59,8 @@ void wipe(void* data, const size_t len) {
   for (size_t i = 0; i < len; ++i) p[i] = 0;
 }
 
+void wipeConst(const std::string& secret) {
+  if (!secret.empty()) wipe(const_cast<char*>(secret.data()), secret.size());
+}
+
 }  // namespace sshkey

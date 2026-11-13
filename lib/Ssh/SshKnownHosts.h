@@ -45,6 +45,60 @@ std::string keyType(const uint8_t* keyBlob, size_t keyBlobLen);
 // SHA-256 over the key blob (computed by the caller, which has the hash).
 std::string fingerprint(const uint8_t sha256[32]);
 
+// --- integrity of the file ---
+// The file ends with one line "# vaultink-mac <64 hex digits>": a keyed MAC (HMAC-SHA256, the key
+// made from the device secret by the caller) over canonical(). Someone who only has the SD card can
+// then neither take a pin out (to get a fresh "trust this key?" question) nor put one in (to have a
+// key of his own accepted without a question) unnoticed.
+inline constexpr char MAC_PREFIX[] = "# vaultink-mac ";
+// The whole file with its MAC line; a longer file is not read.
+inline constexpr size_t MAX_FILE_BYTES = MAX_TEXT_BYTES + 128;
+
+// The lines that pin something, as "host keytype key\n" each, in the order of the file: what the
+// MAC is taken over. Comments, blank lines, spacing and the MAC line itself are not part of it.
+std::string canonical(std::string_view knownHosts);
+
+// The caller's MAC: false when it cannot be computed (no device secret).
+struct Mac {
+  bool (*compute)(void* ctx, const std::string& canonicalText, uint8_t out[32]) = nullptr;
+  void* ctx = nullptr;
+};
+
+enum class FileState : uint8_t {
+  Missing,     // no file: nothing is pinned yet, a first connection may ask
+  Good,        // read whole and the MAC is right
+  Unreadable,  // there, but it could not be read, is too big, or is not text: hard stop
+  Changed,     // there, but the MAC line is missing or wrong: changed outside the device, hard stop
+};
+// `present`: the file exists. `readOk`: all of it was read (and it is not over MAX_FILE_BYTES).
+// Only Missing and Good may be used for a connection; nothing is ever written from the other two.
+FileState verify(bool present, bool readOk, std::string_view text, const Mac& mac);
+// The text with its MAC line renewed (always the last line). False, and the text untouched, when
+// the MAC cannot be computed.
+bool seal(std::string& text, const Mac& mac);
+
+// The host key rule of one connection. Before the sign-in a key passes only when it is the pinned
+// one. After it (a server may exchange keys again at any time: OpenSSH's RekeyLimit, or after about
+// 1 GB) only the very key that passed at the start does; anything else ends the session.
+class KeyGate {
+ public:
+  void begin(std::string knownHosts, std::string host, uint16_t port);
+  // For every host key the server shows. True only for a key that may be used.
+  bool accept(const uint8_t* keyBlob, size_t keyBlobLen);
+  // The sign-in is over. False when no key passed before (then nothing passes later either).
+  bool signedIn();
+  Verdict lastVerdict() const { return last_; }
+  void reset();
+
+ private:
+  std::string knownHosts_;
+  std::string host_;
+  uint16_t port_ = 22;
+  std::vector<uint8_t> accepted_;
+  bool signedIn_ = false;
+  Verdict last_ = Verdict::Unknown;
+};
+
 // Standard base64. decode() is strict: false for a character outside the alphabet or bad padding.
 std::string base64Encode(const uint8_t* data, size_t len, bool padding = true);
 bool base64Decode(std::string_view text, std::vector<uint8_t>& out);

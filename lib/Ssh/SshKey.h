@@ -54,5 +54,8 @@ void privateDer(const uint8_t seed[SEED_BYTES], uint8_t out[PRIVATE_DER_BYTES]);
 
 // Overwrites a buffer with zeros in a way the compiler does not remove.
 void wipe(void* data, size_t len);
+// The same for a string that is handed over as const but is not a constant (a typed password in
+// a finished screen's result): its characters are zeroed in place, the length stays.
+void wipeConst(const std::string& secret);
 
 }  // namespace sshkey

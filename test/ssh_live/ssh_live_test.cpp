@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -19,6 +20,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "SshKey.h"
@@ -155,6 +157,32 @@ int main(int argc, char** argv) {
     out << sshkey::authorizedKeysLine(s.pub, "vaultink-test") << "\n";
   }
   chmod((s.dir + "/authorized_keys").c_str(), 0600);
+
+  printf("1b. known_hosts MAC with the real HMAC\n");
+  {
+    const auto compute = [](void* ctx, const std::string& text, uint8_t out[32]) {
+      return sshclient::knownHostsMac(static_cast<const uint8_t*>(ctx), text, out);
+    };
+    const sshkh::Mac mac{compute, secret};
+    const sshkh::Mac otherMac{compute, other};
+    std::string text;
+    const std::vector<uint8_t> blob = sshkey::publicBlob(s.pub);
+    CHECK(sshkh::add(text, "nas.local", 22, blob.data(), blob.size()));
+    CHECK(sshkh::verify(true, true, text, mac) == sshkh::FileState::Changed);  // not sealed yet
+    CHECK(sshkh::seal(text, mac));
+    CHECK(sshkh::verify(true, true, text, mac) == sshkh::FileState::Good);
+    CHECK(sshkh::verify(true, true, text, otherMac) == sshkh::FileState::Changed);  // another device
+    std::string edited = text;
+    CHECK(sshkh::remove(edited, "nas.local", 22) == 1);
+    CHECK(sshkh::verify(true, true, edited, mac) == sshkh::FileState::Changed);  // a pin taken out on the card
+    uint8_t m1[32];
+    uint8_t m2[32];
+    CHECK(sshclient::knownHostsMac(secret, "a\n", m1) && sshclient::knownHostsMac(secret, "b\n", m2));
+    CHECK(memcmp(m1, m2, 32) != 0);
+    // Not the key-file key: the label differs, so the MAC key is not the sealing key.
+    CHECK(sshclient::knownHostsMac(secret, "", m1) && sshclient::knownHostsMac(other, "", m2));
+    CHECK(memcmp(m1, m2, 32) != 0);
+  }
 
   PosixSocket sock;
 
@@ -337,6 +365,48 @@ int main(int argc, char** argv) {
     CHECK(session.sftpRemove(base + "/f1.bin") == Error::Ok);
     CHECK(access((base + "/f1.bin").c_str(), F_OK) != 0);
 
+    // A read the server refuses is a failed read, never "the file ended here": a folder can be
+    // opened like a file on OpenSSH, and reading it fails.
+    {
+      const Error opened = session.sftpOpenRead(many);
+      printf("   open a folder as a file -> %d\n", static_cast<int>(opened));
+      if (opened == Error::Ok) {
+        uint8_t dirBuf[512];
+        size_t dirGot = 77;
+        const Error readDir = session.sftpRead(0, dirBuf, sizeof(dirBuf), dirGot);
+        printf("   read it -> %d (library %d)\n", static_cast<int>(readDir), session.lastLibraryError());
+        CHECK(readDir != Error::Ok);
+        CHECK(dirGot == 0);
+        session.sftpCloseFile();
+      }
+      CHECK(session.connected());
+      // A read past the end of a real file is the end, and only that.
+      CHECK(session.sftpOpenRead(base + "/f8192.bin") == Error::Ok);
+      uint8_t endBuf[64];
+      size_t endGot = 77;
+      CHECK(session.sftpRead(8192, endBuf, sizeof(endBuf), endGot) == Error::Ok && endGot == 0);
+      CHECK(session.sftpRead(1 << 20, endBuf, sizeof(endBuf), endGot) == Error::Ok && endGot == 0);
+      CHECK(session.sftpRead(8190, endBuf, sizeof(endBuf), endGot) == Error::Ok && endGot == 2);
+      CHECK(session.sftpCloseFile() == Error::Ok);
+    }
+
+    // New session keys in the middle (what a server's RekeyLimit or 1 GB of traffic causes): the
+    // host key callback runs again and must pass the same key; the session goes on.
+    {
+      const Error rk = session.rekey();
+      printf("   rekey asked -> %d\n", static_cast<int>(rk));
+      CHECK(rk == Error::Ok);
+      seen = Seen{{}, 100000};
+      const Error after = session.sftpList(many, visit, &seen);
+      printf("   list after the rekey -> %d (library %d), %zu entries\n", static_cast<int>(after),
+             session.lastLibraryError(), seen.entries.size());
+      CHECK(after == Error::Ok);
+      CHECK(seen.entries.size() == 700);
+      CHECK(!session.hostKeyChangedMidSession());
+      sshclient::DirEntry st2;
+      CHECK(session.sftpStat(base + "/f100000.bin", st2) == Error::Ok && st2.size == 100000);
+    }
+
     // Cancel in the middle of a download: Aborted, and the session is not used again.
     bool cancel = false;
     session.setCancel(&cancel);
@@ -415,6 +485,18 @@ int main(int argc, char** argv) {
     CHECK(screenHas("2990"));
     for (uint16_t r = 0; r < term.rows(); ++r) printf("   |%s\n", term.rowText(r).c_str());
     // exit ends the session: readShell reports it.
+    // New session keys while the shell is open, with typing right behind the request.
+    for (int round = 0; round < 2; ++round) {
+      CHECK(session.rekey() == Error::Ok);
+      const std::string rk = "echo rekeyed-" + std::to_string(round) + "-$((40+2))\r";
+      const Error w = session.writeShell(reinterpret_cast<const uint8_t*>(rk.data()), rk.size());
+      printf("   write during the rekey -> %d (library %d)\n", static_cast<int>(w), session.lastLibraryError());
+      CHECK(w == Error::Ok);
+      CHECK(pump(1500));
+      CHECK(screenHas("rekeyed-" + std::to_string(round) + "-42"));
+      CHECK(session.connected());
+      CHECK(!session.hostKeyChangedMidSession());
+    }
     const std::string bye = "exit\r";
     CHECK(session.writeShell(reinterpret_cast<const uint8_t*>(bye.data()), bye.size()) == Error::Ok);
     CHECK(!pump(3000));
@@ -448,6 +530,40 @@ int main(int argc, char** argv) {
     login.cancel = &cancel;
     CHECK(session.openSftp(login) == Error::Aborted);
     close(dead);
+
+    // A server that keeps the client busy with one byte now and then: no single wait is long, so
+    // only the deadline of the whole attempt ends it.
+    const int slow = socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in slowAddr{};
+    slowAddr.sin_family = AF_INET;
+    slowAddr.sin_port = 0;
+    inet_pton(AF_INET, "127.0.0.1", &slowAddr.sin_addr);
+    bind(slow, reinterpret_cast<sockaddr*>(&slowAddr), sizeof(slowAddr));
+    listen(slow, 1);
+    socklen_t slowLen = sizeof(slowAddr);
+    getsockname(slow, reinterpret_cast<sockaddr*>(&slowAddr), &slowLen);
+    std::atomic<bool> stop{false};
+    std::thread trickle([&]() {
+      const int peer = accept(slow, nullptr, nullptr);
+      // A version line that never ends, a byte every 200 ms.
+      while (!stop && send(peer, "x", 1, MSG_NOSIGNAL) == 1) usleep(200 * 1000);
+      close(peer);
+    });
+    CHECK(sock.connectTo(ntohs(slowAddr.sin_port)));
+    login = keyLogin(s);
+    login.timeoutMs = 1000;   // never reached: a byte comes every 200 ms
+    login.deadlineMs = 1500;  // this is what ends it
+    const uint32_t slowStart = sock.nowMs();
+    const Error slowResult = session.openShell(login, 80, 24);
+    const uint32_t slowTook = sock.nowMs() - slowStart;
+    printf("   trickling server: %d after %u ms\n", static_cast<int>(slowResult), slowTook);
+    CHECK(slowResult == Error::Network || slowResult == Error::Protocol);
+    CHECK(slowTook >= 1400 && slowTook < 4000);
+    // And Back during it: the cancel flag is seen between the bytes.
+    stop = true;
+    sock.closeNow();
+    trickle.join();
+    close(slow);
   }
 
   printf(failures == 0 ? "ALL OK\n" : "%d FAILED\n", failures);
