@@ -1,0 +1,26 @@
+#pragma once
+
+// The device side of the developer link (docs/devlink.md). Only the x4pro-dev build defines
+// VAULTINK_DEVLINK; every other build compiles none of this.
+#ifdef VAULTINK_DEVLINK
+
+#include <DevLink.h>
+
+#include <cstdint>
+
+namespace devlinkdevice {
+
+// The transmit queue of the USB serial port in this build, so one reply (devlink::JsonLine::CAPACITY
+// at most) goes out as one write. The core's default is 256 bytes.
+constexpr unsigned TX_QUEUE_BYTES = 1024;
+
+// The wake cause the battery log got at boot (batteryhistory::noteWake), for STATUS.
+void noteWakeCause(int cause);
+
+// Answers one command with one JSON line on the USB serial port. SCREENSHOT is not handled here:
+// main.cpp answers it the same way in every build. REBOOT and BOOTLOADER do not return.
+void handle(const devlink::Parsed& parsed, unsigned long msSinceInput, uint32_t droppedLines);
+
+}  // namespace devlinkdevice
+
+#endif  // VAULTINK_DEVLINK

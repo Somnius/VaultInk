@@ -660,6 +660,19 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
 * Update check once a release exists.
 * Scan the I2C bus for a motion sensor the stock firmware doesn't use (none expected).
 
+## 🚧 Developer link (decided 2026-11-13; developer build only, never in a release)
+
+* ✅ (unreleased, computer tests only, not compiled for the device) First slice: the `x4pro-dev`
+  build, a serial line reader that never waits (in every build; `CMD:SCREENSHOT` is unchanged),
+  `CMD:STATUS`, `LOG`, `REBOOT`, `BOOTLOADER`, `PING`, `HELP` with one JSON line each, and
+  `scripts/devlink.py` (status, cmd, screenshot, bench to CSV). [docs/devlink.md](docs/devlink.md)
+* Still to do: build and flash `x4pro-dev` and try every command on an X4 Pro; `BOOTLOADER` with
+  esptool; the JTAG one try (`pio debug -e x4pro-dev`); the awake A/B runs from the guide.
+* Next slice (not started): SD list/read/write, settings get/set, key and touch injection,
+  `CMD:FLASH <sd path>`. Dev build only; behind a Developer setting that is off by default if it
+  ever ships.
+* Not planned: debugging over Wi-Fi, framebuffer streaming.
+
 ## 💤 Battery (needs the device)
 
 * Already in (from CrossPoint): CPU drops to 80 MHz after 3 s idle, deep sleep with the panel off

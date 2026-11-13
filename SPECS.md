@@ -564,6 +564,23 @@ reports AES key recovery on the S3 with voltage fault injection.
   `scripts/deploy_web_installer.sh` (web installer plus GitHub release). GitHub CI only runs checks,
   on release tags and manual runs.
 - Hardware tests are done by Lef on the device before a release.
+- Developer link (unreleased, host tests only, not compiled for the device; docs/devlink.md):
+  `[env:x4pro-dev]` = env:x4pro + `VAULTINK_DEVLINK`, `LOG_DBG_RUNTIME` and `debug_tool = esp-builtin`
+  (debug builds keep `-Os`). Developer only, never a release build. lib/DevLink (platform-free, no
+  heap; 22 host tests in test/dev_link): LineAssembler (non-blocking, 256-byte lines, an overlong
+  line is dropped up to the next newline, CR dropped), parse() for `CMD:<NAME> [args]`, JsonLine
+  (one object per line in a 768-byte buffer, escapes, a reply that does not fit becomes an error
+  object). src/main.cpp reads serial bytes through LineAssembler in every build (the old
+  `readStringUntil` could hold the loop for the Stream timeout on a partial line; a command now needs
+  its newline) and answers `CMD:SCREENSHOT` as before. Only with `VAULTINK_DEVLINK`,
+  src/util/DevLinkDevice answers PING, HELP, STATUS (version, uptime, heap, PSRAM, battery mV and
+  percent, USB, charging, wake cause, reset reason, CPU MHz, frontlight, activity name, auto-sleep
+  setting, idle time), LOG 0-3 (switches debug lines only: the other levels are compile-time), REBOOT
+  and BOOTLOADER (`RTC_CNTL_FORCE_DOWNLOAD_BOOT`, then restart), one JSON line each sent as a single
+  write into a 1024-byte TX queue; unknown commands get `{"ok":false,"error":"unknown"}`.
+  scripts/devlink.py (stdlib, termios): status, cmd, screenshot to PNG/BMP, bench to CSV with
+  reconnects; 17 tests against a fake device on a pty (test/test_devlink_script.py). No SD, settings,
+  input injection or flashing over the link: next slice. Unverified: everything on the device.
 
 ## 14. Licences and credits
 

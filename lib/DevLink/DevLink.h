@@ -1,0 +1,96 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+
+// The serial command link (docs/devlink.md). Platform-free and heap-free, so the host tests in
+// test/dev_link cover it. The firmware feeds it bytes from the USB serial port and only dispatches.
+namespace devlink {
+
+// Collects bytes into lines without ever waiting for more. A line ends at '\n'; every '\r' is
+// dropped. A line longer than MAX_LINE bytes is thrown away whole: nothing is returned until the
+// next '\n', and the line after that one is read normally.
+class LineAssembler {
+ public:
+  static constexpr size_t MAX_LINE = 256;
+
+  // Takes one byte. True when it completed a line: line() and length() then hold it (without the
+  // line end) until the next feed(). An empty line is a line too, with length 0.
+  bool feed(char c);
+
+  const char* line() const { return buffer; }
+  size_t length() const { return ready ? used : 0; }
+  // Lines thrown away for being too long.
+  uint32_t dropped() const { return droppedLines; }
+
+ private:
+  char buffer[MAX_LINE + 1] = {};
+  size_t used = 0;
+  uint32_t droppedLines = 0;
+  bool ready = false;     // buffer holds a finished line; the next byte starts a new one
+  bool skipping = false;  // inside a line that was too long
+};
+
+enum class Command : uint8_t {
+  None,     // not a "CMD:" line
+  Unknown,  // "CMD:" with a name that is not in the list
+  Screenshot,
+  Status,
+  Log,
+  Reboot,
+  Bootloader,
+  Ping,
+  Help,
+};
+
+struct Parsed {
+  Command command = Command::None;
+  // What follows the name, without the blanks around it. Points into the parsed line and is not
+  // terminated: use argsLength.
+  const char* args = "";
+  size_t argsLength = 0;
+};
+
+// Reads "CMD:<NAME> [args]". Blanks around the name and at the end are ignored; the name is
+// case-sensitive, as CMD:SCREENSHOT always was.
+Parsed parse(const char* line, size_t length);
+
+// The command names, separated by single spaces, for HELP.
+const char* commandList();
+
+// Reads a decimal number with no sign and nothing after it. False for anything else, including
+// an empty text and a value over 32 bits.
+bool parseUnsigned(const char* text, size_t length, uint32_t& value);
+
+// Builds one JSON object on one line in a fixed buffer. A field that does not fit is left out
+// whole and marks the reply as too long: finish() then returns an error object instead, so a
+// reader never sees a cut line.
+class JsonLine {
+ public:
+  static constexpr size_t CAPACITY = 768;  // with the closing brace and the terminator
+
+  JsonLine();
+
+  JsonLine& addString(const char* key, const char* value);
+  JsonLine& addBool(const char* key, bool value);
+  JsonLine& addInt(const char* key, long long value);
+  JsonLine& addUnsigned(const char* key, unsigned long long value);
+
+  bool tooLong() const { return overflow; }
+  // Closes the object and returns the text (no line end). Call it once, last.
+  const char* finish();
+  size_t length() const { return used; }
+
+ private:
+  bool startField(const char* key);
+  bool put(char c);
+  bool putText(const char* text);
+  bool putEscaped(const char* text);
+
+  char buffer[CAPACITY];
+  size_t used = 0;
+  bool overflow = false;
+  bool first = true;
+};
+
+}  // namespace devlink

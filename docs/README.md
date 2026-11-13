@@ -34,6 +34,12 @@ Start with the [main README](../README.md) for what VaultInk is and how to insta
 | [Web server](webserver.md), [endpoints](webserver-endpoints.md) | the browser page and its API |
 | [WebDAV and FTP servers](webdav-ftp.md) | copying files to and from your own file server (0.74.0) |
 
+## Working on the firmware
+
+| Guide | What is in it |
+| --- | --- |
+| [Developer link](devlink.md) | the `x4pro-dev` build: status, reboot and flashing-mode commands over USB, `scripts/devlink.py`, JTAG |
+
 ## Help
 
 | Guide | What is in it |

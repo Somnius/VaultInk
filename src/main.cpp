@@ -2,6 +2,7 @@
 #include <AutoSchedule.h>
 #include <BlePageTurner.h>
 #include <BoardConfig.h>
+#include <DevLink.h>
 #include <Epub.h>
 #include <FontCacheManager.h>
 #include <FontDecompressor.h>
@@ -59,6 +60,7 @@
 #include "util/BatteryHistory.h"
 #include "util/ButtonNavigator.h"
 #include "util/DebugLog.h"
+#include "util/DevLinkDevice.h"
 #include "util/LiveSyncDevice.h"
 #include "util/PluginEvents.h"
 #include "util/ScreenLock.h"
@@ -656,6 +658,9 @@ void setup() {
   // enumeration proceed asynchronously so users do not pay this startup cost.
   delay(250);
 #endif
+#ifdef VAULTINK_DEVLINK
+  logSerial.setTxBufferSize(devlinkdevice::TX_QUEUE_BYTES);  // before begin(), which keeps a queue that exists
+#endif
   Serial.begin(115200);
 #if LOG_SERIAL_HAS_TX_TIMEOUT
   logSerial.setTxTimeoutMs(1);  // This is a load-bearing 1. Do not modify.
@@ -783,7 +788,11 @@ void setup() {
   trustedtime::init();
   // Why this boot happened, for the battery log: the wake reason, or 4 when the power key was not held through the
   // check (a wake nobody asked for that stays on until the idle timeout when Short Power Press is Sleep).
-  batteryhistory::noteWake(wakeHoldVerified ? static_cast<int>(wakeupReason) : 4);
+  const int wakeCause = wakeHoldVerified ? static_cast<int>(wakeupReason) : 4;
+  batteryhistory::noteWake(wakeCause);
+#ifdef VAULTINK_DEVLINK
+  devlinkdevice::noteWakeCause(wakeCause);
+#endif
   bleturner::begin(pageturner::host, SETTINGS.ble);
 
   // Brightness and warmth are always restored. A normal wake starts with the
@@ -1036,25 +1045,34 @@ void loop() {
     lastMemPrint = millis();
   }
 
-  // Handle incoming serial commands,
-  // nb: we use logSerial from logging to avoid deprecation warnings
-  if (logSerial.available() > 0) {
-    String line = logSerial.readStringUntil('\n');
-    if (line.startsWith("CMD:")) {
-      String cmd = line.substring(4);
-      cmd.trim();
-      if (cmd == "SCREENSHOT") {
-        const uint32_t bufferSize = display.getBufferSize();
-        logSerial.printf("SCREENSHOT_START:%d\n", bufferSize);
-        uint8_t* buf = display.getFrameBuffer();
-        logSerial.write(buf, bufferSize);
-        logSerial.printf("SCREENSHOT_END\n");
-      }
-    }
-  }
-
   // Check for any user activity (button press or release) or active background work
   static unsigned long lastActivityTime = millis();
+
+  // Handle incoming serial commands,
+  // nb: we use logSerial from logging to avoid deprecation warnings
+  // Bytes are taken as they come and never waited for: a line that stops halfway used to hold the
+  // loop for the Stream timeout. The count is capped so a flood cannot hold it either.
+  static devlink::LineAssembler serialLines;
+  for (int budget = 512; budget > 0 && logSerial.available() > 0; --budget) {
+    const int incoming = logSerial.read();
+    if (incoming < 0) break;
+    if (!serialLines.feed(static_cast<char>(incoming))) continue;
+    const devlink::Parsed parsed = devlink::parse(serialLines.line(), serialLines.length());
+    if (parsed.command == devlink::Command::Screenshot && parsed.argsLength == 0) {
+      const uint32_t bufferSize = display.getBufferSize();
+      logSerial.printf("SCREENSHOT_START:%d\n", bufferSize);
+      uint8_t* buf = display.getFrameBuffer();
+      logSerial.write(buf, bufferSize);
+      logSerial.printf("SCREENSHOT_END\n");
+    }
+#ifdef VAULTINK_DEVLINK
+    else if (parsed.command != devlink::Command::None) {
+      devlinkdevice::handle(parsed, millis() - lastActivityTime, serialLines.dropped());
+    }
+#endif
+    break;  // one line a pass
+  }
+
   if (gpio.wasAnyPressed() || gpio.wasAnyReleased() || gpio.wasTouchActivity() || halTiltSensor.hadActivity() ||
       remoteActed || activityManager.preventAutoSleep()) {
     lastActivityTime = millis();         // Reset inactivity timer
