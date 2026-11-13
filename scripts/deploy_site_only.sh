@@ -34,7 +34,18 @@ cat > "$OUT/manifest.json" <<EOT
   ]
 }
 EOT
-if gh release download "$VERSION" -p "vaultink-${VERSION}-x4pro-dev-factory.bin" -D "$OUT" 2>/dev/null; then
+# Ask the release what it has, so that "no developer image in this release" (a release made before
+# the developer build: a warning) and "the download failed" (stop, publish nothing) are told apart.
+DEV_ASSET="vaultink-${VERSION}-x4pro-dev-factory.bin"
+if ! ASSETS=$(gh release view "$VERSION" --json assets --jq '.assets[].name'); then
+  echo "Could not list the files of release $VERSION; nothing was published." >&2
+  exit 1
+fi
+if grep -q -x -F "$DEV_ASSET" <<<"$ASSETS"; then
+  if ! gh release download "$VERSION" -p "$DEV_ASSET" -D "$OUT" || [[ ! -s "$OUT/$DEV_ASSET" ]]; then
+    echo "Release $VERSION has $DEV_ASSET but it could not be downloaded; nothing was published." >&2
+    exit 1
+  fi
   mv "$OUT/vaultink-${VERSION}-x4pro-dev-factory.bin" "$OUT/vaultink-x4pro-dev-factory.bin"
   cat > "$OUT/manifest-dev.json" <<EOT
 {

@@ -3,10 +3,9 @@
 A page that reads a reader's status, log and screen over the USB cable and makes a report file,
 for when you want to help find a bug: <https://somnius.github.io/VaultInk/debug.html>
 
-It needs the **developer build** on the reader. That is the same firmware plus a read-only serial
-link: it answers a status request, prints its log and sends a screenshot. It cannot be told to
-press keys, read your books or notes, change settings or install anything
-([docs/devlink.md](devlink.md#the-build-users-may-install) has the details).
+It needs the **developer build** on the reader. That is the same firmware plus a serial link we
+call read-only. Exactly: it can reboot the reader, change the log level, take a screenshot and write a small bench log to the SD card; it cannot read or write your files or settings. It cannot be told to press keys or install anything
+either ([docs/devlink.md](devlink.md#the-build-users-may-install) has the details).
 
 **Nothing is uploaded.** The page talks to the reader inside your browser. A report is a file you
 save and then attach to a GitHub issue or send by e-mail yourself.
@@ -14,6 +13,9 @@ save and then attach to a GitHub issue or send by e-mail yourself.
 Nothing on this page has been tried on a real reader yet: the parsing, the picture and the
 redaction are tested on a computer (`node test/debuglib_test.js`), the page itself is not.
 [What is not checked yet](#what-is-not-checked-yet) lists it.
+
+The browser remembers the permission for the reader's port for the whole site
+`somnius.github.io`, which all GitHub Pages of that account share, not for this page alone.
 
 ## What you need
 
@@ -56,8 +58,9 @@ session set Settings → System → Time to Sleep to a longer time.
 - **Log** shows what the reader prints. **Log level 2** adds debug lines (more detail, and more
   names: see below); level 1 turns them off again. **Pause** stops the view from moving, **Save
   log** writes the lines to a text file as they are, not redacted.
-- **Take a screenshot** shows the screen as it is now. If it fails with "SCREENSHOT_END did not
-  follow", take it again with the log level at 1: a log line can land inside the picture's bytes.
+- **Take a screenshot** shows the screen as it is now. If it fails ("SCREENSHOT_END did not
+  follow", or "The picture stopped at ..."), take it again with the log level at 1: a log line can
+  land inside the picture's bytes.
 - **Reboot** restarts the reader, like its reset button. The page asks first.
 
 ## 4. Create a report
@@ -94,7 +97,8 @@ The redaction replaces what it recognises with a word in angle brackets:
 | `<ip>`, `<mac>` | IPv4 and IPv6 addresses, hardware addresses |
 | `<host>` | a server name, on its own or in a URL (the `https://` stays) |
 | `<path>`, `<file>` | a path on the SD card or a file name; the ending (`.epub`, `.md`) stays |
-| `<email>` | an e-mail address |
+| `<email>`, `<user>` | an e-mail address, a user name (`user lef`, `lef@mynas`) |
+| `<name>` | a title, author, folder, server or font name where the log labels it (`title=...`, `Title: ...`, a name in single quotes) |
 | `<hidden>` | a word from your own list |
 
 **It is best effort.** It works from the wording of the log and from patterns, so it can miss a
@@ -161,4 +165,6 @@ verified**: the page has not been tried on Windows. Please try it and tell us wh
   `scripts/devlink.py`'s `rotate_framebuffer`.
 - To try the page locally: `python3 -m http.server -d site 8000` and open
   `http://localhost:8000/debug.html` (Web Serial works on `localhost`).
-- The page sends `STATUS`, `LOG`, `REBOOT` and `SCREENSHOT` and nothing else.
+- The page sends `STATUS`, `LOG`, `REBOOT` and `SCREENSHOT` and nothing else. A reply is taken
+  only by the command it answers (`replyMatches`): a `STATUS` that answers after its 3 seconds is
+  logged as late, not shown as the answer to the next command.

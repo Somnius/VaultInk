@@ -442,8 +442,8 @@ in `-dev`. It is never a release build and has not been tried on a device yet:
 If you hit a bug and want to help find it, there is a **developer build** you can install from the
 [install page](https://somnius.github.io/VaultInk/#developer-build) ("Developer build (read-only
 debugging)"). It is the same firmware plus a read-only serial link: over the USB cable it answers a
-status request, prints its log and sends a screenshot. It cannot be told to press keys, read your
-books or notes, change settings or flash anything. Installing it replaces your current firmware;
+status request and prints its log. Over that link it can reboot the reader, change the log level, take a screenshot and write a small bench log to the SD card; it cannot read or write your files or settings. It cannot be told to press keys or
+flash anything. Installing it replaces your current firmware;
 the normal Install button puts the release back.
 
 With it on the reader, open the [debug page](https://somnius.github.io/VaultInk/debug.html) in

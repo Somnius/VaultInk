@@ -182,10 +182,10 @@
         and this page shows its status, its log and a screenshot, and makes a report file you can attach to
         a GitHub issue or send by e-mail.</p>
       <p><strong>Nothing is uploaded.</strong> The page talks to the reader over USB, inside your browser.
-        It sends nothing to a server, and the report is a file you save and send yourself. The page asks the
-        reader for its status, its log and a screenshot; with the buttons below it can also switch debug
-        log lines on and restart the reader. It cannot press keys, read your books or notes, change a
-        setting or install anything: the developer build has no commands for that.</p>
+        It sends nothing to a server, and the report is a file you save and send yourself. The developer
+        build's link is not strictly read-only: it can reboot the reader, change the log level, take a screenshot and write a small bench log to the SD card; it cannot read or write your files or settings. This page uses the first three (Reboot, Log level,
+        Screenshot) and STATUS, each only when you press its button. It cannot press keys or install
+        anything: the developer build has no commands for that.</p>
 
       <div class="notice error" id="unsupported" hidden role="alert">
         <strong>Not supported yet in this browser.</strong> This page needs Web Serial. Use desktop
@@ -453,11 +453,18 @@
     onLine: (line) => {
       const reply = lib.parseReply(line);
       addLine(line, reply ? "reply" : "");
-      if (reply && pendingReply) {
+      if (!reply) return;
+      // Only the answer to the command that is waiting: a reply that comes after its own command
+      // timed out (STATUS can wait for the screen) must not be shown as the answer to the next.
+      if (pendingReply && lib.replyMatches(pendingReply.command, reply)) {
         const pending = pendingReply;
         pendingReply = null;
         clearTimeout(pending.timer);
         pending.resolve(reply);
+      } else {
+        pageLine("a late reply, ignored");
+        // A late STATUS is still a STATUS: the table may show it.
+        if (reply.ok && lib.replyMatches("STATUS", reply)) showStatus(reply);
       }
     },
     onScreenshot: (bytes) => {
@@ -509,7 +516,7 @@
         pendingReply = null;
         reject(new Error("No answer in " + REPLY_TIMEOUT_MS / 1000 + " seconds. Is this the developer build, awake and out of USB Drive mode? The normal firmware does not answer this command."));
       }, REPLY_TIMEOUT_MS);
-      pendingReply = { resolve, reject, timer };
+      pendingReply = { resolve, reject, timer, command: textOfCommand };
       write(lib.commandBytes(textOfCommand)).catch((error) => {
         clearTimeout(timer);
         pendingReply = null;
@@ -522,9 +529,10 @@
       const timer = setTimeout(() => {
         pendingShot = null;
         const state = parser.state();
-        parser.reset();
+        // Not reset(): the rest of the picture may still come, and must not show up as log lines.
+        parser.abandonPicture();
         reject(new Error(state.mode === "bytes"
-          ? "The picture stopped at " + state.got + " of " + state.want + " bytes."
+          ? "The picture stopped at " + state.got + " of " + state.want + " bytes. Take it again, with the log level at 1."
           : "No picture in " + SCREENSHOT_TIMEOUT_MS / 1000 + " seconds."));
       }, SCREENSHOT_TIMEOUT_MS);
       pendingShot = { resolve, reject, timer };
@@ -572,9 +580,19 @@
   async function readLoop(current) {
     // The loop of the Web Serial documentation: a read error that leaves the port readable (an
     // overrun, a framing error) starts a new reader; when the port is gone, readable is null.
+    let locked = false;
     while (current.readable && !closing && port === current) {
-      reader = current.readable.getReader();
       try {
+        try {
+          reader = current.readable.getReader();
+        } catch (error) {
+          // The stream already has a reader (this page in a state it should not be in): say so
+          // and close, instead of showing "Connected" with nothing being read.
+          locked = true;
+          showError("<strong>The port opened but cannot be read.</strong> The browser said: " + text(error && error.name) + ": " +
+            text(error && error.message) + "<p>Press Disconnect, then Connect again, or reload the page.</p>");
+          break;
+        }
         for (;;) {
           const { value, done } = await reader.read();
           if (done) break;
@@ -583,11 +601,16 @@
       } catch (error) {
         pageLine("read error: " + (error && error.message ? error.message : error));
       } finally {
-        try { reader.releaseLock(); } catch (error) { /* already released */ }
+        if (reader) {
+          try { reader.releaseLock(); } catch (error) { /* already released */ }
+        }
         reader = null;
       }
     }
-    if (port === current) await dropPort(closing ? "disconnected" : "the reader went away (asleep, USB Drive mode, or unplugged)");
+    if (locked) wanted = false;
+    if (port === current) {
+      await dropPort(locked ? "the port cannot be read" : closing ? "disconnected" : "the reader went away (asleep, USB Drive mode, or unplugged)");
+    }
   }
 
   async function dropPort(reason) {

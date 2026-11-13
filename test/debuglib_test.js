@@ -292,6 +292,103 @@ test("redact: paths and file names, the ending kept", () => {
   assert.equal(redact("Άνοιγμα /Σημειώσεις/Ημερολόγιο.md"), "Άνοιγμα <path>.md");
 });
 
+test("redact: the firmware's own log lines that carry names", () => {
+  // The format strings are the firmware's (LibraryListActivity, XtcParser, OpdsServerStore,
+  // KOReaderCredentialStore, the vault index, CrossPointWebServer, Epub, the SD font registry).
+  const cases = [
+    ["[12] [DBG] [LIB] page tab=1 top=0 full=8 loaded=8 body=60..700 next=8 title=War and Peace", "[12] [DBG] [LIB] page tab=1 top=0 full=8 loaded=8 body=60..700 next=8 title=<name>"],
+    ["[12] [DBG] [LIB] page first=3 title=Tolstoy, Leo: War and Peace", "[12] [DBG] [LIB] page first=3 title=<name>"],
+    ["[5] [DBG] [XTC] Title: Moby Dick", "[5] [DBG] [XTC] Title: <name>"],
+    ["[5] [DBG] [XTC] Author: Herman Melville", "[5] [DBG] [XTC] Author: <name>"],
+    ["[5] [DBG] [XTC] Opened file: /books/a b.xtc (12 pages, 480x800)", "[5] [DBG] [XTC] Opened file: <path>.xtc (12 pages, 480x800)"],
+    ["[3] [DBG] [OPS] Added server: My Calibre", "[3] [DBG] [OPS] Added server: <name>"],
+    ["[3] [DBG] [WEB] Added new OPDS server: My Calibre", "[3] [DBG] [WEB] Added new OPDS server: <name>"],
+    ["[3] [DBG] [KRS] Set server URL: https://sync.example.org/x", "[3] [DBG] [KRS] Set server URL: <name>"],
+    ["[3] [DBG] [VLT] Index Work: ok, 12 notes, 3 read", "[3] [DBG] [VLT] Index <name>: ok, 12 notes, 3 read"],
+    ["[3] [DBG] [CRD] Work Notes: 12 notes, 3 read, 5 cards", "[3] [DBG] [CRD] <name>: 12 notes, 3 read, 5 cards"],
+    ["[3] [DBG] [LNK] Rename of Plan A: 3 links in 2 notes (0 skipped)", "[3] [DBG] [LNK] Rename of <name>: 3 links in 2 notes (0 skipped)"],
+    ["[3] [DBG] [VLT] Link not found: Plan A", "[3] [DBG] [VLT] Link not found: <name>"],
+    ["[3] [DBG] [EDIT] Recovered Plan A from its temp file", "[3] [DBG] [EDIT] Recovered <name> from its temp file"],
+    ["[3] [DBG] [DICT] No dictionary found in folder 'My Dicts'", "[3] [DBG] [DICT] No dictionary found in folder '<name>'"],
+    ["[3] [DBG] [WS] START rejected: invalid filename 'my book'", "[3] [DBG] [WS] START rejected: invalid filename '<name>'"],
+    ["[3] [DBG] [EPB] Loaded 4 bookmarks for book: /books/A.epub", "[3] [DBG] [EPB] Loaded 4 bookmarks for book: <path>.epub"],
+    ["[3] [DBG] [EHP] Found image: src=images/pic one.jpg", "[3] [DBG] [EHP] Found image: <path>.jpg"],
+    ["[3] [DBG] [SDREG] Found family: Literata (4 files) in /fonts", "[3] [DBG] [SDREG] Found family: <name>"],
+    ["[3] [DBG] [WEB] Renamed file: /a/b c.md -> /a/d e.md", "[3] [DBG] [WEB] Renamed file: <path>.md -> <path>.md"],
+    ["[3] [DBG] [WEB] Creating folder: Holiday Photos", "[3] [DBG] [WEB] Creating folder: <name>"],
+    ["[3] [DBG] [WEB] [UPLOAD] START: My Book.epub to path: /books", "[3] [DBG] [WEB] [UPLOAD] START: <file>.epub to path: <path>"],
+    ["[3] [DBG] [TRN] Translation: server lt.example.org, key set", "[3] [DBG] [TRN] Translation: server <host>, key set"],
+  ];
+  for (const [line, expected] of cases) assert.equal(redact(line), expected);
+});
+
+test("redact: what the first version let through", () => {
+  assert.equal(redact("[7] [INF] [WIFI] Joined Lefs Phone"), "[7] [INF] [WIFI] Joined <ssid>");
+  assert.equal(redact("ssh host mynas as lef@mynas"), "ssh host <host> as <user>@<host>");
+  assert.equal(redact("login user lef ok"), "login user <user> ok");
+  assert.equal(redact("mail λευτέρης@παράδειγμα.gr now"), "mail <email> now");
+  assert.equal(redact("bssid AABBCCDDEEFF seen, id 123456789012"), "bssid <mac> seen, id 123456789012");
+  assert.equal(redact("[9] [DBG] [WIFI] 2: Cafe Free (-67 dBm)"), "[9] [DBG] [WIFI] 2: <ssid> (-67 dBm)");
+  assert.equal(redact("[9] [DBG] [WIFI] Home Net -71 dBm"), "[9] [DBG] [WIFI] <ssid> -71 dBm");
+  assert.equal(redact("[9] [DBG] [X] Tolstoy - War and Peace.epub"), "[9] [DBG] [X] <file>.epub");
+  assert.equal(redact("reading: Tolstoy - War and Peace.epub"), "reading: <file>.epub");
+  assert.equal(redact("[WEB] Deleted Wi-Fi network at index 2 (SSID: Cafe (Free))"), "[WEB] Deleted Wi-Fi network at index 2 (SSID: <ssid>)");
+  assert.equal(redact("Connected BSSID: aa:bb:cc:dd:ee:ff, channel: 6, RSSI: -60 dBm"), "Connected BSSID: <mac>, channel: 6, RSSI: -60 dBm");
+});
+
+test("replyMatches: a reply is taken only by the command it answers", () => {
+  const status = { ok: true, version: "0.74.0-dev", uptime_ms: 5 };
+  const log = { ok: true, level: 2, log_debug: true, note: "n" };
+  const reboot = { ok: true, action: "reboot" };
+  const ping = { ok: true, pong: true, uptime_ms: 5 };
+  const bench = { ok: true, minutes: 5, on: true, file: "/.vaultink/bench.csv" };
+  const help = { ok: true, commands: "PING HELP" };
+  const table = { STATUS: status, "LOG 2": log, REBOOT: reboot, PING: ping, BENCH: bench, "BENCH 5": bench, HELP: help };
+  for (const command of Object.keys(table)) {
+    for (const other of Object.keys(table)) {
+      const same = table[command] === table[other];
+      assert.equal(lib.replyMatches(command, table[other]), same, command + " <- reply of " + other);
+    }
+  }
+  // An error names no command: whoever waits takes it.
+  assert.equal(lib.replyMatches("LOG 9", { ok: false, error: "usage: LOG <0-3>" }), true);
+  assert.equal(lib.replyMatches("STATUS", { ok: false, error: "unknown" }), true);
+  assert.equal(lib.replyMatches("STATUS", null), false);
+  assert.equal(lib.replyMatches("STATUS", { version: "x", uptime_ms: 1 }), false);
+  // Fields from the prototype do not count.
+  assert.equal(lib.replyMatches("STATUS", JSON.parse('{"ok":true,"uptime_ms":1}')), false);
+});
+
+test("stream: an abandoned picture is thrown away and the lines after it are read", () => {
+  // The whole picture still arrives, late.
+  let out = run(concat([bytes("SCREENSHOT_START:1000\n"), new Uint8Array(300).fill(10)]), 64);
+  out.parser.abandonPicture();
+  assert.equal(out.parser.state().mode, "discard");
+  const before = out.lines.length;
+  out.parser.feed(concat([new Uint8Array(700).fill(65), bytes("SCREENSHOT_END\n[1] next line\n")]));
+  assert.deepEqual(out.lines.slice(before), ["[1] next line"]);
+  assert.equal(out.shots.length, 0);
+  assert.equal(out.parser.state().mode, "lines");
+  // Bytes were lost: the end marker comes early and ends the discard; no garbage lines.
+  out = run(concat([bytes("SCREENSHOT_START:48000\n"), new Uint8Array(300).fill(10)]), 64);
+  out.parser.abandonPicture();
+  const mark = out.lines.length;
+  out.parser.feed(concat([new Uint8Array(500).fill(10), bytes("SCREENSHOT_END\n[2] after\n{\"ok\":true}\n")]));
+  assert.deepEqual(out.lines.slice(mark), ["[2] after", '{"ok":true}']);
+  // Waiting only for the end marker: just forgotten.
+  out = run(concat([bytes("SCREENSHOT_START:2\n"), Uint8Array.from([1, 2])]), 64);
+  out.parser.abandonPicture();
+  out.parser.feed(bytes("SCREENSHOT_END\nline\n"));
+  assert.equal(out.shots.length, 0);
+  assert.equal(out.parser.state().mode, "lines");
+});
+
+test("statusRows: a field named like something every object has", () => {
+  const rows = lib.statusRows(JSON.parse('{"ok":true,"constructor":"x","toString":1,"__proto__":"y"}'));
+  for (const row of rows) assert.equal(row.label, "");
+  assert.deepEqual(rows.map((row) => row.key).sort(), ["__proto__", "constructor", "toString"]);
+});
+
 test("redact: what is not private stays readable", () => {
   for (const line of [
     "version 0.74.0-dev at 12:34:56",

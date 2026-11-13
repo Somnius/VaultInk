@@ -674,8 +674,8 @@ reports AES key recovery on the S3 with voltage fault injection.
     scripts/devlink.py (800x480 1-bit to 480x800, checked against devlink.py by hash),
     `statusRows`, `redact` (URLs, e-mail, MAC, IPv6, IPv4, SSIDs in the firmware's log wording,
     SD paths and file names with the ending kept, host names, the user's own words) and
-    `buildRedactedReport` (redaction over the note, STATUS values and log lines only).
-    test/debuglib_test.js: 35 cases, `node test/debuglib_test.js`, no packages. The page keeps
+    `buildRedactedReport` (redaction over the note, STATUS values and log lines only), `replyMatches` (a reply is taken only by the command it answers), `abandonPicture` (a timed-out picture is discarded, not shown as lines).
+    test/debuglib_test.js: 40 cases, `node test/debuglib_test.js`, no packages. The page keeps
     5000 log lines, one command at a time (3 s reply timeout, 20 s for a picture), reopens the
     port on the browser's `connect` event, never writes reader text as HTML, and uploads nothing.
   - Publishing: scripts/deploy_web_installer.sh builds `x4pro-gh_release` then `x4pro-dev-user`,

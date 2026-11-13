@@ -66,9 +66,9 @@ What it answers, and what it does not:
 | **Refuses** | `BOOTLOADER`: `{"ok":false,"error":"BOOTLOADER is not in this build (read-only developer link)"}` |
 | **Does not know** | `KEY`, `TAP`, `SWIPE`, `FLASH`, `LS`, `GET`, `PUT`: `{"ok":false,"error":"unknown"}`. Their names are not in its command table and their code is not in the image |
 
-"Read-only" means: nothing the cable sends can press a key, touch the screen, read or write a
-file of yours, read or change a setting, or install firmware. Three commands do change something,
-and that is all of it: `LOG` switches debug lines on and off until the next restart, `REBOOT`
+"Read-only" is the short name, and it is not the whole truth, so exactly: over this link
+it can reboot the reader, change the log level, take a screenshot and write a small bench log to the SD card; it cannot read or write your files or settings. Nothing the cable sends can press a key, touch the screen or install firmware
+either, and `BOOTLOADER` is refused. Three commands do change something, and that is all of it: `LOG` switches debug lines on and off until the next restart, `REBOOT`
 restarts the reader (like its reset button), and `BENCH <minutes>` makes the reader write its own
 battery numbers to `/.vaultink/bench.csv` on the card (and the interval to `bench.cfg`); the cable
 cannot read those files back.
@@ -97,6 +97,10 @@ Privacy rules for this build and for the debug page:
   before saving. GitHub issues are public; e-mail stays the private route
   ([docs/debug-logs.md](debug-logs.md)).
 - The page has no `BOOTLOADER` button (the build has no such command either).
+- The browser's permission to use the reader's serial port belongs to the site's origin,
+  `https://somnius.github.io`, which every GitHub Pages site of that account shares: once you allow
+  the debug page, another page under that address could open the port without asking again. Only
+  our own pages live there; remove the permission in the browser's site settings when you are done.
 
 The update check treats it like the other developer builds: a release with the same three numbers
 is not offered, a higher one is, and installing it puts the release build back. The update file

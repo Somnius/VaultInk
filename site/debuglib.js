@@ -40,6 +40,38 @@
     return reply !== null && typeof reply.ok === "boolean" ? reply : null;
   }
 
+  // Whether `reply` can be the answer to the command `text` ("STATUS", "LOG 2", ...). A reply
+  // that comes after its command timed out (STATUS waits for the screen to finish drawing) must
+  // not be taken for the answer to the next command, so each command's reply is known by the
+  // fields only it has. An error reply ({"ok":false,"error":...}) names no command and is taken
+  // by whichever command is waiting.
+  const has = function (object, key) {
+    return Object.prototype.hasOwnProperty.call(object, key);
+  };
+  function replyMatches(text, reply) {
+    if (reply === null || typeof reply !== "object" || typeof reply.ok !== "boolean") return false;
+    if (reply.ok === false) return true;
+    const name = String(text).trim().split(/\s+/)[0];
+    switch (name) {
+      case "STATUS":
+        return has(reply, "version") && has(reply, "uptime_ms");
+      case "PING":
+        return reply.pong === true;
+      case "HELP":
+        return has(reply, "commands");
+      case "LOG":
+        return has(reply, "level");
+      case "BENCH":
+        return has(reply, "minutes") && has(reply, "file");
+      case "REBOOT":
+        return reply.action === "reboot";
+      case "BOOTLOADER":
+        return reply.action === "bootloader";
+      default:
+        return true; // a command this page does not know: any reply
+    }
+  }
+
   // The byte count of a SCREENSHOT_START:<n> line, or null.
   function parseScreenshotStart(line) {
     const match = /^SCREENSHOT_START:([0-9]{1,10})$/.exec(String(line).trim());
@@ -69,6 +101,10 @@
     let pictureUsed = 0;
     let waitingEnd = null; // the finished picture, until SCREENSHOT_END
     let linesSincePicture = 0;
+    let skipLine = false; // drop bytes up to the next newline
+    let discard = 0; // bytes of an abandoned picture still to throw away
+    let markerAt = 0; // how much of END_MARKER the discarded bytes have matched
+    const END_MARKER = [83, 67, 82, 69, 69, 78, 83, 72, 79, 84, 95, 69, 78, 68, 10]; // "SCREENSHOT_END\n"
 
     function finishLine() {
       let length = lineBytes.length;
@@ -106,6 +142,19 @@
     function feed(chunk) {
       let at = 0;
       while (at < chunk.length) {
+        if (discard > 0) {
+          // The rest of a picture nobody waits for: thrown away up to its announced length, or
+          // up to SCREENSHOT_END when that comes first (bytes were lost on the way).
+          const byte = chunk[at++];
+          --discard;
+          markerAt = byte === END_MARKER[markerAt] ? markerAt + 1 : byte === END_MARKER[0] ? 1 : 0;
+          if (markerAt === END_MARKER.length) discard = 0;
+          if (discard === 0) {
+            markerAt = 0;
+            skipLine = markerAt === 0 && byte !== 10;
+          }
+          continue;
+        }
         if (picture !== null) {
           const take = Math.min(picture.length - pictureUsed, chunk.length - at);
           picture.set(chunk.subarray(at, at + take), pictureUsed);
@@ -119,6 +168,11 @@
           continue;
         }
         const byte = chunk[at++];
+        if (skipLine) {
+          // What is left of a line that was cut: dropped up to its newline.
+          if (byte === 10) skipLine = false;
+          continue;
+        }
         if (byte === 10) {
           finishLine();
         } else {
@@ -136,14 +190,33 @@
       picture = null;
       pictureUsed = 0;
       waitingEnd = null;
+      discard = 0;
+      markerAt = 0;
+      skipLine = false;
       return lost;
+    }
+
+    // Give up on the picture that is arriving (it took too long) without losing the place in
+    // the stream: the bytes still to come are thrown away, then lines are read again from the
+    // next newline. Unlike reset(), for a port that is still open.
+    function abandonPicture() {
+      if (picture !== null) {
+        discard = picture.length - pictureUsed + END_MARKER.length;
+        markerAt = 0;
+        picture = null;
+        pictureUsed = 0;
+      } else if (waitingEnd !== null) {
+        waitingEnd = null;
+      }
     }
 
     return {
       feed: feed,
       reset: reset,
+      abandonPicture: abandonPicture,
       // What the parser is in the middle of, for a timeout on the page.
       state: function () {
+        if (discard > 0) return { mode: "discard", left: discard };
         if (picture !== null) return { mode: "bytes", got: pictureUsed, want: picture.length };
         if (waitingEnd !== null) return { mode: "end" };
         return { mode: "lines" };
@@ -200,7 +273,7 @@
 
   // ---- STATUS as a table ----
 
-  const STATUS_LABELS = {
+  const STATUS_LABELS = Object.assign(Object.create(null), {
     version: "Firmware version",
     build: "Build (dev-user: the read-only developer build)",
     uptime_ms: "Since it started (a wake from sleep is a start)",
@@ -226,7 +299,7 @@
     log_debug: "Debug log lines printing",
     bench_minutes: "SD bench log interval (minutes, 0 is off)",
     dropped_lines: "Command lines dropped for being too long",
-  };
+  });
 
   function formatDuration(ms) {
     if (typeof ms !== "number" || !isFinite(ms) || ms < 0) return String(ms);
@@ -242,7 +315,7 @@
     const rows = [];
     if (reply === null || typeof reply !== "object") return rows;
     for (const key of Object.keys(reply)) {
-      if (key === "ok") continue;
+      if (key === "ok" || !has(reply, key)) continue;
       const raw = reply[key];
       let value;
       if (typeof raw === "boolean") value = raw ? "yes" : "no";
@@ -304,14 +377,21 @@
       return scheme + "://" + put("host") + tail;
     });
 
-    // E-mail addresses.
-    out = out.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g, function () {
+    // E-mail addresses (any letters, not only ASCII), then user@host without a dot (lef@mynas).
+    out = out.replace(/[^\s@<>"'()\[\],;:=]+@[^\s@<>"'()\[\],;:=]+\.[^\s@<>"'()\[\],;:=.]+/g, function () {
       return put("email");
     });
+    out = out.replace(/[^\s@<>"'()\[\],;:=/]+@[^\s@<>"'()\[\],;:=/.]+/g, function () {
+      return put("user") + "@" + put("host");
+    });
 
-    // Hardware addresses (Wi-Fi BSSID, Bluetooth), before IPv6 which they resemble.
+    // Hardware addresses (Wi-Fi BSSID, Bluetooth), before IPv6 which they resemble; also twelve
+    // hex digits in a row with no separators.
     out = out.replace(/\b[0-9a-f]{2}(?:[:-][0-9a-f]{2}){5}\b/gi, function () {
       return put("mac");
+    });
+    out = out.replace(/(?<![\w.])[0-9a-f]{12}(?![\w.])/gi, function (match) {
+      return /^\d+$/.test(match) ? match : put("mac"); // twelve decimal digits are a number
     });
 
     // IPv6: with "::", or four or more groups (a time like 12:34:56 has three).
@@ -330,8 +410,13 @@
     // Wi-Fi names, in the wording the firmware's log uses, and the general "connected to <name>".
     // The name runs to the end of the line, or to " (" or a comma: a name may hold blanks.
     const NAME = "([^\\r\\n]+?)(?=\\s*(?:$|\\(|,|;))";
+    // "(SSID: name)" at the end of a line: the name may itself hold brackets.
+    out = out.replace(/(\(SSID:\s*)([^\r\n]+)(\)[ \t]*\r?)$/gim, function (match, lead, name, tail) {
+      return lead + put("ssid") + tail;
+    });
     const ssidPatterns = [
       "(\\bSSID\\s*[:=]\\s*)" + "([^\\r\\n)]+?)(?=\\s*(?:$|\\)|,|;))",
+      "(\\bjoined\\s+(?:Wi-?Fi\\s+|network\\s+|SSID\\s+)?)" + NAME,
       "(\\bWi-?Fi network\\s*:\\s*)" + NAME,
       "(\\bcredentials for\\s*:?\\s*)" + NAME,
       "(\\bpassword for\\s+)" + NAME,
@@ -344,6 +429,20 @@
         return lead + put("ssid");
       });
     }
+
+    // A line of a Wi-Fi scan list: "<name> -67 dBm" or "3: <name> (-67 dBm)".
+    out = out.replace(/((?:^|\] )\s*(?:\d+[:.)]\s+)?)([^\r\n\]]+?)(\s+\(?-\d{2,3}\s?dBm\b)/gim, function (match, lead, name, tail) {
+      if (/^<[a-z]+>$/.test(name.trim()) || /\bRSSI\b|:\s*$/i.test(name)) return match;
+      return lead + put("ssid") + tail;
+    });
+
+    // A server or a user named in passing: "host mynas", "user lef", "server=nas".
+    out = out.replace(/(\b(?:host|hostname|server)(?:\s*=\s*|\s+))([^\s<>,;()=:]+)(?![\w:=])/g, function (match, lead, name) {
+      return lead + put("host");
+    });
+    out = out.replace(/(\b(?:user|username)(?:\s*=\s*|\s+))([^\s<>,;()=:]+)(?![\w:=])/g, function (match, lead, name) {
+      return lead + put("user");
+    });
 
     // A server named after "connecting to": host or host:port.
     out = out.replace(/(\bconnecting to\s+)([^\s<>,;()]+)/gi, function (match, lead, host) {
@@ -372,10 +471,62 @@
     out = out.replace(new RegExp("([\"'])([^\"'\\r\\n<>]+)\\.(" + CONTENT_EXT + ")\\1", "gi"), function (match, quote, name, ending) {
       return quote + put("file") + "." + ending.toLowerCase() + quote;
     });
-    out = out.replace(new RegExp("(?<![\\w<>.])(?:[^\\s\"'<>]*/[^\\s\"'<>]*(?: [^\\s\"'<>]+)*? )?[^\\s\"'<>]+\\.(" + CONTENT_EXT + ")\\b(?![\\w>])", "gi"), function (match, ending) {
-      // With a "/" in it, it is a path that did not start with one (Vaults/Notes/My Plan.md): it
-      // is taken from the first word that holds a "/".
-      return put(match.indexOf("/") >= 0 ? "path" : "file") + "." + ending.toLowerCase();
+    // A path that did not start with "/" (Vaults/Notes/My Plan.md): from the first word that
+    // holds a "/".
+    out = out.replace(new RegExp("(?<![\\w<>.])[^\\s\"'<>]*/[^\\s\"'<>]*(?: [^\\s\"'<>]+)*?\\.(" + CONTENT_EXT + ")\\b(?![\\w>])", "gi"), function (match, ending) {
+      return put("path") + "." + ending.toLowerCase();
+    });
+    // A bare file name may hold blanks ("Tolstoy - War and Peace.epub"): the whole name is
+    // taken, from the start of the message (after "] ", ": ", "= " or "-> ") up to the ending.
+    out = out.replace(new RegExp("(?:^|(?<=\\] )|(?<=: )|(?<== )|(?<=-> ))[^\\r\\n\\]:<>\"'=]*?[^\\s\\]:<>\"'=/]\\.(" + CONTENT_EXT + ")\\b(?![\\w>])", "gim"), function (match, ending) {
+      return put("file") + "." + ending.toLowerCase();
+    });
+    // What is left: one word with a file ending.
+    out = out.replace(new RegExp("(?<![\\w<>.])[^\\s\"'<>]+\\.(" + CONTENT_EXT + ")\\b(?![\\w>])", "gi"), function (match, ending) {
+      return put("file") + "." + ending.toLowerCase();
+    });
+
+    // Names the firmware's log prints after a label, in its own wording.
+    // key=value: title=War and Peace, file=..., src=..., plugin='x' (to the end of the line when
+    // the value is not quoted: the firmware puts these last).
+    out = out.replace(/(\b(?:title|author|name|file|filename|path|src|plugin|folder|dir|book|note|vault|label)=)('[^'\r\n]*'|"[^"\r\n]*"|[^\r\n]+)/gi, function (match, lead, value) {
+      const bare = value.replace(/^['"]|['"]$/g, "").trim();
+      if (bare === "" || /^<[a-z]+>(\.\w+)?$/.test(bare) || /^-?\d+$/.test(bare)) return match;
+      const quote = /^['"]/.test(value) ? value[0] : "";
+      return lead + quote + put("name") + quote;
+    });
+    // A name in single quotes ('%s' in the firmware's messages).
+    out = out.replace(/(?<![\w<>])'([^'\r\n]{1,200})'(?![\w>])/g, function (match, value) {
+      if (/^<[a-z]+>(\.\w+)?$/.test(value.trim())) return match;
+      return "'" + put("name") + "'";
+    });
+    // Messages with the name in the middle.
+    const middle = [
+      /(\bIndex )([^\r\n]+?)(: [^\r\n]*\d+ notes\b)/g,
+      /((?:^|\] ))([^\r\n\]]+?)(: \d+ notes, \d+ read\b)/gm,
+      /(\bRename of )([^\r\n]+?)(: \d+ links\b)/g,
+      /(\bRecovered )([^\r\n]+?)( from its temp file\b)/g,
+      /(\b(?:Vector family|Family|font family|in family) )([^\r\n]+?)( has no\b|: |$)/gm,
+      /(\bNo )([^\r\n]+?)( directory on SD card\b)/g,
+    ];
+    for (const pattern of middle) {
+      out = out.replace(pattern, function (match, lead, name, tail) {
+        if (/^<[a-z]+>(\.\w+)?$/.test(name.trim())) return match;
+        return lead + put("name") + tail;
+      });
+    }
+    // "<label>: <name>" at the end of a log line, where the label says a name follows (Title:,
+    // Author:, "Added server:", "Loaded 3 bookmarks for book:", "Found dictionary:" ...). Not
+    // for JSON lines and not for the report's "key: value" STATUS lines.
+    const LABEL = "title|author|book|file|filename|folder|directory|dir|path|name|server|user|network|note|" +
+      "family|image|plugin|dictionary|source|link|credentials|URL|host|vault|document|entry|reference|rejected|" +
+      "duplicate|found|listing page for|changed|open failed|skipping|cover|font";
+    out = out.replace(new RegExp("^((?!\\s*\\{)[^\\r\\n]*(?<!<)\\b(?:" + LABEL + ")\\b(?!>)[^:\\r\\n]*:[ \\t]+)([^\\r\\n]+?)([ \\t]*\\r?)$", "gim"), function (match, lead, value, tail) {
+      const bare = value.trim();
+      // Already a token (with what the firmware adds after it), or only a number.
+      if (/^<[a-z]+>/.test(bare) || /^-?[\d.]+( \w+)?$/.test(bare) || /^["']<[a-z]+>/.test(bare) || /["']<[a-z]+>(\.\w+)?["']$/.test(bare)) return match;
+      if (!/^\[\d+\] \[/.test(lead)) return match; // only the reader's log lines: "[ms] [LEVEL] [TAG] ..."
+      return lead + put("name") + tail;
     });
 
     // Host names: words joined by dots that end in letters (name.local, sync.example.org).
@@ -462,6 +613,7 @@
     parseJsonLine: parseJsonLine,
     parseReply: parseReply,
     parseScreenshotStart: parseScreenshotStart,
+    replyMatches: replyMatches,
     commandBytes: commandBytes,
     createStreamParser: createStreamParser,
     rotateFramebuffer: rotateFramebuffer,
