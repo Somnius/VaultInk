@@ -22,6 +22,9 @@ inline constexpr Component COMPONENTS[] = {
     {"FreeInk SDK", "MIT", "Drivers, UI toolkit, keyboard, networking", "github.com/Somnius/freeink-sdk", "Copyright (c) 2026 FreeInk"},
     {"OpenX4 E-Paper Community SDK", "MIT", "E-paper panel drivers and waveforms", "github.com/open-x4-epaper/community-sdk", "Copyright (c) 2025 Open X4 E-Paper Contributors"},
     {"wolfSSL 5.7.2", "GPL-2.0-or-later", "TLS 1.3 and content decryption", "github.com/wolfSSL/Arduino-wolfSSL", "Copyright (C) 2006-2023 wolfSSL Inc."},
+#if defined(VAULTINK_SSH) && VAULTINK_SSH
+    {"wolfSSH 1.6.0", "GPL-3.0-or-later", "SSH terminal and SFTP client (X4 Pro)", "github.com/wolfSSL/wolfssh", "Copyright (C) 2014-2026 wolfSSL Inc."},
+#endif
     {"FreeType 2.13.3", "FTL OR GPL-2.0-or-later", "Drawing TTF/OTF fonts from the SD card", "freetype.org", "Copyright 1996-2002, 2006 by David Turner, Robert Wilhelm, and Werner Lemberg"},
     {"stb_truetype 1.26", "MIT OR Unlicense", "Drawing TTF fonts", "github.com/nothings/stb", "Copyright (c) 2017 Sean Barrett"},
     {"Arduino core for ESP32", "LGPL-2.1-or-later", "Arduino framework", "github.com/espressif/arduino-esp32", ""},
@@ -55,7 +58,8 @@ inline constexpr Component COMPONENTS[] = {
 // clang-format on
 
 inline constexpr size_t COMPONENT_COUNT = sizeof(COMPONENTS) / sizeof(COMPONENTS[0]);
-// Bytes of string data above (each string once, with its NUL); the table adds 20 bytes a row.
-inline constexpr size_t STRING_BYTES = 3609;
+// Bytes of string data above with every row in (each string once, with its NUL); the table adds 20
+// bytes a row.
+inline constexpr size_t STRING_BYTES = 3742;
 
 }  // namespace thirdparty

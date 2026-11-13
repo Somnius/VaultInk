@@ -75,4 +75,22 @@ echo "== run"
 RESULT=$?
 echo "== what the server negotiated (sshd log)"
 grep -E "kex: (algorithm|host key|client->server)|Accepted publickey|Failed (password|publickey)" "$D/sshd.log" | sed 's/^/   /' | sort | uniq -c | sort -rn | head -12
+
+# The other host key types the client asks for, each with its own sshd.
+for KIND in "ecdsa:ecdsa-sha2-nistp256" "rsa:ssh-rsa"; do
+  kill $SSHD_PID 2>/dev/null; wait $SSHD_PID 2>/dev/null
+  T=${KIND%%:*}
+  ssh-keygen -q -t "$T" -N '' -f "$D/host_$T" || exit 2
+  ssh-keygen -l -f "$D/host_$T.pub" > "$D/fingerprint_$T"
+  sed "s|^HostKey .*|HostKey $D/host_$T|" "$D/sshd_config" > "$D/sshd_config_$T"
+  "$SSHD" -D -e -f "$D/sshd_config_$T" 2> "$D/sshd_$T.log" &
+  SSHD_PID=$!
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    (exec 3<>/dev/tcp/127.0.0.1/$PORT) 2>/dev/null && break
+    sleep 0.3
+  done
+  echo "== run: $T host key"
+  "$BUILD_DIR/ssh_live_test" "$PORT" "$(id -un)" "$D" "$D/fingerprint_$T" "${KIND##*:}" || RESULT=1
+  grep -E "kex: host key algorithm" "$D/sshd_$T.log" | sort | uniq -c | sed 's/^/   /'
+done
 exit $RESULT

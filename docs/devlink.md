@@ -269,8 +269,9 @@ A command returns when the event is queued, not when the screen has changed: wai
 
 Everything else is `{"ok":false,"error":"path refused (docs/devlink.md, Security)"}`: `/.crosspoint`
 (settings, Wi-Fi and server passwords), `/Vaults`, `/books`, the card's root, and the rest of
-`/.vaultink` (it also holds the lock PIN and the LiveSync profile and setup text, so only the four
-files above can be read there). `LS /.vaultink` shows that those files exist, not what is in them.
+`/.vaultink` (it also holds the lock PIN, the LiveSync profile and setup text and, in
+`/.vaultink/ssh`, the device's SSH key and the pinned server keys, so only the four files above can
+be read there; `/.vaultink/ssh` is refused a second time by the credential-path rule). `LS /.vaultink` shows that those files exist, not what is in them.
 
 A path has one spelling. It is refused when it does not start with `/`, holds `..` anywhere, a `.`
 part, `//`, a slash at the end (`LS` allows one), a backslash, a colon or a control byte, a part

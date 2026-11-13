@@ -3,7 +3,7 @@
 // 127.0.0.1. Not part of the CMake test tree: it needs sshd and the .pio folder. Run it with
 // test/ssh_live/run.sh, which starts a throwaway sshd as the current user.
 //
-//   ssh_live_test <port> <user> <work dir> <known host fingerprint file>
+//   ssh_live_test <port> <user> <work dir> <known host fingerprint file> [host key type]
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -117,7 +117,7 @@ void termFree(void* p) { free(p); }
 
 int main(int argc, char** argv) {
   if (argc < 5) {
-    fprintf(stderr, "usage: %s <port> <user> <work dir> <fingerprint file>\n", argv[0]);
+    fprintf(stderr, "usage: %s <port> <user> <work dir> <fingerprint file> [host key type]\n", argv[0]);
     return 2;
   }
   Setup s{};
@@ -157,6 +157,31 @@ int main(int argc, char** argv) {
   chmod((s.dir + "/authorized_keys").c_str(), 0600);
 
   PosixSocket sock;
+
+  if (argc > 5) {
+    // Another kind of host key (run.sh starts sshd again with an ECDSA key, then an RSA key): the
+    // key is shown with the fingerprint OpenSSH prints, and once pinned the connection is made.
+    const std::string wantType = argv[5];
+    printf("host key type %s\n", wantType.c_str());
+    CHECK(sock.connectTo(s.port));
+    sshclient::Session session(sock);
+    sshclient::Login login = keyLogin(s);
+    CHECK(session.openSftp(login) == Error::HostKeyUnknown);
+    printf("   server key %s %s\n", session.hostKey().type.c_str(), session.hostKey().fingerprint.c_str());
+    CHECK(session.hostKey().type == wantType);
+    CHECK(wantFingerprint.find(session.hostKey().fingerprint) != std::string::npos);
+    CHECK(sshkh::add(s.knownHosts, "127.0.0.1", s.port, session.hostKey().blob.data(), session.hostKey().blob.size()));
+    CHECK(sock.connectTo(s.port));
+    login = keyLogin(s);
+    const Error e = session.openSftp(login);
+    printf("   openSftp -> %d (library %d)\n", static_cast<int>(e), session.lastLibraryError());
+    CHECK(e == Error::Ok);
+    std::string home;
+    CHECK(e == Error::Ok && session.sftpHome(home) == Error::Ok);
+    session.close();
+    printf(failures == 0 ? "ALL OK\n" : "%d FAILED\n", failures);
+    return failures == 0 ? 0 : 1;
+  }
 
   printf("2. first connection: host key unknown, nothing sent after the key exchange\n");
   CHECK(sock.connectTo(s.port));

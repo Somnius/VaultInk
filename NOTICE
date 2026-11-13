@@ -18,8 +18,13 @@ Firmware:
 - OpenX4 E-Paper Community SDK (E-paper panel drivers and waveforms): MIT, Copyright (c) 2025 Open X4 E-Paper Contributors.
 - wolfSSL 5.7.2 (Arduino-wolfSSL, linked into the firmware for TLS 1.3 and the content code): GPL-2.0-or-later,
   Copyright (c) wolfSSL Inc. wolfSSL is dual-licensed (GPL or a commercial licence). VaultInk uses it under the GPL.
-  Because of that, the firmware binaries are distributed under the terms of the GPL-2.0-or-later, with the
-  source in this repository. The source files of VaultInk itself stay under the MIT licence (see LICENSE).
+- wolfSSH 1.6.0 (vendored in lib/wolfssh, linked into the X4 Pro firmware for the SSH terminal and the SFTP client):
+  GPL-3.0-or-later, Copyright (c) wolfSSL Inc. wolfSSH is dual-licensed (GPL or a commercial licence). VaultInk uses it under the GPL.
+  wolfSSL's "version 2 or any later version" lets the two be combined under version 3. Because of that, the firmware
+  binaries that contain wolfSSH (the X4 Pro builds, which are the ones VaultInk ships) are distributed under the terms
+  of the GPL-3.0-or-later, with the source in this repository. A build without wolfSSH (VAULTINK_SSH not set) is
+  distributed under the terms of the GPL-2.0-or-later. The source files of VaultInk itself stay under the MIT licence
+  (see LICENSE).
 - FreeType 2.13.3 (Drawing TTF/OTF fonts from the SD card): FTL OR GPL-2.0-or-later, Copyright 1996-2002, 2006 by David Turner, Robert Wilhelm, and Werner Lemberg.
 - stb_truetype 1.26 (Drawing TTF fonts): MIT OR Unlicense, Copyright (c) 2017 Sean Barrett.
 - Arduino core for ESP32 (Arduino framework): LGPL-2.1-or-later.

@@ -45,7 +45,11 @@ class GeneratedFiles(unittest.TestCase):
         self.assertIn("Copyright (c) 2025 CrossPoint Reader organization, MIT License.", notice)
         self.assertIn("FreeInk SDK", notice)
         self.assertIn("wolfSSL is dual-licensed (GPL or a commercial licence). VaultInk uses it under the GPL.", notice)
-        self.assertIn("the firmware binaries are distributed under the terms of the GPL-2.0-or-later", notice)
+        self.assertIn("wolfSSH is dual-licensed (GPL or a commercial licence). VaultInk uses it under the GPL.", notice)
+        # The binaries VaultInk ships contain wolfSSH: GPL-3.0-or-later as a whole.
+        self.assertIn("binaries that contain wolfSSH (the X4 Pro builds, which are the ones VaultInk ships)", notice)
+        self.assertIn("of the GPL-3.0-or-later, with the source in this repository", notice)
+        self.assertIn("distributed under the terms of the GPL-2.0-or-later. The source files of VaultInk", notice)
         for c in self.data["components"]:
             self.assertIn(f"- {c['name']}", notice)
 
@@ -84,6 +88,34 @@ class Data(unittest.TestCase):
 
     def test_wolfssl_is_gpl(self):
         self.assertEqual(self.by_name("wolfSSL")["licence"], "GPL-2.0-or-later")
+
+    def test_wolfssh_is_gpl3_and_vendored(self):
+        ssh = self.by_name("wolfSSH")
+        self.assertEqual(ssh["licence"], "GPL-3.0-or-later")
+        self.assertEqual(ssh["only_with"], "VAULTINK_SSH")
+        # The licence was read from the vendored files, and they say what the JSON says.
+        licensing = read("lib/wolfssh/LICENSING")
+        self.assertIn("licensed for use under the GPLv3 or a standard commercial", licensing)
+        header = read("lib/wolfssh/src/ssh.c")[:1200]
+        self.assertIn("either version 3 of the License, or", header)
+        self.assertIn("(at your option) any later version", header)
+        self.assertIn("GNU GENERAL PUBLIC LICENSE", read("lib/wolfssh/COPYING")[:200])
+        self.assertIn("Version 3, 29 June 2007", read("lib/wolfssh/COPYING")[:200])
+        # The version in the list is the vendored one, and the note names the same commit.
+        version = re.search(r'LIBWOLFSSH_VERSION_STRING "([0-9.]+)"', read("lib/wolfssh/wolfssh/version.h")).group(1)
+        self.assertEqual(gen_licenses.short_version(ssh["version"]), version)
+        upstream = read("lib/wolfssh/UPSTREAM.md")
+        self.assertIn(f"Version: {version}", upstream)
+        self.assertIn(re.search(r"commit ([0-9a-f]{8})", ssh["version"]).group(1), upstream)
+        # The flag that links it is set where the licence text says it is: the X4 Pro builds.
+        ini = read("platformio.ini")
+        self.assertIn("-DVAULTINK_SSH=1", ini)
+        self.assertEqual(ini.count("${vaultink_ssh.build_flags}"), 3)
+
+    def test_no_gpl2_only_component(self):
+        # A GPL-2.0-only component could not be in a GPL-3.0-or-later binary.
+        for c in self.components:
+            self.assertNotIn("GPL-2.0-only", c["licence"], c["name"])
 
     def test_pinned_versions_match_platformio_ini(self):
         ini = read("platformio.ini")
@@ -143,6 +175,7 @@ class Device(unittest.TestCase):
     def test_only_what_is_in_the_binary(self):
         names = [row[0] for row in self.rows]
         self.assertTrue(any(n.startswith("wolfSSL") for n in names))
+        self.assertTrue(any(n.startswith("wolfSSH") for n in names))
         self.assertTrue(any(n.startswith("JSZip") for n in names))
         for absent in ("OkHttp", "ESP Web Tools", "pioarduino"):
             self.assertFalse(any(n.startswith(absent) for n in names), absent)
@@ -166,12 +199,29 @@ class Device(unittest.TestCase):
                 "STR_LICENCE_COPYRIGHT",
             ):
                 self.assertEqual(len(re.findall(rf"^{key}: \".+\"$", yaml, re.M)), 1, f"{lang} {key}")
-        intro = re.search(r'^STR_LICENCES_INTRO: "(.+)"$', read("lib/I18n/translations/english.yaml"), re.M).group(1)
+        english = read("lib/I18n/translations/english.yaml")
+        intro = re.search(r'^STR_LICENCES_INTRO: "(.+)"$', english, re.M).group(1)
         self.assertEqual(
             intro,
             "VaultInk is MIT. The firmware binary includes wolfSSL (GPL-2.0-or-later), so it is distributed "
             "under GPL terms. Source: github.com/Somnius/VaultInk",
         )
+        # The header line of a build with the SSH library (the shipped X4 Pro build).
+        intro_ssh = re.search(r'^STR_LICENCES_INTRO_SSH: "(.+)"$', english, re.M).group(1)
+        self.assertEqual(
+            intro_ssh,
+            "VaultInk is MIT. The firmware binary includes wolfSSL (GPL-2.0-or-later) and wolfSSH "
+            "(GPL-3.0-or-later), so it is distributed under the GPL-3.0-or-later. Source: github.com/Somnius/VaultInk",
+        )
+        self.assertEqual(len(re.findall(r'^STR_LICENCES_INTRO_SSH: ".+"$', read("lib/I18n/translations/greek.yaml"), re.M)), 1)
+        activity = read("src/activities/settings/LicencesActivity.cpp")
+        self.assertIn("STR_LICENCES_INTRO_SSH", activity)
+        self.assertIn("VAULTINK_SSH", activity)
+
+    def test_ssh_row_is_only_in_ssh_builds(self):
+        header = read("src/util/ThirdPartyData.h")
+        self.assertRegex(header, r'#if defined\(VAULTINK_SSH\) && VAULTINK_SSH\n    \{"wolfSSH [0-9.]+", "GPL-3.0-or-later",[^\n]+\n#endif\n')
+        self.assertEqual(header.count("#if defined("), 1)
 
 
 class OtherPlaces(unittest.TestCase):
@@ -192,6 +242,12 @@ class OtherPlaces(unittest.TestCase):
         site = read("site/index.html")
         self.assertIn("https://github.com/Somnius/VaultInk/blob/main/docs/licenses.md", site)
         self.assertIn("wolfSSL: GPL-2.0-or-later", site)
+        self.assertIn("wolfSSH: GPL-3.0-or-later", site)
+        self.assertIn("distributed under the GPL-3.0-or-later", site)
+        self.assertNotIn("is distributed under the GPL terms", site)
+        readme = read("README.md")
+        self.assertIn("so the binaries are distributed under the GPL-3.0-or-later", readme)
+        self.assertNotIn("so the binaries are distributed under the GPL terms", readme)
         self.assertIn("(docs/licenses.md)", read("README.md"))
         self.assertIn("(licenses.md)", read("docs/README.md"))
 
