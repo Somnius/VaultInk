@@ -40,7 +40,8 @@ At the right of the blue header:
   coroutines, OkHttp, AndroidX WebView, Gradle, API levels; "VaultInk firmware": C++20, ESP32-S3,
   PlatformIO, Arduino + FreeRTOS, NimBLE, Expat, FreeInk SDK, CrossPoint Reader, Obsidian,
   Self-hosted LiveSync, English · Ελληνικά), and credits (kos25k for testing, CrossPoint Reader,
-  Banana Comic Converter by u/curseofthebanana).
+  Banana Comic Converter by u/curseofthebanana). Not in a released app yet: "Open-source licences",
+  the libraries inside the app with their licences and a link to [licenses.md](licenses.md).
 
 ## Connecting
 

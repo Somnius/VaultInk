@@ -6,10 +6,14 @@
 #include <HalFrontlight.h>
 #include <HalTiltSensor.h>
 #include <I18n.h>
+#include <Logging.h>
+#include <Memory.h>
 #include <esp_mac.h>
 
 #include <cstdio>
+#include <utility>
 
+#include "LicencesActivity.h"
 #include "MappedInputManager.h"
 #include "components/UITheme.h"
 #include "images/Logo120.h"
@@ -18,7 +22,8 @@ namespace fui = freeink::ui;
 
 namespace {
 enum MenuItem {
-  ITEM_DEVICE = 0,
+  ITEM_LICENCES = 0,  // the only row that opens something; its label is translated
+  ITEM_DEVICE,
   ITEM_FIRMWARE,
   ITEM_CHIP,
   ITEM_FLASH,
@@ -35,6 +40,7 @@ enum MenuItem {
 // these screenshots across every device language, so the labels must be
 // identical on every unit.
 const char* const menuNames[AboutActivity::ITEM_COUNT] = {
+    nullptr,  // ITEM_LICENCES: tr(STR_LICENCES)
     "Device", "Firmware",          "Chip",        "Flash", "Display Controller", "Resolution", "Touch", "Frontlight",
     "RTC",    "Tilt Sensor (IMU)", "MAC Address",
 };
@@ -89,7 +95,7 @@ const char* AboutActivity::headerTitle() const { return tr(STR_ABOUT); }
 void AboutActivity::onEnter() {
   UiListActivity::onEnter();
   for (int i = 0; i < ITEM_COUNT; i++) {
-    rowItems_[i].label = menuNames[i];
+    rowItems_[i].label = i == ITEM_LICENCES ? tr(STR_LICENCES) : menuNames[i];
     rowItems_[i].actionValue = static_cast<int16_t>(i);
   }
 
@@ -117,6 +123,16 @@ void AboutActivity::onEnter() {
   esp_read_mac(mac, ESP_MAC_WIFI_STA);
   snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   rowValues_[ITEM_MAC] = buf;
+}
+
+void AboutActivity::activateIndex(const int index) {
+  if (index != ITEM_LICENCES) return;
+  app.clearTapFlash();
+  if (auto activity = makeUniqueNoThrow<LicencesActivity>(renderer, mappedInput)) {
+    startActivityForResult(std::move(activity), nullptr);
+  } else {
+    LOG_ERR("ABOUT", "OOM: LicencesActivity");
+  }
 }
 
 void AboutActivity::buildScreen(UiScreen& screen) {

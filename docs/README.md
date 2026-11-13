@@ -49,6 +49,12 @@ Start with the [main README](../README.md) for what VaultInk is and how to insta
 | [Fix a bricked Xteink](fix-bricked-xteink.md) | getting a device back |
 | [Translating](translating.md), [translators](translators.md), [i18n](i18n.md) | adding or fixing a language |
 
+## Licences
+
+| Guide | What is in it |
+| --- | --- |
+| [Open-source licences](licenses.md) | every library, font and icon in the firmware, the device's web pages, the companion app and the loader page, with its licence and the file it was read from; written by `scripts/gen_licenses.py` from [third-party.json](third-party.json) |
+
 ## For developers
 
 [activity-manager.md](activity-manager.md) (how screens work), [file-formats.md](file-formats.md) (the cache files on the SD card), [comparison.md](comparison.md), and in the repo root [SPECS.md](../SPECS.md), [ROADMAP.md](../ROADMAP.md), [SCOPE.md](../SCOPE.md) and [CHANGELOG.md](../CHANGELOG.md).

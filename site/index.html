@@ -248,6 +248,10 @@
     .credit { background: var(--paper-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
     .credit h3 { font-size: 1rem; }
     .credit p { margin: .3em 0 0; color: var(--muted); font-size: .95rem; }
+    .licences { margin-top: 20px; }
+    .licences ul { margin: .6em 0 0; padding-left: 1.2em; columns: 2; column-gap: 28px; color: var(--muted); font-size: .95rem; }
+    .licences li { break-inside: avoid; margin: 0 0 .25em; }
+    @media (max-width: 700px) { .licences ul { columns: 1; } }
 
     footer {
       border-top: 1px solid var(--line); padding: 32px 0 48px; color: var(--muted); font-size: .92rem;
@@ -861,6 +865,30 @@
           <p>Ideas borrowed from CrossNext and KOReader's SimpleUI plugin.</p>
         </div>
       </div>
+      <div class="credit licences" id="licences">
+        <h3>Libraries and licences</h3>
+        <p>VaultInk's own code is MIT. The firmware also contains wolfSSL (GPL-2.0-or-later), so the
+          firmware file you install is distributed under the GPL terms, with the source on GitHub.
+          The main libraries inside it:</p>
+        <ul>
+          <li>CrossPoint Reader, FreeInk SDK: MIT</li>
+          <li>wolfSSL: GPL-2.0-or-later</li>
+          <li>FreeType: FreeType License or GPL-2.0-or-later</li>
+          <li>Arduino core for ESP32: LGPL-2.1-or-later</li>
+          <li>ESP-IDF, NimBLE-Arduino: Apache-2.0</li>
+          <li>JPEGDEC, PNGdec, AnimatedGIF: Apache-2.0</li>
+          <li>WebSockets: LGPL-2.1-or-later</li>
+          <li>ArduinoJson, SdFat, QRCode, Expat, miniz: MIT</li>
+          <li>uzlib: zlib licence</li>
+          <li>JSZip (the reader's web page): MIT or GPLv3</li>
+          <li>Noto and OpenDyslexic fonts: SIL Open Font License 1.1</li>
+          <li>Ubuntu font: Ubuntu Font Licence 1.0</li>
+        </ul>
+        <p>Portions of this software are copyright © The FreeType Project (www.freetype.org). All
+          rights reserved. The Install button on this page is ESP Web Tools, loaded from unpkg.com.
+          <a href="https://github.com/Somnius/VaultInk/blob/main/docs/licenses.md">The full list,
+          with every licence and where it was read from</a>.</p>
+      </div>
     </div>
   </section>
 </main>
@@ -873,7 +901,7 @@
       <a href="https://lefteros.com/en/apps/vaultink">Project page and donations</a></span>
     <span><a href="https://github.com/Somnius/VaultInk">VaultInk on GitHub</a> ·
       <a href="https://github.com/Somnius/VaultInk/releases">Releases</a> ·
-      MIT licence · No cookies, no tracking</span>
+      MIT licence · <a href="#licences">Libraries and licences</a> · No cookies, no tracking</span>
   </div>
 </footer>
 

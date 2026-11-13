@@ -1,0 +1,499 @@
+{
+  "_about": "Third-party components in VaultInk. Edit this file, then run: python3 scripts/gen_licenses.py. It writes docs/licenses.md, src/util/ThirdPartyData.h and the component list in NOTICE. Every licence here was read from the file named in verified_from; 'not verified' means no licence file or package metadata was available to read.",
+  "project": {
+    "name": "VaultInk",
+    "licence": "MIT",
+    "source": "https://github.com/Somnius/VaultInk",
+    "verified_from": "LICENSE"
+  },
+  "components": [
+    {
+      "name": "CrossPoint Reader",
+      "version": "",
+      "used_for": "The firmware VaultInk is a fork of",
+      "licence": "MIT",
+      "copyright": "Copyright (c) 2025 CrossPoint Reader organization",
+      "source": "https://github.com/crosspoint-reader/crosspoint-reader",
+      "used_in": "firmware",
+      "verified_from": "LICENSE"
+    },
+    {
+      "name": "FreeInk SDK",
+      "version": "commit d0f33251 (Somnius/freeink-sdk, branch greek-keyboard)",
+      "used_for": "Drivers, UI toolkit, keyboard, networking",
+      "licence": "MIT",
+      "copyright": "Copyright (c) 2026 FreeInk",
+      "source": "https://github.com/Somnius/freeink-sdk",
+      "used_in": "firmware",
+      "verified_from": "freeink-sdk/LICENSE"
+    },
+    {
+      "name": "OpenX4 E-Paper Community SDK",
+      "version": "as included in the FreeInk SDK",
+      "used_for": "E-paper panel drivers and waveforms",
+      "licence": "MIT",
+      "copyright": "Copyright (c) 2025 Open X4 E-Paper Contributors",
+      "source": "https://github.com/open-x4-epaper/community-sdk",
+      "used_in": "firmware",
+      "verified_from": "freeink-sdk/NOTICE"
+    },
+    {
+      "name": "wolfSSL",
+      "version": "5.7.2 (wolfssl/Arduino-wolfSSL)",
+      "used_for": "TLS 1.3 and content decryption",
+      "licence": "GPL-2.0-or-later",
+      "copyright": "Copyright (C) 2006-2023 wolfSSL Inc.",
+      "source": "https://github.com/wolfSSL/Arduino-wolfSSL",
+      "used_in": "firmware",
+      "verified_from": ".pio/libdeps/x4pro/Arduino-wolfSSL/LICENSING, COPYING and the header of src/wolfssl/ssl.h",
+      "notes": "Dual-licensed: GPL or a commercial licence from wolfSSL Inc. VaultInk uses it under the GPL. Its library.json says GPL-2.0-only; the LICENSING file and the source headers say version 2 or any later version."
+    },
+    {
+      "name": "FreeType",
+      "version": "2.13.3 (in the FreeInk SDK's FreeInkFont)",
+      "used_for": "Drawing TTF/OTF fonts from the SD card",
+      "licence": "FTL OR GPL-2.0-or-later",
+      "copyright": "Copyright 1996-2002, 2006 by David Turner, Robert Wilhelm, and Werner Lemberg",
+      "source": "https://freetype.org",
+      "used_in": "firmware",
+      "verified_from": "freeink-sdk/libs/font/FreeInkFont/third_party/freetype/LICENSE.TXT and FTL.TXT",
+      "notes": "Portions of this software are copyright (c) The FreeType Project (www.freetype.org). All rights reserved. FreeType's LICENSE.TXT offers the FreeType License or the GPL version 2 (or later) and says the FreeType License is compatible with GPL version 3 but not version 2."
+    },
+    {
+      "name": "stb_truetype",
+      "version": "1.26 (in the FreeInk SDK's FreeInkFont)",
+      "used_for": "Drawing TTF fonts",
+      "licence": "MIT OR Unlicense",
+      "copyright": "Copyright (c) 2017 Sean Barrett",
+      "source": "https://github.com/nothings/stb",
+      "used_in": "firmware",
+      "verified_from": "freeink-sdk/libs/font/FreeInkFont/third_party/stb/stb_truetype.h (end of file)"
+    },
+    {
+      "name": "Arduino core for ESP32",
+      "version": "the one in pioarduino platform-espressif32 55.03.311 (the copy read here is 3.3.7)",
+      "used_for": "Arduino framework",
+      "licence": "LGPL-2.1-or-later",
+      "copyright": "",
+      "source": "https://github.com/espressif/arduino-esp32",
+      "used_in": "firmware",
+      "verified_from": "~/.platformio/packages/framework-arduinoespressif32/package.json (licence field; the package has no licence file)"
+    },
+    {
+      "name": "ESP-IDF",
+      "version": "the one prebuilt in the Arduino core's libraries (5.5.0 in the copy read here)",
+      "used_for": "Chip SDK: FreeRTOS, Wi-Fi, Bluetooth, USB",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://github.com/espressif/esp-idf",
+      "used_in": "firmware",
+      "verified_from": "~/.platformio/packages/framework-espidf/LICENSE and package.json",
+      "notes": "ESP-IDF bundles further components (FreeRTOS, lwIP, mbedTLS, newlib and others) under their own licences. Those were not checked one by one."
+    },
+    {
+      "name": "NimBLE-Arduino",
+      "version": "2.5.1",
+      "used_for": "Bluetooth LE: page turners, keyboards",
+      "licence": "Apache-2.0",
+      "copyright": "Copyright 2020-2026 Ryan Powell and esp-nimble-cpp, NimBLE-Arduino contributors",
+      "source": "https://github.com/h2zero/NimBLE-Arduino",
+      "used_in": "firmware",
+      "verified_from": ".pio/libdeps/x4pro/NimBLE-Arduino/LICENSE and NOTICE",
+      "notes": "Its NOTICE also credits esp32-snippets, Copyright 2017 Neil Kolban."
+    },
+    {
+      "name": "ArduinoJson",
+      "version": "7.4.2",
+      "used_for": "JSON",
+      "licence": "MIT",
+      "copyright": "Copyright (c) 2014-2025, Benoit BLANCHON",
+      "source": "https://github.com/bblanchon/ArduinoJson",
+      "used_in": "firmware",
+      "verified_from": ".pio/libdeps/x4pro/ArduinoJson/LICENSE.txt"
+    },
+    {
+      "name": "SdFat",
+      "version": "2.3.1 (with the patches in scripts/sdfat_patches)",
+      "used_for": "SD card file system",
+      "licence": "MIT",
+      "copyright": "Copyright (c) 2011..2020 Bill Greiman",
+      "source": "https://github.com/greiman/SdFat",
+      "used_in": "firmware",
+      "verified_from": ".pio/libdeps/x4pro/SdFat/LICENSE.md"
+    },
+    {
+      "name": "WebSockets",
+      "version": "2.7.3",
+      "used_for": "WebSocket uploads in File Transfer",
+      "licence": "LGPL-2.1-or-later",
+      "copyright": "Copyright (c) 2015 Markus Sattler",
+      "source": "https://github.com/Links2004/arduinoWebSockets",
+      "used_in": "firmware",
+      "verified_from": ".pio/libdeps/x4pro/WebSockets/LICENSE and the header of src/WebSockets.h",
+      "notes": "Its library.json says LGPL-2.1; the source headers say version 2.1 or any later version."
+    },
+    {
+      "name": "JPEGDEC",
+      "version": "1.8.4, commit 86282979 (with the patches in scripts/jpegdec_patches)",
+      "used_for": "JPEG pictures",
+      "licence": "Apache-2.0",
+      "copyright": "Copyright 2020 BitBank Software, Inc.",
+      "source": "https://github.com/bitbank2/JPEGDEC",
+      "used_in": "firmware",
+      "verified_from": ".pio/libdeps/x4pro/JPEGDEC/LICENSE"
+    },
+    {
+      "name": "PNGdec",
+      "version": "1.1.6",
+      "used_for": "PNG pictures",
+      "licence": "Apache-2.0",
+      "copyright": "Copyright 2020 BitBank Software, Inc.",
+      "source": "https://github.com/bitbank2/PNGdec",
+      "used_in": "firmware",
+      "verified_from": ".pio/libdeps/x4pro/PNGdec/LICENSE"
+    },
+    {
+      "name": "AnimatedGIF",
+      "version": "2.2.0, commit 67cfacaf",
+      "used_for": "GIF pictures",
+      "licence": "Apache-2.0",
+      "copyright": "Copyright 2020 BitBank Software, Inc.",
+      "source": "https://github.com/bitbank2/AnimatedGIF",
+      "used_in": "firmware",
+      "verified_from": ".pio/libdeps/x4pro/AnimatedGIF/LICENSE"
+    },
+    {
+      "name": "QRCode",
+      "version": "0.0.1",
+      "used_for": "QR codes",
+      "licence": "MIT",
+      "copyright": "Copyright (c) 2017 Richard Moore",
+      "source": "https://github.com/ricmoo/qrcode",
+      "used_in": "firmware",
+      "verified_from": ".pio/libdeps/x4pro/QRCode/LICENSE.txt"
+    },
+    {
+      "name": "Expat",
+      "version": "2.7.3",
+      "used_for": "XML parser for EPUB and OPDS",
+      "licence": "MIT",
+      "copyright": "Copyright (c) 1997-2000 Thai Open Source Software Center Ltd and others",
+      "source": "https://github.com/libexpat/libexpat",
+      "used_in": "firmware",
+      "verified_from": "lib/expat/expat.h (header)"
+    },
+    {
+      "name": "miniz",
+      "version": "3.1.2",
+      "used_for": "Inflate for ZIP and EPUB",
+      "licence": "MIT",
+      "copyright": "Copyright 2013-2014 RAD Game Tools and Valve Software; Copyright 2010-2014 Rich Geldreich and Tenacious Software LLC",
+      "source": "https://github.com/richgel999/miniz",
+      "used_in": "firmware",
+      "verified_from": "lib/miniz/third_party/miniz.c (the licence blocks in the file)",
+      "notes": "The first lines of miniz.h also point to an Unlicense (public domain) statement, which is in miniz.c. The FreeInk SDK's copy of miniz has a LICENSE file with the same MIT text."
+    },
+    {
+      "name": "uzlib",
+      "version": "2.9.8",
+      "used_for": "Inflate with a small memory footprint",
+      "licence": "Zlib",
+      "copyright": "Copyright (c) 2003 by Joergen Ibsen / Jibz; Copyright (c) 2014-2018 by Paul Sokolovsky",
+      "source": "https://github.com/pfalcon/uzlib",
+      "used_in": "firmware",
+      "verified_from": "lib/uzlib/src/uzlib.h (header)"
+    },
+    {
+      "name": "minibidi (from mintty)",
+      "version": "",
+      "used_for": "Right-to-left text: Arabic, Hebrew",
+      "licence": "MIT",
+      "copyright": "Ahmad Khalifa, Thomas Wolff",
+      "source": "https://github.com/mintty/mintty",
+      "used_in": "firmware",
+      "verified_from": "lib/MiniBidi/minibidi.c and minibidi.h (header comments)",
+      "notes": "The licence is named in the header comments of the port; the original licence text is not in this repository."
+    },
+    {
+      "name": "Noto Sans and Noto Serif",
+      "version": "",
+      "used_for": "Reading fonts",
+      "licence": "OFL-1.1",
+      "copyright": "Copyright 2022 The Noto Project Authors",
+      "source": "https://github.com/notofonts/latin-greek-cyrillic",
+      "used_in": "firmware",
+      "verified_from": "lib/EpdFont/builtinFonts/source/NotoSans/OFL.txt and NotoSerif/OFL.txt"
+    },
+    {
+      "name": "Noto Sans Arabic",
+      "version": "",
+      "used_for": "Arabic text",
+      "licence": "OFL-1.1",
+      "copyright": "Copyright 2022 The Noto Project Authors",
+      "source": "https://github.com/notofonts/arabic",
+      "used_in": "firmware",
+      "verified_from": "lib/EpdFont/builtinFonts/source/NotoSansArabic/OFL.txt"
+    },
+    {
+      "name": "Noto Sans Hebrew",
+      "version": "",
+      "used_for": "Hebrew text",
+      "licence": "OFL-1.1",
+      "copyright": "Copyright 2022 The Noto Project Authors",
+      "source": "https://github.com/notofonts/hebrew",
+      "used_in": "firmware",
+      "verified_from": "lib/EpdFont/builtinFonts/source/NotoSansHebrew/OFL.txt"
+    },
+    {
+      "name": "Noto Sans Symbols and Symbols 2",
+      "version": "",
+      "used_for": "Arrows and task boxes",
+      "licence": "OFL-1.1",
+      "copyright": "Copyright 2022 The Noto Project Authors",
+      "source": "https://github.com/notofonts/symbols",
+      "used_in": "firmware",
+      "verified_from": "lib/EpdFont/builtinFonts/source/NotoSansSymbols/OFL.txt and NotoSansSymbols2/OFL.txt"
+    },
+    {
+      "name": "OpenDyslexic",
+      "version": "",
+      "used_for": "Reading font",
+      "licence": "OFL-1.1",
+      "copyright": "Copyright (c) 2019-07-29, Abbie Gonzalez, with Reserved Font Name OpenDyslexic",
+      "source": "https://opendyslexic.org",
+      "used_in": "firmware",
+      "verified_from": "lib/EpdFont/builtinFonts/source/OpenDyslexic/OFL.txt"
+    },
+    {
+      "name": "Ubuntu font",
+      "version": "",
+      "used_for": "UI font",
+      "licence": "Ubuntu-font-1.0",
+      "copyright": "",
+      "source": "https://design.ubuntu.com/font",
+      "used_in": "firmware",
+      "verified_from": "lib/EpdFont/builtinFonts/source/Ubuntu/UFL.txt"
+    },
+    {
+      "name": "Lucide icons",
+      "version": "the FreeInk SDK's set is not pinned here; the two icons in src/components/icons/customListIcons.h are from 1.61.0",
+      "used_for": "UI icons",
+      "licence": "not verified",
+      "copyright": "",
+      "source": "https://lucide.dev",
+      "used_in": "firmware",
+      "verified_from": "",
+      "notes": "No licence file to read: the SDK's lucide submodule is not checked out. A comment in src/components/icons/customListIcons.h says ISC; the FreeInk SDK README says MIT."
+    },
+    {
+      "name": "Hyphenation patterns (typst/hypher)",
+      "version": "",
+      "used_for": "Hyphenation, 13 pattern sets",
+      "licence": "not verified",
+      "copyright": "",
+      "source": "https://github.com/typst/hypher",
+      "used_in": "firmware",
+      "verified_from": "",
+      "notes": "The pattern files are downloaded by scripts/update_hyphenation.sh and stored as generated tables; no licence file comes with them. The polytonic Greek patterns were built from tex-hyphen's hyph-el-polyton.tex."
+    },
+    {
+      "name": "HTML entity table (diy-esp32-epub-reader)",
+      "version": "commit 2c2f57fd",
+      "used_for": "HTML entities in books",
+      "licence": "not verified",
+      "copyright": "",
+      "source": "https://github.com/atomic14/diy-esp32-epub-reader",
+      "used_in": "firmware",
+      "verified_from": "",
+      "notes": "lib/Epub/Epub/htmlEntities.cpp says it is based on this project; its licence file is not in this repository."
+    },
+    {
+      "name": "Self-hosted LiveSync (document id scheme)",
+      "version": "",
+      "used_for": "Note ids the LiveSync plugin can find",
+      "licence": "not verified",
+      "copyright": "",
+      "source": "https://github.com/vrtmrz/obsidian-livesync",
+      "used_in": "firmware",
+      "verified_from": "",
+      "notes": "lib/LiveSync/LiveSyncIds.h says the id scheme is ported from the plugin; the plugin's licence file is not in this repository. VaultInk is not affiliated with the project."
+    },
+    {
+      "name": "UI translations",
+      "version": "",
+      "used_for": "The interface languages",
+      "licence": "MIT",
+      "copyright": "The translators in docs/translators.md, CrossPoint Reader and VaultInk contributors",
+      "source": "https://github.com/Somnius/VaultInk/blob/main/docs/translators.md",
+      "used_in": "firmware",
+      "verified_from": "LICENSE (the files in lib/I18n/translations are part of the project's source)"
+    },
+    {
+      "name": "pioarduino platform-espressif32",
+      "version": "55.03.311",
+      "used_for": "Build platform, not part of the binary",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://github.com/pioarduino/platform-espressif32",
+      "used_in": "firmware",
+      "build_only": true,
+      "verified_from": "~/.platformio/platforms/espressif32/LICENSE (the installed copy, 55.03.37)"
+    },
+    {
+      "name": "JSZip",
+      "version": "3.10.1",
+      "used_for": "ZIP in the File Transfer web page",
+      "licence": "MIT OR GPL-3.0",
+      "copyright": "(c) 2009-2016 Stuart Knightley",
+      "source": "https://github.com/Stuk/jszip",
+      "used_in": "device web pages",
+      "verified_from": "src/network/html/js/jszip.min.js (header)",
+      "notes": "The file is checked in at src/network/html/js/jszip.min.js and built into the firmware by scripts/build_html.py. Its header says: dual licenced under the MIT license or GPLv3. VaultInk uses it under the MIT licence."
+    },
+    {
+      "name": "pako",
+      "version": "the copy inside JSZip 3.10.1",
+      "used_for": "Deflate inside JSZip",
+      "licence": "MIT",
+      "copyright": "",
+      "source": "https://github.com/nodeca/pako",
+      "used_in": "device web pages",
+      "verified_from": "src/network/html/js/jszip.min.js (header: 'JSZip uses the library pako released under the MIT license')"
+    },
+    {
+      "name": "Kotlin standard library",
+      "version": "2.2.20",
+      "used_for": "Language runtime",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://github.com/JetBrains/kotlin",
+      "used_in": "companion",
+      "verified_from": "~/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.20/*/kotlin-stdlib-2.2.20.pom"
+    },
+    {
+      "name": "kotlinx.coroutines",
+      "version": "1.10.2",
+      "used_for": "Background work",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://github.com/Kotlin/kotlinx.coroutines",
+      "used_in": "companion",
+      "verified_from": "~/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-android/1.10.2/*/kotlinx-coroutines-android-1.10.2.pom"
+    },
+    {
+      "name": "OkHttp",
+      "version": "4.12.0",
+      "used_for": "HTTP to the reader",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://github.com/square/okhttp",
+      "used_in": "companion",
+      "verified_from": "~/.gradle/caches/modules-2/files-2.1/com.squareup.okhttp3/okhttp/4.12.0/*/okhttp-4.12.0.pom"
+    },
+    {
+      "name": "Okio",
+      "version": "3.6.0 (comes with OkHttp)",
+      "used_for": "I/O for OkHttp",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://github.com/square/okio",
+      "used_in": "companion",
+      "verified_from": "~/.gradle/caches/modules-2/files-2.1/com.squareup.okio/okio/3.6.0/*/okio-3.6.0.pom"
+    },
+    {
+      "name": "Jetpack Compose UI",
+      "version": "1.11.4 (Compose BOM 2026.06.01)",
+      "used_for": "User interface",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://cs.android.com/androidx/platform/frameworks/support",
+      "used_in": "companion",
+      "verified_from": "~/.gradle/caches/modules-2/files-2.1/androidx.compose.ui/ui/1.11.4/*/ui-1.11.4.pom and androidx.compose/compose-bom/2026.06.01/*/compose-bom-2026.06.01.pom"
+    },
+    {
+      "name": "Compose Material 3",
+      "version": "1.4.0 (Compose BOM 2026.06.01)",
+      "used_for": "Material design components",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://cs.android.com/androidx/platform/frameworks/support",
+      "used_in": "companion",
+      "verified_from": "~/.gradle/caches/modules-2/files-2.1/androidx.compose.material3/material3/1.4.0/*/material3-1.4.0.pom"
+    },
+    {
+      "name": "AndroidX Activity Compose",
+      "version": "1.13.0",
+      "used_for": "Compose in an Activity",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://cs.android.com/androidx/platform/frameworks/support",
+      "used_in": "companion",
+      "verified_from": "~/.gradle/caches/modules-2/files-2.1/androidx.activity/activity-compose/1.13.0/*/activity-compose-1.13.0.pom"
+    },
+    {
+      "name": "AndroidX WebKit",
+      "version": "1.12.1",
+      "used_for": "WebView for the comic converter",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://cs.android.com/androidx/platform/frameworks/support",
+      "used_in": "companion",
+      "verified_from": "~/.gradle/caches/modules-2/files-2.1/androidx.webkit/webkit/1.12.1/*/webkit-1.12.1.pom"
+    },
+    {
+      "name": "JUnit",
+      "version": "4.13.2",
+      "used_for": "Unit tests, not part of the app",
+      "licence": "EPL-1.0",
+      "copyright": "",
+      "source": "https://github.com/junit-team/junit4",
+      "used_in": "companion",
+      "build_only": true,
+      "verified_from": "~/.gradle/caches/modules-2/files-2.1/junit/junit/4.13.2/*/junit-4.13.2.pom"
+    },
+    {
+      "name": "Android Gradle plugin",
+      "version": "8.13.2",
+      "used_for": "Build tool, not part of the app",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://android.googlesource.com/platform/tools/base",
+      "used_in": "companion",
+      "build_only": true,
+      "verified_from": "~/.gradle/caches/modules-2/files-2.1/com.android.tools.build/gradle/8.13.2/*/gradle-8.13.2.pom"
+    },
+    {
+      "name": "Kotlin Gradle and Compose compiler plugins",
+      "version": "2.2.20",
+      "used_for": "Build tools, not part of the app",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://github.com/JetBrains/kotlin",
+      "used_in": "companion",
+      "build_only": true,
+      "verified_from": "~/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-gradle-plugin/2.2.20/*/kotlin-gradle-plugin-2.2.20.pom and compose-compiler-gradle-plugin/2.2.20/*/compose-compiler-gradle-plugin-2.2.20.pom"
+    },
+    {
+      "name": "Gradle wrapper",
+      "version": "8.13",
+      "used_for": "Build tool, not part of the app",
+      "licence": "Apache-2.0",
+      "copyright": "Copyright (c) 2015-2021 the original authors",
+      "source": "https://gradle.org",
+      "used_in": "companion",
+      "build_only": true,
+      "verified_from": "companion/gradlew (header, SPDX-License-Identifier line)"
+    },
+    {
+      "name": "ESP Web Tools",
+      "version": "10.4.0 (loaded from unpkg.com)",
+      "used_for": "The Install button on the loader page",
+      "licence": "not verified",
+      "copyright": "",
+      "source": "https://github.com/esphome/esp-web-tools",
+      "used_in": "site",
+      "verified_from": "",
+      "notes": "The page loads it from unpkg.com at run time; there is no copy in this repository or on this machine to read a licence from."
+    }
+  ]
+}

@@ -101,6 +101,9 @@
     <string name="about_releases">Εκδόσεις</string>
     <string name="about_stack_app">Αυτή η εφαρμογή</string>
     <string name="about_stack_firmware">Firmware VaultInk</string>
+    <string name="about_licences">Άδειες ανοιχτού κώδικα</string>
+    <string name="about_licences_note">Ο κώδικας της εφαρμογής είναι MIT. Περιέχει αυτές τις βιβλιοθήκες:</string>
+    <string name="about_licences_all">Όλες οι βιβλιοθήκες και οι άδειες (GitHub)</string>
     <string name="about_credits">Ευχαριστίες</string>
     <string name="about_credit_tester">kos25k: δοκιμές σε πραγματική συσκευή και τα issues που τη διαμόρφωσαν</string>
     <string name="about_credit_crosspoint">CrossPoint Reader: το firmware πάνω στο οποίο είναι χτισμένο το VaultInk</string>

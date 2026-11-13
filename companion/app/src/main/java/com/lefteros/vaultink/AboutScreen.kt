@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 const val REPO_URL = "https://github.com/Somnius/VaultInk"
 const val PROJECT_URL = "https://lefteros.com/en/apps/vaultink"
 const val RELEASES_URL = "https://github.com/Somnius/VaultInk/releases"
+const val LICENCES_URL = "https://github.com/Somnius/VaultInk/blob/main/docs/licenses.md"
 
 // What this app is built with: the dependencies and settings in app/build.gradle.kts.
 private val APP_STACK = listOf("Kotlin", "Jetpack Compose", "Material 3", "Kotlin coroutines", "OkHttp",
@@ -34,7 +35,20 @@ private val APP_STACK = listOf("Kotlin", "Jetpack Compose", "Material 3", "Kotli
 private val FIRMWARE_STACK = listOf("C++20", "ESP32-S3", "PlatformIO", "Arduino + FreeRTOS", "NimBLE", "Expat",
     "FreeInk SDK", "CrossPoint Reader", "Obsidian", "Self-hosted LiveSync", "English · Ελληνικά")
 
-/** App name and version, what it is, links, the tech stack as pills, credits. */
+// The libraries inside this app and their licences, from docs/third-party.json (its "companion" entries
+// that ship in the app). test/test_licenses.py fails when a name or licence here differs from the JSON.
+private val APP_LICENCES = listOf(
+    "Kotlin standard library" to "Apache-2.0",
+    "kotlinx.coroutines" to "Apache-2.0",
+    "OkHttp" to "Apache-2.0",
+    "Okio" to "Apache-2.0",
+    "Jetpack Compose UI" to "Apache-2.0",
+    "Compose Material 3" to "Apache-2.0",
+    "AndroidX Activity Compose" to "Apache-2.0",
+    "AndroidX WebKit" to "Apache-2.0",
+)
+
+/** App name and version, what it is, links, the tech stack as pills, the libraries' licences, credits. */
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -59,6 +73,11 @@ fun AboutScreen(onBack: () -> Unit) {
         Pills(APP_STACK)
         Text(stringResource(R.string.about_stack_firmware), style = MaterialTheme.typography.titleMedium)
         Pills(FIRMWARE_STACK)
+
+        Text(stringResource(R.string.about_licences), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.about_licences_note), style = MaterialTheme.typography.bodySmall)
+        Pills(APP_LICENCES.map { (name, licence) -> "$name · $licence" })
+        TextButton(onClick = { open(LICENCES_URL) }) { Text(stringResource(R.string.about_licences_all)) }
 
         Text(stringResource(R.string.about_credits), style = MaterialTheme.typography.titleMedium)
         Text("• " + stringResource(R.string.about_credit_tester))

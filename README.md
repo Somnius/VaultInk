@@ -452,10 +452,18 @@ VaultInk stands on other people's work:
   [Banana Comic Converter](https://seethroughme.github.io/Banana-Comic-Converter/) makes the comics
   VaultInk reads.
 
-The licences of the fonts, icons and libraries are listed in [NOTICE](NOTICE).
+## Libraries and licences
+
+Every library, font and icon VaultInk uses is listed with its licence in
+[docs/licenses.md](docs/licenses.md): the firmware, the device's web pages, the companion app and the
+loader page. Each licence there was read from the library's own licence file; where there was no file
+to read, it says `not verified`. The same list is in [NOTICE](NOTICE), on the device (Settings >
+System > About > Open-source licences) and in the companion app's About screen. The data is
+[docs/third-party.json](docs/third-party.json); `python3 scripts/gen_licenses.py` writes the rest
+from it.
 
 ## License
 
 MIT for VaultInk's own source. See [LICENSE](LICENSE).
 
-The firmware binaries also contain wolfSSL (TLS 1.3), which is GPL-2.0-or-later, so the binaries are distributed under the GPL terms, with the source in this repository. See [NOTICE](NOTICE).
+The firmware binaries also contain wolfSSL (TLS 1.3), which is GPL-2.0-or-later, so the binaries are distributed under the GPL terms, with the source in this repository. See [NOTICE](NOTICE) and [docs/licenses.md](docs/licenses.md).

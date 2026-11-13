@@ -616,6 +616,22 @@ reports AES key recovery on the S3 with voltage fault injection.
   fonts (OFL), NimBLE (Apache-2.0). All listed in NOTICE.
 - The LiveSync wire format is implemented from the public source; no LiveSync code is copied unless
   its licence allows it and it is credited.
+- Licence list (unreleased; host tests only, not compiled for the device, the companion change not
+  built): docs/third-party.json is the one source (name, version, used_for, licence as an SPDX id or
+  `not verified`, copyright, source, used_in = firmware / device web pages / companion / site,
+  verified_from = the file the licence was read from, optional notes and build_only).
+  scripts/gen_licenses.py (stdlib) writes docs/licenses.md, the component list in NOTICE (between its
+  two fixed sentences; the wolfSSL statement is kept word for word) and src/util/ThirdPartyData.h
+  (`thirdparty::COMPONENTS`, a constexpr table of five `const char*` a row for the firmware and
+  device-web entries that are in the binary; URLs without the scheme; `STRING_BYTES`; the script
+  refuses more than 6 KB of strings). `--check` exits 1 when an output is stale.
+  LicencesActivity (Settings > System > About, first row, `STR_LICENCES`) is a UiListActivity: the
+  intro line `STR_LICENCES_INTRO`, then a row per component (name, licence as the subtitle); a row
+  sets `detail_` and the same screen draws the detail view (name, Licence, Used for, Source,
+  Copyright), which takes every input until Back, Confirm or a tap. AboutActivity has 12 rows.
+  Companion: `APP_LICENCES` pills and a link to docs/licenses.md in AboutScreen.kt.
+  test/test_licenses.py: outputs in sync, each in-repo verified_from file exists, `not verified`
+  only with an empty verified_from, the string budget, the companion list and the site link.
 
 - Folders tab (0.56.0, kos25k #18): LibraryListActivity slot 4 (FAVOURITES_TAB_INDEX stays 3); lib/LibraryIndex/LibraryFolders bucketByFolder groups the Title order by each record's folder id; LibraryIndexFile::readFolderPath/forEachFolder read the folder table; folders open like author folders; always Title order.
 - PDF (0.56.0): lib/Pdf/PdfCrypt has SHA-256/384/512, AES-256-CBC decrypt, AES-128-CBC encrypt (no padding); PdfText setupAes256 does the R5/R6 hash and unwraps /UE for an empty user password; columnOrder finds 2 to 4 columns; Type0 fonts with Uni*-UCS2/UTF16 CMaps are read as UTF-16, other CID glyphs without a ToUnicode map are counted (Result::droppedGlyphs) and never emitted; Status::UnreadableFont.

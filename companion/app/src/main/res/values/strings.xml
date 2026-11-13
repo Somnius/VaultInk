@@ -102,6 +102,9 @@
     <string name="about_releases">Releases</string>
     <string name="about_stack_app">This app</string>
     <string name="about_stack_firmware">VaultInk firmware</string>
+    <string name="about_licences">Open-source licences</string>
+    <string name="about_licences_note">The code of this app is MIT. It includes these libraries:</string>
+    <string name="about_licences_all">Every library and licence (GitHub)</string>
     <string name="about_credits">Credits</string>
     <string name="about_credit_tester">kos25k: testing on a real reader and the issues that shaped it</string>
     <string name="about_credit_crosspoint">CrossPoint Reader: the firmware VaultInk is built on</string>

@@ -682,6 +682,19 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   ever ships.
 * Not planned: debugging over Wi-Fi, framebuffer streaming.
 
+## 🚧 Open-source licences (2026-11-13)
+
+* ✅ (unreleased, computer tests only, not compiled for the device, companion not built) Every
+  library, font and icon with its licence, read from its own licence file: docs/third-party.json,
+  and from it [docs/licenses.md](docs/licenses.md), NOTICE, the device's screen (Settings > System >
+  About > Open-source licences, with a detail view per component), the companion's About screen and
+  the loader page.
+* Still to do: build `x4pro` and look at the two screens on an X4 Pro (rows, the detail view, Greek);
+  measure the flash it adds; build the companion; redeploy the site.
+* Still `not verified` (no licence file to read offline): Lucide icons, the typst/hypher
+  hyphenation patterns, the HTML entity table from diy-esp32-epub-reader, the Self-hosted LiveSync
+  id scheme, ESP Web Tools on the loader page. Read each licence at its source and fill it in.
+
 ## 💤 Battery (needs the device)
 
 * Already in (from CrossPoint): CPU drops to 80 MHz after 3 s idle, deep sleep with the panel off
