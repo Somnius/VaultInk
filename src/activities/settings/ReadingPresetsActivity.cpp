@@ -1,5 +1,7 @@
 #include "ReadingPresetsActivity.h"
 
+#include <Arduino.h>
+#include <BoardConfig.h>
 #include <GfxRenderer.h>
 #include <I18n.h>
 #include <Memory.h>
@@ -29,14 +31,27 @@ void ReadingPresetsActivity::onBackButton() {
   finish();
 }
 
-void ReadingPresetsActivity::askNameAndSave(const int slot) {
+void ReadingPresetsActivity::askGesturesAndSave(const int slot) {
+  // Gestures are a touch feature; a board without touch saves the layout only, as before.
+  if (!BoardConfig::hasTouch()) {
+    askNameAndSave(slot, false);
+    return;
+  }
+  // The popup has already handed its callback over, so the next one can be shown from inside it.
+  static constexpr StrId kNoYes[] = {StrId::STR_NO, StrId::STR_YES};
+  optionPopup.show(StrId::STR_PRESET_INCLUDE_GESTURES, kNoYes, 2, 0,
+                   [this, slot](int idx) { askNameAndSave(slot, idx == 1); });
+  requestUpdate();
+}
+
+void ReadingPresetsActivity::askNameAndSave(const int slot, const bool includeGestures) {
   auto keyboard = makeUniqueNoThrow<KeyboardEntryActivity>(renderer, mappedInput, tr(STR_PRESET_NAME),
                                                            READING_PRESET_STORE.slot(slot).name,
                                                            readingpresets::kNameCapacity - 1, InputType::Text);
   if (!keyboard) return;
-  startActivityForResult(std::move(keyboard), [this, slot](const ActivityResult& result) {
+  startActivityForResult(std::move(keyboard), [this, slot, includeGestures](const ActivityResult& result) {
     if (!result.isCancelled) {
-      READING_PRESET_STORE.saveCurrent(slot, std::get<KeyboardResult>(result.data).text);
+      READING_PRESET_STORE.saveCurrent(slot, std::get<KeyboardResult>(result.data).text, includeGestures);
       nav.selected = slot + 1;
     }
     requestUpdate();
@@ -58,11 +73,19 @@ void ReadingPresetsActivity::activateIndex(const int index) {
     }
     const int current = READING_PRESET_STORE.currentSlot();
     optionPopup.show(StrId::STR_SAVE_PRESET, options, current < 0 ? 0 : current,
-                     [this](int idx) { askNameAndSave(idx); });
+                     [this](int idx) { askGesturesAndSave(idx); });
     requestUpdate();
     return;
   }
-  if (READING_PRESET_STORE.apply(index - 1)) applied_ = true;
+  bool gesturesSet = false;
+  if (READING_PRESET_STORE.apply(index - 1, &gesturesSet)) applied_ = true;
+  if (gesturesSet) {
+    {
+      RenderLock lock(*this);
+      GUI.drawPopup(renderer, tr(STR_PRESET_GESTURES_SET));
+    }
+    delay(1200);
+  }
   requestUpdate();
 }
 
@@ -79,7 +102,11 @@ void ReadingPresetsActivity::buildScreen(UiScreen& screen) {
   for (int i = 0; i < ReadingPresetsStore::SLOTS; i++) {
     const auto& preset = READING_PRESET_STORE.slot(i);
     rowItems_[i + 1].label = preset.name;
-    rowItems_[i + 1].value = !preset.saved ? tr(STR_PRESET_EMPTY) : i == current ? tr(STR_PRESET_IN_USE) : nullptr;
+    rowItems_[i + 1].value = !preset.saved ? tr(STR_PRESET_EMPTY)
+                             : preset.hasGestures
+                                 ? (i == current ? tr(STR_PRESET_IN_USE_GESTURES) : tr(STR_PRESET_WITH_GESTURES))
+                             : i == current ? tr(STR_PRESET_IN_USE)
+                                            : nullptr;
   }
   fui::ListProps props;
   props.items = rowItems_;

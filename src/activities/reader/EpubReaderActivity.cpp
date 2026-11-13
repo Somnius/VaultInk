@@ -4203,7 +4203,13 @@ void EpubReaderActivity::showReadingPresetsPopup() {
                         [this](int slot) { saveReadingPresetFromReader(slot); });
       return;
     }
-    if (READING_PRESET_STORE.apply(idx - 1)) applyTextSettingLive();
+    bool gesturesSet = false;
+    if (READING_PRESET_STORE.apply(idx - 1, &gesturesSet)) applyTextSettingLive();
+    if (gesturesSet) {  // a preset saved with "Include gestures": say that the touches changed too
+      clippingMessage = StrId::STR_PRESET_GESTURES_SET;
+      showClippingMessage = true;
+      clippingMessageTime = millis();
+    }
   });
   paintOverlayPopup();
 }
@@ -4327,7 +4333,13 @@ void EpubReaderActivity::saveReadingPresetFromReader(const int slot) {
     return;
   }
   startActivityForResult(std::move(keyboard), [this, slot](const ActivityResult& result) {
-    if (!result.isCancelled) READING_PRESET_STORE.saveCurrent(slot, std::get<KeyboardResult>(result.data).text);
+    // From the book the slot keeps its choice: a preset that carries gestures is saved with the current ones, any
+    // other stays layout only ("Include gestures" is asked in Settings > Reader > Reading presets).
+    if (!result.isCancelled) {
+      const auto& existing = READING_PRESET_STORE.slot(slot);
+      READING_PRESET_STORE.saveCurrent(slot, std::get<KeyboardResult>(result.data).text,
+                                       existing.saved && existing.hasGestures);
+    }
     requestUpdate();
   });
 }
