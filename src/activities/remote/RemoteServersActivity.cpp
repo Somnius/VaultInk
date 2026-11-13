@@ -63,7 +63,7 @@ void RemoteServerListActivity::rebuildRowItems() {
   rowItems_.clear();
   rowSubtitles_.clear();
   rowServer_.clear();
-  rowItems_.reserve(servers.size() + 1);
+  rowItems_.reserve(servers.size() + 2);
   rowSubtitles_.reserve(servers.size());
   rowServer_.reserve(servers.size());
   for (size_t i = 0; i < servers.size(); i++) {
@@ -93,6 +93,16 @@ void RemoteServerListActivity::rebuildRowItems() {
     add.actionValue = static_cast<int16_t>(rowServer_.size());
     rowItems_.push_back(add);
   }
+  // The SSH list: the reset for the pinned server keys, when there are any (also the way out when
+  // the file is unreadable or was changed outside the device).
+  forgetAllRow_ = -1;
+  if (sshOnly_ && sshdevice::hasKnownHosts()) {
+    fui::ListItem forget;
+    forget.label = tr(STR_SSH_FORGET_ALL);
+    forgetAllRow_ = static_cast<int>(rowItems_.size());
+    forget.actionValue = static_cast<int16_t>(forgetAllRow_);
+    rowItems_.push_back(forget);
+  }
 }
 
 const char* RemoteServerListActivity::headerTitle() const {
@@ -102,6 +112,18 @@ const char* RemoteServerListActivity::headerTitle() const {
 void RemoteServerListActivity::activateIndex(const int index) {
   nav.selected = index;
   app.clearTapFlash();
+  if (index == forgetAllRow_ && forgetAllRow_ >= 0) {
+    auto dialog = makeUniqueNoThrow<ConfirmationActivity>(renderer, mappedInput, tr(STR_SSH_FORGET_ALL),
+                                                          tr(STR_SSH_FORGET_ALL_BODY));
+    if (!dialog) return;
+    // Cancel is the preselected answer.
+    startActivityForResult(std::move(dialog), [this](const ActivityResult& result) {
+      if (!result.isCancelled) sshdevice::forgetAllHosts();
+      nav.selected = 0;
+      rebuildRowItems();
+    });
+    return;
+  }
   const auto serverRows = static_cast<int>(rowServer_.size());
   const int storeIndex = index >= 0 && index < serverRows ? rowServer_[static_cast<size_t>(index)] : -1;
   auto page = makeUniqueNoThrow<RemoteServerActivity>(renderer, mappedInput, storeIndex, sshOnly_);

@@ -70,7 +70,7 @@ class SftpClient final : public Client {
         session_(socket_) {}
   ~SftpClient() override {
     drop();
-    sshkey::wipe(password_.data(), password_.size());
+    wipePassword();
   }
 
   Error list(const std::string& dir, remotefiles::Listing& out, const Transfer& transfer) override;
@@ -86,6 +86,10 @@ class SftpClient final : public Client {
  private:
   Error ensureSession(const bool* cancel);
   void drop();
+  void wipePassword() {
+    sshkey::wipe(password_.data(), password_.size());
+    password_.clear();
+  }
   // The path on the server of `dir` (and `name` in it), under the start folder.
   bool remote(const std::string& dir, const std::string& name, std::string& out) const;
 
@@ -113,7 +117,7 @@ class SftpClient final : public Client {
 
   sshaddr::Address address_;
   std::string user_;
-  std::string password_;  // typed for this browsing session; wiped when the client goes
+  std::string password_;  // typed for this visit; wiped as soon as the sign-in is over
   bool keyAuth_;
   SshWifiSocket socket_;
   sshclient::Session session_;
@@ -129,6 +133,9 @@ void SftpClient::drop() {
 
 Error SftpClient::ensureSession(const bool* cancel) {
   if (session_.connected()) return Error::Ok;
+  // The typed password was wiped after the first sign-in: a dropped session is not opened again
+  // behind the user's back. The screen's Retry asks for the password again.
+  if (!keyAuth_ && password_.empty()) return Error::Network;
   if (!sshdevice::heapAllowsConnection()) return Error::LowMemory;
 
   sshclient::Login login;
@@ -143,7 +150,13 @@ Error SftpClient::ensureSession(const bool* cancel) {
   } else {
     login.password = password_;
   }
-  login.knownHosts = sshdevice::knownHosts();
+  // The pinned keys must be readable and the device's own; otherwise nothing is sent at all.
+  const sshdevice::HostKeys pins = sshdevice::knownHosts(login.knownHosts);
+  if (pins != sshdevice::HostKeys::Ok) {
+    sshkey::wipe(login.keySeed, sizeof(login.keySeed));
+    sshkey::wipe(login.password.data(), login.password.size());
+    return pins == sshdevice::HostKeys::Changed ? Error::HostKeysChanged : Error::HostKeysUnreadable;
+  }
 
   LOG_INF("SFTP", "Connecting to %s", sshaddr::display(address_).c_str());
   if (!socket_.connect(address_.host, address_.port, TIMEOUT_MS)) {
@@ -157,8 +170,13 @@ Error SftpClient::ensureSession(const bool* cancel) {
     if (e == sshclient::Error::HostKeyUnknown || e == sshclient::Error::HostKeyChanged)
       refusedKey_ = session_.hostKey();
     drop();
+    // Kept only for the one case that needs it again: the question about an unknown host key,
+    // after which the same password signs in. Every other outcome ends its use.
+    if (e != sshclient::Error::HostKeyUnknown) wipePassword();
     return map(e);
   }
+  // Signed in: the typed password has done its work.
+  wipePassword();
   if (base_.empty()) {
     if (!address_.path.empty()) {
       base_ = address_.path;
@@ -284,6 +302,13 @@ Error SftpClient::download(const std::string& dir, const std::string& name, cons
       size_t got = 0;
       e = session_.sftpRead(received, buffer.get(), sshclient::Session::SFTP_CHUNK, got);
       if (e != sshclient::Error::Ok || got == 0) break;
+      // Never more than the listing said (or the hard cap when it said nothing): a server that
+      // keeps sending does not fill the card.
+      if (!sshaddr::downloadMayTake(received, got, expectedSize)) {
+        e = sshclient::Error::Protocol;
+        break;
+      }
+      // A full card (or any failed write) ends it; the .part is removed below.
       if (file.write(buffer.get(), got) != got) {
         fileError = true;
         break;

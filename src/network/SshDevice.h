@@ -47,9 +47,22 @@ bool createKey();
 bool publicKeyText(std::string& authorizedKeysLine, std::string& fingerprint);
 
 // --- pinned host keys ---
-std::string knownHosts();
+// /.vaultink/ssh/known_hosts ends with a MAC line keyed from the device secret (sshkh::verify).
+enum class HostKeys : uint8_t {
+  Ok,          // `text` holds the pins, or is empty because there is no file yet (a first use)
+  Unreadable,  // the file is there but could not be read whole, is too big or is not text
+  Changed,     // the file is there but its MAC line is missing or wrong: changed outside the device
+};
+// Anything but Ok is a hard stop for a connection: no "trust this key?" question, nothing written.
+// The way out is forgetAllHosts(), on the user's word.
+HostKeys knownHosts(std::string& text);
+// Adds one pin, keeping the others. False unless the file is Ok and the host has nothing pinned.
 bool trustHost(const std::string& host, uint16_t port, const std::vector<uint8_t>& keyBlob);
-// How many lines were taken out.
+// How many lines were taken out (0 also when the file is not Ok).
 size_t forgetHost(const std::string& host, uint16_t port);
+// Is there a file at all (for the "Forget all host keys" row)?
+bool hasKnownHosts();
+// Deletes the file without reading it: every server asks again at its next connection.
+bool forgetAllHosts();
 
 }  // namespace sshdevice

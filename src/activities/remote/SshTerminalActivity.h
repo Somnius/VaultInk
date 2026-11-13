@@ -21,6 +21,9 @@
  *   on-screen keyboard for one line.
  * - E-ink: output is batched and drawn with a fast refresh at most twice a second; a full refresh
  *   after the screen is erased or every 120 scrolled lines (sshterm::RedrawPolicy).
+ * - The connection attempt has one limit for the key exchange and the sign-in together (30 s) and
+ *   Back or a tap cancels it; a typed key the server does not take within 3 s ends the session
+ *   with a message.
  * - The session ends when this screen closes, whatever closes it: Disconnect, sleep (onExit runs
  *   on the way to sleep) or USB Drive mode (which replaces this screen). Then Wi-Fi is switched
  *   off. Nothing here uses a timer or a wake-up. The lock screen only comes up after a wake, and

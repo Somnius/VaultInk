@@ -39,7 +39,15 @@
 namespace {
 
 constexpr uint16_t SCROLLBACK_LINES = 500;
-constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
+// Opening the TCP connection (WiFiClient cannot be interrupted, so this one is short), the longest
+// wait for one answer during the key exchange and the sign-in, and the limit for all of it together
+// (sshclient::Login::deadlineMs), which holds however the server spaces its answers.
+constexpr uint32_t TCP_CONNECT_TIMEOUT_MS = 8000;
+constexpr uint32_t ANSWER_TIMEOUT_MS = 15000;
+constexpr uint32_t SIGN_IN_DEADLINE_MS = 30000;
+// A typed key that the server does not take within this ends the session with a message: the
+// screen never hangs on a dead connection for longer.
+constexpr uint32_t KEY_SEND_TIMEOUT_MS = 3000;
 // Per loop pass: at most this much output is taken from the server, so keys are still read while
 // a program floods the screen (the rest waits in the TCP window).
 constexpr int READS_PER_LOOP = 4;
@@ -100,6 +108,7 @@ struct SshTerminalActivity::Impl {
   std::string message;  // State::Message: why there is no session
   std::string header;   // "Connected to host as user"
   bool connectPending = false;
+  bool cancelConnect = false;  // Back (or a tap) while "Connecting..." is up
   bool wifiUsed = false;
   bool fullRefresh = true;
   bool ctrlLatch = false;
@@ -199,6 +208,8 @@ void SshTerminalActivity::askPassword() {
       return;
     }
     server_.password = std::get<KeyboardResult>(result.data).text;
+    // The keyboard's copy of the password is not needed past this line.
+    sshkey::wipeConst(std::get<KeyboardResult>(result.data).text);
     if (server_.password.empty()) {
       finish();
       return;
@@ -247,7 +258,12 @@ void SshTerminalActivity::connectNow() {
   login.host = s.address.host;
   login.port = s.address.port;
   login.user = server_.username;
-  login.timeoutMs = CONNECT_TIMEOUT_MS;
+  login.timeoutMs = ANSWER_TIMEOUT_MS;
+  login.deadlineMs = SIGN_IN_DEADLINE_MS;
+  // Back, or a tap, while this blocks: the socket's idle hook reads the buttons between the
+  // server's answers and the session stops at the flag, like a cancelled file transfer.
+  s.cancelConnect = false;
+  login.cancel = &s.cancelConnect;
   if (server_.keyAuth) {
     login.useKey = true;
     if (!sshdevice::loadKey(login.keySeed, login.keyPublic)) {
@@ -257,20 +273,43 @@ void SshTerminalActivity::connectNow() {
   } else {
     login.password = server_.password;
   }
-  login.knownHosts = sshdevice::knownHosts();
+  // The pinned keys must be readable and the device's own. If not: no connection, no question
+  // about trusting a key, and nothing written; "Forget all host keys" is the way out.
+  const sshdevice::HostKeys pins = sshdevice::knownHosts(login.knownHosts);
+  if (pins != sshdevice::HostKeys::Ok) {
+    sshkey::wipe(login.keySeed, sizeof(login.keySeed));
+    sshkey::wipe(login.password.data(), login.password.size());
+    showMessage(pins == sshdevice::HostKeys::Changed ? tr(STR_SSH_KNOWN_HOSTS_CHANGED)
+                                                     : tr(STR_SSH_KNOWN_HOSTS_UNREADABLE));
+    return;
+  }
 
   sshclient::Error error = sshclient::Error::Network;
   {
     // Wi-Fi power save is off for the key exchange and the sign-in only (it adds seconds to them);
     // an open, idle session runs with the radio's normal power save.
     WifiPowerSaveGuard powerSave;
-    if (s.socket.connect(s.address.host, s.address.port, CONNECT_TIMEOUT_MS)) {
+    s.socket.setIdleHook(
+        [](void* ctx) {
+          auto* self = static_cast<SshTerminalActivity*>(ctx);
+          int x = 0;
+          int y = 0;
+          self->mappedInput.update(true);
+          if (self->mappedInput.wasReleased(MappedInputManager::Button::Back) ||
+              self->mappedInput.wasScreenTapped(x, y)) {
+            self->impl_->cancelConnect = true;
+          }
+        },
+        this);
+    if (s.socket.connect(s.address.host, s.address.port, TCP_CONNECT_TIMEOUT_MS)) {
       error = s.session.openShell(login, s.cols, s.rows);  // wipes the secrets in `login`
     } else {
       sshkey::wipe(login.keySeed, sizeof(login.keySeed));
       sshkey::wipe(login.password.data(), login.password.size());
     }
+    s.socket.setIdleHook(nullptr, nullptr);
   }
+  s.session.setShellWriteTimeout(KEY_SEND_TIMEOUT_MS);
   if (error != sshclient::Error::Ok) {
     LOG_ERR("SSH", "Connection failed: %d (wolfSSH %d)", static_cast<int>(error), s.session.lastLibraryError());
     s.socket.stop();
@@ -286,6 +325,9 @@ void SshTerminalActivity::connectNow() {
       // Never accepted from here: the way on is "Forget the server's key" on the server's page,
       // after checking with whoever runs the server.
       showMessage(tr(STR_SSH_HOST_KEY_CHANGED));
+      return;
+    case sshclient::Error::Aborted:
+      finish();  // cancelled by the user: back to the server's page (onExit wipes the password)
       return;
     case sshclient::Error::Auth:
       showMessage(tr(STR_REMOTE_ERR_AUTH));
@@ -381,9 +423,12 @@ void SshTerminalActivity::sendBytes(const std::string& bytes) {
     s.viewOffset = 0;  // typing goes back to the live screen
     s.policy.noteOther();
   }
+  // Waits at most KEY_SEND_TIMEOUT_MS; a server that does not take the bytes by then is treated as
+  // gone and the session is dropped with a message.
   if (s.session.writeShell(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size()) != sshclient::Error::Ok &&
       !s.session.connected()) {
-    showMessage(tr(STR_SSH_CLOSED));
+    s.socket.stop();
+    showMessage(s.session.hostKeyChangedMidSession() ? tr(STR_SSH_HOST_KEY_CHANGED_NOW) : tr(STR_SSH_CLOSED));
   }
 }
 
@@ -411,6 +456,8 @@ void SshTerminalActivity::openKeyboard() {
     impl_->policy.noteOther();
     if (result.isCancelled) return;
     const std::string text = std::get<KeyboardResult>(result.data).text;
+    // A line may be a password typed at a prompt (sudo): the keyboard's copy is cleared.
+    sshkey::wipeConst(std::get<KeyboardResult>(result.data).text);
     // With Ctrl latched the line's first character becomes the control character and no Enter is
     // added ("c" sends Ctrl-C); otherwise the line is sent with Enter.
     const bool ctrl = impl_->ctrlLatch;
@@ -601,7 +648,8 @@ void SshTerminalActivity::loop() {
     if (!reply.empty()) s.session.writeShell(reinterpret_cast<const uint8_t*>(reply.data()), reply.size());
   }
   if (ended) {
-    showMessage(tr(STR_SSH_CLOSED));
+    // A later key exchange that showed another host key ends the session with its own words.
+    showMessage(s.session.hostKeyChangedMidSession() ? tr(STR_SSH_HOST_KEY_CHANGED_NOW) : tr(STR_SSH_CLOSED));
     return;
   }
   if (s.noteUntil != 0 && static_cast<long>(millis() - s.noteUntil) >= 0) {
@@ -692,10 +740,10 @@ void SshTerminalActivity::render(RenderLock&&) {
       renderer.drawCenteredText(UI_12_FONT_ID, y, line.c_str());
       y += renderer.getLineHeight(UI_12_FONT_ID);
     }
-    if (s.state == Impl::State::Message) {
-      const auto labels = mappedInput.mapLabels(tr(STR_BACK), "", "", "");
-      GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
-    }
+    // Back leaves a message, and cancels a connection attempt.
+    const auto labels =
+        mappedInput.mapLabels(s.state == Impl::State::Message ? tr(STR_BACK) : tr(STR_CANCEL), "", "", "");
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     renderer.displayBuffer(HalDisplay::HALF_REFRESH);
     s.fullRefresh = false;
     return;

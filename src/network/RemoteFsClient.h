@@ -32,10 +32,12 @@ enum class Error : uint8_t {
   File,          // the file on the card could not be read or written
   Aborted,       // stopped by the user
   // SSH (SFTP) only:
-  HostKeyUnknown,  // first connection to this server: its key is not pinned yet. Ask, then trustHostKey()
-  HostKeyChanged,  // the server's key is not the pinned one: hard stop, never accepted from here
-  NoCipher,        // the server and this firmware share no key exchange, host key type or cipher
-  Unavailable,     // SSH is not in this build
+  HostKeyUnknown,      // first connection to this server: its key is not pinned yet. Ask, then trustHostKey()
+  HostKeyChanged,      // the server's key is not the pinned one: hard stop, never accepted from here
+  NoCipher,            // the server and this firmware share no key exchange, host key type or cipher
+  Unavailable,         // SSH is not in this build
+  HostKeysUnreadable,  // the file of pinned keys is there but cannot be read: hard stop
+  HostKeysChanged,     // the file of pinned keys was changed outside the device: hard stop
 };
 
 struct Transfer {

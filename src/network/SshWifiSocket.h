@@ -18,6 +18,12 @@ class SshWifiSocket final : public sshclient::Socket {
     return true;
   }
   void stop() { client.stop(); }
+  // Called from idle() about every 50 ms while a call waits for the server: where a screen reads
+  // its buttons during a blocking connection attempt (to set the cancel flag).
+  void setIdleHook(void (*hook)(void* ctx), void* ctx) {
+    idleHook = hook;
+    idleCtx = ctx;
+  }
   bool hasData() { return client.available() > 0; }
 
   int read(uint8_t* buf, const size_t len) override {
@@ -32,9 +38,18 @@ class SshWifiSocket final : public sshclient::Socket {
     return static_cast<int>(client.write(buf, len));
   }
   uint32_t nowMs() override { return millis(); }
-  void idle() override { delay(2); }
+  void idle() override {
+    delay(2);
+    if (idleHook && millis() - lastHookMs >= 50) {
+      lastHookMs = millis();
+      idleHook(idleCtx);
+    }
+  }
 
  private:
+  void (*idleHook)(void* ctx) = nullptr;
+  void* idleCtx = nullptr;
+  unsigned long lastHookMs = 0;
   WiFiClient client;
 };
 

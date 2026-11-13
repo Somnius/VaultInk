@@ -31,6 +31,7 @@ class RemoteServerListActivity final : public UiListActivity {
   // The store index of each server row (the SSH list leaves the other servers out).
   std::vector<int16_t> rowServer_;
   bool sshOnly_;
+  int forgetAllRow_ = -1;  // the row of "Forget all host keys" in the SSH list, -1 when it is not shown
   void rebuildRowItems();
 };
 

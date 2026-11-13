@@ -58,6 +58,10 @@ StrId errorText(const remotefs::Error error) {
       return StrId::STR_SSH_ERR_CIPHER;
     case remotefs::Error::Unavailable:
       return StrId::STR_SSH_ERR_UNAVAILABLE;
+    case remotefs::Error::HostKeysUnreadable:
+      return StrId::STR_SSH_KNOWN_HOSTS_UNREADABLE;
+    case remotefs::Error::HostKeysChanged:
+      return StrId::STR_SSH_KNOWN_HOSTS_CHANGED;
     case remotefs::Error::Network:
     default:
       return StrId::STR_REMOTE_ERR_NETWORK;
@@ -161,6 +165,8 @@ void RemoteBrowserActivity::askSshPassword() {
       return;
     }
     server.password = std::get<KeyboardResult>(result.data).text;
+    // The keyboard's copy of the password is not needed past this line.
+    sshkey::wipeConst(std::get<KeyboardResult>(result.data).text);
     if (server.password.empty()) {
       finish();
       return;
@@ -236,6 +242,8 @@ void RemoteBrowserActivity::startBrowse() {
   if (!client) {
     remotefs::Error error = remotefs::Error::Ok;
     client = remotefs::makeClient(server, plainConfirmed, error);
+    // The client has its own copy of a typed SSH password (and wipes it after the sign-in).
+    wipePassword();
     if (!client) {
       failWith(error);
       return;
