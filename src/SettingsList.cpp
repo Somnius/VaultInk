@@ -76,6 +76,14 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                           "autoWarmthStart", StrId::STR_CAT_DISPLAY));
   emit(SettingInfo::Value(StrId::STR_AUTO_WARMTH_UNTIL, &CrossPointSettings::autoWarmthEnd, {0, 23, 1}, "autoWarmthEnd",
                           StrId::STR_CAT_DISPLAY));
+  // Fixed hours (the default) or sunset to sunrise at the latitude and longitude below.
+  emit(SettingInfo::Enum(StrId::STR_AUTO_WARMTH_WINDOW, &CrossPointSettings::autoWarmthWindow,
+                         {StrId::STR_AUTO_WARMTH_WINDOW_HOURS, StrId::STR_AUTO_WARMTH_WINDOW_SUN}, "autoWarmthWindow",
+                         StrId::STR_CAT_DISPLAY));
+  emit(SettingInfo::String(StrId::STR_SUN_LATITUDE, &SETTINGS.sunLatitude[0], sizeof(SETTINGS.sunLatitude),
+                           "sunLatitude", StrId::STR_CAT_DISPLAY));
+  emit(SettingInfo::String(StrId::STR_SUN_LONGITUDE, &SETTINGS.sunLongitude[0], sizeof(SETTINGS.sunLongitude),
+                           "sunLongitude", StrId::STR_CAT_DISPLAY));
 #if FREEINK_CAP_WARMLIGHT
   emit(SettingInfo::Value(StrId::STR_NIGHT_WARMTH, &CrossPointSettings::autoWarmthNight, {0, 100, 5}, "autoWarmthNight",
                           StrId::STR_CAT_DISPLAY));

@@ -265,6 +265,48 @@ struct Reader {
     return true;
   }
 
+  // Reads `count` whole numbers 0-255: [1,2,3]. False for any other shape (the caller then skips the value).
+  bool readByteArray(uint8_t* out, const int count) {
+    if (!take('[')) return false;
+    for (int i = 0; i < count; ++i) {
+      if (i > 0 && !take(',')) return false;
+      skipSpace();
+      if (p >= end || *p < '0' || *p > '9') return false;
+      long v = 0;
+      while (p < end && *p >= '0' && *p <= '9') {
+        v = v * 10 + (*p - '0');
+        if (v > 255) return false;
+        ++p;
+      }
+      // A fraction, an exponent or anything else glued to the digits is not a whole number.
+      if (p < end && *p != ',' && *p != ']' && !isSpace(*p)) return false;
+      out[i] = static_cast<uint8_t>(v);
+    }
+    return take(']');
+  }
+
+  // {"slots":[..9..],"quick":[..6..]}: both arrays, once each, nothing else.
+  bool readGestures(Gestures& out) {
+    if (!take('{')) return false;
+    bool haveSlots = false;
+    bool haveQuick = false;
+    for (int i = 0; i < 2; ++i) {
+      if (i > 0 && !take(',')) return false;
+      char key[8];
+      if (!readString(key, sizeof(key)) || !take(':')) return false;
+      if (std::strcmp(key, "slots") == 0 && !haveSlots) {
+        if (!readByteArray(out.slots, kGestureSlots)) return false;
+        haveSlots = true;
+      } else if (std::strcmp(key, "quick") == 0 && !haveQuick) {
+        if (!readByteArray(out.quickMenu, kQuickMenuSlots)) return false;
+        haveQuick = true;
+      } else {
+        return false;
+      }
+    }
+    return take('}');
+  }
+
   bool readPreset(Preset& preset) {
     if (!take('{')) return false;
     if (take('}')) return true;
@@ -282,6 +324,19 @@ struct Reader {
       } else if (std::strcmp(key, "sdFont") == 0) {
         if (!readString(preset.layout.sdFontFamilyName, sizeof(preset.layout.sdFontFamilyName))) return false;
         handled = true;
+      } else if (std::strcmp(key, "gestures") == 0) {
+        // A block that is not exactly what serialize writes is skipped as a value: the preset stays layout only.
+        const char* const start = p;
+        Gestures gestures;
+        if (readGestures(gestures)) {
+          preset.gestures = gestures;
+          preset.hasGestures = true;
+          handled = true;
+        } else {
+          preset.gestures = Gestures{};
+          preset.hasGestures = false;
+          p = start;
+        }
       } else {
         for (const Field& f : kFields) {
           if (std::strcmp(key, f.key) != 0) continue;
@@ -326,6 +381,11 @@ bool Layout::operator==(const Layout& other) const {
                      [this, &other](const Field& f) { return this->*(f.member) == other.*(f.member); });
 }
 
+bool Gestures::operator==(const Gestures& other) const {
+  return std::memcmp(slots, other.slots, sizeof(slots)) == 0 &&
+         std::memcmp(quickMenu, other.quickMenu, sizeof(quickMenu)) == 0;
+}
+
 void PresetList::reset() {
   for (int i = 0; i < kSlots; ++i) {
     slots[i] = Preset{};
@@ -336,6 +396,14 @@ void PresetList::reset() {
 int PresetList::find(const Layout& layout) const {
   for (int i = 0; i < kSlots; ++i) {
     if (slots[i].saved && slots[i].layout == layout) return i;
+  }
+  return -1;
+}
+
+int PresetList::find(const Layout& layout, const Gestures& gestures) const {
+  for (int i = 0; i < kSlots; ++i) {
+    if (!slots[i].saved || slots[i].layout != layout) continue;
+    if (!slots[i].hasGestures || slots[i].gestures == gestures) return i;
   }
   return -1;
 }
@@ -373,6 +441,15 @@ bool save(PresetList& list, const int slot, const Layout& layout) {
   if (slot < 0 || slot >= kSlots) return false;
   list.slots[slot].layout = layout;
   list.slots[slot].saved = true;
+  list.slots[slot].hasGestures = false;
+  list.slots[slot].gestures = Gestures{};
+  return true;
+}
+
+bool save(PresetList& list, const int slot, const Layout& layout, const Gestures& gestures) {
+  if (!save(list, slot, layout)) return false;
+  list.slots[slot].hasGestures = true;
+  list.slots[slot].gestures = gestures;
   return true;
 }
 
@@ -380,6 +457,8 @@ bool clear(PresetList& list, const int slot) {
   if (slot < 0 || slot >= kSlots) return false;
   list.slots[slot].saved = false;
   list.slots[slot].layout = Layout{};
+  list.slots[slot].hasGestures = false;
+  list.slots[slot].gestures = Gestures{};
   return true;
 }
 
@@ -397,6 +476,17 @@ size_t serialize(const PresetList& list, char* buf, const size_t cap) {
       w.putString(preset.layout.sdFontFamilyName);
       for (const Field& f : kFields) {
         w.put(",\"%s\":%u", f.key, static_cast<unsigned>(preset.layout.*(f.member)));
+      }
+      if (preset.hasGestures) {
+        w.put(",\"gestures\":{\"slots\":[");
+        for (int g = 0; g < kGestureSlots; ++g) {
+          w.put(g == 0 ? "%u" : ",%u", static_cast<unsigned>(preset.gestures.slots[g]));
+        }
+        w.put("],\"quick\":[");
+        for (int g = 0; g < kQuickMenuSlots; ++g) {
+          w.put(g == 0 ? "%u" : ",%u", static_cast<unsigned>(preset.gestures.quickMenu[g]));
+        }
+        w.put("]}");
       }
     }
     w.put("}");
@@ -436,7 +526,11 @@ bool parse(const char* data, const size_t size, PresetList& out) {
   }
   // An unsaved slot carries no values; a slot that came with a blank name gets its default back.
   for (int i = 0; i < kSlots; ++i) {
-    if (!out.slots[i].saved) out.slots[i].layout = Layout{};
+    if (!out.slots[i].saved) {
+      out.slots[i].layout = Layout{};
+      out.slots[i].hasGestures = false;
+    }
+    if (!out.slots[i].hasGestures) out.slots[i].gestures = Gestures{};
     if (out.slots[i].name[0] == '\0') defaultName(i, out.slots[i].name, sizeof(out.slots[i].name));
   }
   return true;

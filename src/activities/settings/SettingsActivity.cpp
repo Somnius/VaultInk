@@ -7,6 +7,7 @@
 #include <HalDisplay.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <SunTimes.h>
 #include <Utf8.h>
 #include <WiFi.h>
 
@@ -52,6 +53,7 @@
 #include "activities/reader/QrDisplayActivity.h"
 #include "activities/remote/RemoteServersActivity.h"
 #include "activities/util/IntervalSelectionActivity.h"
+#include "activities/util/KeyboardEntryActivity.h"
 #include "activities/util/WelcomeGuideActivity.h"
 #include "activities/vault/LiveSyncActivity.h"
 #include "components/UITheme.h"
@@ -356,6 +358,47 @@ void SettingsActivity::toggleSelectedSetting() {
     } else {
       SETTINGS.*(setting.valuePtr) = currentValue + setting.valueRange.step;
     }
+  } else if (setting.type == SettingType::STRING && setting.stringOffset != 0 && setting.stringMaxLen > 1) {
+    // A text field kept in CrossPointSettings (the latitude and longitude of Auto Warmth): typed on the keyboard.
+    char* target = reinterpret_cast<char*>(&SETTINGS) + setting.stringOffset;
+    const size_t size = setting.stringMaxLen;
+    const StrId nameId = setting.nameId;
+    auto keyboard = makeUniqueNoThrow<KeyboardEntryActivity>(renderer, mappedInput, I18N.get(nameId),
+                                                             std::string(target), size - 1, InputType::Text);
+    if (!keyboard) return;
+    startActivityForResult(std::move(keyboard), [this, target, size, nameId](const ActivityResult& result) {
+      if (!result.isCancelled) {
+        std::string text = std::get<KeyboardResult>(result.data).text;
+        bool ok = true;
+        if (nameId == StrId::STR_SUN_LATITUDE || nameId == StrId::STR_SUN_LONGITUDE) {
+          // Degrees with one decimal, kept in one spelling; empty clears the field.
+          int tenths = 0;
+          const int limit =
+              nameId == StrId::STR_SUN_LATITUDE ? autoschedule::kMaxLatitudeTenths : autoschedule::kMaxLongitudeTenths;
+          if (text.find_first_not_of(' ') == std::string::npos) {
+            text.clear();
+          } else if (autoschedule::parseDegrees(text.c_str(), limit, tenths)) {
+            char clean[8];
+            autoschedule::formatDegrees(tenths, clean, sizeof(clean));
+            text = clean;
+          } else {
+            ok = false;
+            {
+              RenderLock lock(*this);
+              GUI.drawPopup(renderer, tr(STR_SUN_BAD_DEGREES));
+            }
+            delay(1500);
+          }
+        }
+        if (ok) {
+          strncpy(target, text.c_str(), size - 1);
+          target[size - 1] = '\0';
+          SETTINGS.saveToFile();
+        }
+      }
+      requestUpdate();
+    });
+    return;
   } else if (setting.type == SettingType::ACTION) {
     auto resultHandler = [this](const ActivityResult&) { SETTINGS.saveToFile(); };
 
@@ -705,6 +748,10 @@ std::string SettingsActivity::settingValueText(const SettingInfo& setting) {
       return valueBuffer;
     }
     return std::to_string(SETTINGS.*(setting.valuePtr));
+  }
+  if (setting.type == SettingType::STRING && setting.stringOffset != 0) {
+    const char* text = reinterpret_cast<const char*>(&SETTINGS) + setting.stringOffset;
+    return text[0] != '\0' ? text : tr(STR_NOT_SET);
   }
   return "";
 }

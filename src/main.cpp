@@ -19,6 +19,7 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <SPI.h>
+#include <SunTimes.h>
 #include <TrustedTime.h>
 #ifndef SIMULATOR
 #include <esp_sleep.h>
@@ -239,6 +240,39 @@ void toggleFrontlight() {
 // (and goes to the night value, see util/AutoWarmthState.h). A boot or wake starts the light from the side that was
 // applied last, so a wake at night is still warm. Needs the clock to have been set: with an untrusted clock the
 // schedule does nothing. Turning the feature off puts the day side back once.
+//
+// With the window set to "Sunset to Sunrise" the switch comes at the sunset and sunrise of the local date at the
+// latitude and longitude from the settings (lib/AutoSchedule/SunTimes.h), worked out once per date. On a date with
+// no sunrise or no sunset (polar day or night), and while the location is missing or not a number, the two hours
+// decide as before.
+namespace {
+autoschedule::SunTimes sunTimesFor(const struct tm& local) {
+  int latitude = 0;
+  int longitude = 0;
+  if (!autoschedule::parseDegrees(SETTINGS.sunLatitude, autoschedule::kMaxLatitudeTenths, latitude) ||
+      !autoschedule::parseDegrees(SETTINGS.sunLongitude, autoschedule::kMaxLongitudeTenths, longitude)) {
+    return {};
+  }
+  // The clock's offset from UTC right now, daylight saving included: the same moment as UTC.
+  struct tm copy = local;
+  const time_t moment = mktime(&copy);
+  struct tm utc;
+  if (moment == static_cast<time_t>(-1) || gmtime_r(&moment, &utc) == nullptr) return {};
+  const int offset = autoschedule::utcOffsetMinutes(local.tm_year, local.tm_yday, local.tm_hour * 60 + local.tm_min,
+                                                    utc.tm_year, utc.tm_yday, utc.tm_hour * 60 + utc.tm_min);
+  static autoschedule::SunTimes cached;
+  static int32_t cachedKey[4] = {-1, 0, 0, 0};
+  const int32_t key[4] = {local.tm_year * 400 + local.tm_yday, latitude, longitude, offset};
+  if (memcmp(key, cachedKey, sizeof(key)) != 0) {
+    cached = autoschedule::sunTimes(local.tm_year + 1900, local.tm_mon + 1, local.tm_mday, latitude, longitude, offset);
+    memcpy(cachedKey, key, sizeof(key));
+    LOG_INF("AUTO", "Sun: kind %u, rise %d, set %d (minutes of the day)", static_cast<unsigned>(cached.kind),
+            static_cast<int>(cached.sunrise), static_cast<int>(cached.sunset));
+  }
+  return cached;
+}
+}  // namespace
+
 void handleAutoSchedule() {
   static unsigned long lastCheckMs = 0;
   const bool wasNight = (SETTINGS.autoWarmthApplied & autowarmth::NIGHT_BIT) != 0;
@@ -252,8 +286,17 @@ void handleAutoSchedule() {
   uint8_t minute = 0;
   autoschedule::Step step = autoschedule::Step::EnterDay;  // switched off: back to the day side
   if (SETTINGS.autoWarmth != 0) {
-    if (trustedtime::trustedNow() <= 0 || !halClock.isAvailable() || !halClock.getTime(hour, minute)) return;
-    step = autoschedule::next(true, SETTINGS.autoWarmthStart, SETTINGS.autoWarmthEnd, hour, SETTINGS.autoWarmthApplied);
+    struct tm local;
+    if (trustedtime::trustedNow() <= 0 || !halClock.isAvailable() || !halClock.localTime(local)) return;
+    hour = static_cast<uint8_t>(local.tm_hour);
+    minute = static_cast<uint8_t>(local.tm_min);
+    if (SETTINGS.autoWarmthWindow == CrossPointSettings::AUTO_WARMTH_SUN) {
+      step = autoschedule::nextSun(true, sunTimesFor(local), SETTINGS.autoWarmthStart, SETTINGS.autoWarmthEnd, hour,
+                                   minute, SETTINGS.autoWarmthApplied);
+    } else {
+      step =
+          autoschedule::next(true, SETTINGS.autoWarmthStart, SETTINGS.autoWarmthEnd, hour, SETTINGS.autoWarmthApplied);
+    }
   }
   if (step == autoschedule::Step::None) return;
   const bool night = step == autoschedule::Step::EnterNight;

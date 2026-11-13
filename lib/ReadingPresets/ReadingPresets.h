@@ -13,6 +13,8 @@ constexpr int kSlots = 10;
 constexpr size_t kNameCapacity = 25;            // 24 bytes of UTF-8 plus the NUL
 constexpr size_t kFontFamilyNameCapacity = 32;  // same as CrossPointSettings::sdFontFamilyName
 constexpr uint8_t kFileVersion = 1;
+constexpr int kGestureSlots = 9;    // gestures::kSlotCount (the store checks they agree)
+constexpr int kQuickMenuSlots = 6;  // gestures::kQuickMenuSize
 
 // The layout settings a preset carries, in the order of the Text panel plus Advanced Typography.
 struct Layout {
@@ -38,10 +40,25 @@ struct Layout {
   bool operator!=(const Layout& other) const { return !(*this == other); }
 };
 
+// The reader gestures a preset may carry (Settings > Reader > Gestures): the action of each touch slot and the six
+// Quick Menu entries, as lib/Gestures stores them (0 = Default). This module only keeps the bytes; the store checks
+// them against the list of actions when it applies them.
+struct Gestures {
+  uint8_t slots[kGestureSlots] = {};
+  uint8_t quickMenu[kQuickMenuSlots] = {};
+
+  bool operator==(const Gestures& other) const;
+  bool operator!=(const Gestures& other) const { return !(*this == other); }
+};
+
 struct Preset {
   char name[kNameCapacity] = {};
   bool saved = false;
   Layout layout;
+  // "Include gestures" was chosen when the preset was saved. Off (every older file): the preset is layout only and
+  // applying it leaves the gestures alone.
+  bool hasGestures = false;
+  Gestures gestures;
 };
 
 struct PresetList {
@@ -50,8 +67,10 @@ struct PresetList {
   PresetList() { reset(); }
   // Every slot empty with its default name ("Preset 1" .. "Preset 10").
   void reset();
-  // Index of the first saved slot whose layout equals `layout`, else -1.
+  // Index of the first saved slot whose layout equals `layout`, else -1. Gestures are not compared.
   int find(const Layout& layout) const;
+  // The same, but a slot that carries gestures only matches when they equal `gestures` too.
+  int find(const Layout& layout, const Gestures& gestures) const;
 };
 
 // Writes "Preset N" (N = slot + 1) into `out`; `cap` includes the NUL.
@@ -60,8 +79,11 @@ void defaultName(int slot, char* out, size_t cap);
 // boundary. An empty result falls back to the slot's default name. Returns false (name unchanged) for a
 // slot out of range.
 bool setName(PresetList& list, int slot, const char* name);
-// Stores `layout` in `slot` and marks it saved. Returns false for a slot out of range.
+// Stores `layout` in `slot` and marks it saved, as a layout-only preset (gestures the slot had are dropped).
+// Returns false for a slot out of range.
 bool save(PresetList& list, int slot, const Layout& layout);
+// The same, and the preset carries `gestures` too.
+bool save(PresetList& list, int slot, const Layout& layout, const Gestures& gestures);
 // Empties a slot; its name stays. Returns false for a slot out of range.
 bool clear(PresetList& list, int slot);
 
@@ -69,7 +91,9 @@ bool clear(PresetList& list, int slot);
 // style; when the return value is >= cap the output was cut.
 size_t serialize(const PresetList& list, char* buf, size_t cap);
 // Reads what serialize wrote. Missing keys keep their defaults, unknown keys are skipped, extra slots are
-// ignored. False (and `out` reset) when the text is not a JSON object.
+// ignored. A preset's "gestures" block counts only when it is exactly {"slots":[9 numbers],"quick":[6 numbers]} with
+// every number 0-255; any other shape is skipped and the preset stays layout only. False (and `out` reset) when the
+// text is not a JSON object.
 bool parse(const char* data, size_t size, PresetList& out);
 
 }  // namespace readingpresets

@@ -20,15 +20,21 @@ class ReadingPresetsStore {
   // Reads the file once (later calls are free).
   void ensureLoaded();
   const readingpresets::Preset& slot(int index);
-  // The slot whose values equal the current settings, else -1.
+  // The slot whose values equal the current settings (and, for a preset with gestures, the current gestures),
+  // else -1.
   int currentSlot();
 
   // The current layout settings, as the Text panel shows them.
   static readingpresets::Layout capture();
+  // The current reader gestures and Quick Menu entries (Settings > Reader > Gestures).
+  static readingpresets::Gestures captureGestures();
   // Stores the current settings in `index` under `name` (empty: the slot keeps its name) and writes the file.
-  bool saveCurrent(int index, const std::string& name);
-  // Copies the slot's values into SETTINGS and saves settings.json. False for an empty slot.
-  bool apply(int index);
+  // With `includeGestures` the preset also carries the current gestures; without, it is layout only (and a slot
+  // that had gestures loses them).
+  bool saveCurrent(int index, const std::string& name, bool includeGestures = false);
+  // Copies the slot's values into SETTINGS and saves settings.json. False for an empty slot. A preset saved with
+  // its gestures sets those too (`gesturesSet`, when given, says so); any other preset leaves the gestures alone.
+  bool apply(int index, bool* gesturesSet = nullptr);
 
  private:
   ReadingPresetsStore() = default;

@@ -1,5 +1,6 @@
 #include "ReadingPresetsStore.h"
 
+#include <Gestures.h>
 #include <HalStorage.h>
 #include <Logging.h>
 
@@ -12,6 +13,9 @@ namespace {
 constexpr const char* FILE_PATH = "/.crosspoint/reading-presets.json";
 constexpr const char* TMP_PATH = "/.crosspoint/reading-presets.json.tmp";
 constexpr const char* BAD_PATH = "/.crosspoint/reading-presets.json.bad";
+
+static_assert(readingpresets::kGestureSlots == gestures::kSlotCount, "the presets keep one action per gesture slot");
+static_assert(readingpresets::kQuickMenuSlots == gestures::kQuickMenuSize, "the presets keep the whole Quick Menu");
 }  // namespace
 
 void ReadingPresetsStore::ensureLoaded() {
@@ -39,7 +43,7 @@ const readingpresets::Preset& ReadingPresetsStore::slot(const int index) {
 
 int ReadingPresetsStore::currentSlot() {
   ensureLoaded();
-  return list.find(capture());
+  return list.find(capture(), captureGestures());
 }
 
 readingpresets::Layout ReadingPresetsStore::capture() {
@@ -65,15 +69,27 @@ readingpresets::Layout ReadingPresetsStore::capture() {
   return l;
 }
 
-bool ReadingPresetsStore::saveCurrent(const int index, const std::string& name) {
+readingpresets::Gestures ReadingPresetsStore::captureGestures() {
+  readingpresets::Gestures g;
+  for (int i = 0; i < readingpresets::kGestureSlots; ++i)
+    g.slots[i] = gestures::sanitizeSlot(SETTINGS.gestureAction[i]);
+  for (int i = 0; i < readingpresets::kQuickMenuSlots; ++i)
+    g.quickMenu[i] = gestures::sanitizeQuick(SETTINGS.quickMenu[i]);
+  return g;
+}
+
+bool ReadingPresetsStore::saveCurrent(const int index, const std::string& name, const bool includeGestures) {
   ensureLoaded();
-  if (!readingpresets::save(list, index, capture())) return false;
+  const bool stored = includeGestures ? readingpresets::save(list, index, capture(), captureGestures())
+                                      : readingpresets::save(list, index, capture());
+  if (!stored) return false;
   if (!name.empty()) readingpresets::setName(list, index, name.c_str());
   return save();
 }
 
-bool ReadingPresetsStore::apply(const int index) {
+bool ReadingPresetsStore::apply(const int index, bool* gesturesSet) {
   ensureLoaded();
+  if (gesturesSet != nullptr) *gesturesSet = false;
   if (index < 0 || index >= SLOTS || !list.slots[index].saved) return false;
   const readingpresets::Layout& l = list.slots[index].layout;
   SETTINGS.fontFamily = l.fontFamily % CrossPointSettings::FONT_FAMILY_COUNT;
@@ -99,14 +115,23 @@ bool ReadingPresetsStore::apply(const int index) {
   SETTINGS.textWidowOrphan = l.textWidowOrphan ? 1 : 0;
   SETTINGS.textKeepHeadings = l.textKeepHeadings ? 1 : 0;
   SETTINGS.textHanging = l.textHanging ? 1 : 0;
+  if (list.slots[index].hasGestures) {
+    // An action this firmware does not know (a file from a newer one) becomes Default, as on load.
+    const readingpresets::Gestures& g = list.slots[index].gestures;
+    for (int i = 0; i < readingpresets::kGestureSlots; ++i)
+      SETTINGS.gestureAction[i] = gestures::sanitizeSlot(g.slots[i]);
+    for (int i = 0; i < readingpresets::kQuickMenuSlots; ++i)
+      SETTINGS.quickMenu[i] = gestures::sanitizeQuick(g.quickMenu[i]);
+    if (gesturesSet != nullptr) *gesturesSet = true;
+  }
   SETTINGS.saveToFile();
   return true;
 }
 
 bool ReadingPresetsStore::save() {
-  // 10 slots at ~250 bytes each, ~610 with every name byte escaped; the buffer lives on the heap, not the stack of
-  // the UI task.
-  constexpr size_t CAP = 6400;
+  // 10 slots at ~250 bytes each, ~610 with every name byte escaped, and up to 86 more for a gestures block; the
+  // buffer lives on the heap, not the stack of the UI task.
+  constexpr size_t CAP = 7424;
   std::unique_ptr<char[]> buf(new (std::nothrow) char[CAP]);
   if (!buf) return false;
   const size_t need = readingpresets::serialize(list, buf.get(), CAP);

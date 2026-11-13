@@ -69,7 +69,15 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 
 **Settings → Display** (boards with a frontlight): **Auto Warmth by Clock** turns the schedule on. **Night From (hour)** and **Night Until (hour)** set the window on the local clock (default 20 to 7; it can cross midnight, and the same hour twice means never). **Night Warmth** is the warmth used inside the window, and **Night Mode at Night** also turns night mode on for it. At the start of the window the light goes to the night warmth, at the end back to your day warmth.
 
-It only acts when the window starts or ends, so a change you make in the light panel stays until the next switch. Inside the window the light panel changes the night warmth, and outside it the day warmth. A wake at night is still warm. Turning the setting off puts the day side back. It needs the clock to be set (Settings → System → Clock); with no trusted time it does nothing. It is by time only: there is no sun position, because that needs a location, and it adds no wake-ups, so it does not touch sleep. Computer tests only, not tried on a device.
+It only acts when the window starts or ends, so a change you make in the light panel stays until the next switch. Inside the window the light panel changes the night warmth, and outside it the day warmth. A wake at night is still warm. Turning the setting off puts the day side back. It needs the clock to be set (Settings → System → Clock); with no trusted time it does nothing. It adds no wake-ups, so it does not touch sleep. Computer tests only, not tried on a device.
+
+### Sunset to sunrise
+
+**Night Window** chooses what the window is: **Fixed Hours** (the default, the two hours above) or **Sunset to Sunrise**. For the sun the reader needs to know where you are: **Latitude** and **Longitude**, typed in degrees with one decimal, north and east positive, south and west with a minus. Athens is 38.0 and 23.7, New York 40.7 and -74.0, Sydney -33.9 and 151.2. A comma works as the decimal mark, a second decimal is rounded, an empty line clears the field, and anything that is not a number in range (latitude up to 90, longitude up to 180) is refused with a message. Both can also be set on the web settings page; a value typed there that is not a number counts as not set.
+
+With both set, the light goes to the night warmth at today's sunset and back at today's sunrise, worked out on the device from the date, your time zone and daylight saving (Settings → System → Clock). There is no network and no location service in it, and the place stays in the settings file on the card. The times agree with the U.S. Naval Observatory's tables to about two minutes in the computer tests (Athens, Reykjavik, Sydney, Quito, Fiji; summer and winter).
+
+The two hours still matter in two cases, where they decide instead of the sun: while the latitude or longitude is not set, and on a date when the sun does not rise or does not set where you are (the polar day and the polar night, north of about 66° or south of -66°). "Sunset" here is the usual one: the top of the sun at the horizon, not the end of twilight. Nothing changes if you leave Night Window on Fixed Hours. Computer tests only, not tried on a device.
 
 ## Page backgrounds: Paper Button Cycle
 
@@ -168,6 +176,14 @@ While a book is open the kerning and ligature switches also apply to the menus d
 ## Reading presets (0.70.0)
 
 **Settings → Reader → Reading presets**, and the last row of the book menu → **More**, keep ten sets of your Text settings (kos25k #12). **Save preset** asks which slot and then for a name (it starts as the slot's own name, "Preset 1" and so on). A preset holds font, size, line spacing, alignment, hyphenation, Focus Reading, Even Word Gaps, word and character spacing, screen margin, paragraph indent and the five Advanced Typography switches. In a book, press a slot and its settings apply at once and the page is laid out again; the slot that matches your current settings shows "In use". They are kept in `/.crosspoint/reading-presets.json`.
+
+### Gestures in a preset
+
+On a touch board, **Save preset** in Settings → Reader → Reading presets asks one more thing after the slot: **Include gestures**, No or Yes. No is the default and gives a preset like before, layout only. Yes also keeps the nine touches and the six Quick Menu rows of [Gestures](#gestures-and-the-quick-menu) as they are now, so a preset can be a whole profile (say, one for reading in bed with the corners doing other things). Such a slot shows "With gestures" in the list.
+
+Applying a preset with gestures sets them too, and a short message says so ("Gestures set from the preset"). Applying any other preset leaves your gestures alone, and so do all presets saved before this. A preset with gestures only shows "In use" when both the layout and the gestures match. Saving over a slot from Settings takes the new answer, so No drops the gestures the slot had. **Save preset** in the book menu does not ask: the slot keeps its choice (a preset with gestures is saved with the current ones, any other stays layout only).
+
+In the file each such preset has a `"gestures"` block with two lists, `slots` (nine numbers) and `quick` (six). A block that is damaged or has another shape is ignored and that preset works as layout only; the older settings (Next and Previous Page Gesture, Tap Zones, Show Reader Menu) are not part of a preset. Computer tests only, not tried on a device.
 
 ## Book menu options (0.73.0)
 
@@ -282,7 +298,7 @@ What can't be changed, so no choice here can lock you out of the reader: the har
 
 The **Quick Menu** is a short list drawn over the page, opened by the gesture you give the **Quick Menu** action. The rows **Quick Menu 1** to **6** choose its entries; an empty one is skipped. With all six empty it shows Night Mode, Frontlight, Light panel, Toggle Bookmark, Refresh screen and Go Home. On a board without a frontlight the two light entries are left out. A tap outside it, or Back, closes it.
 
-Limits: EPUB books and notes only for now (the TXT, XTC and comic readers keep the older settings). Gestures are not part of Reading presets yet. Brightness and warmth steps are not actions; the Light panel action opens the sliders.
+Limits: EPUB books and notes only for now (the TXT, XTC and comic readers keep the older settings). A [Reading preset](#gestures-in-a-preset) can carry the gestures and the Quick Menu. Brightness and warmth steps are not actions; the Light panel action opens the sliders.
 
 ## Even Word Gaps (0.24.0, levels in 0.27.0)
 
