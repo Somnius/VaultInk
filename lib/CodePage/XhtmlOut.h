@@ -12,13 +12,24 @@ namespace xhtml {
 
 using Emit = bool (*)(void* ctx, const char* data, size_t size);
 
+// The most one converted book may write. Past it the writer stops (ok() false, tooBig() true) and the
+// converter fails with its TooBig status, so the half-written page is thrown away: a small file that unpacks
+// or repeats itself into gigabytes can't fill the card.
+inline constexpr size_t MAX_PAGE_BYTES = 16 * 1024 * 1024;
+
 class Out {
  public:
   Out(Emit emit, void* ctx) : emit_(emit), ctx_(ctx) {}
 
   bool ok() const { return ok_; }
+  bool tooBig() const { return tooBig_; }
 
   void write(std::string_view s) {
+    if (ok_ && s.size() > MAX_PAGE_BYTES - total_) {
+      tooBig_ = true;
+      ok_ = false;
+    }
+    if (ok_) total_ += s.size();
     while (ok_ && !s.empty()) {
       if (len_ == sizeof(buf_)) flush();
       const size_t n = s.size() < sizeof(buf_) - len_ ? s.size() : sizeof(buf_) - len_;
@@ -65,6 +76,8 @@ class Out {
   Emit emit_;
   void* ctx_;
   bool ok_ = true;
+  bool tooBig_ = false;
+  size_t total_ = 0;
   size_t len_ = 0;
   char buf_[256];
 };

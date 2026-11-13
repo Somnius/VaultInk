@@ -216,22 +216,35 @@ class Archive {
     if (!in_ || !utf8_) return Status::Oom;
     contents();
     out.head(CACHE_VERSION_TAG, title);
-    for (size_t i = 0; i < orderCount_ && out.ok(); i++) {
+    for (size_t i = 0; i < orderCount_ && going(out); i++) {
       page(out, topics_[order_[i].topic], std::string_view(pool_ + order_[i].titleAt, order_[i].titleLen));
     }
-    for (size_t i = 0; i < topicCount_ && out.ok(); i++) {
+    for (size_t i = 0; i < topicCount_ && going(out); i++) {
       if (!topics_[i].used) page(out, topics_[i], {});
     }
-    if (!out.tail()) return Status::WriteError;
+    if (!out.tail()) return out.tooBig() ? Status::TooBig : Status::WriteError;
+    // The card, the memory or the budget stopped it, not the file: the cut page is not the book.
+    if (src_.ioFailed) return Status::IoError;
+    if (fatal_ != Status::Ok) return fatal_;
     if (pages_ == 0) return failure_ != Status::Ok ? failure_ : Status::NoPages;
     return cut_ || topicsCut_ ? Status::Truncated : Status::Ok;
   }
 
  private:
-  // A number in the directory: 7 bits a byte, the top bit says another byte follows.
+  bool going(const xhtml::Out& out) const { return out.ok() && fatal_ == Status::Ok && !src_.ioFailed; }
+
+  // Oom, TooComplex and IoError stop the whole book; anything else is this page's damage.
+  void failed(const Status status) {
+    cut_ = true;
+    if (status == Status::Oom || status == Status::TooComplex || status == Status::IoError) fatal_ = status;
+    if (failure_ == Status::Ok) failure_ = status;
+  }
+
+  // A number in the directory: 7 bits a byte, the top bit says another byte follows. Nine bytes at most (63
+  // bits): a longer one does not fit and ends the chunk's listing.
   static bool number(const uint8_t* data, const size_t size, size_t& pos, uint64_t& value) {
     value = 0;
-    for (int i = 0; i < 10 && pos < size; i++) {
+    for (int i = 0; i < 9 && pos < size; i++) {
       const uint8_t b = data[pos++];
       value = (value << 7) | (b & 0x7F);
       if (!(b & 0x80)) return true;
@@ -332,11 +345,19 @@ class Archive {
     const uint64_t plainSize = le64(r + 0x10);
     const uint64_t packedSize = le64(r + 0x18);
     if (le32(r + 8) != 8 || le64(r + 0x20) != lzx::FRAME || tableAt_ < sizeof(r) || tableAt_ > reset_.length) return;
-    if (plainSize > 0xFFFFFFFFu || entries > (reset_.length - tableAt_) / 8) return;
+    if (entries > (reset_.length - tableAt_) / 8) return;
+    const uint64_t packed = packedSize < content_.length ? packedSize : content_.length;
+    if (plainSize > MAX_PLAIN_SIZE || plainSize > (packed + lzx::FRAME) * MAX_RATIO) {
+      lzxStatus_ = Status::TooBig;  // a few bytes that say they unpack to gigabytes
+      return;
+    }
     if (entries < (plainSize + lzx::FRAME - 1) / lzx::FRAME) return;
     plainSize_ = static_cast<uint32_t>(plainSize);
     packedSize_ = packedSize < content_.length ? static_cast<uint32_t>(packedSize) : content_.length;
     budget_ += plainSize_;
+    const uint64_t frames = (plainSize + lzx::FRAME - 1) / lzx::FRAME;
+    const uint64_t allowed = frames * 4 + static_cast<uint64_t>(topicCount_) * 2 + 256;
+    frameBudget_ = allowed < MAX_DECODED / lzx::FRAME ? static_cast<uint32_t>(allowed) : MAX_DECODED / lzx::FRAME;
     lzxStatus_ = Status::Ok;
   }
 
@@ -407,7 +428,7 @@ class Archive {
     if (at > entry.length || n > entry.length - at) return Status::Corrupt;
     if (entry.section == 0) {
       const uint64_t file = static_cast<uint64_t>(contentOffset_) + entry.offset + at;
-      if (file > src_.size || !src_.readExact(static_cast<uint32_t>(file), dst, n)) return Status::Corrupt;
+      if (file > src_.size || !src_.readExact(static_cast<uint32_t>(file), dst, n)) return damaged();
       return Status::Ok;
     }
     uint64_t pos = static_cast<uint64_t>(entry.offset) + at;
@@ -427,6 +448,9 @@ class Archive {
     }
     return Status::Ok;
   }
+
+  // What went wrong with a read: the card (the page must not be kept) or the file (it is damaged).
+  Status damaged() const { return src_.ioFailed ? Status::IoError : Status::Corrupt; }
 
   bool tableEntry(const uint32_t index, uint32_t& value) {
     uint8_t raw[8];
@@ -460,10 +484,13 @@ class Archive {
       uint32_t from = 0;
       uint32_t to = packedSize_;
       const bool last = static_cast<uint64_t>(f + 1) * lzx::FRAME >= plainSize_;
-      if (!tableEntry(f, from) || (!last && !tableEntry(f + 1, to))) return Status::Corrupt;
+      if (framesDecoded_ >= frameBudget_) return lzxStatus_ = Status::TooComplex;
+      framesDecoded_++;
+      if (mem_.pause && framesDecoded_ % 8 == 0) mem_.pause();
+      if (!tableEntry(f, from) || (!last && !tableEntry(f + 1, to))) return damaged();
       if (to < from || to - from > lzx::MAX_FRAME_INPUT) return Status::Corrupt;
       const Entry packed{content_.offset + from, to - from, 0, true};
-      if (packed.offset < content_.offset || read(packed, 0, frameIn_, to - from) != Status::Ok) return Status::Corrupt;
+      if (packed.offset < content_.offset || read(packed, 0, frameIn_, to - from) != Status::Ok) return damaged();
       frameSize_ = last ? plainSize_ - f * lzx::FRAME : lzx::FRAME;
       const lzx::Result result = lzx_.decodeFrame(frameIn_, to - from, frameSize_, frameData_);
       if (result != lzx::Result::Ok) {
@@ -488,7 +515,10 @@ class Archive {
     order_ = static_cast<Ordered*>(mem_.alloc(topicCount_ * sizeof(Ordered)));
     pool_ = static_cast<char*>(mem_.alloc(poolSize));
     std::unique_ptr<char[]> tag(new (std::nothrow) char[MAX_TAG]);
-    if (!order_ || !pool_ || !tag) return;
+    if (!order_ || !pool_ || !tag) {
+      fatal_ = Status::Oom;  // without the contents the pages would come in another order: not the book
+      return;
+    }
 
     char title[MAX_TOC_TITLE];
     size_t titleLen = 0;
@@ -592,8 +622,7 @@ class Archive {
     }
     Status status = read(entry, 0, in_.get(), n);
     if (status != Status::Ok) {
-      cut_ = true;
-      if (failure_ == Status::Ok) failure_ = status;
+      failed(status);
       return;
     }
     htmlbook::Info info;
@@ -628,9 +657,10 @@ class Archive {
         cut_ = true;
         break;
       }
+      if (mem_.pause && at % (64 * CHUNK) == 0) mem_.pause();
       status = read(entry, at, in_.get(), n);
       if (status != Status::Ok) {
-        cut_ = true;
+        failed(status);
         break;
       }
     }
@@ -683,6 +713,9 @@ class Archive {
   size_t pages_ = 0;
   bool cut_ = false;
   Status failure_ = Status::Ok;
+  Status fatal_ = Status::Ok;
+  uint32_t frameBudget_ = 0;
+  uint32_t framesDecoded_ = 0;
 };
 
 Status check(const Archive& archive) {
@@ -715,6 +748,8 @@ const char* statusText(const Status status) {
       return "no pages inside";
     case Status::WriteError:
       return "write error";
+    case Status::TooComplex:
+      return "needs too much unpacking";
   }
   return "?";
 }
@@ -724,6 +759,7 @@ Status readInfo(const Source& source, Info& info, const Memory& memory) {
   if (!archive) return Status::Oom;
   Status status = archive->open();
   if (status == Status::Ok) status = check(*archive);
+  if (source.ioFailed) return Status::IoError;  // a title that could not be read is not "no title"
   if (status != Status::Ok) return status;
   info.title = archive->title();
   info.language = languageOf(archive->lcid());
@@ -737,7 +773,7 @@ Status streamHtml(const Source& source, const std::string_view title, const xhtm
   if (!archive || !out) return Status::Oom;
   Status status = archive->open();
   if (status == Status::Ok) status = check(*archive);
-  if (status != Status::Ok) return status;
+  if (status != Status::Ok) return source.ioFailed ? Status::IoError : status;
   return archive->write(*out, title.empty() ? std::string_view(archive->title()) : title);
 }
 

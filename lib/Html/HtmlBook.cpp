@@ -125,6 +125,8 @@ const char* statusText(const Status status) {
       return "UTF-16 is not read";
     case Status::WriteError:
       return "write error";
+    case Status::TooBig:
+      return "too big";
   }
   return "?";
 }
@@ -228,13 +230,14 @@ Status streamHtml(void* ctx, const Read read, const std::string_view title, cons
   while (n > 0) {
     const size_t len = decoder.feed(in.get() + skip, static_cast<size_t>(n) - skip, utf8.get());
     skip = 0;
-    if (!filter->feed(std::string_view(utf8.get(), len))) return Status::WriteError;
+    if (!filter->feed(std::string_view(utf8.get(), len))) return out->tooBig() ? Status::TooBig : Status::WriteError;
     n = read(ctx, in.get(), CHUNK);
     if (n < 0) return Status::IoError;
   }
   filter->feed(std::string_view(utf8.get(), decoder.finish(utf8.get())));
   filter->finish();
-  return out->tail() ? Status::Ok : Status::WriteError;
+  if (out->tail()) return Status::Ok;
+  return out->tooBig() ? Status::TooBig : Status::WriteError;
 }
 
 }  // namespace htmlbook

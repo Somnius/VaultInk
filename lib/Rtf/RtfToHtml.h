@@ -29,7 +29,7 @@ inline constexpr const char* CACHE_VERSION_TAG = "<!-- RTF_CACHE_VERSION: 1 -->"
 inline constexpr size_t INFO_SCAN_LIMIT = 256 * 1024;
 inline constexpr size_t MAX_INFO_TEXT = 200;
 
-enum class Status : uint8_t { Ok, IoError, Oom, NotRtf, WriteError };
+enum class Status : uint8_t { Ok, IoError, Oom, NotRtf, WriteError, TooBig };
 const char* statusText(Status status);
 
 struct Info {
