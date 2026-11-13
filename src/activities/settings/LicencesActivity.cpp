@@ -65,14 +65,20 @@ void LicencesActivity::buildScreen(UiScreen& screen) {
     return;
   }
 
-  // VaultInk's own licence and why the binary is under the GPL, above the rows.
+  // VaultInk's own licence and why the binary is under the GPL, above the rows. A build with the SSH
+  // library (wolfSSH, GPL-3.0-or-later: the X4 Pro builds) is under version 3 as a whole; the others
+  // under version 2 or later.
+#if defined(VAULTINK_SSH) && VAULTINK_SSH
+  const char* introText = tr(STR_LICENCES_INTRO_SSH);
+#else
+  const char* introText = tr(STR_LICENCES_INTRO);
+#endif
   auto intro = screen.theme().smallText;
-  intro.maxLines = 5;
+  intro.maxLines = 6;
   const auto introWidth = static_cast<int16_t>(screen.body().width - 2 * side);
-  const int16_t introHeight =
-      fui::measureWrappedText(screen.target(), tr(STR_LICENCES_INTRO), intro, introWidth).height;
+  const int16_t introHeight = fui::measureWrappedText(screen.target(), introText, intro, introWidth).height;
   screen.target().text(screen.takeTop(introHeight, screen.theme().spaceMd).inset(fui::Insets{0, side, 0, side}),
-                       tr(STR_LICENCES_INTRO), intro);
+                       introText, intro);
 
   fui::ListProps props;
   props.items = rowItems_;

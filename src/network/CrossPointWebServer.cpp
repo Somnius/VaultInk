@@ -1769,7 +1769,7 @@ void CrossPointWebServer::handleGetRemoteServers() const {
     doc.clear();
     doc["index"] = i;
     doc["name"] = servers[i].name;
-    doc["protocol"] = servers[i].protocol == RemoteServer::Protocol::Ftp ? "ftp" : "webdav";
+    doc["protocol"] = remoteserver::protocolKey(servers[i].protocol);
     doc["url"] = servers[i].url;
     doc["username"] = servers[i].username;
     doc["hasPassword"] = !servers[i].password.empty();
@@ -1805,10 +1805,12 @@ void CrossPointWebServer::handlePostRemoteServer() {
   remote.name = doc["name"] | std::string("");
   remote.url = doc["url"] | std::string("");
   remote.username = doc["username"] | std::string("");
-  remote.protocol =
-      strcmp(doc["protocol"] | "webdav", "ftp") == 0 ? RemoteServer::Protocol::Ftp : RemoteServer::Protocol::WebDav;
-  const bool hasPasswordField = doc["password"].is<const char*>() || doc["password"].is<std::string>();
-  remote.password = doc["password"] | std::string("");
+  remote.protocol = remoteserver::protocolFromKey(doc["protocol"] | "webdav");
+  // An SSH server has no saved password: one sent by the page is dropped, and the field counts as given so an
+  // older server's password is not carried over either.
+  const bool hasPasswordField =
+      remote.isSsh() || doc["password"].is<const char*>() || doc["password"].is<std::string>();
+  remote.password = remote.isSsh() ? std::string() : (doc["password"] | std::string(""));
   if (remote.name.size() > RemoteServerStore::MAX_FIELD_BYTES ||
       remote.url.size() > RemoteServerStore::MAX_FIELD_BYTES ||
       remote.username.size() > RemoteServerStore::MAX_FIELD_BYTES ||
@@ -1833,6 +1835,8 @@ void CrossPointWebServer::handlePostRemoteServer() {
     }
     // Left out: keep what is set. The check is never switched off by leaving the field out.
     remote.verifyCert = doc["verifyCert"] | existing->verifyCert;
+    // The page has no switch for the device key: an SSH server keeps what was chosen on the device.
+    remote.keyAuth = remote.isSsh() && existing->isSsh() && existing->keyAuth;
     if (!REMOTE_STORE.updateServer(static_cast<size_t>(idx), remote)) {
       server->send(500, "text/plain", "Could not save");
       return;

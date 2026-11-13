@@ -9,7 +9,7 @@
 
 struct RemoteServer;
 
-// One interface over the WebDAV and the FTP client, so the browse, download and upload screens are
+// One interface over the WebDAV, the FTP and the SFTP client, so the browse, download and upload screens are
 // written once. Wi-Fi must be up already. Every call blocks until it is done, fails or is cancelled.
 //
 // Paths are absolute, decoded UTF-8, with "/" standing for the folder the server's address points
@@ -31,6 +31,11 @@ enum class Error : uint8_t {
   BadAnswer,     // an answer that is not WebDAV / FTP
   File,          // the file on the card could not be read or written
   Aborted,       // stopped by the user
+  // SSH (SFTP) only:
+  HostKeyUnknown,  // first connection to this server: its key is not pinned yet. Ask, then trustHostKey()
+  HostKeyChanged,  // the server's key is not the pinned one: hard stop, never accepted from here
+  NoCipher,        // the server and this firmware share no key exchange, host key type or cipher
+  Unavailable,     // SSH is not in this build
 };
 
 struct Transfer {
@@ -55,6 +60,15 @@ class Client {
   virtual Error makeDir(const std::string& dir, const std::string& name) = 0;
   // Says goodbye and closes every connection.
   virtual void close() {}
+  // SSH only. After HostKeyUnknown or HostKeyChanged: the key the server showed.
+  virtual bool hostKey(std::string& type, std::string& fingerprint) const {
+    (void)type;
+    (void)fingerprint;
+    return false;
+  }
+  // SSH only. After HostKeyUnknown, when the user said yes to the fingerprint: pin that key. The
+  // next call connects again and must then see the same key.
+  virtual bool trustHostKey() { return false; }
 };
 
 // `plainConfirmed`: the user answered yes on the "not encrypted" screen for this connection. A
@@ -65,5 +79,8 @@ std::unique_ptr<Client> makeClient(const RemoteServer& server, bool plainConfirm
 // Used by makeClient().
 std::unique_ptr<Client> makeWebDavClient(const RemoteServer& server, Error& error);
 std::unique_ptr<Client> makeFtpClient(const RemoteServer& server, Error& error);
+// `server.password` is the password typed for this connection (SSH passwords are never saved), or
+// `server.keyAuth` for the device's key.
+std::unique_ptr<Client> makeSftpClient(const RemoteServer& server, Error& error);
 
 }  // namespace remotefs

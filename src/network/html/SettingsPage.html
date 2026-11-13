@@ -804,6 +804,7 @@
     const isNew = idx === -1;
     const id = isNew ? 'new' : idx;
     const ftp = srv.protocol === 'ftp';
+    const sftp = srv.protocol === 'sftp';
     return '<div class="opds-server" id="remote-' + id + '">' +
       '<div class="setting-row">' +
         '<span class="setting-name">Server Name</span>' +
@@ -812,8 +813,9 @@
       '<div class="setting-row">' +
         '<span class="setting-name">Protocol</span>' +
         '<span class="setting-control"><select id="remote-protocol-' + id + '">' +
-          '<option value="webdav"' + (ftp ? '' : ' selected') + '>WebDAV</option>' +
+          '<option value="webdav"' + (ftp || sftp ? '' : ' selected') + '>WebDAV</option>' +
           '<option value="ftp"' + (ftp ? ' selected' : '') + '>FTP (not encrypted)</option>' +
+          '<option value="sftp"' + (sftp ? ' selected' : '') + '>SSH / SFTP (password asked on the device, never saved)</option>' +
         '</select></span>' +
       '</div>' +
       '<div class="setting-row">' +

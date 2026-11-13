@@ -6,6 +6,7 @@
 #include <LibraryBuilder.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <SshKey.h>
 
 #include <cstdio>
 #include <utility>
@@ -17,6 +18,7 @@
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
 #include "network/ProtectedPaths.h"
+#include "network/SshDevice.h"
 #include "util/BookCacheUtils.h"
 
 namespace fui = freeink::ui;
@@ -48,6 +50,14 @@ StrId errorText(const remotefs::Error error) {
       return StrId::STR_REMOTE_ERR_ANSWER;
     case remotefs::Error::File:
       return StrId::STR_REMOTE_ERR_FILE;
+    case remotefs::Error::HostKeyChanged:
+      return StrId::STR_SSH_HOST_KEY_CHANGED;
+    case remotefs::Error::HostKeyUnknown:
+      return StrId::STR_SSH_HOST_KEY_TITLE;
+    case remotefs::Error::NoCipher:
+      return StrId::STR_SSH_ERR_CIPHER;
+    case remotefs::Error::Unavailable:
+      return StrId::STR_SSH_ERR_UNAVAILABLE;
     case remotefs::Error::Network:
     default:
       return StrId::STR_REMOTE_ERR_NETWORK;
@@ -76,6 +86,22 @@ void RemoteBrowserActivity::onEnter() {
   statusMessage = tr(STR_CHECKING_WIFI);
   plainConfirmed = false;
 
+  if (server.isSsh()) {
+    if (!sshdevice::available()) {
+      fail(StrId::STR_SSH_ERR_UNAVAILABLE);
+    } else if (server.url.empty() || server.username.empty()) {
+      fail(StrId::STR_SSH_ERR_NO_USER);
+    } else if (server.keyAuth) {
+      if (sshdevice::hasKey()) {
+        connect();
+      } else {
+        fail(StrId::STR_SSH_KEY_FAILED);
+      }
+    } else {
+      askSshPassword();
+    }
+    return;
+  }
   if (!server.isPlain()) {
     connect();
     return;
@@ -109,8 +135,80 @@ void RemoteBrowserActivity::onExit() {
   // it again (releaseEntries() would wait for it forever).
   closeRouting();
   listing = remotefiles::Listing{};
+  wipePassword();
   // Wi-Fi goes down here (and the device restarts to clear the heap, as after OPDS).
   CatalogActivity::onExit();
+}
+
+void RemoteBrowserActivity::wipePassword() {
+  // Only an SSH password is typed for the visit; the others are the saved ones of the store.
+  if (!server.isSsh()) return;
+  sshkey::wipe(server.password.data(), server.password.size());
+  server.password.clear();
+}
+
+void RemoteBrowserActivity::askSshPassword() {
+  wipePassword();
+  auto keyboard = makeUniqueNoThrow<KeyboardEntryActivity>(renderer, mappedInput, tr(STR_PASSWORD), std::string(),
+                                                           RemoteServerStore::MAX_FIELD_BYTES, InputType::Password);
+  if (!keyboard) {
+    fail(StrId::STR_MEMORY_ERROR);
+    return;
+  }
+  startActivityForResult(std::move(keyboard), [this](const ActivityResult& result) {
+    if (result.isCancelled) {
+      finish();
+      return;
+    }
+    server.password = std::get<KeyboardResult>(result.data).text;
+    if (server.password.empty()) {
+      finish();
+      return;
+    }
+    connect();
+  });
+}
+
+void RemoteBrowserActivity::askHostKey() {
+  std::string type;
+  std::string fingerprint;
+  if (!client || !client->hostKey(type, fingerprint)) {
+    failWith(remotefs::Error::Network);
+    return;
+  }
+  const std::string body = server.url + "\n" + type + "\n" + fingerprint + "\n\n" + tr(STR_SSH_HOST_KEY_BODY);
+  // Cancel is the preselected answer.
+  auto dialog = makeUniqueNoThrow<ConfirmationActivity>(renderer, mappedInput, tr(STR_SSH_HOST_KEY_TITLE), body,
+                                                        std::string(), tr(STR_SSH_TRUST));
+  if (!dialog) {
+    fail(StrId::STR_MEMORY_ERROR);
+    return;
+  }
+  startActivityForResult(std::move(dialog), [this](const ActivityResult& result) {
+    if (result.isCancelled) {
+      finish();
+      return;
+    }
+    if (!client || !client->trustHostKey()) {
+      failWith(remotefs::Error::File);
+      return;
+    }
+    // Again from the start: the server must now show the key that was just pinned.
+    startBrowse();
+  });
+}
+
+void RemoteBrowserActivity::retryBrowse() {
+  // A wrong SSH password is typed again, not sent again.
+  if (server.isSsh() && !server.keyAuth && sshdevice::available()) {
+    if (client) {
+      client->close();
+      client.reset();
+    }
+    askSshPassword();
+    return;
+  }
+  startBrowse();
 }
 
 void RemoteBrowserActivity::connect() {
@@ -150,6 +248,10 @@ void RemoteBrowserActivity::startBrowse() {
 
   remotefiles::Listing fresh;
   const remotefs::Error error = client->list(currentDir, fresh, remotefs::Transfer{});
+  if (error == remotefs::Error::HostKeyUnknown) {
+    askHostKey();
+    return;
+  }
   if (error != remotefs::Error::Ok) {
     failWith(error);
     return;

@@ -7,6 +7,8 @@ VaultInk can copy files between the SD card and a file server:
 
 * **WebDAV** (Nextcloud, ownCloud, Apache, a NAS), over https or http.
 * **FTP**, plain text only. FTP is **not encrypted**; the device says so before every connection.
+* **SFTP** (files over SSH), on the X4 Pro: the same browser, with its own sign-in and server-key rules.
+  It has its own page: [SSH terminal and SFTP](ssh.md).
 
 This is the other direction of [File Transfer](webserver.md), where the device is the server. Here the
 device is the client and the files live on your server.

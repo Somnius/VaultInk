@@ -22,6 +22,7 @@ enum class SettingAction {
   KOReaderSync,
   OPDSBrowser,
   RemoteServers,
+  SshServers,
   Network,
   Bluetooth,
   ClearCache,

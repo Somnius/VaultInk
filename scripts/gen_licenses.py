@@ -39,7 +39,7 @@ DEVICE_STRING_BUDGET = 6 * 1024
 
 NOTICE_BEGIN = "Third-party code and assets in this repository keep their own licences:\n"
 NOTICE_END = "See the licence files and headers inside each directory for the full terms.\n"
-# NOTICE's wolfSSL statement, kept word for word.
+# NOTICE's wolfSSL and wolfSSH statements, kept word for word.
 NOTICE_WOLFSSL = (
     "- wolfSSL {version} (Arduino-wolfSSL, linked into the firmware for TLS 1.3 and the content code): "
     "GPL-2.0-or-later,\n"
@@ -49,6 +49,14 @@ NOTICE_WOLFSSL = (
     "  with version 3 of the GPL but not version 2. So the firmware binaries are distributed under the terms of the\n"
     "  GPL-3.0-or-later, with the source in this repository. The source files of VaultInk itself stay under the MIT\n"
     "  licence (see LICENSE).\n"
+)
+NOTICE_WOLFSSH = (
+    "- wolfSSH {version} (vendored in lib/wolfssh, linked into the X4 Pro firmware for the SSH terminal and "
+    "the SFTP client):\n"
+    "  GPL-3.0-or-later, Copyright (c) wolfSSL Inc. wolfSSH is dual-licensed (GPL or a commercial licence). "
+    "VaultInk uses it under the GPL.\n"
+    "  wolfSSL's \"version 2 or any later version\" lets the two be combined under version 3, which is also what the\n"
+    "  Apache-2.0 code in the binary needs. The firmware binaries are distributed under the GPL-3.0-or-later.\n"
 )
 
 
@@ -100,17 +108,22 @@ def render_md(data):
     )
     out.append(
         "VaultInk's own code is under the MIT licence (see [LICENSE](../LICENSE)). The firmware binaries also "
-        "contain wolfSSL (GPL-2.0-or-later) and libraries under the Apache-2.0 licence (NimBLE-Arduino, JPEGDEC, "
-        "PNGdec, AnimatedGIF, ESP-IDF). The Apache-2.0 licence is compatible with version 3 of the GPL but not "
-        "with version 2, so the binaries are distributed under the terms of the GPL-3.0-or-later, with the source "
-        "in this repository. Every other library, font and icon keeps its own "
-        "licence, and that licence applies to it. They are all listed below.\n"
+        "contain wolfSSL (GPL-2.0-or-later), wolfSSH (GPL-3.0-or-later, for the SSH terminal and the SFTP client) "
+        "and libraries under the Apache-2.0 licence (NimBLE-Arduino, JPEGDEC, PNGdec, AnimatedGIF, ESP-IDF). "
+        "wolfSSL's \"or any later version\" lets wolfSSL and wolfSSH be combined under version 3, and the "
+        "Apache-2.0 licence is compatible with version 3 of the GPL but not version 2, so the binaries are "
+        "distributed under the terms of the GPL-3.0-or-later, with the source in this repository. Every other "
+        "library, font and icon keeps its own licence, and that licence applies to it. They are all listed "
+        "below.\n"
     )
     out.append("## What that means for you\n")
     out.append(
         "- You may use VaultInk, study how it works, change it and share it.\n"
         "- If you share the firmware binary, changed or not, you must also offer its source code under the "
         "same terms. The source is this repository: <https://github.com/Somnius/VaultInk>.\n"
+        "- The GPL version 3 also asks that whoever passes on a device with the firmware in it gives what is "
+        "needed to install a changed build. For VaultInk that is the build and flashing steps in this "
+        "repository and the web installer; the device itself is not locked.\n"
         "- If you reuse one library from the list, follow that library's licence.\n"
         "- This page is not legal advice.\n"
     )
@@ -176,6 +189,11 @@ def render_md(data):
 
 
 def device_rows(data):
+    return [row for row, _ in device_rows_flagged(data)]
+
+
+def device_rows_flagged(data):
+    """(row, build flag or None): a component with only_with is in the table only where that flag is set."""
     rows = []
     for c in data["components"]:
         if c["used_in"] not in DEVICE_GROUPS or c.get("build_only"):
@@ -183,11 +201,14 @@ def device_rows(data):
         version = short_version(c["version"])
         rows.append(
             (
-                f"{c['name']} {version}" if version else c["name"],
-                c["licence"],
-                c["used_for"],
-                re.sub(r"^https?://", "", c["source"]),
-                c["copyright"],
+                (
+                    f"{c['name']} {version}" if version else c["name"],
+                    c["licence"],
+                    c["used_for"],
+                    re.sub(r"^https?://", "", c["source"]),
+                    c["copyright"],
+                ),
+                c.get("only_with"),
             )
         )
     return rows
@@ -226,14 +247,19 @@ def render_header(data):
         "// clang-format off",
         "inline constexpr Component COMPONENTS[] = {",
     ]
-    for row in rows:
+    for row, flag in device_rows_flagged(data):
+        if flag:
+            lines.append(f"#if defined({flag}) && {flag}")
         lines.append("    {" + ", ".join(c_string(s) for s in row) + "},")
+        if flag:
+            lines.append("#endif")
     lines += [
         "};",
         "// clang-format on",
         "",
         "inline constexpr size_t COMPONENT_COUNT = sizeof(COMPONENTS) / sizeof(COMPONENTS[0]);",
-        "// Bytes of string data above (each string once, with its NUL); the table adds 20 bytes a row.",
+        "// Bytes of string data above with every row in (each string once, with its NUL); the table adds 20",
+        "// bytes a row.",
         f"inline constexpr size_t STRING_BYTES = {device_string_bytes(rows)};",
         "",
         "}  // namespace thirdparty",
@@ -248,6 +274,8 @@ def render_header(data):
 def notice_line(c):
     if c["name"] == "wolfSSL":
         return NOTICE_WOLFSSL.format(version=short_version(c["version"]))
+    if c["name"] == "wolfSSH":
+        return NOTICE_WOLFSSH.format(version=short_version(c["version"]))
     version = short_version(c["version"])
     head = f"- {c['name']}{' ' + version if version else ''} ({c['used_for']}): {c['licence']}"
     if c["copyright"]:

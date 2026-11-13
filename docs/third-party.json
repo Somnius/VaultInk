@@ -1,5 +1,5 @@
 {
-  "_about": "Third-party components in VaultInk. Edit this file, then run: python3 scripts/gen_licenses.py. It writes docs/licenses.md, src/util/ThirdPartyData.h and the component list in NOTICE. Every licence here was read from the file named in verified_from; 'not verified' means no licence file or package metadata was available to read.",
+  "_about": "Third-party components in VaultInk. Edit this file, then run: python3 scripts/gen_licenses.py. It writes docs/licenses.md, src/util/ThirdPartyData.h and the component list in NOTICE. Every licence here was read from the file named in verified_from; A component with only_with is linked only into builds that set that flag; the device list leaves it out elsewhere. 'not verified' means no licence file or package metadata was available to read.",
   "project": {
     "name": "VaultInk",
     "licence": "MIT",
@@ -47,6 +47,18 @@
       "used_in": "firmware",
       "verified_from": ".pio/libdeps/x4pro/Arduino-wolfSSL/LICENSING, COPYING and the header of src/wolfssl/ssl.h",
       "notes": "Dual-licensed: GPL or a commercial licence from wolfSSL Inc. VaultInk uses it under the GPL. Its library.json says GPL-2.0-only; the LICENSING file and the source headers say version 2 or any later version. Source headers say version 2 or later, so it can be combined under GPL version 3, which the Apache-2.0 code in the binary needs."
+    },
+    {
+      "name": "wolfSSH",
+      "version": "1.6.0 (vendored in lib/wolfssh, tag v1.6.0-stable, commit 8221e4ee)",
+      "used_for": "SSH terminal and SFTP client (X4 Pro)",
+      "licence": "GPL-3.0-or-later",
+      "copyright": "Copyright (C) 2014-2026 wolfSSL Inc.",
+      "source": "https://github.com/wolfSSL/wolfssh",
+      "used_in": "firmware",
+      "only_with": "VAULTINK_SSH",
+      "verified_from": "lib/wolfssh/LICENSING and the header of lib/wolfssh/src/ssh.c",
+      "notes": "Dual-licensed: GPL or a commercial licence from wolfSSL Inc. VaultInk uses it under the GPL. LICENSING says GPLv3; the source headers say version 3 or any later version. Linked only into builds with VAULTINK_SSH=1 (the X4 Pro builds); with wolfSSL's 'version 2 or any later version' the two are combined under GPL-3.0-or-later, so those binaries are distributed under GPL-3.0-or-later. lib/wolfssh/UPSTREAM.md lists what was taken and the VaultInk build files added next to it. lib/wolfssh/COPYING is the GPL version 3 text (upstream ships none)."
     },
     {
       "name": "FreeType",

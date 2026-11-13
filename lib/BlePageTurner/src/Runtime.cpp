@@ -448,13 +448,17 @@ void requestConnect() { connectRequested = true; }
 void setTextEntry(const bool inFront) {
   textEntryFront = inFront;
   // A dead accent armed on the last screen must not land on the next one's first vowel.
-  if (!inFront) typing.setLayout(typing.layout());
+  if (!inFront) {
+    typing.setLayout(typing.layout());
+    typing.setTerminalKeys(false);  // the next text field is a plain line again
+  }
 }
 bool textEntry() { return textEntryFront; }
 
 void setKeyboardLayout(const KeyboardLayout layout) {
   typing.setLayout(layout == KeyboardLayout::Greek ? textinput::Layout::Greek : textinput::Layout::Us);
 }
+void setTerminalKeys(const bool on) { typing.setTerminalKeys(on); }
 KeyboardLayout keyboardLayout() {
   return typing.layout() == textinput::Layout::Greek ? KeyboardLayout::Greek : KeyboardLayout::Us;
 }
