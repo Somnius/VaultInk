@@ -362,7 +362,7 @@ TEST(ReadingPresetsGestures, TenFullPresetsFitTheStoreBuffer) {
 TEST(ReadingPresetsGestures, APresetWithTheCurrentGesturesBeatsALayoutOnlyOne) {
   PresetList list;
   Gestures other = sampleGestures();
-  other.slots[0] = 5;                                             // different from the sample's first slot
+  other.slots[0] = 5;                                            // different from the sample's first slot
   ASSERT_TRUE(save(list, 0, sampleLayout()));                    // layout only, above
   ASSERT_TRUE(save(list, 1, sampleLayout(), sampleGestures()));  // layout and gestures
   EXPECT_EQ(1, list.find(sampleLayout(), sampleGestures()));     // the closer match wins

@@ -18,7 +18,7 @@ gtest_discover_tests(GamepadTest)
 # lib/BlePageTurner/test, so it is fetched once). Only its src/ is used.
 include(FetchContent)
 FetchContent_Declare(arduinojson GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git GIT_TAG v7.4.2
-                     SOURCE_SUBDIR no-build)
+                     GIT_SHALLOW TRUE)
 FetchContent_MakeAvailable(arduinojson)
 
 add_executable(GamepadJsonTest

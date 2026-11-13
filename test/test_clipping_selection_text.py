@@ -227,6 +227,7 @@ struct EpubReaderActivity {
   struct Section { int currentPage = 0, pageCount = 1; } sectionData;
   Section* section = &sectionData;
   int currentSpineIndex = 0, buildViewportWidth = 480, buildViewportHeight = 800;
+  std::vector<uint16_t> scrollElementPage, scrollElementWordStart;  // scroll mode: empty in a normal page
   int clippingAtPoint(const Page&, int, int) const;
   void drawClippingHighlights(const Page&, int, int, int) const;
 };
