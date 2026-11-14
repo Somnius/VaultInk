@@ -47,6 +47,7 @@ Each licence below was read from the library's own licence file, source header o
 | Noto Sans Symbols and Symbols 2 |  | Arrows and task boxes | OFL-1.1 | Copyright 2022 The Noto Project Authors | <https://github.com/notofonts/symbols> | lib/EpdFont/builtinFonts/source/NotoSansSymbols/OFL.txt and NotoSansSymbols2/OFL.txt |
 | OpenDyslexic |  | Reading font | OFL-1.1 | Copyright (c) 2019-07-29, Abbie Gonzalez, with Reserved Font Name OpenDyslexic | <https://opendyslexic.org> | lib/EpdFont/builtinFonts/source/OpenDyslexic/OFL.txt |
 | Ubuntu font |  | UI font | Ubuntu-font-1.0 |  | <https://design.ubuntu.com/font> | lib/EpdFont/builtinFonts/source/Ubuntu/UFL.txt |
+| Terminus Font | 4.49.1 (a subset of ter-u12n, ter-u14n, ter-u16n and ter-u18n as bitmaps in lib/Ssh/SshTermFontData.cpp) | SSH terminal font (X4 Pro) | OFL-1.1 | Copyright (C) 2020 Dimitar Toshkov Zhekov, with Reserved Font Name "Terminus Font" | <https://terminus-font.sourceforge.net> | lib/Ssh/fonts/OFL.TXT (OFL.TXT of terminus-font-4.49.1.tar.gz, copied unchanged) |
 | Lucide icons | the FreeInk SDK's set is not pinned here; the two icons in src/components/icons/customListIcons.h are from 1.61.0 | UI icons | not verified |  | <https://lucide.dev> |  |
 | Hyphenation patterns (typst/hypher) |  | Hyphenation, 13 pattern sets | not verified |  | <https://github.com/typst/hypher> |  |
 | HTML entity table (diy-esp32-epub-reader) | commit 2c2f57fd | HTML entities in books | not verified |  | <https://github.com/atomic14/diy-esp32-epub-reader> |  |
@@ -64,6 +65,7 @@ Notes:
 - **WebSockets**: Its library.json says LGPL-2.1; the source headers say version 2.1 or any later version.
 - **miniz**: The first lines of miniz.h also point to an Unlicense (public domain) statement, which is in miniz.c. The FreeInk SDK's copy of miniz has a LICENSE file with the same MIT text.
 - **minibidi (from mintty)**: The licence is named in the header comments of the port; the original licence text is not in this repository.
+- **Terminus Font**: The firmware holds 1051 of the font's characters in four sizes, converted to plain bitmaps by scripts/gen_ssh_font.py. Under the licence that is a Modified Version, so it is not presented under the reserved name: the device calls it the terminal font. The licence lets the font be bundled and embedded with software under any licence; the font data itself stays under the OFL. Drawn only by the SSH terminal, which is only in builds with VAULTINK_SSH=1 (the X4 Pro builds).
 - **Lucide icons**: No licence file to read: the SDK's lucide submodule is not checked out. A comment in src/components/icons/customListIcons.h says ISC; the FreeInk SDK README says MIT.
 - **Hyphenation patterns (typst/hypher)**: The pattern files are downloaded by scripts/update_hyphenation.sh and stored as generated tables; no licence file comes with them. The polytonic Greek patterns were built from tex-hyphen's hyph-el-polyton.tex.
 - **HTML entity table (diy-esp32-epub-reader)**: lib/Epub/Epub/htmlEntities.cpp says it is based on this project; its licence file is not in this repository.

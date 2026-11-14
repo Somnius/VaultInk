@@ -32,6 +32,9 @@ class RemoteServerListActivity final : public UiListActivity {
   std::vector<int16_t> rowServer_;
   bool sshOnly_;
   int forgetAllRow_ = -1;  // the row of "Forget all host keys" in the SSH list, -1 when it is not shown
+  // The row of "Terminal text size" in the SSH list (-1 when it is not shown) and its value text.
+  int textSizeRow_ = -1;
+  std::string textSizeValue_;
   void rebuildRowItems();
 };
 

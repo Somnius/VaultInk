@@ -218,7 +218,15 @@ class Device(unittest.TestCase):
     def test_ssh_row_is_only_in_ssh_builds(self):
         header = read("src/util/ThirdPartyData.h")
         self.assertRegex(header, r'#if defined\(VAULTINK_SSH\) && VAULTINK_SSH\n    \{"wolfSSH [0-9.]+", "GPL-3.0-or-later",[^\n]+\n#endif\n')
-        self.assertEqual(header.count("#if defined("), 1)
+        # The terminal's font is drawn only by the SSH terminal: listed in the same builds.
+        self.assertRegex(header, r'#if defined\(VAULTINK_SSH\) && VAULTINK_SSH\n    \{"Terminus Font [0-9.]+", "OFL-1.1",[^\n]+\n#endif\n')
+        self.assertEqual(header.count("#if defined("), 2)
+
+    def test_terminal_font_licence_file_is_in_the_repo(self):
+        text = read("lib/Ssh/fonts/OFL.TXT")
+        self.assertIn("SIL OPEN FONT LICENSE Version 1.1", text)
+        self.assertIn("Dimitar Toshkov Zhekov", text)
+        self.assertIn("Terminus Font 4.49.1", read("lib/Ssh/SshTermFontData.cpp")[:400])
 
 
 class OtherPlaces(unittest.TestCase):

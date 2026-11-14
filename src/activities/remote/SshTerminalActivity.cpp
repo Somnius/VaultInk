@@ -15,11 +15,11 @@
 #if VAULTINK_SSH_TERMINAL
 
 #include <BlePageTurner.h>
-#include <EpdFontData.h>
 #include <SshAddress.h>
 #include <SshInput.h>
 #include <SshKey.h>
 #include <SshSession.h>
+#include <SshTermFont.h>
 #include <SshTerminal.h>
 #include <TextInput.h>
 #include <WiFi.h>
@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <cstring>
 
+#include "CrossPointSettings.h"
 #include "HapticFeedback.h"
 #include "SilentRestart.h"
 #include "activities/network/WifiSelectionActivity.h"
@@ -117,9 +118,9 @@ struct SshTerminalActivity::Impl {
   unsigned long noteUntil = 0;  // the "no full-screen programs" note is up until then
 
   // The layout, worked out once in onEnter().
+  const sshfont::Font* font = &sshfont::fontForHeight(sshfont::DEFAULT_HEIGHT);
   int cellW = 8;
-  int cellH = 17;
-  int ascender = 13;
+  int cellH = 16;
   int gridLeft = 0;
   int gridTop = 0;
   int headerTop = 0;
@@ -158,23 +159,24 @@ void SshTerminalActivity::onEnter() {
   }
   Impl& s = *impl_;
 
-  // The grid: the small built-in font, one glyph per cell (a glyph wider than the cell is drawn
-  // narrower). 10-pixel cells give 80 columns on the 800-pixel side; 8-pixel cells give 60 on the
-  // 480-pixel side.
+  // The grid: the terminal's own fixed-cell font (lib/Ssh/SshTermFont) in the size chosen in SSH
+  // servers, every glyph copied pixel for pixel into its cell. The number of columns follows the
+  // cell width: 80, 60, 60 or 48 on the 480-pixel side. The header line stays in the UI font.
   const auto metrics = UITheme::getInstance().getMetrics();
   const int width = renderer.getScreenWidth();
   const int height = renderer.getScreenHeight();
-  s.cellW = width >= 800 ? 10 : 8;
-  s.cellH = renderer.getLineHeight(SMALL_FONT_ID);
-  s.ascender = renderer.getFontAscenderSize(SMALL_FONT_ID);
+  s.font = &sshfont::fontForHeight(SETTINGS.sshTextSize);
+  s.cellW = s.font->cellW;
+  s.cellH = s.font->cellH;
   s.headerTop = metrics.topPadding;
-  s.gridTop = s.headerTop + s.cellH + 6;
+  s.gridTop = s.headerTop + renderer.getLineHeight(SMALL_FONT_ID) + 6;
   const int keysHeight = mappedInput.hasTouch() ? KEY_ROW_HEIGHT * 2 + 4 : metrics.buttonHintsHeight;
   s.keysTop = height - keysHeight;
-  s.cols = static_cast<uint16_t>(std::clamp(width / s.cellW, 20, static_cast<int>(sshterm::Terminal::MAX_COLS)));
-  s.rows = static_cast<uint16_t>(
-      std::clamp((s.keysTop - s.gridTop - 2) / s.cellH, 4, static_cast<int>(sshterm::Terminal::MAX_ROWS)));
-  s.gridLeft = (width - s.cols * s.cellW) / 2;
+  const sshfont::Grid grid = sshfont::gridFor(width, s.keysTop - s.gridTop - 2, *s.font, sshterm::Terminal::MAX_COLS,
+                                              sshterm::Terminal::MAX_ROWS);
+  s.cols = grid.cols;
+  s.rows = grid.rows;
+  s.gridLeft = grid.left;
 
   if (!sshaddr::parse(server_.url, s.address) || server_.username.empty()) {
     showMessage(tr(STR_SSH_ERR_NO_USER));
@@ -667,39 +669,33 @@ void SshTerminalActivity::loop() {
 
 void SshTerminalActivity::drawGrid() {
   Impl& s = *impl_;
+  const int right = renderer.getScreenWidth();
   for (uint16_t row = 0; row < s.rows; ++row) {
     const sshterm::Cell* cells = s.term.line(row, s.viewOffset);
     if (!cells) continue;
     const int top = s.gridTop + row * s.cellH;
-    const int baseline = top + s.ascender;
     for (uint16_t col = 0; col < s.cols; ++col) {
       const sshterm::Cell& cell = cells[col];
       const int x = s.gridLeft + col * s.cellW;
+      if (x + s.cellW > right) break;  // only whole cells: nothing is cut at the edge
+      // Inverse: a black cell with the glyph in white.
+      const bool inverse = (cell.attr & sshterm::ATTR_INVERSE) != 0;
+      if (inverse) renderer.fillRect(x, top, s.cellW, s.cellH);
       if (cell.ch != ' ') {
-        uint32_t cp = cell.ch;
-        int32_t advance = 0;
-        int glyphTop = 0;
-        if (!renderer.getCodepointMetrics(SMALL_FONT_ID, cp, EpdFontFamily::REGULAR, advance, glyphTop)) {
-          cp = '?';
-          if (!renderer.getCodepointMetrics(SMALL_FONT_ID, cp, EpdFontFamily::REGULAR, advance, glyphTop)) continue;
-        }
-        const int natural = std::max(1, fp4::toPixel(advance));
-        const int scale = natural > s.cellW ? s.cellW * 256 / natural : 256;
-        const int offset = (s.cellW - natural * scale / 256) / 2;
-        renderer.drawScaledCodepoint(SMALL_FONT_ID, cp, EpdFontFamily::REGULAR, x + offset, baseline, scale);
-        // Bold: the glyph once more, one pixel to the right.
-        if (cell.attr & sshterm::ATTR_BOLD)
-          renderer.drawScaledCodepoint(SMALL_FONT_ID, cp, EpdFontFamily::REGULAR, x + offset + 1, baseline, scale);
+        sshfont::drawCell(*s.font, cell.ch, (cell.attr & sshterm::ATTR_BOLD) != 0,
+                          [&](const int dx, const int dy) { renderer.drawPixel(x + dx, top + dy, !inverse); });
       }
-      // Underline and inverse are both drawn as an underline: the glyphs can only be drawn black.
-      if (cell.attr & (sshterm::ATTR_UNDERLINE | sshterm::ATTR_INVERSE))
-        renderer.drawLine(x, top + s.cellH - 2, x + s.cellW - 1, top + s.cellH - 2);
+      if (cell.attr & sshterm::ATTR_UNDERLINE)
+        renderer.drawLine(x, top + s.cellH - 1, x + s.cellW - 1, top + s.cellH - 1, !inverse);
     }
   }
   if (s.viewOffset == 0 && s.term.cursorVisible()) {
     const int x = s.gridLeft + s.term.cursorCol() * s.cellW;
     const int top = s.gridTop + s.term.cursorRow() * s.cellH;
-    renderer.fillRect(x, top + s.cellH - 3, s.cellW, 3);
+    // A bar under the character; white on a cell that is drawn inverse.
+    const sshterm::Cell* cells = s.term.line(s.term.cursorRow(), 0);
+    const bool onInverse = cells && (cells[s.term.cursorCol()].attr & sshterm::ATTR_INVERSE) != 0;
+    renderer.fillRect(x, top + s.cellH - 2, s.cellW, 2, !onInverse);
   }
 }
 

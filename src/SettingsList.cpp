@@ -310,6 +310,10 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Toggle(StrId::STR_MOVE_FINISHED_TO_READ, &CrossPointSettings::moveFinishedToReadFolder,
                            "moveFinishedToReadFolder", StrId::STR_CAT_SYSTEM));
 
+  // SSH terminal text size: the cell height in pixels (12, 14, 16, 18). Cycled from the SSH servers
+  // list, so category-less (hidden on the device's Settings screen).
+  emit(SettingInfo::Value(StrId::STR_SSH_TEXT_SIZE, &CrossPointSettings::sshTextSize, {12, 18, 2}, "sshTextSize"));
+
   // OPDS download folder: persisted + web-exposed, but category-less so it
   // is hidden from the on-device Settings screen (edited via OPDS UI).
   emit(SettingInfo::String(StrId::STR_OPDS_DOWNLOAD_FOLDER, &SETTINGS.opdsDownloadFolder[0],

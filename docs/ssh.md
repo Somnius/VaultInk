@@ -121,8 +121,26 @@ connection.
   seconds and cannot be cancelled.
 - A key the server does not take within 3 seconds ends the session with "The session ended": the
   screen does not hang on a dead connection.
-- The screen is 80 columns wide when the panel's long side is across (60 on the short side), and
-  as many rows as fit; the last 500 lines can be scrolled back.
+- The text is drawn in the terminal's own fixed-width font: every character takes one cell of the
+  same size, so columns line up as on any terminal. **Terminal text size** in the SSH servers list
+  picks the cell (a tap goes to the next size); the number of columns follows from it. The
+  terminal reads the setting when it opens: change it before you connect.
+
+  | Text size | Cell (pixels) | Columns on the 480-pixel side | Columns on the 800-pixel side |
+  | --- | --- | --- | --- |
+  | 12 | 6 x 12 | 80 | 132 |
+  | 14 | 8 x 14 | 60 | 100 |
+  | 16 (default) | 8 x 16 | 60 | 100 |
+  | 18 | 10 x 18 | 48 | 80 |
+
+  Only whole cells are drawn, so nothing is cut at the right edge. As many rows as fit; the last
+  500 lines can be scrolled back.
+- A line longer than the screen continues on the next row, at the column count, as on any
+  terminal. Programs that print fixed 80-column text (a login banner, `ls -l`) fit without
+  wrapping at size 12 only.
+- Box-drawing characters and block elements (U+2500 to U+259F: the frames of `tree`, `systemctl
+  status`, progress bars) are drawn as lines and blocks that meet from cell to cell. The few the
+  font does not have are drawn as the nearest one: a dashed line as a plain line.
 - Output is collected and the panel is redrawn at most twice a second; a full refresh follows a
   `clear` or every 120 lines.
 
@@ -155,10 +173,13 @@ the text fields.
   alternate-screen sequence (`ESC [ ? 1049 h`). It cannot change what the line says.
 - The terminal tells the server it is `xterm` (the library's fixed choice). Sequences it does not
   know are ignored. If a program misbehaves, `export TERM=vt100` on the server helps.
-- Black and white: colours are dropped, bold is drawn heavier, underline and inverse are drawn
-  as an underline.
-- Characters outside the built-in small font show as `?` or stay empty. Wide characters (CJK,
-  emoji) are not supported.
+- Black and white: colours are dropped. Inverse is white on black, underline is a line under
+  the cell, bold is drawn one pixel heavier (not at size 12, where the cells are too narrow, and
+  not for box lines).
+- The font has Latin, Greek, Cyrillic, arrows, mathematical signs, box drawing and blocks (1051
+  characters). Anything else shows as `?`: CJK, emoji, Braille patterns, Hebrew and Arabic.
+  Combining accents are not joined to their letter. Wide characters take one cell, not two.
+- The text size cannot be changed while a session is open.
 - One session at a time. No port forwarding, no agent, no X11.
 - The session ends when the screen closes: Disconnect, the device going to sleep, or USB Drive
   mode. After a wake the lock screen comes first and the session is already gone.
@@ -210,8 +231,10 @@ folder chosen at the top, **Upload a file here**, **New folder**.
 
 ## Memory
 
-- The screen and its scrollback are one block in PSRAM: 4 bytes a character, about 170 KB for 80
+- The screen and its scrollback are one block in PSRAM: 4 bytes a character, about 180 KB for 80
   columns.
+- The terminal font is 84 KB of the firmware (four sizes, 1051 characters each, one bit a pixel),
+  only in the builds with SSH.
 - The SSH library's buffers (a 32 KB receive window, 16 KB packets) are single blocks, which this
   board places in PSRAM too.
 - The key exchange and the sign-in need small blocks from the internal heap. Before connecting,
@@ -232,12 +255,21 @@ Apache-2.0 libraries in the binary (NimBLE-Arduino, JPEGDEC and others) are comp
 version 2. VaultInk's own source stays MIT. See [licenses.md](licenses.md) and
 [NOTICE](../NOTICE).
 
+The terminal's font is made from [Terminus Font](https://terminus-font.sourceforge.net/) 4.49.1 by
+Dimitar Toshkov Zhekov, under the SIL Open Font License 1.1 (`lib/Ssh/fonts/OFL.TXT`). The
+firmware holds a subset of four sizes as plain bitmaps, which the licence counts as a modified
+version, so it is not presented under the name Terminus: the device calls it the terminal font.
+
 ## For developers
 
 - `lib/wolfssh`: the library, vendored unchanged, with VaultInk's build files next to it
   (`lib/wolfssh/UPSTREAM.md`).
 - `lib/Ssh`: the terminal emulator, known_hosts, key file layout, address parsing and key
   mapping. No platform code.
+- `lib/Ssh/SshTermFont.*`: the terminal font (sizes, glyph lookup, stand-ins for missing
+  characters, bold, drawing one cell) and the grid arithmetic (`gridFor`). The bitmaps in
+  `SshTermFontData.cpp` are written by `scripts/gen_ssh_font.py` from the Terminus BDF files
+  (`lib/Ssh/fonts/README.md`). Tests: `test/ssh/SshTermFontTest.cpp`.
 - `lib/SshClient`: the session on wolfSSH, through a socket interface.
 - `src/network/SshDevice.*`, `SftpClient.cpp`, `src/activities/remote/SshTerminalActivity.*`,
   `SshKeyActivity.*`: the device side.

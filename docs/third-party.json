@@ -287,6 +287,18 @@
       "verified_from": "lib/EpdFont/builtinFonts/source/Ubuntu/UFL.txt"
     },
     {
+      "name": "Terminus Font",
+      "version": "4.49.1 (a subset of ter-u12n, ter-u14n, ter-u16n and ter-u18n as bitmaps in lib/Ssh/SshTermFontData.cpp)",
+      "used_for": "SSH terminal font (X4 Pro)",
+      "licence": "OFL-1.1",
+      "copyright": "Copyright (C) 2020 Dimitar Toshkov Zhekov, with Reserved Font Name \"Terminus Font\"",
+      "source": "https://terminus-font.sourceforge.net",
+      "used_in": "firmware",
+      "only_with": "VAULTINK_SSH",
+      "verified_from": "lib/Ssh/fonts/OFL.TXT (OFL.TXT of terminus-font-4.49.1.tar.gz, copied unchanged)",
+      "notes": "The firmware holds 1051 of the font's characters in four sizes, converted to plain bitmaps by scripts/gen_ssh_font.py. Under the licence that is a Modified Version, so it is not presented under the reserved name: the device calls it the terminal font. The licence lets the font be bundled and embedded with software under any licence; the font data itself stays under the OFL. Drawn only by the SSH terminal, which is only in builds with VAULTINK_SSH=1 (the X4 Pro builds)."
+    },
+    {
       "name": "Lucide icons",
       "version": "the FreeInk SDK's set is not pinned here; the two icons in src/components/icons/customListIcons.h are from 1.61.0",
       "used_for": "UI icons",

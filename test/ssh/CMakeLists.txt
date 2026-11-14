@@ -4,11 +4,14 @@ add_executable(SshTest
   SshKeyTest.cpp
   SshAddressTest.cpp
   SshInputTest.cpp
+  SshTermFontTest.cpp
   ${REPO_ROOT}/lib/Ssh/SshTerminal.cpp
   ${REPO_ROOT}/lib/Ssh/SshKnownHosts.cpp
   ${REPO_ROOT}/lib/Ssh/SshKey.cpp
   ${REPO_ROOT}/lib/Ssh/SshAddress.cpp
   ${REPO_ROOT}/lib/Ssh/SshInput.cpp
+  ${REPO_ROOT}/lib/Ssh/SshTermFont.cpp
+  ${REPO_ROOT}/lib/Ssh/SshTermFontData.cpp
   ${REPO_ROOT}/lib/RemoteFiles/RemoteFiles.cpp
   ${REPO_ROOT}/lib/TextInput/TextInput.cpp
 )

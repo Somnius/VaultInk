@@ -388,6 +388,9 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t scrollStep = 3;  // scrollview::kStepHalfScreen
   uint8_t scrollRefreshEvery = 8;
   uint8_t readerMenuStyle = READER_MENU_LIST;
+  // SSH terminal (docs/ssh.md): the cell height of the terminal's font in pixels, 12, 14, 16 or 18
+  // (sshfont::fontForHeight; anything else is read as 16). Changed in the SSH servers list.
+  uint8_t sshTextSize = 16;
   // SD card font family name (empty = use built-in fontFamily)
   char sdFontFamilyName[32] = "";
   // Dictionary folder name under /dictionaries (empty = no dictionary)

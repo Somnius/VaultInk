@@ -37,8 +37,11 @@
  *   on the way to sleep) or USB Drive mode (which replaces this screen). Then Wi-Fi is switched
  *   off. Nothing here uses a timer or a wake-up. The lock screen only comes up after a wake, and
  *   by then the session is gone.
+ * - Text: the terminal's own fixed-cell 1-bit font (lib/Ssh/SshTermFont: 6 x 12, 8 x 14, 8 x 16 or
+ *   10 x 18 pixel cells, chosen with "Terminal text size" in the SSH servers list and read when
+ *   the screen opens). Glyphs are copied pixel for pixel; the columns follow the cell width.
  * - Memory: the screen and 500 lines of scrollback live in one PSRAM block (4 bytes a cell: 80
- *   columns x (rows + 500) lines is about 170 KB); wolfSSH's 32 KB window and 16 KB packet buffers
+ *   columns x (rows + 500) lines is about 180 KB); wolfSSH's 32 KB window and 16 KB packet buffers
  *   are single allocations, which this board's malloc also places in PSRAM.
  *
  * In a build without VAULTINK_SSH the screen only says that SSH is not in this build.

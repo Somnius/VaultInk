@@ -47,6 +47,9 @@ inline constexpr Component COMPONENTS[] = {
     {"Noto Sans Symbols and Symbols 2", "OFL-1.1", "Arrows and task boxes", "github.com/notofonts/symbols", "Copyright 2022 The Noto Project Authors"},
     {"OpenDyslexic", "OFL-1.1", "Reading font", "opendyslexic.org", "Copyright (c) 2019-07-29, Abbie Gonzalez, with Reserved Font Name OpenDyslexic"},
     {"Ubuntu font", "Ubuntu-font-1.0", "UI font", "design.ubuntu.com/font", ""},
+#if defined(VAULTINK_SSH) && VAULTINK_SSH
+    {"Terminus Font 4.49.1", "OFL-1.1", "SSH terminal font (X4 Pro)", "terminus-font.sourceforge.net", "Copyright (C) 2020 Dimitar Toshkov Zhekov, with Reserved Font Name \"Terminus Font\""},
+#endif
     {"Lucide icons", "not verified", "UI icons", "lucide.dev", ""},
     {"Hyphenation patterns (typst/hypher)", "not verified", "Hyphenation, 13 pattern sets", "github.com/typst/hypher", ""},
     {"HTML entity table (diy-esp32-epub-reader)", "not verified", "HTML entities in books", "github.com/atomic14/diy-esp32-epub-reader", ""},
@@ -60,6 +63,6 @@ inline constexpr Component COMPONENTS[] = {
 inline constexpr size_t COMPONENT_COUNT = sizeof(COMPONENTS) / sizeof(COMPONENTS[0]);
 // Bytes of string data above with every row in (each string once, with its NUL); the table adds 20
 // bytes a row.
-inline constexpr size_t STRING_BYTES = 3742;
+inline constexpr size_t STRING_BYTES = 3903;
 
 }  // namespace thirdparty

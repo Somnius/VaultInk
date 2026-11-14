@@ -40,6 +40,7 @@ fi
 # Additionally exclude files in 'lib/EpdFont/builtinFonts/' as they are script-generated.
 # Also exclude files in 'lib/Epub/Epub/hyphenation/generated/' as they are script-generated.
 # lib/wolfssh/ is vendored upstream code (lib/wolfssh/UPSTREAM.md); it keeps its own style.
+# lib/Ssh/SshTermFontData.cpp is script-generated (scripts/gen_ssh_font.py).
 # Keep the no-match case non-fatal: grep returns 1 when no files match,
 # which is expected when there are no modified C/C++ files.
 set +o pipefail
@@ -49,6 +50,7 @@ git ls-files  --exclude-standard ${GIT_LS_FILES_FLAGS} \
     | grep -v -E '^lib/Epub/Epub/hyphenation/generated/' \
     | grep -v -E '^lib/uzlib/' \
     | grep -v -E '^lib/wolfssh/' \
+    | grep -v -E '^lib/Ssh/SshTermFontData\.cpp$' \
     | grep -v -E '^lib/miniz/third_party/' \
     | xargs -r "${CLANG_FORMAT_BIN}" -style=file -i
 # Restore strict pipeline failure handling for the rest of the script.

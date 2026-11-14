@@ -1447,3 +1447,5 @@ STR_SSH_FORGET_ALL_BODY: "Every server will show its key and ask again at its ne
 STR_SSH_KNOWN_HOSTS_UNREADABLE: "known_hosts could not be read. Not connected. Check the SD card, or use Forget all host keys in SSH servers to start again."
 STR_SSH_KNOWN_HOSTS_CHANGED: "known_hosts was changed outside the device. Not connected. Use Forget all host keys in SSH servers to start again."
 STR_SSH_HOST_KEY_CHANGED_NOW: "Host key changed during the session. Disconnected."
+STR_SSH_TEXT_SIZE: "Terminal text size"
+STR_SSH_COLUMNS: "columns"

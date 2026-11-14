@@ -5,9 +5,12 @@
 #include <Logging.h>
 #include <Memory.h>
 #include <SshAddress.h>
+#include <SshTermFont.h>
+#include <SshTerminal.h>
 
 #include <utility>
 
+#include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "RemoteBrowserActivity.h"
 #include "SshKeyActivity.h"
@@ -63,7 +66,7 @@ void RemoteServerListActivity::rebuildRowItems() {
   rowItems_.clear();
   rowSubtitles_.clear();
   rowServer_.clear();
-  rowItems_.reserve(servers.size() + 2);
+  rowItems_.reserve(servers.size() + 3);
   rowSubtitles_.reserve(servers.size());
   rowServer_.reserve(servers.size());
   for (size_t i = 0; i < servers.size(); i++) {
@@ -93,6 +96,25 @@ void RemoteServerListActivity::rebuildRowItems() {
     add.actionValue = static_cast<int16_t>(rowServer_.size());
     rowItems_.push_back(add);
   }
+  // The SSH list: the terminal's text size. A tap goes to the next size; the value says the cell
+  // and how many columns it gives on this screen. Read by the terminal when it opens. Only in
+  // the builds that have the terminal, so the font is not linked into the others.
+  textSizeRow_ = -1;
+#if VAULTINK_SSH_TERMINAL
+  if (sshOnly_) {
+    const sshfont::Font& font = sshfont::fontForHeight(SETTINGS.sshTextSize);
+    const sshfont::Grid grid = sshfont::gridFor(renderer.getScreenWidth(), renderer.getScreenHeight(), font,
+                                                sshterm::Terminal::MAX_COLS, sshterm::Terminal::MAX_ROWS);
+    textSizeValue_ = std::to_string(font.cellW) + " x " + std::to_string(font.cellH) + ", " +
+                     std::to_string(grid.cols) + " " + tr(STR_SSH_COLUMNS);
+    fui::ListItem size;
+    size.label = tr(STR_SSH_TEXT_SIZE);
+    size.value = textSizeValue_.c_str();
+    textSizeRow_ = static_cast<int>(rowItems_.size());
+    size.actionValue = static_cast<int16_t>(textSizeRow_);
+    rowItems_.push_back(size);
+  }
+#endif
   // The SSH list: the reset for the pinned server keys, when there are any (also the way out when
   // the file is unreadable or was changed outside the device).
   forgetAllRow_ = -1;
@@ -112,6 +134,16 @@ const char* RemoteServerListActivity::headerTitle() const {
 void RemoteServerListActivity::activateIndex(const int index) {
   nav.selected = index;
   app.clearTapFlash();
+#if VAULTINK_SSH_TERMINAL
+  if (index == textSizeRow_ && textSizeRow_ >= 0) {
+    SETTINGS.sshTextSize = sshfont::nextHeight(SETTINGS.sshTextSize);
+    SETTINGS.saveToFile();
+    rebuildRowItems();
+    nav.selected = index;
+    requestUpdate();
+    return;
+  }
+#endif
   if (index == forgetAllRow_ && forgetAllRow_ >= 0) {
     auto dialog = makeUniqueNoThrow<ConfirmationActivity>(renderer, mappedInput, tr(STR_SSH_FORGET_ALL),
                                                           tr(STR_SSH_FORGET_ALL_BODY));

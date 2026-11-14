@@ -48,6 +48,7 @@ Firmware:
 - Noto Sans Symbols and Symbols 2 (Arrows and task boxes): OFL-1.1, Copyright 2022 The Noto Project Authors.
 - OpenDyslexic (Reading font): OFL-1.1, Copyright (c) 2019-07-29, Abbie Gonzalez, with Reserved Font Name OpenDyslexic.
 - Ubuntu font (UI font): Ubuntu-font-1.0.
+- Terminus Font 4.49.1 (SSH terminal font (X4 Pro)): OFL-1.1, Copyright (C) 2020 Dimitar Toshkov Zhekov, with Reserved Font Name "Terminus Font".
 - Lucide icons (UI icons): not verified.
 - Hyphenation patterns (typst/hypher) (Hyphenation, 13 pattern sets): not verified.
 - HTML entity table (diy-esp32-epub-reader) (HTML entities in books): not verified.
