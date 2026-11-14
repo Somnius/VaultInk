@@ -64,10 +64,16 @@ class ZipFile {
   // True for the first bytes of a ZIP archive: "PK" followed by a local file header (03 04), the end
   // record of an empty archive (05 06) or a spanned-archive marker (07 08).
   static bool isZipSignature(const uint8_t* bytes, size_t len);
-  // Reads the first four bytes of the file and checks them with isZipSignature(). Logs nothing, so a
-  // caller can ask before treating a MOBI, FB2 or text book as an archive (the end-record scan logs
-  // an error for those). False when the file cannot be opened.
-  static bool hasZipSignature(const std::string& filePath);
+  enum class Probe {
+    Archive,     // starts like a ZIP, or has an end record where loadZipDetails() looks for one
+    NotArchive,  // read fine, and neither is there: this reader could not open it either
+    Unreadable,  // could not be opened or read: nothing is known about it
+  };
+  // Says quietly (no log) whether the ZIP reader could take this file, so a caller can keep a MOBI,
+  // FB2 or text book away from it (the end-record scan logs an error for those). A file that starts
+  // with other bytes but carries an end record in its last 1 KB (an archive with something in
+  // front) is still an Archive, exactly as loadZipDetails() would accept it.
+  static Probe probe(const std::string& filePath);
   ~ZipFile() = default;
   // Zip file can be opened and closed by hand in order to allow for quick calculation of inflated file size
   // It is NOT recommended to pre-open it for any kind of inflation due to memory constraints

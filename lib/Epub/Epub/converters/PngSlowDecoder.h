@@ -11,7 +11,9 @@
 // caller scale, dither and cache one row at a time. An interlaced picture arrives in seven passes
 // over the whole area, so this decoder samples straight into a canvas of the output size (one gray
 // byte per output pixel, transparency blended onto white) and the caller draws that afterwards.
-// Memory: the canvas, two source scanlines, and the inflate window (about 40 KB).
+// Memory: the caller's canvas; about 43 KB of heap for the inflate window, its state and the chunk
+// reader; and two source scanlines, each up to MAX_ROW_BYTES in PSRAM, or up to MAX_HEAP_ROW_BYTES
+// on the heap of a board without PSRAM.
 namespace pngslow {
 
 constexpr size_t HEADER_BYTES = 29;  // signature, IHDR length and name, the 13 IHDR bytes
@@ -35,8 +37,16 @@ const char* fastDecoderRefusal(const Header& header);
 // Bytes of one full-width source scanline, without its filter byte.
 uint64_t rowBytes(const Header& header);
 
-// Widest scanline taken: 8192 px of 16-bit RGBA. Two of them are held while decoding.
+// Widest scanline taken when the two scanline buffers come from PSRAM: 8192 px of 16-bit RGBA.
 constexpr uint64_t MAX_ROW_BYTES = 64 * 1024;
+// And when they have to come from the heap: 4096 px of 8-bit RGBA, 2048 px of 16-bit RGBA.
+constexpr uint64_t MAX_HEAP_ROW_BYTES = 16 * 1024;
+
+// Where the scanline buffers come from. The default asks PSRAM first, then the heap; tests pass their own.
+struct RowMemory {
+  uint8_t* (*allocate)(size_t bytes, bool psram);
+  void (*release)(uint8_t* block, bool psram);
+};
 
 // Sequential read from the start of the file: up to len bytes into dst, returns the count (0 at the end).
 using ReadFn = int (*)(void* user, uint8_t* dst, int len);
@@ -51,6 +61,7 @@ struct Region {
   int height = 0;
 };
 
+// TooLarge: a scanline over MAX_ROW_BYTES, or over MAX_HEAP_ROW_BYTES with no PSRAM to hold it.
 enum class Result { Ok, BadFile, TooLarge, NoMemory, BadArguments };
 const char* describe(Result result);
 
@@ -59,6 +70,6 @@ const char* describe(Result result);
 // the result does not depend on the order of the passes.
 // `read` must start at the first byte of the file.
 Result decodeGray(ReadFn read, void* user, const Header& header, const Region& region, uint8_t* canvas, int outWidth,
-                  int outHeight, TickFn tick = nullptr, void* tickUser = nullptr);
+                  int outHeight, TickFn tick = nullptr, void* tickUser = nullptr, const RowMemory* memory = nullptr);
 
 }  // namespace pngslow

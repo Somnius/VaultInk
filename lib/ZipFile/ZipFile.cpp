@@ -301,13 +301,36 @@ bool ZipFile::isZipSignature(const uint8_t* bytes, const size_t len) {
          (bytes[2] == 0x07 && bytes[3] == 0x08);
 }
 
-bool ZipFile::hasZipSignature(const std::string& filePath) {
-  HalFile probe;
-  if (!Storage.openFileForRead("ZIP", filePath, probe)) return false;
+ZipFile::Probe ZipFile::probe(const std::string& filePath) {
+  HalFile file;
+  if (!Storage.openFileForRead("ZIP", filePath, file)) return Probe::Unreadable;
+  const size_t fileSize = file.size();
   uint8_t head[4] = {};
-  const int got = probe.read(head, sizeof(head));
-  probe.close();
-  return got == static_cast<int>(sizeof(head)) && isZipSignature(head, sizeof(head));
+  const int got = file.read(head, sizeof(head));
+  if (got < 0) {
+    file.close();
+    return Probe::Unreadable;
+  }
+  if (got == static_cast<int>(sizeof(head)) && isZipSignature(head, sizeof(head))) {
+    file.close();
+    return Probe::Archive;
+  }
+  // Not a ZIP start. The same window loadZipDetails() scans for the end record decides the rest.
+  constexpr size_t EOCD_BYTES = 22;
+  if (fileSize < EOCD_BYTES) {
+    file.close();
+    return Probe::NotArchive;
+  }
+  uint8_t tail[1024];
+  const size_t scan = fileSize > sizeof(tail) ? sizeof(tail) : fileSize;
+  const bool positioned = file.seek(fileSize - scan);
+  const int tailGot = positioned ? file.read(tail, scan) : -1;
+  file.close();
+  if (tailGot != static_cast<int>(scan)) return Probe::Unreadable;
+  for (size_t i = 0; i + EOCD_BYTES <= scan; i++) {
+    if (tail[i] == 'P' && tail[i + 1] == 'K' && tail[i + 2] == 0x05 && tail[i + 3] == 0x06) return Probe::Archive;
+  }
+  return Probe::NotArchive;
 }
 
 bool ZipFile::open() {

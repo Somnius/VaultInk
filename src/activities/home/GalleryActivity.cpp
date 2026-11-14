@@ -83,6 +83,7 @@ void GalleryActivity::onEnter() {
 void GalleryActivity::scan() {
   pictures.clear();
   truncated = false;
+  failedThumbs.clear();  // a new look at the card: failed pictures get one more try
   // Settings from the gear (kos25k #8): all, PNG only, or only pictures inside a vault.
   const uint8_t filter = SETTINGS.galleryFilter;
   std::vector<std::string> vaultRoots;
@@ -185,12 +186,18 @@ bool GalleryActivity::drawThumb(const std::string& path, const int x, const int 
     if (renderImagePixelCache(renderer, config.cachePath, config.x, config.y, config.maxWidth, config.maxHeight)) {
       return true;
     }
+    // Decoded before and it failed (damaged, too large, no memory): the named frame, and no second
+    // try on every paint. The key carries the path, the file size and the box, so a replaced file is
+    // tried again, and so is everything after the refresh arrows.
+    if (failedThumbs.contains(config.cachePath)) return false;
     if (cachedOnly) {
       waiting = true;
       return false;
     }
     Storage.ensureDirectoryExists(THUMBS);
-    return decoder.decodeToFramebuffer(path, renderer, config);
+    if (decoder.decodeToFramebuffer(path, renderer, config)) return true;
+    failedThumbs.add(config.cachePath);
+    return false;
   };
   bool drawn = false;
   if (FsHelpers::hasJpgExtension(path)) {
