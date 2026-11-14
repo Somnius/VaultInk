@@ -332,13 +332,27 @@ TEST(SshTermFont, LongLineWrapsByColumns) {
 
 TEST(SshTermFont, ZeroWidthCharactersTakeNoCell) {
   using sshterm::Terminal;
-  for (const uint32_t cp :
-       {0x0300, 0x0301, 0x036F, 0x1AB0, 0x1AFF, 0x1DC0, 0x1DFF, 0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0x2028,
-        0x2029, 0x202A, 0x202E, 0x2060, 0x2064, 0x20D0, 0x20FF, 0xFE00, 0xFE0F, 0xFE20, 0xFE2F, 0xFEFF}) {
-    EXPECT_TRUE(Terminal::isZeroWidth(cp)) << std::hex << cp;
+  // Each range: its first and last character are dropped, the ones just outside are not.
+  struct Range {
+    uint32_t first;
+    uint32_t last;
+  };
+  const Range ranges[] = {
+      {0x0300, 0x036F}, {0x0483, 0x0489},   {0x061C, 0x061C},   {0x1AB0, 0x1AFF},   {0x1DC0, 0x1DFF}, {0x200B, 0x200F},
+      {0x202A, 0x202E}, {0x2060, 0x2064},   {0x2066, 0x2069},   {0x20D0, 0x20FF},   {0xFE00, 0xFE0F}, {0xFE20, 0xFE2F},
+      {0xFEFF, 0xFEFF}, {0x1F3FB, 0x1F3FF}, {0xE0020, 0xE007F}, {0xE0100, 0xE01EF},
+  };
+  for (const Range& range : ranges) {
+    EXPECT_TRUE(Terminal::isZeroWidth(range.first)) << std::hex << range.first;
+    EXPECT_TRUE(Terminal::isZeroWidth(range.last)) << std::hex << range.last;
+    EXPECT_TRUE(Terminal::isZeroWidth((range.first + range.last) / 2)) << std::hex << range.first;
+    EXPECT_FALSE(Terminal::isZeroWidth(range.first - 1)) << std::hex << range.first;
+    EXPECT_FALSE(Terminal::isZeroWidth(range.last + 1)) << std::hex << range.last;
   }
-  for (const uint32_t cp : {0x20,   0x41,   0x02FF, 0x0370, 0x03AC, 0x1AAF, 0x1B00, 0x200A, 0x2010, 0x2027, 0x202F,
-                            0x205F, 0x2065, 0x20CF, 0x2100, 0x2500, 0xFDFF, 0xFE10, 0xFE1F, 0xFE30, 0xFFFD, 0x1F600}) {
+  // The line and paragraph separators are not dropped (they break the line, below).
+  for (const uint32_t cp :
+       {0x20,   0x41,   0x03AC, 0x0482, 0x048A, 0x061B,  0x061D,  0x2010,  0x2027,  0x2028,  0x2029,  0x202F,
+        0x205F, 0x2065, 0x206A, 0x2500, 0xFFFD, 0x1F3FA, 0x1F400, 0x1F600, 0xE001F, 0xE0080, 0xE00FF, 0xE01F0}) {
     EXPECT_FALSE(Terminal::isZeroWidth(cp)) << std::hex << cp;
   }
 
@@ -365,4 +379,47 @@ TEST(SshTermFont, ZeroWidthCharactersTakeNoCell) {
   // A precomposed letter keeps its cell, and a character outside the BMP is one '?'.
   term.feed("\r\n\xCE\xAC\xF0\x9F\x98\x80.");
   EXPECT_EQ(term.rowText(2), "\xCE\xAC?.");
+}
+
+TEST(SshTermFont, ZeroWidthOutsideTheBmpIsCheckedBeforeTheQuestionMark) {
+  sshterm::Terminal term;
+  ASSERT_TRUE(term.begin(20, 4, 10, sshterm::Memory{malloc, free}));
+  // U+1F44D thumbs up, U+1F3FB and U+1F3FF skin tones, U+E0020 and U+E007F tags, U+E0100 and
+  // U+E01EF variation selectors: the emoji is one '?', the rest take no cell.
+  term.feed(
+      "a\xF0\x9F\x91\x8D\xF0\x9F\x8F\xBB"
+      "b\xF0\x9F\x8F\xBF"
+      "c\xF3\xA0\x80\xA0\xF3\xA0\x81\xBF"
+      "d\xF3\xA0\x84\x80\xF3\xA0\x87\xAF"
+      "e");
+  EXPECT_EQ(term.rowText(0), "a?bcde");
+  EXPECT_EQ(term.cursorCol(), 6);
+  // Their neighbours outside the ranges are characters: U+1F3FA and U+1F400, one '?' each.
+  term.feed("\r\n\xF0\x9F\x8F\xBA\xF0\x9F\x90\x80");
+  EXPECT_EQ(term.rowText(1), "??");
+  // Bidi isolates U+2066 and U+2069, the Arabic letter mark U+061C and a Cyrillic combining
+  // mark U+0483 between letters: only the letters.
+  term.feed("\r\nx\xE2\x81\xA6y\xE2\x81\xA9z\xD8\x9C\xD0\xB0\xD2\x83.");
+  EXPECT_EQ(term.rowText(2), "xyz\xD0\xB0.");
+}
+
+TEST(SshTermFont, LineAndParagraphSeparatorsStartANewLine) {
+  sshterm::Terminal term;
+  ASSERT_TRUE(term.begin(20, 4, 10, sshterm::Memory{malloc, free}));
+  // U+2028 and U+2029: the text after each starts at the first column of the next row, and
+  // neither takes a cell.
+  term.feed("one\xE2\x80\xA8two\xE2\x80\xA9three");
+  EXPECT_EQ(term.rowText(0), "one");
+  EXPECT_EQ(term.rowText(1), "two");
+  EXPECT_EQ(term.rowText(2), "three");
+  EXPECT_EQ(term.cursorRow(), 2);
+  EXPECT_EQ(term.cursorCol(), 5);
+  // At the bottom row it scrolls like a line feed; after a full row it is one line down, not two.
+  term.feed("\r\n" + std::string(20, 'x') + "\xE2\x80\xA8y");
+  EXPECT_EQ(term.rowText(2), std::string(20, 'x'));
+  EXPECT_EQ(term.rowText(3), "y");
+  term.feed("\xE2\x80\xA8z");
+  EXPECT_EQ(term.rowText(2), "y");
+  EXPECT_EQ(term.rowText(3), "z");
+  EXPECT_EQ(term.scrollbackLines(), 2);  // one line left the top at each of the two separators
 }

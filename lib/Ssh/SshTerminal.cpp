@@ -167,21 +167,34 @@ void Terminal::moveTo(int row, int col) {
 }
 
 bool Terminal::isZeroWidth(const uint32_t cp) {
-  return (cp >= 0x0300 && cp <= 0x036F) ||  // combining diacritical marks
-         (cp >= 0x1AB0 && cp <= 0x1AFF) ||  // ... extended
-         (cp >= 0x1DC0 && cp <= 0x1DFF) ||  // ... supplement
-         (cp >= 0x200B && cp <= 0x200F) ||  // zero-width space, joiners, direction marks
-         (cp >= 0x2028 && cp <= 0x202E) ||  // line and paragraph separators, bidi embedding controls
-         (cp >= 0x2060 && cp <= 0x2064) ||  // word joiner, invisible operators
-         (cp >= 0x20D0 && cp <= 0x20FF) ||  // combining marks for symbols
-         (cp >= 0xFE00 && cp <= 0xFE0F) ||  // variation selectors
-         (cp >= 0xFE20 && cp <= 0xFE2F) ||  // combining half marks
-         cp == 0xFEFF;                      // byte order mark
+  return (cp >= 0x0300 && cp <= 0x036F) ||    // combining diacritical marks
+         (cp >= 0x0483 && cp <= 0x0489) ||    // Cyrillic combining marks
+         cp == 0x061C ||                      // Arabic letter mark
+         (cp >= 0x1AB0 && cp <= 0x1AFF) ||    // combining diacritical marks extended
+         (cp >= 0x1DC0 && cp <= 0x1DFF) ||    // combining diacritical marks supplement
+         (cp >= 0x200B && cp <= 0x200F) ||    // zero-width space, joiners, direction marks
+         (cp >= 0x202A && cp <= 0x202E) ||    // bidi embedding and override controls
+         (cp >= 0x2060 && cp <= 0x2064) ||    // word joiner, invisible operators
+         (cp >= 0x2066 && cp <= 0x2069) ||    // bidi isolates
+         (cp >= 0x20D0 && cp <= 0x20FF) ||    // combining marks for symbols
+         (cp >= 0xFE00 && cp <= 0xFE0F) ||    // variation selectors
+         (cp >= 0xFE20 && cp <= 0xFE2F) ||    // combining half marks
+         cp == 0xFEFF ||                      // byte order mark
+         (cp >= 0x1F3FB && cp <= 0x1F3FF) ||  // emoji skin-tone modifiers
+         (cp >= 0xE0020 && cp <= 0xE007F) ||  // tag characters
+         (cp >= 0xE0100 && cp <= 0xE01EF);    // variation selectors supplement
 }
 
 void Terminal::putChar(uint32_t cp) {
+  // Both checks read the whole code point, before one outside the BMP becomes '?'.
   // Characters with no width would need their own cell handling: dropped, so they take no cell.
   if (isZeroWidth(cp)) return;
+  // The line separator and the paragraph separator start a new line, as CR LF does.
+  if (cp == 0x2028 || cp == 0x2029) {
+    curCol_ = 0;
+    lineFeed();
+    return;
+  }
   if (cp > 0xFFFF) cp = '?';
   if (curCol_ >= cols_) {
     if (autoWrap_) {

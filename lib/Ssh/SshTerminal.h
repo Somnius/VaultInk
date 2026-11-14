@@ -80,7 +80,9 @@ class Terminal {
   bool hasChanges() const { return changes_.any(); }
 
   // True for characters that take no cell: combining marks, zero-width spaces and joiners, bidi
-  // controls, invisible operators, variation selectors and the byte order mark.
+  // controls and isolates, invisible operators, variation selectors, emoji skin-tone modifiers,
+  // tag characters and the byte order mark. Takes the whole code point, also outside the BMP.
+  // U+2028 and U+2029 are not among them: they start a new line.
   static bool isZeroWidth(uint32_t cp);
 
   // How many times the server asked for the alternate screen (a full-screen program started).

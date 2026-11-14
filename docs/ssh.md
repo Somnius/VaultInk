@@ -183,7 +183,8 @@ the text fields.
   Wide characters take one cell, not two. Characters with no width are dropped and take no
   cell: combining accents (so a letter typed as letter + accent shows without it; the usual
   single-character forms such as `ά` and `é` are fine), zero-width spaces and joiners, direction
-  marks and variation selectors.
+  marks and isolates, variation selectors, emoji skin-tone modifiers and tag characters. The
+  line separator and the paragraph separator (U+2028, U+2029) start a new line.
 - The text size cannot be changed while a session is open.
 - One session at a time. No port forwarding, no agent, no X11.
 - The session ends when the screen closes: Disconnect, the device going to sleep, or USB Drive
