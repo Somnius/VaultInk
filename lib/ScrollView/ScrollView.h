@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <numeric>
 #include <vector>
 
 namespace scrollview {
@@ -59,9 +60,8 @@ inline int rowAt(const std::vector<Row>& rows, const int y) {
 
 // Where a page's content ends: the next page's first line is drawn from here.
 inline int contentHeight(const std::vector<Row>& rows) {
-  int bottom = 0;
-  for (const Row& row : rows) bottom = std::max(bottom, row.top + row.height);
-  return bottom;
+  return std::accumulate(rows.begin(), rows.end(), 0,
+                         [](const int bottom, const Row& row) { return std::max(bottom, row.top + row.height); });
 }
 
 // From one row's top to the next one's: what a one-row scroll moves by. The last row of a page gives its height.

@@ -1698,6 +1698,8 @@ void LibraryListActivity::render(RenderLock&& lock) {
     // That was the quick first paint. Rows left without a percent get it with the next one, which
     // reads those books' cached metadata while the list is already on screen.
     deferPercents = false;
+    // buildRows() sets percentsSkipped through the cache's reference parameter, which cppcheck cannot follow.
+    // cppcheck-suppress knownConditionTrueFalse
     if (percentsSkipped) requestUpdate();
   }
 }
