@@ -321,7 +321,7 @@
         <a class="btn" href="#install">Install from your browser</a>
         <a class="btn ghost" href="https://github.com/Somnius/VaultInk#readme">Read the docs</a>
       </div>
-      <p class="meta sans">Open source, MIT licence. Built on CrossPoint Reader. Not affiliated with
+      <p class="meta sans">Open source: my own code is MIT, the firmware binaries are GPL-3.0-or-later. Built on CrossPoint Reader. Not affiliated with
         Obsidian, Xteink or CrossPoint. <span id="heroVersion"></span></p>
     </div>
     <figure class="device">
@@ -465,9 +465,7 @@
         <div class="notice" role="note">
           <strong>For helping debug.</strong> It is the same firmware plus a read-only serial link:
           over the USB cable it answers a status request and prints its log, so the
-          <a href="debug.html">debug page</a> can make a report. Over that
-          link it can reboot the reader, change the log level, take a screenshot and write a small bench log to the SD card; it cannot read or write your files or settings. It cannot be told to press keys or flash
-          anything. <strong>Installing it replaces
+          <a href="debug.html">debug page</a> can make a report. It can&rsquo;t read or write your files or settings, press keys or flash anything. It can reboot the reader, change the log level, take a screenshot and write a small bench log to the card. <strong>Installing it replaces
           your current firmware.</strong> Update back with the normal button above, or from the reader
           under <kbd>Settings → System → Check for Updates</kbd> when the next release is out.
         </div>
@@ -644,7 +642,7 @@
         <li>A PIN or corner lock, with your name and phone on the lock and sleep screens.</li>
         <li>A Battery page with the drain per hour asleep and awake.</li>
         <li>Updates over Wi-Fi from the device itself, with the release notes first, What's New after an update, and a welcome guide on the first start.</li>
-        <li>No telemetry, no accounts, no payments. Free and open source (MIT).</li>
+        <li>No telemetry, no accounts, no payments. Free and open source (my code is MIT; the firmware binaries are GPL-3.0-or-later, see <a href="#licences">Licence</a>).</li>
       </ul>
 
       <h3 style="margin-top:2.4rem">Phone, Bluetooth and languages</h3>
@@ -731,16 +729,16 @@
           <a href="shot-licences.png" class="shot"><img src="shot-licences.png" width="480" height="800" loading="lazy" alt="The Open-source licences screen under About"></a>
           <figcaption>
             <h3>Open-source licences</h3>
-            <p>Settings &gt; System &gt; About lists every library, font and icon with its licence, and <a href="https://github.com/Somnius/VaultInk/blob/main/docs/licenses.md">docs/licenses.md</a> says where each one was read from.</p>
+            <p>Settings &gt; System &gt; About lists every library, font and icon with its licence, and <a href="https://github.com/Somnius/VaultInk/blob/main/docs/licenses.md">docs/licenses.md</a> says where each one was read from. Checked on a real X4 Pro.</p>
           </figcaption>
         </figure>
       </div>
 
       <h3 style="margin-top:2.4rem">Also checked on a real X4 Pro</h3>
       <ul class="list">
-        <li><strong>Search no longer freezes.</strong> Opening Search blocked the reader for about 12 seconds on a vault of a few hundred notes. Now the keyboard comes first, and an unchanged vault costs one walk of its folders.</li>
+        <li><strong>Search no longer freezes.</strong> Opening Search blocked the reader for about 12 seconds on a vault of a few hundred notes. Now the keyboard appears in 0.8 s instead of 12.7 s, and a search of unchanged vaults is ready in about 2 s.</li>
         <li><strong>Gallery shows interlaced and 16-bit PNGs</strong>, which used to be an empty frame, and a page appears first with the thumbnails it already has.</li>
-        <li><strong>Library shows the list first</strong>; the read percents follow.</li>
+        <li><strong>Library shows the list first</strong>: the list shows in about 1.8 s instead of 3.5 s, and the read percents follow.</li>
         <li><strong>The certificate check for GitHub works</strong> in a developer build: the update check, the font list and a firmware download passed with it on, after SHA-384 was added to the TLS library. The release build still doesn&rsquo;t check GitHub&rsquo;s certificate; that switch stays off for one more release.</li>
       </ul>
 
@@ -751,8 +749,9 @@
         <li><strong>Gamepad buttons</strong> (a scaffold): one Bluetooth gamepad&rsquo;s buttons can be learned for the reader&rsquo;s actions. It has never seen a real gamepad.</li>
         <li><strong>Auto warmth by the sun</strong>: the night window can run from sunset to sunrise for the latitude and longitude you type.</li>
         <li><strong>Gestures inside Reading presets</strong>: Save preset asks &ldquo;Include gestures&rdquo;.</li>
-        <li><strong>Developer link, debug page and a developer build you can install</strong>: a read-only build answers status and log requests over USB, and the <a href="debug.html">debug page</a> makes a report file from it. I used the full developer build for my own tests; the read-only build and the page haven&rsquo;t been tried on a reader yet.</li>
+        <li><strong>Developer link, debug page and a developer build you can install</strong>: a read-only build answers status and log requests over USB, and the <a href="debug.html">debug page</a> makes a report file from it. It can&rsquo;t read or write your files or settings, press keys or flash anything. It can reboot the reader, change the log level, take a screenshot and write a small bench log to the card. I used the full developer build for my own tests; the read-only build and the page haven&rsquo;t been tried on a reader yet.</li>
         <li>The X4 Pro firmware now also holds wolfSSH (GPL-3.0-or-later), so the firmware binaries are under GPL-3.0-or-later; VaultInk&rsquo;s own code stays MIT.</li>
+        <li>Known bug: the bottom row of Settings (System) ignores a tap until you scroll the list.</li>
       </ul>
     </div>
   </section>
@@ -1012,7 +1011,7 @@
       <a href="https://lefteros.com/en/apps/vaultink">Project page and donations</a></span>
     <span><a href="https://github.com/Somnius/VaultInk">VaultInk on GitHub</a> ·
       <a href="https://github.com/Somnius/VaultInk/releases">Releases</a> ·
-      MIT licence · <a href="#licences">Libraries and licences</a> · No cookies, no tracking</span>
+      MIT code, GPL-3.0-or-later binaries · <a href="#licences">Libraries and licences</a> · No cookies, no tracking</span>
   </div>
 </footer>
 

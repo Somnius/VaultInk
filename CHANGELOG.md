@@ -8,12 +8,13 @@ Scroll mode, more formats and network tools, and the first release with parts ch
 
 Checked on a real X4 Pro (a developer build of this code, over USB):
 
-- **Search no longer freezes** the reader. Opening Search used to block for about 12 seconds on a vault of a few hundred notes while the index was checked, and memory ran very low. Now the keyboard comes first, and an unchanged vault costs one walk of its folders (a fingerprint in `state.txt`): no note is opened and the index is rewritten only when a note was added, changed or removed.
+- **Search no longer freezes** the reader. Opening Search used to block for about 12 seconds on a vault of a few hundred notes while the index was checked, and memory ran very low. Now the keyboard appears in 0.8 s instead of 12.7 s, and a search of unchanged vaults is ready in about 2 s (the repeat index check takes 0.4 s, the results come about 2.3 s after you confirm). An unchanged vault costs one walk of its folders (a fingerprint in `state.txt`): no note is opened and the index is rewritten only when a note was added, changed or removed.
 - **Gallery shows interlaced and 16-bit PNGs.** The PNG library refuses both, so those pictures were an empty frame. A second, slower decoder draws them. A page now shows first with the thumbnails it already has and fills in the rest.
-- **Library shows the list first.** The read percents of the visible rows come with a second paint. A MOBI, FB2 or text book is no longer handed to the ZIP reader, so the false "EOCD signature not found" lines are gone from the log.
+- **Library shows the list first.** The list shows in about 1.8 s instead of 3.5 s. The read percents of the visible rows come with a second paint. A MOBI, FB2 or text book is no longer handed to the ZIP reader, so the false "EOCD signature not found" lines are gone from the log.
 - **Home rows fit the screen**: with all 10 rows on, the tiles shrink, then close up, then Books and Vaults go to the plain size, so no row is cut off under the Continue card. In landscape 10 rows still don't fit.
 - **Scroll mode** (kos25k #30): Settings > Reader > Continuous scrolling (off by default), with Scroll step and Clean screen every N scrolls, and a checkbox in the book's Text panel. An EPUB, and anything else the EPUB reader shows, scrolls instead of turning pages. It works on the device, but the whole screen refreshes on every step: a step took about 1.4 seconds against about 0.6 for a page turn. There is no partial refresh yet, and ghosting over a long session was not judged.
 - **The HTTPS certificate check for GitHub works** in a developer build: wolfSSL was built without SHA-384, which GitHub's certificate chain is signed with, so the checked connection failed (error -232). With SHA-384 compiled in, the update check, the font list and a firmware download all passed with the check on. The release build still does not check GitHub's certificate: the switch stays off for one more release. Wikipedia and the translation lookup are always checked.
+- **Open-source licences**: Settings > System > About > Open-source licences shows the GPL-3.0-or-later statement and lists every library, font and icon, and docs/licenses.md has the same list with the file each licence was read from.
 
 Tested on a computer only (host tests, some in the simulator), not on a device:
 
@@ -23,12 +24,11 @@ Tested on a computer only (host tests, some in the simulator), not on a device:
 - **Gamepad buttons** (a scaffold): the buttons of one Bluetooth gamepad can be learned for the reader's actions under Bluetooth Page Turner > Gamepad Buttons. Buttons only, no sticks or triggers. It has never seen a real gamepad (docs/gamepad.md).
 - **Auto warmth by the sun**: the Night Window setting can run from sunset to sunrise. Type your latitude and longitude and the times are worked out on the device (checked against USNO tables on a computer).
 - **Gestures inside Reading presets**: Save preset asks "Include gestures", so a preset can carry your gestures and Quick Menu.
-- **Open-source licences**: Settings > System > About > Open-source licences lists every library, font and icon, and docs/licenses.md has the same list with the file each licence was read from.
-- **Developer link, debug page and a developer build you can install**: the developer build answers status and log requests over the USB cable. The one offered on the install page is read-only: it cannot read or write your files or settings, press keys or flash anything. The debug page (Chrome or Edge) makes a report file from it and uploads nothing. My own test runs used the full developer build; the read-only one and the debug page have not been tried on a reader yet (docs/debug-page.md, docs/devlink.md).
+- **Developer link, debug page and a developer build you can install**: the developer build answers status and log requests over the USB cable. The one offered on the install page is read-only. It can't read or write your files or settings, press keys or flash anything. It can reboot the reader, change the log level, take a screenshot and write a small bench log to the card. The debug page (Chrome or Edge) makes a report file from it and uploads nothing. My own test runs used the full developer build; the read-only one and the debug page have not been tried on a reader yet (docs/debug-page.md, docs/devlink.md).
 
-- **Licence**: the X4 Pro firmware now also holds wolfSSH (GPL-3.0-or-later), next to wolfSSL (GPL-2.0-or-later) and Apache-2.0 libraries, so the firmware binaries are distributed under the GPL-3.0-or-later, with the source in this repository. VaultInk's own code stays MIT (NOTICE, docs/licenses.md).
+Licence: the X4 Pro firmware now also holds wolfSSH (GPL-3.0-or-later), next to wolfSSL (GPL-2.0-or-later) and Apache-2.0 libraries, so the firmware binaries are distributed under the GPL-3.0-or-later, with the source in this repository. VaultInk's own code stays MIT (NOTICE, docs/licenses.md).
 
-Known and not fixed: the bottom row of the Settings list (System) does not react to a tap until the list is scrolled.
+Known and not fixed: the bottom row of Settings (System) ignores a tap until you scroll the list.
 
 ## 0.74.0 (2026-11-11)
 

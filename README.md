@@ -37,7 +37,7 @@ VaultInk is firmware for the Xteink X4 Pro e-reader. It keeps everything
 a way to carry your [Obsidian](https://obsidian.md) notes with you. You can read them, search them
 and follow their links. Later on you'll be able to edit and sync them too.
 
-It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
+It's free and open source (my code is MIT; the firmware binaries are GPL-3.0-or-later, see [License](#license)). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
 > **Still early.** VaultInk is at 0.75.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
@@ -45,7 +45,8 @@ It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or C
 > newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
 > the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
 > books, Advanced Typography, Dice, VaultEUC and the Bluetooth keyboard. Back up your SD card. The screenshots
-> below come from the simulator.
+> below come from the simulator. From 0.75.0 I can also check things on my own X4 Pro over USB; each release
+> note says what was checked there.
 
 ## At a glance
 
@@ -105,12 +106,13 @@ Home with all ten rows, the scroll mode settings, the Translation settings, and 
 
 Checked on a real X4 Pro (a developer build of this code):
 
-- **Search no longer freezes.** Opening Search blocked the reader for about 12 seconds on a vault of a few hundred notes. Now the keyboard comes first, and an unchanged vault costs one walk of its folders instead of a new index.
+- **Search no longer freezes.** Opening Search blocked the reader for about 12 seconds on a vault of a few hundred notes. Now the keyboard appears in 0.8 s instead of 12.7 s, and a search of unchanged vaults is ready in about 2 s: an unchanged vault costs one walk of its folders instead of a new index.
 - **Gallery shows interlaced and 16-bit PNGs**, which used to be an empty frame, and a page appears first with the thumbnails it already has.
-- **Library shows the list first**; the read percents follow.
+- **Library shows the list first**: the list shows in about 1.8 s instead of 3.5 s, and the read percents follow.
 - **Home rows fit the screen** with all 10 rows on (not yet in landscape).
 - **Scroll mode** (kos25k #30): Settings → Reader → Continuous scrolling, off by default. It works on the device, but the whole screen refreshes on every step: about 1.4 seconds a step against 0.6 for a page turn. [docs/reading-and-files.md](docs/reading-and-files.md#continuous-scrolling-0750)
 - **The certificate check for GitHub works** in a developer build: the update check, the font list and a firmware download all passed with it on, after SHA-384 was added to the TLS library (GitHub's chain is signed with it). The release build still doesn't check GitHub's certificate; that switch stays off for one more release.
+- **Open-source licences**: a screen under Settings → System → About with the GPL-3.0-or-later statement and the list, and [docs/licenses.md](docs/licenses.md) with every library, font and icon.
 
 Tried on a computer only, not on a device:
 
@@ -120,10 +122,11 @@ Tried on a computer only, not on a device:
 - **Gamepad buttons** (a scaffold): one Bluetooth gamepad's buttons can be learned for the reader's actions. It has never seen a real gamepad. [docs/gamepad.md](docs/gamepad.md)
 - **Auto warmth by the sun**: the night window can run from sunset to sunrise for the latitude and longitude you type.
 - **Gestures inside Reading presets**: Save preset asks "Include gestures".
-- **Open-source licences**: a screen under Settings → System → About, and [docs/licenses.md](docs/licenses.md) with every library, font and icon.
-- **Developer link, debug page and a developer build you can install**: a read-only build answers status and log requests over USB, and the [debug page](https://somnius.github.io/VaultInk/debug.html) makes a report file from it. I used the full developer build for my own tests; the read-only build and the page haven't been tried on a reader yet. [docs/debug-page.md](docs/debug-page.md)
+- **Developer link, debug page and a developer build you can install**: a read-only build answers status and log requests over USB, and the [debug page](https://somnius.github.io/VaultInk/debug.html) makes a report file from it. It can't read or write your files or settings, press keys or flash anything. It can reboot the reader, change the log level, take a screenshot and write a small bench log to the card. I used the full developer build for my own tests; the read-only build and the page haven't been tried on a reader yet. [docs/debug-page.md](docs/debug-page.md)
 
 The X4 Pro firmware now also holds wolfSSH (GPL-3.0-or-later), so the firmware binaries are distributed under the GPL-3.0-or-later; VaultInk's own code stays MIT ([docs/licenses.md](docs/licenses.md), [NOTICE](NOTICE)).
+
+Known bug: the bottom row of Settings (System) ignores a tap until you scroll the list.
 
 ## New in 0.74.0: the KOReader milestone
 
@@ -147,7 +150,7 @@ Book map, the More menu that opens it, the Gestures screen, and Auto Warmth in D
 - **WebDAV and FTP clients** to browse a server and copy files to or from the card. FTP is not encrypted and asks before every connect. [docs/webdav-ftp.md](docs/webdav-ftp.md)
 - **USB Drive** (File Transfer over the USB-C cable) and the **Power + Down screenshot** now have guides. [docs/webserver.md](docs/webserver.md)
 
-What isn't in 0.74.0 (all of it came in 0.75.0): scroll mode, the SSH terminal and SFTP, the gamepad scaffold, and gestures as profiles. The update check and GitHub downloads are not certificate-checked yet; that code is written and waits for a real device. wolfSSL (TLS 1.3) is GPL-2.0-or-later, so the firmware binaries are under the GPL terms; VaultInk's own code stays MIT ([NOTICE](NOTICE)).
+What isn't in 0.74.0 (all of it came in 0.75.0): scroll mode, the SSH terminal and SFTP, the gamepad scaffold, and gestures as profiles. The update check and GitHub downloads are not certificate-checked yet; that code is written; it passed on a real X4 Pro in a 0.75.0 developer build and is still off in the release. wolfSSL (TLS 1.3) is GPL-2.0-or-later, so the firmware binaries are under the GPL terms; VaultInk's own code stays MIT ([NOTICE](NOTICE)).
 
 ## New since 0.62 (up to 0.70.0)
 
@@ -479,8 +482,7 @@ in `-dev`. It is never a release build and has not been tried on a device yet:
 If you hit a bug and want to help find it, there is a **developer build** you can install from the
 [install page](https://somnius.github.io/VaultInk/#developer-build) ("Developer build (read-only
 debugging)"). It is the same firmware plus a read-only serial link: over the USB cable it answers a
-status request and prints its log. Over that link it can reboot the reader, change the log level, take a screenshot and write a small bench log to the SD card; it cannot read or write your files or settings. It cannot be told to press keys or
-flash anything. Installing it replaces your current firmware;
+status request and prints its log. It can't read or write your files or settings, press keys or flash anything. It can reboot the reader, change the log level, take a screenshot and write a small bench log to the card. Installing it replaces your current firmware;
 the normal Install button puts the release back.
 
 With it on the reader, open the [debug page](https://somnius.github.io/VaultInk/debug.html) in
