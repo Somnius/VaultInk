@@ -40,7 +40,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (my code is MIT; the firmware binaries are GPL-3.0-or-later, see [License](#license)). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Still early.** VaultInk is at 0.75.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
+> **Still early.** VaultInk is at 0.75.1. Releases from 0.8.2 on have been tested on a real X4 Pro by one
 > tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Much of the
 > newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
 > the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
@@ -90,6 +90,26 @@ Page background contrast with a preview, Random page!, the Library's format filt
 MOBI and AZW books, the status bar options with the book page number, and Advanced Typography.
 
 More screenshots are in the sections below and in [docs/](docs/).
+
+## New in 0.75.1: a terminal font, and Transfer & Remotes
+
+A patch on 0.75.0. The screenshots are from the simulator, which has no USB Drive and no SSH, so those two rows are missing in the second picture and there is no picture of the terminal itself.
+
+<p>
+  <img src="docs/images/vaultink/transfer-remotes-home-0.75.1.png" width="190" alt="The home screen with the Transfer &amp; Remotes row where File Transfer was">
+  <img src="docs/images/vaultink/transfer-remotes-0.75.1.png" width="190" alt="Transfer &amp; Remotes: Join a Network, Calibre Wireless, Create Hotspot and Remote servers">
+</p>
+
+Checked on a real X4 Pro:
+
+- **The SSH terminal connected to a real server** from the reader, and it has **its own font**: fixed-width, 1-bit, made from Terminus and drawn pixel for pixel, so it is crisp. Four sizes (8x16 is the default, 60 columns), with box-drawing and block characters, bold and Greek. Settings → Connectivity → SSH servers → Terminal text size. SFTP has still not been tried from a device. [docs/ssh.md](docs/ssh.md)
+- **File Transfer on Home is now Transfer & Remotes** (Greek: Μεταφορά & Διακομιστές). Its screen holds Join a Network, Calibre Wireless, Create Hotspot, USB Drive, Remote servers (WebDAV, FTP, SFTP) and SSH terminal. Settings → Connectivity keeps both server lists as shortcuts.
+
+Not checked on a device: whether the Greek name fits its row. The licences screen now lists the terminal font (Terminus Font 4.49.1, SIL OFL 1.1).
+
+For developers: `scripts/devlink.py push-update` sends your own developer build to the reader over Wi-Fi (developer builds only, never in a release image; tried on a real X4 Pro). [docs/devlink.md](docs/devlink.md)
+
+Known bugs and limits: the bottom row of Settings (System) ignores a tap until you scroll the list; the Books list still takes about 1.75 s to show; I haven't judged how readable the smallest terminal size (6x12) is on the panel; only English and Greek have the new names, the other 34 languages keep File Transfer on Home and show the new rows in English.
 
 ## New in 0.75.0: scroll mode, SSH, and the first checks on a real X4 Pro
 
@@ -262,7 +282,7 @@ Each line links to its guide where there is one; all the guides are listed in [d
 - **Gamepad buttons** (0.75.0, computer tests only, never tried with a real gamepad): the buttons of one Bluetooth gamepad can be learned for the reader's actions (pages, chapters, menus, night mode, light, bookmark, refresh, Home, screenshot) under Bluetooth Page Turner → Gamepad Buttons. Buttons only: no sticks, no triggers, no games. [docs/gamepad.md](docs/gamepad.md)
 - **Highlights to Readwise and Memos** (0.74.0, computer tests only, never tried against the real services): send a book's clippings to Readwise or to your own Memos server from the book menu or the Clippings screen. Wi-Fi comes on only for that job, what was sent is remembered so sending again sends only the new ones, and the access tokens are kept on the SD card (anyone with the card and the reader can get them). [docs/exports.md](docs/exports.md)
 - **WebDAV and FTP servers** (0.74.0, computer tests only, not tried on a device or against a real server): Home → Transfer & Remotes → Remote servers (Settings → Connectivity → WebDAV and FTP servers is a shortcut to the same list). Browse a server's folders, tap a file to download it to the card, upload a file from the card, make a folder. WebDAV over https can check the server's certificate; FTP and http:// are not encrypted, and the device says so and asks before every connection. Passwords are kept on the SD card only lightly scrambled, like the OPDS ones. [docs/webdav-ftp.md](docs/webdav-ftp.md)
-- **SSH terminal and SFTP** (0.75.0, X4 Pro builds only; computer tests only, never run on a device): Home → Transfer & Remotes → SSH terminal (Settings → Connectivity → SSH servers is a shortcut to the same list). A shell on your own server on a line terminal (no vim or htop), typed with a Bluetooth keyboard or the key row on the screen, in a fixed-width font in four sizes (80, 60 or 48 columns; not yet seen on a device), and SFTP in the same file browser as WebDAV and FTP. The password is typed at every connection and never saved, or the device signs in with its own Ed25519 key, made on the device and shown as a QR code for `authorized_keys`. The server's key is pinned at the first connection and a changed key is refused. The SSH library (wolfSSH) is GPL-3.0-or-later, which makes the firmware binaries GPL-3.0-or-later from 0.75.0. [docs/ssh.md](docs/ssh.md)
+- **SSH terminal and SFTP** (0.75.0, X4 Pro builds only; in 0.75.1 the terminal connected to a real server from a real X4 Pro, SFTP has run on a computer only): Home → Transfer & Remotes → SSH terminal (Settings → Connectivity → SSH servers is a shortcut to the same list). A shell on your own server on a line terminal (no vim or htop), typed with a Bluetooth keyboard or the key row on the screen, in a fixed-width font in four sizes (80, 60 or 48 columns; 0.75.1, seen on a real X4 Pro, the smallest size not judged), and SFTP in the same file browser as WebDAV and FTP. The password is typed at every connection and never saved, or the device signs in with its own Ed25519 key, made on the device and shown as a QR code for `authorized_keys`. The server's key is pinned at the first connection and a changed key is refused. The SSH library (wolfSSH) is GPL-3.0-or-later, which makes the firmware binaries GPL-3.0-or-later from 0.75.0. [docs/ssh.md](docs/ssh.md)
 - **Certificate checks** (0.74.0, computer tests only): Wikipedia is always checked against root certificates built into the firmware. The update check and downloads from GitHub are not checked yet in the release build. In 0.75.0 the check was tried on a real X4 Pro in a developer build (update check, font list, firmware download) and works, after SHA-384 was added to the TLS library; it stays off in the release for one more version. KOReader sync has a new **Check certificate** switch, off by default so existing setups keep working. [docs/reading-and-files.md](docs/reading-and-files.md#certificate-checks)
 - **PDF as text**: a PDF opens as reflowing text, Greek and filled-in form fields included, up to four columns, with its headings, bold and italic (the Style setting turns them off) and its filled boxes marked by dash lines (0.73.0); no pictures, tables or scans. PDFs are listed in the Library. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text)
 - **Comics**: CBZ files open straight from the card (JPEG and PNG pages, chapters from folders, covers, landscape spreads as two pages, manga right to left, a page cache for faster turns). XTC/XTCH files from the Banana Comic Converter open with their chapters; a QR code in Settings opens the converter on your phone. [docs/comics.md](docs/comics.md)
@@ -391,7 +411,7 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 
 The [roadmap](ROADMAP.md) has the details and the order. Open items right now:
 
-- Real-device testing of what 0.75.0 has only run on a computer: the SSH terminal and SFTP, DOC and CHM books, the translation lookup (the reader has never connected to the service), the gamepad buttons (never tried with a real pad), sunset-to-sunrise warmth, gestures in presets, the read-only developer build and the debug page.
+- Real-device testing of what 0.75.0 has only run on a computer: SFTP (the SSH terminal connected from a real X4 Pro in 0.75.1), DOC and CHM books, the translation lookup (the reader has never connected to the service), the gamepad buttons (never tried with a real pad), sunset-to-sunrise warmth, gestures in presets, the read-only developer build and the debug page.
 - Real-device testing of most of 0.74.0 (book map, hidden flows, gestures, FB2/HTML/RTF, auto warmth, Wikipedia, Readwise and Memos, WebDAV and FTP).
 - Switching on the certificate check for the update check in the release build. It passed on a real X4 Pro in a developer build in 0.75.0.
 - Scroll mode works on the device but refreshes the whole screen on every step (about 1.4 seconds); a partial refresh would make it usable for long reading. See [Continuous scrolling](docs/reading-and-files.md#continuous-scrolling-0750).

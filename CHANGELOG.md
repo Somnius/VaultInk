@@ -2,6 +2,29 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.75.1 (2026-11-14)
+
+A patch on 0.75.0: the SSH terminal gets its own font, and File Transfer on Home becomes Transfer & Remotes.
+
+Checked on a real X4 Pro:
+
+- **The SSH terminal connected to a real server** (a DietPi box) from the reader, and it has **its own font**: a fixed-width 1-bit font made from Terminus, drawn pixel for pixel in a grid of whole cells instead of the scaled UI font, so it is crisp. Four sizes: 6x12, 8x14, 8x16 (the default, 60 columns across the 480 px screen) and 10x18. It has box-drawing and block characters, bold and Greek. Zero-width characters take no cell, and the line and paragraph separators start a new line. Settings > Connectivity > SSH servers > Terminal text size. SFTP has still not been tried from a device.
+- **File Transfer on Home is now Transfer & Remotes** (Greek: Μεταφορά & Διακομιστές). Its screen holds Join a Network, Calibre Wireless, Create Hotspot, USB Drive, Remote servers (WebDAV, FTP, SFTP) and SSH terminal. The Wi-Fi screen inside still says File Transfer. Settings > Connectivity keeps both server lists as shortcuts. Leaving an SSH session started from Transfer & Remotes returns to Home.
+
+Not checked on a device: whether the Greek name fits its row.
+
+Also in it (tested on a computer):
+
+- The licences screen and docs/licenses.md list the terminal font: Terminus Font 4.49.1, SIL OFL 1.1. The subset in the firmware is called "the terminal font", as that licence asks of a changed copy.
+- The X4 Pro firmware is about 85 KB bigger with the font (86.4% of the app slot).
+- CI fixes: the formatter skips the vendored wolfSSH, and two cppcheck findings.
+
+For developers:
+
+- Developer builds only, never in a release image: `scripts/devlink.py push-update` sends your own developer build to the reader over Wi-Fi from a computer on the same network (the new FETCH command; tried on a real X4 Pro), STATUS says whether GitHub's certificate is checked (`verify_github`), and `scripts/devtest.py` plays scripted tests (docs/devlink.md).
+
+Known and not fixed: the bottom row of Settings (System) ignores a tap until you scroll the list; the Books list still takes about 1.75 s to show; I haven't judged how readable the smallest terminal size (6x12) is on the panel; only English and Greek have the new names, the other 34 languages keep File Transfer on Home and show the new rows in English.
+
 ## 0.75.0 (2026-11-14)
 
 Scroll mode, more formats and network tools, and the first release with parts checked on a real X4 Pro over the new developer link. Each item says how far it was tested: on a real X4 Pro, or on a computer only.

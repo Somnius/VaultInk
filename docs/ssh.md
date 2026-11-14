@@ -2,7 +2,7 @@
 
 VaultInk on the X4 Pro can open a shell on your own server and copy files over SFTP.
 
-Status: released in 0.75.0, written and tested on the computer, **not yet run on a device**. The first
+Status: released in 0.75.0. In 0.75.1 the terminal connected to a real server from a real X4 Pro, with the new font; **SFTP has not run on a device**. The first
 version built with PlatformIO for the X4 Pro; the security fixes made after that build (host key
 file, key exchange, time limits) are tested on the computer only. What was checked and what was
 not is at the end of this page.

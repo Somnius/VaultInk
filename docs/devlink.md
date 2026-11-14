@@ -677,8 +677,9 @@ Limits of `FETCH` and `push-update`:
 - **Injected input and a real finger at once** are not kept apart: use one or the other.
 - **While `FLASH` writes, the reader answers nothing.** While `FETCH` downloads, a new command
   cancels it.
-- **`FETCH` and `push-update` have not run on a reader**, and the firmware side has not been
-  compiled for the device ([Sending a build over Wi-Fi](#sending-a-build-over-wi-fi)).
+- **`FETCH` and `push-update` ran once on a real X4 Pro** (2026-11-14, a full developer build sent
+  from a computer on the same network); nothing else about them was tried there
+  ([Sending a build over Wi-Fi](#sending-a-build-over-wi-fi)).
 - **`WAIT`, `SHOTCRC`, `STATUS LITE`, the new `STATUS` fields, the screenshot in pieces and
   `scripts/devtest.py` have not run on a reader.** What `WAIT` cannot see is listed under
   [Waiting and checked screenshots](#waiting-and-checked-screenshots).
