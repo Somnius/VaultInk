@@ -8,7 +8,8 @@
 
 // A grid of the pictures (PNG, JPEG, BMP, GIF) in a folder and its subfolders (kos25k #8).
 // Swipe or the page buttons turn pages; tap a picture for View, Delete, Move or Copy. Thumbnails
-// are decoded once and kept as pixel caches in /.crosspoint/thumbs, so later pages draw fast.
+// are decoded once and kept as pixel caches in /.crosspoint/thumbs, so later pages draw fast. A page
+// is shown at once with what is cached; pictures seen for the first time fill in after that.
 class GalleryActivity final : public Activity {
  public:
   GalleryActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string folder);
@@ -26,7 +27,8 @@ class GalleryActivity final : public Activity {
   int pageCount() const;
   bool cellAt(int x, int y, int& index) const;
   void cellRect(int slot, int& x, int& y, int& w, int& h) const;
-  void drawThumb(const std::string& path, int x, int y, int w, int h);
+  // False when cachedOnly left the picture for later (no thumbnail cache yet).
+  bool drawThumb(const std::string& path, int x, int y, int w, int h, bool cachedOnly);
   void pictureActions(int index);
   void filterMenu();
   void addChosenFolder();

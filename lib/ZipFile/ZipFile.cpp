@@ -295,6 +295,21 @@ bool ZipFile::loadZipDetails() {
   return true;
 }
 
+bool ZipFile::isZipSignature(const uint8_t* bytes, const size_t len) {
+  if (!bytes || len < 4 || bytes[0] != 'P' || bytes[1] != 'K') return false;
+  return (bytes[2] == 0x03 && bytes[3] == 0x04) || (bytes[2] == 0x05 && bytes[3] == 0x06) ||
+         (bytes[2] == 0x07 && bytes[3] == 0x08);
+}
+
+bool ZipFile::hasZipSignature(const std::string& filePath) {
+  HalFile probe;
+  if (!Storage.openFileForRead("ZIP", filePath, probe)) return false;
+  uint8_t head[4] = {};
+  const int got = probe.read(head, sizeof(head));
+  probe.close();
+  return got == static_cast<int>(sizeof(head)) && isZipSignature(head, sizeof(head));
+}
+
 bool ZipFile::open() {
   if (!Storage.openFileForRead("ZIP", filePath, file)) {
     return false;

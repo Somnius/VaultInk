@@ -61,6 +61,13 @@ class ZipFile {
 
  public:
   explicit ZipFile(const std::string& filePath) : filePath(filePath) {}
+  // True for the first bytes of a ZIP archive: "PK" followed by a local file header (03 04), the end
+  // record of an empty archive (05 06) or a spanned-archive marker (07 08).
+  static bool isZipSignature(const uint8_t* bytes, size_t len);
+  // Reads the first four bytes of the file and checks them with isZipSignature(). Logs nothing, so a
+  // caller can ask before treating a MOBI, FB2 or text book as an archive (the end-record scan logs
+  // an error for those). False when the file cannot be opened.
+  static bool hasZipSignature(const std::string& filePath);
   ~ZipFile() = default;
   // Zip file can be opened and closed by hand in order to allow for quick calculation of inflated file size
   // It is NOT recommended to pre-open it for any kind of inflation due to memory constraints

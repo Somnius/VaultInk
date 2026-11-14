@@ -41,6 +41,8 @@ constexpr const char* THUMBS = "/.crosspoint/thumbs";
 // The folders "Chosen folders" shows (kos25k #8), one path per line.
 constexpr const char* CHOSEN = "/.vaultink/gallery-folders.txt";
 constexpr int FILTER_CHOSEN = 3;
+// While a page's missing thumbnails are decoded, the screen is refreshed this often at most.
+constexpr uint32_t FILL_SHOW_MS = 2000;
 
 std::vector<std::string> readChosen() {
   std::vector<std::string> folders;
@@ -155,8 +157,11 @@ bool GalleryActivity::cellAt(const int px, const int py, int& index) const {
 }
 
 // The picture fitted into the box, from its pixel cache when there is one; the first draw decodes
-// it and writes that cache.
-void GalleryActivity::drawThumb(const std::string& path, const int x, const int y, const int w, const int h) {
+// it and writes that cache. With cachedOnly a picture that has no cache yet is not decoded: it gets
+// the frame and false comes back, so the page can be shown first and the decoding done after.
+bool GalleryActivity::drawThumb(const std::string& path, const int x, const int y, const int w, const int h,
+                                const bool cachedOnly) {
+  bool waiting = false;
   const auto decode = [&](ImageToFramebufferDecoder& decoder) {
     ImageDimensions dims;
     if (!decoder.getDimensions(path, dims) || dims.width <= 0 || dims.height <= 0) return false;
@@ -180,6 +185,10 @@ void GalleryActivity::drawThumb(const std::string& path, const int x, const int 
     if (renderImagePixelCache(renderer, config.cachePath, config.x, config.y, config.maxWidth, config.maxHeight)) {
       return true;
     }
+    if (cachedOnly) {
+      waiting = true;
+      return false;
+    }
     Storage.ensureDirectoryExists(THUMBS);
     return decoder.decodeToFramebuffer(path, renderer, config);
   };
@@ -192,13 +201,14 @@ void GalleryActivity::drawThumb(const std::string& path, const int x, const int 
     drawn = decode(png);
   }
   if (!drawn) {
-    // A format the grid doesn't decode (or a broken file): its name in a frame.
+    // A format the grid doesn't decode, a broken file, or a picture still to be decoded: its name in a frame.
     renderer.drawRect(x, y, w, h);
     const std::string name = path.substr(path.find_last_of('/') + 1);
     renderer.drawText(SMALL_FONT_ID, x + 6, y + h / 2 - 10,
                       renderer.truncatedText(SMALL_FONT_ID, name.c_str(), w - 12).c_str());
   }
   resetTaskWatchdogIfSubscribed();
+  return !waiting;
 }
 
 void GalleryActivity::render(RenderLock&&) {
@@ -223,12 +233,15 @@ void GalleryActivity::render(RenderLock&&) {
     renderer.drawCenteredText(UI_10_FONT_ID, renderer.getScreenHeight() / 2,
                               noneChosen ? tr(STR_GALLERY_NO_FOLDERS) : tr(STR_GALLERY_EMPTY));
   }
+  // First the page as far as the thumbnail caches go: a picture never shown before gets a frame.
+  int waiting[PER_PAGE];
+  int waitingCount = 0;
   for (int slot = 0; slot < PER_PAGE; ++slot) {
     const int i = page * PER_PAGE + slot;
     if (i >= static_cast<int>(pictures.size())) break;
     int x, y, w, h;
     cellRect(slot, x, y, w, h);
-    drawThumb(pictures[i], x, y, w, h - LABEL);
+    if (!drawThumb(pictures[i], x, y, w, h - LABEL, true)) waiting[waitingCount++] = slot;
     const std::string name = pictures[i].substr(pictures[i].find_last_of('/') + 1);
     renderer.drawText(SMALL_FONT_ID, x, y + h - LABEL + 2,
                       renderer.truncatedText(SMALL_FONT_ID, name.c_str(), w).c_str());
@@ -237,6 +250,26 @@ void GalleryActivity::render(RenderLock&&) {
     renderer.drawCenteredText(SMALL_FONT_ID, renderer.getScreenHeight() - FOOTER + 8, tr(STR_GALLERY_TRUNCATED));
   }
   renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+  if (waitingCount == 0) return;
+
+  // Then the pictures that still need decoding, one by one into their frames. The screen follows
+  // every FILL_SHOW_MS at most, so a slow page fills in visibly without a refresh per picture.
+  uint32_t shownAt = millis();
+  bool unshown = false;
+  for (int n = 0; n < waitingCount; ++n) {
+    const int slot = waiting[n];
+    int x, y, w, h;
+    cellRect(slot, x, y, w, h);
+    renderer.fillRect(x, y, w, h - LABEL, false);
+    drawThumb(pictures[page * PER_PAGE + slot], x, y, w, h - LABEL, false);
+    unshown = true;
+    if (millis() - shownAt >= FILL_SHOW_MS && n + 1 < waitingCount) {
+      renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+      shownAt = millis();
+      unshown = false;
+    }
+  }
+  if (unshown) renderer.displayBuffer(HalDisplay::FAST_REFRESH);
 }
 
 void GalleryActivity::loop() {
