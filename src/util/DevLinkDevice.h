@@ -18,12 +18,12 @@ constexpr unsigned TX_QUEUE_BYTES = 1024;
 // The wake cause the battery log got at boot (batteryhistory::noteWake), for STATUS.
 void noteWakeCause(int cause);
 
-// Answers one command with one JSON line on the USB serial port (LS and FLASH send lines without
+// Answers one command with one JSON line on the USB serial port (LS, FLASH and FETCH send lines without
 // "ok" first: entries, progress). SCREENSHOT is not handled here: main.cpp answers it the same way
 // in every build. REBOOT and BOOTLOADER do not return. FLASH returns only when the image is
 // written, and does not restart. Call it from the main loop, after the USB Drive early return.
 // Without VAULTINK_DEVLINK_FULL only PING, HELP, STATUS, LOG, BENCH and REBOOT are answered:
-// BOOTLOADER gets an error, and KEY, TAP, SWIPE, FLASH, LS, GET, PUT, WAIT and SHOTCRC are not in
+// BOOTLOADER gets an error, and KEY, TAP, SWIPE, FLASH, LS, GET, PUT, FETCH, WAIT and SHOTCRC are not in
 // the name table. WAIT is answered later, by waitTick().
 void handle(const devlink::Parsed& parsed, unsigned long msSinceInput, uint32_t droppedLines);
 

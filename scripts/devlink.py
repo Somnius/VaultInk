@@ -14,6 +14,10 @@
     devlink.py get /.vaultink/bench.csv bench.csv
     devlink.py put note.txt /debug/note.txt
     devlink.py flash /firmware.bin         flash a .bin that is already on the SD card; then cmd REBOOT
+    devlink.py fetch http://192.168.1.20:8000/firmware.bin /firmware-dev.bin <sha256>
+                                           the reader downloads a .bin to its card over Wi-Fi (LAN only)
+    devlink.py push-update firmware.bin --expect 0.75.0-x4pro-dev
+                                           serve the file, FETCH, FLASH, REBOOT, wait for that version
     devlink.py wait --activity Home        wait until the reader is at rest (and that screen is in front)
     devlink.py screenshot out.png --verify check the bytes against CMD:SHOTCRC, ask again when they differ
 
@@ -32,11 +36,16 @@ import base64
 import binascii
 import csv
 import glob
+import hashlib
 import json
 import os
 import select
+import shutil
+import socket
 import struct
+import subprocess
 import sys
+import tempfile
 import time
 import zlib
 
@@ -49,6 +58,14 @@ PANEL_WIDTH = 800
 PANEL_HEIGHT = 480
 REPLY_TIMEOUT_S = 3.0
 FLASH_TIMEOUT_S = 600.0
+FETCH_TIMEOUT_S = 200.0  # the reader gives up after 180 s (src/util/DevLinkDevice.cpp)
+FETCH_MAX_BYTES = 0x7F0000  # one app slot, as lib/DevLink/DevLinkFetch.h
+FETCH_MAX_URL = 160
+FETCH_URL_PATH_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-~/")
+PUSH_SD_PATH = "/firmware-dev.bin"
+PUSH_SERVED_NAME = "firmware.bin"
+PUSH_BOOT_TIMEOUT_S = 90.0
+PUSH_POLL_S = 2.0
 KEY_NAMES = ("BACK", "CONFIRM", "LEFT", "RIGHT", "UP", "DOWN")
 MIN_HOLD_MS = 20
 MAX_HOLD_MS = 5000
@@ -82,6 +99,10 @@ CSV_COLUMNS = [
 
 class LinkError(Exception):
     """No port, no answer, or the port went away (sleep, USB Drive, unplugged)."""
+
+
+class UpdateError(Exception):
+    """A step of push-update that the reader answered and refused, or that did not end as expected."""
 
 
 # ---- parsing (no I/O; test/dev_link/test_devlink_script.py covers it) ----
@@ -194,6 +215,137 @@ def get_data(reply: dict, offset: int) -> bytes:
     if reply.get("offset") != offset or reply.get("len") != len(data):
         raise LinkError("a GET reply does not match what was asked for")
     return data
+
+
+# ---- FETCH and push-update: the parts without I/O ----
+
+
+def _plain_number(text: str, most: int) -> int:
+    """A decimal number with no sign and no leading zero, 0 to `most`; ValueError otherwise."""
+    if not text.isascii() or not text.isdigit() or (len(text) > 1 and text[0] == "0") or int(text) > most:
+        raise ValueError(text)
+    return int(text)
+
+
+def private_ipv4(text: str) -> bool:
+    """True for a dotted IPv4 address in 10/8, 172.16/12 or 192.168/16, written the plain way."""
+    parts = text.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        a, b, _, _ = (_plain_number(part, 255) for part in parts)
+    except ValueError:
+        return False
+    return a == 10 or (a == 172 and 16 <= b <= 31) or (a == 192 and b == 168)
+
+
+def fetch_url(url: str) -> str:
+    """The URL as CMD:FETCH takes it, or ValueError with the reason. The reader checks again
+    (devlink::checkFetchUrl); this is the same rule, so a wrong URL is caught before anything is sent."""
+    if not url or len(url.encode()) > FETCH_MAX_URL:
+        raise ValueError(f"the URL is empty or over {FETCH_MAX_URL} bytes")
+    if not url.startswith("http://"):
+        raise ValueError("only http:// is taken (no https, no other scheme): the reader fetches from the LAN only")
+    host, slash, path = url[len("http://") :].partition("/")
+    address, colon, port = host.partition(":")
+    if not private_ipv4(address):
+        raise ValueError(
+            "the host must be an IPv4 address in 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16 "
+            "(no host name, no user@, no IPv6)"
+        )
+    if colon:
+        try:
+            if _plain_number(port, 65535) == 0:
+                raise ValueError(port)
+        except ValueError:
+            raise ValueError("the port must be 1 to 65535") from None
+    path = slash + path
+    if (
+        len(path) < 2
+        or path.endswith("/")
+        or ".." in path
+        or "//" in path
+        or any(c not in FETCH_URL_PATH_CHARS for c in path)
+    ):
+        raise ValueError("the URL path may hold letters, digits and . _ - ~ / only, with no '..' and no '//'")
+    return url
+
+
+def sha256_text(text: str) -> str:
+    """64 hex digits in lower case, or ValueError."""
+    text = text.strip().lower()
+    if len(text) != 64 or any(c not in "0123456789abcdef" for c in text):
+        raise ValueError("the SHA-256 is 64 hex digits (sha256sum prints it)")
+    return text
+
+
+def fetch_command(url: str, path: str, sha256: str) -> str:
+    """FETCH <url> <sd path> <sha256>."""
+    path = sd_path(path)
+    if not path.lower().endswith(".bin"):
+        raise ValueError("FETCH writes a .bin only (the same paths FLASH reads)")
+    text = f"FETCH {fetch_url(url)} {path} {sha256_text(sha256)}"
+    if len(f"CMD:{text}".encode()) > MAX_COMMAND_BYTES:
+        raise ValueError("the URL and the path are too long for a 256-byte command")
+    return text
+
+
+def sha256_file(path: str) -> tuple[str, int]:
+    """The SHA-256 and the size of a local file."""
+    digest = hashlib.sha256()
+    size = 0
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(65536), b""):
+            digest.update(block)
+            size += len(block)
+    return digest.hexdigest(), size
+
+
+def check_push_file(path: str) -> tuple[str, int]:
+    """The SHA-256 and size of the image to push; ValueError when it cannot be one."""
+    if not path.lower().endswith(".bin"):
+        raise ValueError(f"{path} is not a .bin")
+    digest, size = sha256_file(path)
+    if size == 0:
+        raise ValueError(f"{path} is empty")
+    if size > FETCH_MAX_BYTES:
+        raise ValueError(f"{path} is {size} bytes; an app slot holds {FETCH_MAX_BYTES}")
+    return digest, size
+
+
+def check_push_status(status: dict) -> None:
+    """What STATUS must say before a push starts; UpdateError otherwise."""
+    if not status.get("ok"):
+        raise UpdateError(f"STATUS failed: {status.get('error', status)}")
+    if status.get("build") != "dev":
+        raise UpdateError(
+            f"this reader runs build {status.get('build')!r}; FETCH and FLASH are only in x4pro-dev "
+            "(the read-only x4pro-dev-user and the release cannot be updated this way)"
+        )
+    if not status.get("wifi"):
+        raise UpdateError("the reader's Wi-Fi is off: join the network on the reader first, then run this again")
+
+
+def check_fetch_reply(reply: dict, digest: str, size: int) -> None:
+    """The reader must have written exactly the file that was served."""
+    if not reply.get("ok"):
+        reason = f" ({reply['reason']})" if reply.get("reason") else ""
+        raise UpdateError(f"FETCH failed: {reply.get('error', reply)}{reason}")
+    if reply.get("sha256") != digest or reply.get("bytes") != size:
+        raise UpdateError(
+            f"FETCH answered {reply.get('bytes')} bytes, sha256 {reply.get('sha256')}; "
+            f"the file is {size} bytes, sha256 {digest}"
+        )
+
+
+def booted_as(status, expected: str, since_reboot_s: float) -> bool:
+    """True when this STATUS is from the expected version, started after the REBOOT that was sent
+    `since_reboot_s` ago. The uptime is what tells a new start from the old firmware still running
+    (two developer builds often have the same version text)."""
+    if not status or not status.get("ok") or status.get("version") != expected:
+        return False
+    uptime = status.get("uptime_ms")
+    return isinstance(uptime, int) and uptime <= since_reboot_s * 1000 + 2000
 
 
 def parse_screenshot_start(line: bytes):
@@ -730,6 +882,195 @@ def status_once(path: str | None):
         port.close()
 
 
+# ---- FETCH and push-update: the parts with I/O ----
+
+
+def lan_ip() -> str:
+    """The address this computer uses on its network. No packet is sent: a UDP socket is only
+    pointed at an address, and the system says which of its own it would use."""
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect(("192.168.255.254", 9))
+        address = probe.getsockname()[0]
+    except OSError as error:
+        raise LinkError(f"cannot find this computer's network address ({error}); name it with --host-ip") from error
+    finally:
+        probe.close()
+    if not private_ipv4(address):
+        raise LinkError(
+            f"this computer's address looks like {address}, which is not a private LAN address; "
+            "name the one on the reader's network with --host-ip"
+        )
+    return address
+
+
+def free_port(address: str, port: int = 0) -> int:
+    """A port of this address that nothing listens on: `port` itself, or one the system picks for 0."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind((address, port))
+        except OSError as error:
+            what = f"port {port} of {address}" if port else address
+            raise LinkError(f"cannot serve on {what}: {error}") from error
+        return probe.getsockname()[1]
+
+
+class FileServer:
+    """`python3 -m http.server` bound to one address, serving a temporary folder that holds a copy
+    of one file and nothing else. Stopped, and the folder removed, by close() or at the end of a
+    `with`."""
+
+    def __init__(self, file: str, address: str, port: int = 0, name: str = PUSH_SERVED_NAME, ready_s: float = 10.0):
+        self.address = address
+        self.port = free_port(address, port)
+        self.name = name
+        self.folder = tempfile.mkdtemp(prefix="devlink-push-")
+        self.process = None
+        try:
+            shutil.copyfile(file, os.path.join(self.folder, name))
+            self.process = subprocess.Popen(  # pylint: disable=consider-using-with
+                [sys.executable, "-m", "http.server", str(self.port), "--bind", address, "--directory", self.folder],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self._wait_ready(ready_s)
+        except BaseException:
+            self.close()
+            raise
+
+    @property
+    def url(self) -> str:
+        return f"http://{self.address}:{self.port}/{self.name}"
+
+    def _wait_ready(self, ready_s: float) -> None:
+        deadline = time.monotonic() + ready_s
+        while True:
+            if self.process.poll() is not None:
+                raise LinkError(
+                    f"the file server did not start on {self.address}:{self.port} "
+                    f"(python3 -m http.server ended with code {self.process.returncode})"
+                )
+            try:
+                socket.create_connection((self.address, self.port), timeout=0.5).close()
+                return
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise LinkError(f"the file server on {self.address}:{self.port} does not answer") from None
+                time.sleep(0.1)
+
+    def close(self) -> None:
+        if self.process is not None:
+            if self.process.poll() is None:
+                self.process.terminate()
+                try:
+                    self.process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self.process.kill()
+                    self.process.wait()
+            self.process = None
+        shutil.rmtree(self.folder, ignore_errors=True)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
+
+def wait_for_version(
+    path, expected: str, timeout: float, rebooted_at: float, poll=None, sleep=time.sleep, clock=time.monotonic, say=print
+):
+    """Poll STATUS until the reader answers as `expected`, started after the reboot. Returns that
+    STATUS; UpdateError with what was last seen when the time is up."""
+    poll = poll or status_once
+    deadline = rebooted_at + timeout
+    last = None
+    while True:
+        status = poll(path)
+        now = clock()
+        if status and status.get("ok"):
+            last = status
+            if booted_as(status, expected, now - rebooted_at):
+                return status
+        if now >= deadline:
+            break
+        say(f"  waiting for the reader to start ({int(now - rebooted_at)} s)...")
+        sleep(PUSH_POLL_S)
+    if last is None:
+        raise UpdateError(
+            f"the reader did not answer for {int(timeout)} s after REBOOT: is it awake, and is the port back?"
+        )
+    if last.get("version") != expected:
+        raise UpdateError(
+            f"the reader runs {last.get('version')!r}, not {expected!r}: the new image did not start "
+            "(or --expect is not the version of this file)"
+        )
+    raise UpdateError(f"the reader still answers as before the REBOOT (uptime {last.get('uptime_ms')} ms)")
+
+
+def push_update(
+    port_path,
+    file: str,
+    expected: str,
+    sd: str = PUSH_SD_PATH,
+    host_ip=None,
+    http_port: int = 0,
+    boot_timeout: float = PUSH_BOOT_TIMEOUT_S,
+    serve=FileServer,
+    find_ip=lan_ip,
+    say=print,
+    sleep=time.sleep,
+) -> dict:
+    """Send a local .bin to the reader and start it: serve the file on this computer's LAN address,
+    CMD:FETCH, CMD:FLASH, CMD:REBOOT, then STATUS until the version is `expected`. Returns the last
+    STATUS. ValueError before anything is sent, LinkError for the port, UpdateError for a step the
+    reader refused."""
+    digest, size = check_push_file(file)
+    sd = sd_path(sd)
+    if not expected:
+        raise ValueError("--expect needs the version the new build reports in STATUS")
+    if host_ip is not None and not private_ipv4(host_ip):
+        raise ValueError("--host-ip must be this computer's address in 10/8, 172.16/12 or 192.168/16")
+    say(f"1/5 {file}: {size} bytes, sha256 {digest}")
+
+    port = open_port(port_path)
+    try:
+        status = command(port, "STATUS")
+        check_push_status(status)
+        say(f"    the reader runs {status.get('version')}, battery {status.get('battery_percent')}%")
+        address = host_ip or find_ip()
+        with serve(file, address, http_port) as server:
+            text = fetch_command(server.url, sd, digest)
+            say(f"2/5 FETCH {server.url} -> {sd}")
+            reply, _ = command_lines(port, text, FETCH_TIMEOUT_S, lambda line: _say_progress(say, "fetch", line))
+        check_fetch_reply(reply, digest, size)
+        say(f"3/5 FLASH {sd}")
+        reply, _ = command_lines(port, "FLASH " + sd, FLASH_TIMEOUT_S, lambda line: _say_progress(say, "flash", line))
+        if not reply.get("ok"):
+            reason = f" ({reply['reason']})" if reply.get("reason") else ""
+            raise UpdateError(f"FLASH failed: {reply.get('error', reply)}{reason}. The reader keeps its firmware")
+        say("4/5 REBOOT")
+        reply = command(port, "REBOOT")
+        if not reply.get("ok"):
+            raise UpdateError(f"REBOOT failed: {reply.get('error', reply)}. The image is written: restart the reader")
+        rebooted_at = time.monotonic()
+    finally:
+        port.close()
+    say(f"5/5 waiting for version {expected}")
+    status = wait_for_version(port_path, expected, boot_timeout, rebooted_at, sleep=sleep, say=say)
+    say(f"Done: the reader runs {status.get('version')} (up {status.get('uptime_ms')} ms).")
+    return status
+
+
+def _say_progress(say, kind: str, line: dict) -> None:
+    if "percent" in line:
+        say(f"    {kind}: {line.get('percent')}% ({line.get('written')} of {line.get('total')} bytes)")
+    elif line.get(kind):
+        say(f"    {kind}: {line.get(kind)}")
+
+
 def bench(path: str | None, every: float, minutes: float, out: str, sleep=time.sleep, clock=time.time) -> int:
     """Append a row every `every` seconds for `minutes`. A row with link=none marks a missed poll;
     the port is looked up and opened again for every poll, so the device may sleep, reboot or sit
@@ -799,6 +1140,27 @@ def main(argv=None) -> int:
         "reader does not restart: send `cmd REBOOT` afterwards",
     )
     flash.add_argument("sd_path", help="the path of the .bin on the reader's SD card, e.g. /firmware.bin")
+    fetch = sub.add_parser(
+        "fetch",
+        help="the reader downloads a .bin to its SD card over Wi-Fi: plain http from a private IPv4 "
+        "address only, checked against the SHA-256 (x4pro-dev)",
+    )
+    fetch.add_argument("url", help="e.g. http://192.168.1.20:8000/firmware.bin")
+    fetch.add_argument("sd_path", help="where on the reader's SD card, a .bin, e.g. /firmware-dev.bin")
+    fetch.add_argument("sha256", help="the file's SHA-256, 64 hex digits")
+    push = sub.add_parser(
+        "push-update",
+        help="send a local .bin and start it: serves the file on this computer, then FETCH, FLASH, "
+        "REBOOT and STATUS until the version matches (x4pro-dev, reader already on Wi-Fi)",
+    )
+    push.add_argument("file", help="the .bin on this computer, e.g. .pio/build/x4pro-dev/firmware.bin")
+    push.add_argument("--expect", required=True, help="the version the new build reports, e.g. 0.75.0-x4pro-dev")
+    push.add_argument("--sd-path", default=PUSH_SD_PATH, help=f"where on the reader's SD card ({PUSH_SD_PATH})")
+    push.add_argument("--host-ip", help="this computer's address on the reader's network (found when left out)")
+    push.add_argument("--http-port", type=int, default=0, help="the port to serve on (a free one)")
+    push.add_argument(
+        "--boot-timeout", type=float, default=PUSH_BOOT_TIMEOUT_S, help="seconds to wait for the new version (90)"
+    )
     args = parser.parse_args(argv)
 
     if args.action == "bench-file":
@@ -814,6 +1176,15 @@ def main(argv=None) -> int:
             if args.every <= 0 or args.minutes <= 0:
                 parser.error("--every and --minutes must be above 0")
             bench(args.port, args.every, args.minutes, args.out)
+            return 0
+        if args.action == "push-update":
+            try:
+                push_update(
+                    args.port, args.file, args.expect, args.sd_path, args.host_ip, args.http_port, args.boot_timeout
+                )
+            except UpdateError as error:
+                print(f"devlink: {error}", file=sys.stderr)
+                return 1
             return 0
         if args.action == "screenshot" and not args.file.lower().endswith((".png", ".bmp")):
             parser.error("the output file must end in .png or .bmp")
@@ -837,6 +1208,8 @@ def main(argv=None) -> int:
                     "copied over the link: put the file on the card first (USB Drive mode or a card reader)"
                 )
             text = "FLASH " + sd_path(args.sd_path)
+        elif args.action == "fetch":
+            text = fetch_command(args.url, args.sd_path, args.sha256)
         elif args.action == "get":
             sd_path(args.sd_path)
         elif args.action == "put":
@@ -859,9 +1232,12 @@ def main(argv=None) -> int:
                 for entry in entries:
                     size = "dir" if entry.get("dir") else str(entry.get("size", ""))
                     print(f"{size:>10}  {entry.get('name', '')}")
-            elif args.action == "flash":
+            elif args.action in ("flash", "fetch"):
                 reply, _ = command_lines(
-                    port, text, FLASH_TIMEOUT_S, lambda line: print(json.dumps(line, ensure_ascii=False), flush=True)
+                    port,
+                    text,
+                    FLASH_TIMEOUT_S if args.action == "flash" else FETCH_TIMEOUT_S,
+                    lambda line: print(json.dumps(line, ensure_ascii=False), flush=True),
                 )
             elif args.action == "get":
                 reply, data = get_file(port, args.sd_path)
@@ -891,6 +1267,8 @@ def main(argv=None) -> int:
         print(json.dumps(reply, ensure_ascii=False))
     if args.action == "flash" and reply.get("ok"):
         print("Written, not started: run `devlink.py cmd REBOOT` to start the new firmware.")
+    if args.action == "fetch" and reply.get("ok"):
+        print(f"On the card, not flashed: run `devlink.py flash {args.sd_path}`, then `devlink.py cmd REBOOT`.")
     return 0 if reply.get("ok") else 1
 
 

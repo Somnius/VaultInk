@@ -7,16 +7,20 @@
 import base64
 import contextlib
 import csv
+import hashlib
 import io
 import json
 import os
 import pty
 import random
+import socket
 import struct
 import sys
 import tempfile
 import threading
 import unittest
+import urllib.error
+import urllib.request
 import zlib
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
@@ -43,7 +47,18 @@ STATUS = {
 class FakeDevice:
     """Answers like the firmware on the master side of a pty; `path` is what the script opens."""
 
-    def __init__(self, framebuffer=b"", dev_build=True, lose_bytes=0, end_marker=True, files=None, cut_gets=0):
+    def __init__(
+        self,
+        framebuffer=b"",
+        dev_build=True,
+        lose_bytes=0,
+        end_marker=True,
+        files=None,
+        cut_gets=0,
+        status=None,
+        web=None,
+        new_version=None,
+    ):
         self.master, slave = pty.openpty()
         self.path = os.ttyname(slave)
         self.slave = slave  # kept open so the master never sees a hang-up between two opens
@@ -53,6 +68,10 @@ class FakeDevice:
         self.end_marker = end_marker
         self.files = files  # a made-up SD card: path -> bytes; None for a device without the SD commands
         self.cut_gets = cut_gets  # this many GET replies are cut short by a log line
+        self.status = dict(STATUS, **status) if status else STATUS
+        self.web = web if web is not None else {}  # what FETCH can reach: url -> bytes
+        self.new_version = new_version  # what STATUS says after a FLASH and a REBOOT
+        self.flashed = False
         self.queued = 0
         self.seen = []
         self.thread = threading.Thread(target=self.run, daemon=True)
@@ -97,7 +116,11 @@ class FakeDevice:
         if not self.dev_build:
             return
         if line == "CMD:STATUS":
-            reply = STATUS
+            reply = self.status
+        elif line == "CMD:REBOOT":
+            reply = {"ok": True, "action": "reboot"}
+            if self.flashed and self.new_version:
+                self.status = dict(self.status, version=self.new_version, uptime_ms=900)
         elif line == "CMD:PING":
             reply = {"ok": True, "pong": True}
         elif line.startswith("CMD:LOG "):
@@ -105,7 +128,9 @@ class FakeDevice:
         elif line.startswith(("CMD:KEY ", "CMD:TAP ", "CMD:SWIPE ")):
             self.queued += 2
             reply = {"ok": True, "queued": self.queued}
-        elif self.files is not None and line.startswith(("CMD:LS ", "CMD:GET ", "CMD:PUT ", "CMD:FLASH ")):
+        elif self.files is not None and line.startswith(
+            ("CMD:LS ", "CMD:GET ", "CMD:PUT ", "CMD:FLASH ", "CMD:FETCH ")
+        ):
             reply = self.answer_sd(line)
             if reply is None:
                 return
@@ -128,9 +153,31 @@ class FakeDevice:
                 entry = {"name": path[len(folder) + 1 :], "dir": False, "size": len(self.files[path])}
                 self.send(json.dumps(entry).encode() + b"\n")
             return {"ok": True, "count": len(names), "truncated": False}
+        if name == "FETCH":
+            url, rest = rest.split(" ", 1)
+            path, wanted = rest.rsplit(" ", 1)
+            if url not in self.web:
+                return {"ok": False, "error": "cannot connect to the server"}
+            data = self.web[url]
+            digest = hashlib.sha256(data).hexdigest()
+            self.send(json.dumps({"fetch": "started", "total": len(data)}).encode() + b"\n")
+            self.send(b"[1300] [INF] [DEVLINK] CMD:FETCH\n")
+            step = {"fetch": "writing", "written": len(data), "total": len(data), "percent": 100}
+            self.send(json.dumps(step).encode() + b"\n")
+            if digest != wanted:
+                return {
+                    "ok": False,
+                    "error": "sha256 mismatch: the file was deleted",
+                    "bytes": len(data),
+                    "sha256": digest,
+                    "deleted": True,
+                }
+            self.files[path] = data
+            return {"ok": True, "bytes": len(data), "sha256": digest, "path": path, "ms": 4200}
         if name == "FLASH":
             if rest not in self.files:
                 return {"ok": False, "error": "cannot open the file"}
+            self.flashed = True
             size = len(self.files[rest])
             self.send(json.dumps({"flash": "checked", "bytes": size, "slot": "app1"}).encode() + b"\n")
             self.send(b"[1300] [INF] [FW] erasing\n")
@@ -649,6 +696,486 @@ class NextSlice(unittest.TestCase):
             self.assertEqual(code, 2)
             self.assertIn("Nothing is copied over the link", err)
         self.assertEqual(self.run_main(device, "flash", "/fw/../firmware.bin")[0], 2)
+        self.assertEqual(device.seen, [])
+
+
+SHA = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"  # sha256(b"test")
+
+
+class FetchTexts(unittest.TestCase):
+    """FETCH and push-update: the parts without a port or a network."""
+
+    def test_private_addresses_and_their_edges(self):
+        for address in ("10.0.0.0", "10.255.255.255", "172.16.0.0", "172.31.255.255", "192.168.0.0", "192.168.255.255"):
+            self.assertTrue(devlink.private_ipv4(address), address)
+        for address in (
+            "9.255.255.255",
+            "11.0.0.0",
+            "172.15.255.255",
+            "172.32.0.0",
+            "192.167.1.1",
+            "192.169.1.1",
+            "127.0.0.1",
+            "169.254.1.1",
+            "0.0.0.0",
+            "100.64.0.1",
+            "8.8.8.8",
+            "192.168.1",
+            "192.168.1.2.3",
+            "192.168.01.2",
+            "192.168.1.256",
+            "0xc0.0xa8.1.2",
+            "192.168.1.-2",
+            "192.168.1. 2",
+            "192.168.１.2",
+            "",
+            "reader.local",
+            "::1",
+        ):
+            self.assertFalse(devlink.private_ipv4(address), address)
+
+    def test_urls_the_reader_would_take(self):
+        for url in (
+            "http://192.168.1.20:8000/firmware.bin",
+            "http://10.0.0.5/fw/x4pro-dev_1.2.3~a.bin",
+            "http://172.20.1.1:65535/a",
+            "http://192.168.1.2:1/a",
+        ):
+            self.assertEqual(devlink.fetch_url(url), url)
+
+    def test_urls_that_are_refused_before_anything_is_sent(self):
+        for url in (
+            "",
+            "https://192.168.1.2/a.bin",
+            "HTTP://192.168.1.2/a.bin",
+            "ftp://192.168.1.2/a.bin",
+            "192.168.1.2/a.bin",
+            "http://reader.local/a.bin",
+            "http://localhost:8000/a.bin",
+            "http://user@192.168.1.2/a.bin",
+            "http://user:pw@192.168.1.2/a.bin",
+            "http://192.168.1.2@8.8.8.8/a.bin",
+            "http://192.168.1.2:80@8.8.8.8/a.bin",
+            "http://[::1]/a.bin",
+            "http://[fe80::1]:8000/a.bin",
+            "http://127.0.0.1:8000/a.bin",
+            "http://169.254.1.1/a.bin",
+            "http://172.15.0.1/a.bin",
+            "http://172.32.0.1/a.bin",
+            "http://8.8.8.8/a.bin",
+            "http://192.168.1.2:0/a.bin",
+            "http://192.168.1.2:65536/a.bin",
+            "http://192.168.1.2:080/a.bin",
+            "http://192.168.1.2:/a.bin",
+            "http://192.168.1.2:80a/a.bin",
+            "http://192.168.1.2",
+            "http://192.168.1.2/",
+            "http://192.168.1.2/fw/",
+            "http://192.168.1.2/../a.bin",
+            "http://192.168.1.2/fw/../a.bin",
+            "http://192.168.1.2/%2e%2e/a.bin",
+            "http://192.168.1.2//a.bin",
+            "http://192.168.1.2/a.bin?x=1",
+            "http://192.168.1.2/a.bin#x",
+            "http://192.168.1.2/a.bin junk",
+            "http://192.168.1.2/a.bin\r\nHost: x",
+            "http://192.168.1.2/a b.bin",
+            "http://192.168.1.2/" + "a" * 200,
+        ):
+            with self.assertRaises(ValueError, msg=url):
+                devlink.fetch_url(url)
+
+    def test_the_command_text(self):
+        self.assertEqual(
+            devlink.fetch_command("http://192.168.1.20:8000/firmware.bin", "/firmware-dev.bin", SHA.upper() + "\n"),
+            f"FETCH http://192.168.1.20:8000/firmware.bin /firmware-dev.bin {SHA}",
+        )
+        url = "http://192.168.1.20:8000/firmware.bin"
+        for path, digest in (
+            ("/firmware.txt", SHA),  # not a .bin
+            ("firmware.bin", SHA),  # not absolute
+            ("/fw/../firmware.bin", SHA),
+            ("/firmware.bin", SHA[:-1]),
+            ("/firmware.bin", SHA[:-1] + "g"),
+            ("/firmware.bin", ""),
+            ("/" + "a" * 150 + ".bin", SHA),  # over the 256-byte line
+        ):
+            with self.assertRaises(ValueError, msg=(path, digest)):
+                devlink.fetch_command(url, path, digest)
+
+    def test_the_file_to_push(self):
+        with tempfile.TemporaryDirectory() as folder:
+            good = os.path.join(folder, "firmware.bin")
+            with open(good, "wb") as handle:
+                handle.write(b"test")
+            self.assertEqual(devlink.sha256_file(good), (SHA, 4))
+            self.assertEqual(devlink.check_push_file(good), (SHA, 4))
+            empty = os.path.join(folder, "empty.bin")
+            open(empty, "wb").close()
+            text = os.path.join(folder, "notes.txt")
+            with open(text, "wb") as handle:
+                handle.write(b"test")
+            for path in (empty, text):
+                with self.assertRaises(ValueError):
+                    devlink.check_push_file(path)
+            with self.assertRaises(OSError):
+                devlink.check_push_file(os.path.join(folder, "missing.bin"))
+            limit = devlink.FETCH_MAX_BYTES
+            devlink.FETCH_MAX_BYTES = 3
+            try:
+                with self.assertRaisesRegex(ValueError, "app slot"):
+                    devlink.check_push_file(good)
+            finally:
+                devlink.FETCH_MAX_BYTES = limit
+        self.assertEqual(devlink.FETCH_MAX_BYTES, 0x7F0000)
+
+    def test_what_status_must_say_before_a_push(self):
+        devlink.check_push_status({"ok": True, "build": "dev", "wifi": True})
+        with self.assertRaisesRegex(devlink.UpdateError, "x4pro-dev"):
+            devlink.check_push_status({"ok": True, "build": "dev-user", "wifi": True})
+        with self.assertRaisesRegex(devlink.UpdateError, "x4pro-dev"):
+            devlink.check_push_status({"ok": True, "wifi": True})
+        with self.assertRaisesRegex(devlink.UpdateError, "Wi-Fi"):
+            devlink.check_push_status({"ok": True, "build": "dev", "wifi": False})
+        with self.assertRaisesRegex(devlink.UpdateError, "Wi-Fi"):
+            devlink.check_push_status({"ok": True, "build": "dev"})
+        with self.assertRaisesRegex(devlink.UpdateError, "STATUS failed"):
+            devlink.check_push_status({"ok": False, "error": "unknown"})
+
+    def test_the_fetch_reply_must_be_the_file(self):
+        devlink.check_fetch_reply({"ok": True, "bytes": 4, "sha256": SHA}, SHA, 4)
+        with self.assertRaisesRegex(devlink.UpdateError, "not on Wi-Fi"):
+            devlink.check_fetch_reply({"ok": False, "error": "not on Wi-Fi: join a network"}, SHA, 4)
+        with self.assertRaisesRegex(devlink.UpdateError, r"url refused \(the port"):
+            devlink.check_fetch_reply({"ok": False, "error": "url refused", "reason": "the port must be"}, SHA, 4)
+        with self.assertRaises(devlink.UpdateError):
+            devlink.check_fetch_reply({"ok": True, "bytes": 5, "sha256": SHA}, SHA, 4)
+        with self.assertRaises(devlink.UpdateError):
+            devlink.check_fetch_reply({"ok": True, "bytes": 4, "sha256": "0" * 64}, SHA, 4)
+        with self.assertRaises(devlink.UpdateError):
+            devlink.check_fetch_reply({"ok": True}, SHA, 4)
+
+    def test_a_new_start_is_told_from_the_old_firmware(self):
+        new = {"ok": True, "version": "1.0-dev", "uptime_ms": 3000}
+        self.assertTrue(devlink.booted_as(new, "1.0-dev", 6.0))
+        self.assertTrue(devlink.booted_as(new, "1.0-dev", 1.5))  # two seconds of slack
+        self.assertFalse(devlink.booted_as(new, "1.1-dev", 6.0))
+        # The same version text, still the run from before the REBOOT.
+        self.assertFalse(devlink.booted_as(dict(new, uptime_ms=600000), "1.0-dev", 6.0))
+        self.assertFalse(devlink.booted_as(dict(new, ok=False), "1.0-dev", 6.0))
+        self.assertFalse(devlink.booted_as({"ok": True, "version": "1.0-dev"}, "1.0-dev", 6.0))
+        self.assertFalse(devlink.booted_as(None, "1.0-dev", 6.0))
+
+    def poller(self, answers):
+        """A STATUS poll and a clock that moves two seconds a poll."""
+        state = {"now": 100.0, "polls": 0}
+
+        def poll(_path):
+            state["polls"] += 1
+            return answers[min(state["polls"], len(answers)) - 1]
+
+        def sleep(seconds):
+            state["now"] += seconds
+
+        return state, poll, sleep, (lambda: state["now"])
+
+    def test_waiting_for_the_version(self):
+        new = {"ok": True, "version": "1.0-dev", "uptime_ms": 1500}
+        old = {"ok": True, "version": "0.9-dev", "uptime_ms": 900000}
+        said = []
+        state, poll, sleep, clock = self.poller([old, None, None, new])
+        status = devlink.wait_for_version("p", "1.0-dev", 30, 100.0, poll, sleep, clock, said.append)
+        self.assertEqual(status, new)
+        self.assertEqual(state["polls"], 4)
+        self.assertEqual(len(said), 3)
+
+    def test_waiting_gives_up_with_what_it_saw(self):
+        quiet = lambda _text: None  # noqa: E731
+        state, poll, sleep, clock = self.poller([None])
+        with self.assertRaisesRegex(devlink.UpdateError, "did not answer"):
+            devlink.wait_for_version("p", "1.0-dev", 10, 100.0, poll, sleep, clock, quiet)
+        self.assertEqual(state["polls"], 6)  # at 0, 2, 4, 6, 8 and 10 s
+        old = {"ok": True, "version": "0.9-dev", "uptime_ms": 2000}
+        _, poll, sleep, clock = self.poller([None, old])
+        with self.assertRaisesRegex(devlink.UpdateError, "'0.9-dev', not '1.0-dev'"):
+            devlink.wait_for_version("p", "1.0-dev", 10, 100.0, poll, sleep, clock, quiet)
+        same = {"ok": True, "version": "1.0-dev", "uptime_ms": 900000}
+        _, poll, sleep, clock = self.poller([same])
+        with self.assertRaisesRegex(devlink.UpdateError, "as before the REBOOT"):
+            devlink.wait_for_version("p", "1.0-dev", 10, 100.0, poll, sleep, clock, quiet)
+
+    def test_this_computers_address_must_be_private(self):
+        class Probe:
+            address = "192.168.1.77"
+            fail = False
+
+            def __init__(self, *_):
+                pass
+
+            def connect(self, _where):
+                if Probe.fail:
+                    raise OSError("Network is unreachable")
+
+            def getsockname(self):
+                return (Probe.address, 40000)
+
+            def close(self):
+                pass
+
+        real = devlink.socket.socket
+        devlink.socket.socket = Probe
+        try:
+            self.assertEqual(devlink.lan_ip(), "192.168.1.77")
+            Probe.address = "203.0.113.9"
+            with self.assertRaisesRegex(devlink.LinkError, "--host-ip"):
+                devlink.lan_ip()
+            Probe.fail = True
+            with self.assertRaisesRegex(devlink.LinkError, "--host-ip"):
+                devlink.lan_ip()
+        finally:
+            devlink.socket.socket = real
+
+
+class FileServing(unittest.TestCase):
+    """The file server of push-update, on the loopback address (no network needed)."""
+
+    def test_it_serves_that_one_file_and_stops(self):
+        with tempfile.TemporaryDirectory() as folder:
+            local = os.path.join(folder, "my build.bin")
+            data = bytes(range(256)) * 300
+            with open(local, "wb") as handle:
+                handle.write(data)
+            with open(os.path.join(folder, "secret.txt"), "wb") as handle:
+                handle.write(b"not served")
+            with devlink.FileServer(local, "127.0.0.1") as server:
+                self.assertEqual(server.url, f"http://127.0.0.1:{server.port}/firmware.bin")
+                with urllib.request.urlopen(server.url, timeout=5) as answer:
+                    self.assertEqual(answer.status, 200)
+                    self.assertEqual(int(answer.headers["Content-Length"]), len(data))
+                    self.assertEqual(answer.read(), data)
+                self.assertEqual(os.listdir(server.folder), ["firmware.bin"])
+                for other in ("secret.txt", "my%20build.bin", "../secret.txt"):
+                    with self.assertRaises(urllib.error.HTTPError):
+                        urllib.request.urlopen(f"http://127.0.0.1:{server.port}/{other}", timeout=5)
+                served_from, port = server.folder, server.port
+            self.assertFalse(os.path.exists(served_from))
+            with self.assertRaises(OSError):
+                socket.create_connection(("127.0.0.1", port), timeout=1).close()
+            self.assertTrue(os.path.exists(local))  # the file itself is left alone
+
+    def test_a_port_that_is_taken(self):
+        with tempfile.TemporaryDirectory() as folder:
+            local = os.path.join(folder, "firmware.bin")
+            with open(local, "wb") as handle:
+                handle.write(b"test")
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as taken:
+                taken.bind(("127.0.0.1", 0))
+                taken.listen(1)
+                before = set(os.listdir(tempfile.gettempdir()))
+                with self.assertRaisesRegex(devlink.LinkError, "cannot serve"):
+                    devlink.FileServer(local, "127.0.0.1", taken.getsockname()[1])
+                left = [name for name in set(os.listdir(tempfile.gettempdir())) - before if "devlink-push" in name]
+                self.assertEqual(left, [])
+
+    def test_a_file_that_is_not_there(self):
+        with self.assertRaises(OSError):
+            devlink.FileServer("/nonexistent/firmware.bin", "127.0.0.1")
+
+
+class PushUpdate(unittest.TestCase):
+    """`fetch` and `push-update` against the fake device; the file server is a stand-in that hands
+    the bytes to the fake device's FETCH."""
+
+    URL = "http://192.168.1.50:8123/firmware.bin"
+
+    def setUp(self):
+        devlink.REPLY_TIMEOUT_S = 0.6
+        devlink.PUSH_POLL_S = 0.01
+        self.devices = []
+        self.folder = tempfile.TemporaryDirectory()
+        self.local = os.path.join(self.folder.name, "firmware.bin")
+        self.data = b"\xe9" + bytes(4095)
+        with open(self.local, "wb") as handle:
+            handle.write(self.data)
+        self.digest = hashlib.sha256(self.data).hexdigest()
+        self.served = []
+
+    def tearDown(self):
+        for device in self.devices:
+            device.close()
+        self.folder.cleanup()
+
+    def device(self, **options):
+        options.setdefault("files", {})
+        options.setdefault("status", {"build": "dev", "wifi": True})
+        device = FakeDevice(**options)
+        self.devices.append(device)
+        return device
+
+    def server_for(self, device, corrupt=False):
+        test = self
+
+        class Server:
+            def __init__(self, file, address, port):
+                test.served.append(("start", address, port))
+                with open(file, "rb") as handle:
+                    data = handle.read()
+                device.web[test.URL] = data + b"x" if corrupt else data
+                self.url = test.URL
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                del device.web[test.URL]
+                test.served.append(("stop",))
+
+        return Server
+
+    def push(self, device, expected="0.76.0-x4pro-dev", **options):
+        said = []
+        options.setdefault("serve", self.server_for(device))
+        options.setdefault("host_ip", "192.168.1.50")
+        status = devlink.push_update(
+            device.path, self.local, expected, say=said.append, sleep=lambda _s: None, boot_timeout=3, **options
+        )
+        return status, said
+
+    def run_main(self, device, *words):
+        out = io.StringIO()
+        err = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = devlink.main(["--port", device.path, *words])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_the_whole_update(self):
+        device = self.device(new_version="0.76.0-x4pro-dev")
+        status, said = self.push(device)
+        self.assertEqual(status["version"], "0.76.0-x4pro-dev")
+        self.assertEqual(
+            device.seen[:4],
+            [
+                "CMD:STATUS",
+                f"CMD:FETCH {self.URL} /firmware-dev.bin {self.digest}",
+                "CMD:FLASH /firmware-dev.bin",
+                "CMD:REBOOT",
+            ],
+        )
+        self.assertEqual(set(device.seen[4:]), {"CMD:STATUS"})
+        self.assertEqual(device.files["/firmware-dev.bin"], self.data)
+        # The server ran for the FETCH only.
+        self.assertEqual(self.served, [("start", "192.168.1.50", 0), ("stop",)])
+        text = "\n".join(said)
+        for part in ("1/5", self.digest, "2/5 FETCH", "fetch: 100%", "3/5 FLASH", "flash: 100%", "4/5 REBOOT", "Done"):
+            self.assertIn(part, text)
+
+    def test_the_address_is_looked_up_when_not_named(self):
+        device = self.device(new_version="0.76.0-x4pro-dev")
+        self.push(device, host_ip=None, find_ip=lambda: "10.1.2.3", http_port=8123, sd="/fw/new.bin")
+        self.assertEqual(self.served[0], ("start", "10.1.2.3", 8123))
+        self.assertIn("/fw/new.bin", device.files)
+
+    def test_a_wrong_hash_stops_before_flash(self):
+        device = self.device(new_version="0.76.0-x4pro-dev")
+        with self.assertRaisesRegex(devlink.UpdateError, "sha256 mismatch"):
+            self.push(device, serve=self.server_for(device, corrupt=True))
+        self.assertEqual(len(device.seen), 2)  # STATUS and FETCH: no FLASH, no REBOOT
+        self.assertEqual(device.files, {})
+        self.assertEqual(self.served[-1], ("stop",))
+
+    def test_a_reader_that_cannot_reach_the_server(self):
+        device = self.device()
+
+        class Unreachable(self.server_for(device)):
+            def __init__(self, file, address, port):
+                super().__init__(file, address, port)
+                device.web.clear()
+                device.web["http://elsewhere"] = b""
+
+            def __exit__(self, *_):
+                pass
+
+        with self.assertRaisesRegex(devlink.UpdateError, "FETCH failed: cannot connect"):
+            self.push(device, serve=Unreachable)
+        self.assertEqual(len(device.seen), 2)
+
+    def test_the_wrong_build_or_no_wifi_sends_nothing_more(self):
+        for status, message in (
+            ({"build": "dev-user", "wifi": True}, "x4pro-dev"),
+            ({"build": "dev", "wifi": False}, "Wi-Fi"),
+        ):
+            device = self.device(status=status)
+            with self.assertRaisesRegex(devlink.UpdateError, message):
+                self.push(device)
+            self.assertEqual(device.seen, ["CMD:STATUS"])
+        self.assertEqual(self.served, [])
+
+    def test_a_version_that_never_comes(self):
+        device = self.device(new_version="0.75.9-x4pro-dev")
+        with self.assertRaisesRegex(devlink.UpdateError, "not '0.76.0-x4pro-dev'"):
+            self.push(device)
+        self.assertIn("CMD:REBOOT", device.seen)
+
+    def test_a_flash_that_is_refused(self):
+        device = self.device()
+        real = device.answer_sd
+
+        def answer_sd(line):
+            if line.startswith("CMD:FLASH "):
+                return {"ok": False, "error": "image refused", "reason": "WRONG_BOARD", "slot": "app1"}
+            return real(line)
+
+        device.answer_sd = answer_sd
+        with self.assertRaisesRegex(devlink.UpdateError, r"FLASH failed: image refused \(WRONG_BOARD\)"):
+            self.push(device)
+        self.assertNotIn("CMD:REBOOT", device.seen)
+
+    def test_what_is_wrong_before_the_port_is_opened(self):
+        device = self.device()
+        for options in ({"host_ip": "8.8.8.8"}, {"host_ip": "127.0.0.1"}, {"sd": "firmware.bin"}, {"expected": ""}):
+            with self.assertRaises(ValueError, msg=options):
+                self.push(device, **options)
+        self.assertEqual(device.seen, [])
+
+    def test_push_update_from_the_command_line(self):
+        device = self.device(status={"build": "dev-user", "wifi": True})
+        code, _, err = self.run_main(device, "push-update", self.local, "--expect", "0.76.0-x4pro-dev")
+        self.assertEqual(code, 1)
+        self.assertIn("x4pro-dev", err)
+        missing = os.path.join(self.folder.name, "missing.bin")
+        self.assertEqual(self.run_main(device, "push-update", missing, "--expect", "x")[0], 2)
+        code, _, err = self.run_main(device, "push-update", self.local, "--expect", "x", "--host-ip", "example.com")
+        self.assertEqual(code, 2)
+        self.assertIn("--host-ip", err)
+        self.assertEqual(device.seen, ["CMD:STATUS"])
+
+    def test_fetch_from_the_command_line(self):
+        device = self.device(web={self.URL: self.data})
+        code, out, _ = self.run_main(device, "fetch", self.URL, "/firmware-dev.bin", self.digest)
+        self.assertEqual(code, 0)
+        lines = out.splitlines()
+        self.assertEqual(json.loads(lines[0]), {"fetch": "started", "total": 4096})
+        self.assertEqual(json.loads(lines[1])["percent"], 100)
+        self.assertEqual(json.loads(lines[2])["sha256"], self.digest)
+        self.assertIn("devlink.py flash /firmware-dev.bin", lines[3])
+        self.assertEqual(device.seen, [f"CMD:FETCH {self.URL} /firmware-dev.bin {self.digest}"])  # no FLASH, no REBOOT
+        # A wrong hash: the reader's answer, exit code 1, no hint.
+        code, out, _ = self.run_main(device, "fetch", self.URL, "/firmware-dev.bin", "0" * 64)
+        self.assertEqual(code, 1)
+        self.assertNotIn("devlink.py flash", out)
+
+    def test_fetch_refuses_before_anything_is_sent(self):
+        device = self.device()
+        for url, path, digest in (
+            ("https://192.168.1.50/firmware.bin", "/firmware.bin", self.digest),
+            ("http://example.com/firmware.bin", "/firmware.bin", self.digest),
+            ("http://8.8.8.8/firmware.bin", "/firmware.bin", self.digest),
+            (self.URL, "/firmware.txt", self.digest),
+            (self.URL, "/firmware.bin", "abc"),
+        ):
+            code, _, err = self.run_main(device, "fetch", url, path, digest)
+            self.assertEqual(code, 2, (url, path))
+            self.assertTrue(err.startswith("devlink: "))
         self.assertEqual(device.seen, [])
 
 

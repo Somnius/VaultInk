@@ -59,8 +59,10 @@ taskset -c "0-$(( $(nproc) * 3 / 4 - 1 ))" nice -n 10 "$PIO" run -e x4pro-dev-us
 # The developer build that goes to users must be the read-only link. The commands of the
 # developer's own builds (keys, touches, SD files, flashing) have this HELP text; it must not be
 # in the image. (The text is stored as it is in an app image: not compressed, not encrypted.)
+# The second text is the usage line of CMD:FETCH (src/util/DevLinkDevice.cpp), the command that
+# downloads a file: it is in the full link only, after PUT in the same HELP text.
 DEV_APP=.pio/build/x4pro-dev-user/firmware.bin
-if grep -a -q -F 'KEY TAP SWIPE FLASH LS GET PUT' "$DEV_APP"; then
+if grep -a -q -F -e 'KEY TAP SWIPE FLASH LS GET PUT' -e 'usage: FETCH http://' "$DEV_APP"; then
   echo "x4pro-dev-user holds the full developer link (VAULTINK_DEVLINK_FULL). It must not be published." >&2
   exit 1
 fi

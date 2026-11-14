@@ -122,6 +122,7 @@ TEST(Parse, UnknownNames) {
   EXPECT_EQ(parse("CMD:").command, devlink::Command::Unknown);
   EXPECT_EQ(parse("CMD:   ").command, devlink::Command::Unknown);
   EXPECT_EQ(parse("CMD:FLASH /x.bin").command, devlink::Command::Unknown);
+  EXPECT_EQ(parse("CMD:FETCH http://192.168.1.2/a.bin /a.bin 00").command, devlink::Command::Unknown);
   EXPECT_EQ(parse("CMD:status").command, devlink::Command::Unknown);
   EXPECT_EQ(parse("CMD:STATUSES").command, devlink::Command::Unknown);
   EXPECT_EQ(parse("CMD:STAT").command, devlink::Command::Unknown);

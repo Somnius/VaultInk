@@ -11,7 +11,7 @@
 //                           link of the user-installable developer build (x4pro-dev-user): PING HELP
 //                           STATUS LOG BENCH REBOOT SCREENSHOT and nothing else.
 //   + VAULTINK_DEVLINK_FULL the developer's own builds (x4pro-dev, x4pro-dev-verify): also
-//                           BOOTLOADER, KEY, TAP, SWIPE, FLASH, LS, GET, PUT, WAIT and SHOTCRC.
+//                           BOOTLOADER, KEY, TAP, SWIPE, FLASH, LS, GET, PUT, FETCH, WAIT and SHOTCRC.
 #if defined(VAULTINK_DEVLINK_FULL) && !defined(VAULTINK_DEVLINK)
 #error "VAULTINK_DEVLINK_FULL needs VAULTINK_DEVLINK"
 #endif
@@ -75,6 +75,7 @@ enum class Command : uint8_t {
   Put,      // CMD:PUT <path> <offset> <base64>
   Wait,     // CMD:WAIT [activity] [timeout_ms]
   ShotCrc,  // CMD:SHOTCRC
+  Fetch,    // CMD:FETCH <http url> <sd path> <sha256>
 };
 
 struct Parsed {
