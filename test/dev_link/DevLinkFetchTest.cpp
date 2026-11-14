@@ -275,7 +275,7 @@ TEST(FetchArgs, HashText) {
 
 // The whole command as the host sends it fits one line and passes every pure check.
 TEST(FetchArgs, AWholeCommandLine) {
-  const std::string line = "CMD:FETCH http://192.168.1.20:8000/firmware.bin /firmware-dev.bin " + HASH;
+  const std::string line = "CMD:FETCH http://192.168.1.20:8000/firmware.bin /fw-dev.bin " + HASH;
   ASSERT_LE(line.size(), devlink::LineAssembler::MAX_LINE);
   const devlink::Parsed parsed = devlink::parse(line.data(), line.size());
   ASSERT_EQ(parsed.command, devlink::Command::Fetch);
@@ -385,7 +385,7 @@ TEST(FetchHead, NotAnHttpAnswer) {
     EXPECT_EQ(head.feed('\n'), HttpHead::State::Bad);
   }
   HttpHead longStatus;
-  EXPECT_EQ(feedAll(longStatus, "HTTP/1.1 200 " + std::string(HttpHead::LINE_MAX, 'x') + "\r\n\r\n"),
+  EXPECT_EQ(feedAll(longStatus, "HTTP/1.1 200 " + std::string(HttpHead::HEAD_LINE_MAX, 'x') + "\r\n\r\n"),
             HttpHead::State::Bad);
 }
 
@@ -408,13 +408,163 @@ TEST(FetchHead, LongHeaderLinesAndAnEndlessHead) {
 
   HttpHead endless;
   std::string many = "HTTP/1.0 200 OK\r\n";
-  while (many.size() <= HttpHead::HEAD_MAX) many += "X-Filler: abcdefghijklmnopqrstuvwxyz\r\n";
+  while (many.size() <= HttpHead::HEAD_BYTES_MAX) many += "X-Filler: abcdefghijklmnopqrstuvwxyz\r\n";
   EXPECT_EQ(feedAll(endless, many), HttpHead::State::Bad);
 
   HttpHead noLineEnd;
-  EXPECT_EQ(feedAll(noLineEnd, std::string(HttpHead::HEAD_MAX + 1, 'a')), HttpHead::State::Bad);
+  EXPECT_EQ(feedAll(noLineEnd, std::string(HttpHead::HEAD_BYTES_MAX + 1, 'a')), HttpHead::State::Bad);
   HttpHead cut;
   EXPECT_EQ(feedAll(cut, "HTTP/1.0 200 OK\r\nContent-Le"), HttpHead::State::More);
+}
+
+// ---- what FETCH may write over, and the folders it may make ----
+
+TEST(FetchTarget, OnlyFirmwareDownloadsAreReplaced) {
+  using devlinkpaths::fetchMayReplace;
+  EXPECT_TRUE(fetchMayReplace("/fw-dev.bin"));
+  EXPECT_TRUE(fetchMayReplace("/fw.bin"));
+  EXPECT_TRUE(fetchMayReplace("/FW-DEV.BIN"));  // FAT names ignore case
+  EXPECT_TRUE(fetchMayReplace("/builds/fw_0.76.0.bin"));
+  EXPECT_TRUE(fetchMayReplace("/debug/anything.bin"));
+  EXPECT_TRUE(fetchMayReplace("/Debug/sub/x.bin"));
+
+  // A .bin of the user's is never overwritten, wherever it is.
+  EXPECT_FALSE(fetchMayReplace("/firmware.bin"));
+  EXPECT_FALSE(fetchMayReplace("/backup.bin"));
+  EXPECT_FALSE(fetchMayReplace("/books/game.bin"));
+  EXPECT_FALSE(fetchMayReplace("/fw/backup.bin"));  // the folder's name does not count
+  EXPECT_FALSE(fetchMayReplace("/debugger/x.bin"));
+  EXPECT_FALSE(fetchMayReplace("/f.bin"));
+  EXPECT_FALSE(fetchMayReplace("/xfw.bin"));
+  // What FETCH may not write at all is not replaceable either.
+  EXPECT_FALSE(fetchMayReplace("/fw-dev.txt"));
+  EXPECT_FALSE(fetchMayReplace("/fw-dev.bin.part"));
+  EXPECT_FALSE(fetchMayReplace("/debug/notes.txt"));
+  EXPECT_FALSE(fetchMayReplace("/.vaultink/fw.bin"));
+  EXPECT_FALSE(fetchMayReplace("/.crosspoint/fw.bin"));
+  EXPECT_FALSE(fetchMayReplace("/debug/../.crosspoint/fw.bin"));
+  EXPECT_FALSE(fetchMayReplace("fw.bin"));
+  EXPECT_FALSE(fetchMayReplace(""));
+}
+
+TEST(FetchTarget, OnlyTheDebugFolderIsMade) {
+  using devlinkpaths::fetchMayCreateFolder;
+  EXPECT_TRUE(fetchMayCreateFolder("/debug"));
+  EXPECT_TRUE(fetchMayCreateFolder("/DEBUG"));
+  EXPECT_FALSE(fetchMayCreateFolder("/debug/sub"));
+  EXPECT_FALSE(fetchMayCreateFolder("/builds"));
+  EXPECT_FALSE(fetchMayCreateFolder("/"));
+  EXPECT_FALSE(fetchMayCreateFolder("/debug/"));
+  EXPECT_FALSE(fetchMayCreateFolder(""));
+  EXPECT_EQ(devlinkpaths::parentOf("/debug/fw.bin"), "/debug");
+  EXPECT_EQ(devlinkpaths::parentOf("/fw.bin"), "/");
+  EXPECT_STREQ(devlinkpaths::FETCH_PART_SUFFIX, ".part");
+  // The part file's name is not one FLASH would take: a half download cannot be flashed.
+  EXPECT_FALSE(devlinkpaths::isAllowed("/fw-dev.bin.part", devlinkpaths::Access::Flash));
+}
+
+// ---- FLASH <sd path> [sha256] ----
+
+TEST(FlashArgs, ThePathAlone) {
+  devlink::FlashArgs args;
+  const std::string text = "/firmware.bin";
+  ASSERT_TRUE(devlink::parseFlashArgs(text.data(), text.size(), args));
+  EXPECT_EQ(std::string(args.path, args.pathLength), "/firmware.bin");
+  EXPECT_FALSE(args.hasSha256);
+
+  const std::string blanks = "  /my builds/fw 2.bin  ";
+  ASSERT_TRUE(devlink::parseFlashArgs(blanks.data(), blanks.size(), args));
+  EXPECT_EQ(std::string(args.path, args.pathLength), "/my builds/fw 2.bin");
+  EXPECT_FALSE(args.hasSha256);
+}
+
+TEST(FlashArgs, ThePathAndTheHash) {
+  devlink::FlashArgs args;
+  const std::string text = "/my builds/fw-dev.bin  \t" + HASH + " ";
+  ASSERT_TRUE(devlink::parseFlashArgs(text.data(), text.size(), args));
+  EXPECT_EQ(std::string(args.path, args.pathLength), "/my builds/fw-dev.bin");
+  ASSERT_TRUE(args.hasSha256);
+  char hex[devlink::SHA256_HEX + 1];
+  devlink::sha256Hex(args.sha256, hex);
+  EXPECT_EQ(std::string(hex), HASH);
+}
+
+TEST(FlashArgs, AWordThatIsNotAHashIsPartOfThePath) {
+  devlink::FlashArgs args;
+  // Then the path rule refuses it (no .bin at the end): a cut or mistyped hash never flashes unchecked.
+  for (const std::string& last : {HASH.substr(1), HASH + "0", HASH.substr(0, 63) + "g", std::string("abc")}) {
+    const std::string text = "/fw-dev.bin " + last;
+    ASSERT_TRUE(devlink::parseFlashArgs(text.data(), text.size(), args));
+    EXPECT_FALSE(args.hasSha256) << last;
+    const std::string path(args.path, args.pathLength);
+    EXPECT_EQ(path, text);
+    EXPECT_FALSE(devlinkpaths::isAllowed(path, devlinkpaths::Access::Flash)) << last;
+  }
+  // A hash with no path in front of it is a path (and is refused as one).
+  ASSERT_TRUE(devlink::parseFlashArgs(HASH.data(), HASH.size(), args));
+  EXPECT_FALSE(args.hasSha256);
+  EXPECT_EQ(std::string(args.path, args.pathLength), HASH);
+
+  EXPECT_FALSE(devlink::parseFlashArgs("", 0, args));
+  EXPECT_FALSE(devlink::parseFlashArgs("   ", 3, args));
+  EXPECT_FALSE(devlink::parseFlashArgs(nullptr, 0, args));
+}
+
+// ---- when a transfer stops ----
+
+TEST(FetchWaitStep, ReadyWaitAndClosed) {
+  using devlink::FetchWait;
+  using devlink::fetchWaitStep;
+  EXPECT_EQ(fetchWaitStep(1000, 1000, 1000, false, true, true), FetchWait::Ready);
+  EXPECT_EQ(fetchWaitStep(1000, 1000, 1000, false, false, true), FetchWait::Wait);
+  EXPECT_EQ(fetchWaitStep(1000, 1000, 1000, false, false, false), FetchWait::Closed);
+  // Closed with bytes still to read: they are read first.
+  EXPECT_EQ(fetchWaitStep(1000, 1000, 1000, false, true, false), FetchWait::Ready);
+}
+
+TEST(FetchWaitStep, ANewCommandCancelsEvenWhileDataFlows) {
+  using devlink::FetchWait;
+  EXPECT_EQ(devlink::fetchWaitStep(1000, 1000, 1000, true, true, true), FetchWait::Cancelled);
+  EXPECT_EQ(devlink::fetchWaitStep(1000, 1000, 1000, true, false, false), FetchWait::Cancelled);
+}
+
+TEST(FetchWaitStep, TheDeadlineHoldsAgainstAServerThatNeverStops) {
+  using devlink::FetchWait;
+  const uint32_t start = 5000;
+  const uint32_t atLimit = start + devlink::FETCH_DEADLINE_MS;
+  EXPECT_EQ(devlink::fetchWaitStep(atLimit, start, atLimit, false, true, true), FetchWait::Ready);
+  EXPECT_EQ(devlink::fetchWaitStep(atLimit + 1, start, atLimit + 1, false, true, true), FetchWait::Deadline);
+}
+
+TEST(FetchWaitStep, DataThatIsNeverReadDoesNotKeepItAlive) {
+  using devlink::FetchWait;
+  // The socket says "available" on every look, but no byte is read, so lastByteMs stays.
+  const uint32_t last = 2000;
+  EXPECT_EQ(devlink::fetchWaitStep(last + devlink::FETCH_STALL_MS, 0, last, false, true, true), FetchWait::Ready);
+  EXPECT_EQ(devlink::fetchWaitStep(last + devlink::FETCH_STALL_MS + 1, 0, last, false, true, true), FetchWait::Stalled);
+  EXPECT_EQ(devlink::fetchWaitStep(last + devlink::FETCH_STALL_MS + 1, 0, last, false, false, true),
+            FetchWait::Stalled);
+  // The loop of the firmware: a look every millisecond, nothing ever read. It ends.
+  uint32_t now = 0;
+  FetchWait step = FetchWait::Ready;
+  for (; now < 60000 && step == FetchWait::Ready; ++now) step = devlink::fetchWaitStep(now, 0, 0, false, true, true);
+  EXPECT_EQ(step, FetchWait::Stalled);
+  EXPECT_EQ(now, devlink::FETCH_STALL_MS + 2);
+}
+
+TEST(FetchWaitStep, AWrappedClock) {
+  using devlink::FetchWait;
+  const uint32_t start = 0xFFFFFF00u;
+  EXPECT_EQ(devlink::fetchWaitStep(start + 500, start, start + 400, false, false, true), FetchWait::Wait);
+  EXPECT_EQ(devlink::fetchWaitStep(start + 20000, start, start + 400, false, true, true), FetchWait::Stalled);
+  EXPECT_EQ(devlink::fetchWaitStep(start + 200000, start, start + 199999, false, true, true), FetchWait::Deadline);
+}
+
+TEST(FetchWaitStep, EveryStopHasAText) {
+  using devlink::FetchWait;
+  for (const FetchWait step : {FetchWait::Cancelled, FetchWait::Deadline, FetchWait::Stalled, FetchWait::Closed}) {
+    EXPECT_GT(strlen(devlink::fetchWaitText(step)), 5u);
+  }
 }
 
 }  // namespace

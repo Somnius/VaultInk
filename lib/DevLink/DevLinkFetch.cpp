@@ -167,6 +167,55 @@ bool parseFetchArgs(const char* args, const size_t length, FetchArgs& out) {
   return true;
 }
 
+bool parseFlashArgs(const char* args, const size_t length, FlashArgs& out) {
+  if (!args) return false;
+  const char* at = args;
+  const char* end = args + length;
+  while (at < end && isBlank(*at)) ++at;
+  while (end > at && isBlank(end[-1])) --end;
+  if (at == end) return false;
+
+  FlashArgs parsed;
+  parsed.path = at;
+  parsed.pathLength = static_cast<size_t>(end - at);
+  const char* last = end;
+  while (last > at && !isBlank(last[-1])) --last;
+  if (last > at && parseSha256Hex(last, static_cast<size_t>(end - last), parsed.sha256)) {
+    const char* pathEnd = last;
+    while (pathEnd > at && isBlank(pathEnd[-1])) --pathEnd;
+    parsed.pathLength = static_cast<size_t>(pathEnd - at);
+    parsed.hasSha256 = true;
+  }
+  out = parsed;
+  return true;
+}
+
+FetchWait fetchWaitStep(const uint32_t nowMs, const uint32_t startMs, const uint32_t lastByteMs, const bool cancel,
+                        const bool available, const bool connected) {
+  if (cancel) return FetchWait::Cancelled;
+  if (nowMs - startMs > FETCH_DEADLINE_MS) return FetchWait::Deadline;
+  if (nowMs - lastByteMs > FETCH_STALL_MS) return FetchWait::Stalled;
+  if (available) return FetchWait::Ready;
+  return connected ? FetchWait::Wait : FetchWait::Closed;
+}
+
+const char* fetchWaitText(const FetchWait step) {
+  switch (step) {
+    case FetchWait::Ready:
+    case FetchWait::Wait:
+      return "ok";
+    case FetchWait::Cancelled:
+      return "cancelled: another command arrived";
+    case FetchWait::Deadline:
+      return "timeout: the transfer took over 180 s";
+    case FetchWait::Stalled:
+      return "timeout: nothing arrived from the server for 10 s";
+    case FetchWait::Closed:
+      return "the connection closed before the end of the file";
+  }
+  return "stopped";
+}
+
 void HttpHead::endLine() {
   if (!statusRead) {
     // "HTTP/1.x NNN ..."
@@ -226,7 +275,7 @@ void HttpHead::endLine() {
 
 HttpHead::State HttpHead::feed(const char c) {
   if (state != State::More) return state;
-  if (++total > HEAD_MAX) {
+  if (++total > HEAD_BYTES_MAX) {
     state = State::Bad;
     return state;
   }
@@ -237,7 +286,7 @@ HttpHead::State HttpHead::feed(const char c) {
     lineTooLong = false;
     return state;
   }
-  if (used < LINE_MAX) {
+  if (used < HEAD_LINE_MAX) {
     line[used++] = c;
   } else {
     lineTooLong = true;

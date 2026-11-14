@@ -13,6 +13,7 @@ import json
 import os
 import pty
 import random
+import signal
 import socket
 import struct
 import sys
@@ -156,6 +157,9 @@ class FakeDevice:
         if name == "FETCH":
             url, rest = rest.split(" ", 1)
             path, wanted = rest.rsplit(" ", 1)
+            name = path.rsplit("/", 1)[1]
+            if path in self.files and not (name.startswith("fw") or path.startswith("/debug/")):
+                return {"ok": False, "error": "a file is already there: FETCH replaces only a .bin whose name ..."}
             if url not in self.web:
                 return {"ok": False, "error": "cannot connect to the server"}
             data = self.web[url]
@@ -175,8 +179,14 @@ class FakeDevice:
             self.files[path] = data
             return {"ok": True, "bytes": len(data), "sha256": digest, "path": path, "ms": 4200}
         if name == "FLASH":
+            wanted = None
+            if " " in rest and len(rest.rsplit(" ", 1)[1]) == 64:
+                rest, wanted = rest.rsplit(" ", 1)
             if rest not in self.files:
                 return {"ok": False, "error": "cannot open the file"}
+            digest = hashlib.sha256(self.files[rest]).hexdigest()
+            if wanted is not None and wanted != digest:
+                return {"ok": False, "error": "sha256 mismatch: nothing was flashed", "sha256": digest, "slot": "app1"}
             self.flashed = True
             size = len(self.files[rest])
             self.send(json.dumps({"flash": "checked", "bytes": size, "slot": "app1"}).encode() + b"\n")
@@ -787,8 +797,8 @@ class FetchTexts(unittest.TestCase):
 
     def test_the_command_text(self):
         self.assertEqual(
-            devlink.fetch_command("http://192.168.1.20:8000/firmware.bin", "/firmware-dev.bin", SHA.upper() + "\n"),
-            f"FETCH http://192.168.1.20:8000/firmware.bin /firmware-dev.bin {SHA}",
+            devlink.fetch_command("http://192.168.1.20:8000/firmware.bin", "/fw-dev.bin", SHA.upper() + "\n"),
+            f"FETCH http://192.168.1.20:8000/firmware.bin /fw-dev.bin {SHA}",
         )
         url = "http://192.168.1.20:8000/firmware.bin"
         for path, digest in (
@@ -939,7 +949,10 @@ class FetchTexts(unittest.TestCase):
 class FileServing(unittest.TestCase):
     """The file server of push-update, on the loopback address (no network needed)."""
 
-    def test_it_serves_that_one_file_and_stops(self):
+    def fetch(self, port, path):
+        return urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5)
+
+    def test_it_serves_that_one_file_and_nothing_else(self):
         with tempfile.TemporaryDirectory() as folder:
             local = os.path.join(folder, "my build.bin")
             data = bytes(range(256)) * 300
@@ -949,19 +962,49 @@ class FileServing(unittest.TestCase):
                 handle.write(b"not served")
             with devlink.FileServer(local, "127.0.0.1") as server:
                 self.assertEqual(server.url, f"http://127.0.0.1:{server.port}/firmware.bin")
+                for _ in range(2):  # more than one request
+                    with urllib.request.urlopen(server.url, timeout=5) as answer:
+                        self.assertEqual(answer.status, 200)
+                        self.assertEqual(int(answer.headers["Content-Length"]), len(data))
+                        self.assertEqual(answer.read(), data)
+                # No listing, no other file of that folder, no way out of it, no other spelling.
+                for other in (
+                    "/",
+                    "",
+                    "/secret.txt",
+                    "/my%20build.bin",
+                    "/../secret.txt",
+                    "/firmware.bin/",
+                    "/firmware.bin?x=1",
+                    "/./firmware.bin",
+                    "/FIRMWARE.BIN",
+                ):
+                    with self.assertRaises(urllib.error.HTTPError, msg=other) as refused:
+                        self.fetch(server.port, other)
+                    self.assertEqual(refused.exception.code, 404, other)
+                # The bytes are the ones read at the start: a change of the file is not served.
+                with open(local, "wb") as handle:
+                    handle.write(b"changed")
                 with urllib.request.urlopen(server.url, timeout=5) as answer:
-                    self.assertEqual(answer.status, 200)
-                    self.assertEqual(int(answer.headers["Content-Length"]), len(data))
                     self.assertEqual(answer.read(), data)
-                self.assertEqual(os.listdir(server.folder), ["firmware.bin"])
-                for other in ("secret.txt", "my%20build.bin", "../secret.txt"):
-                    with self.assertRaises(urllib.error.HTTPError):
-                        urllib.request.urlopen(f"http://127.0.0.1:{server.port}/{other}", timeout=5)
-                served_from, port = server.folder, server.port
-            self.assertFalse(os.path.exists(served_from))
+                port = server.port
             with self.assertRaises(OSError):
                 socket.create_connection(("127.0.0.1", port), timeout=1).close()
-            self.assertTrue(os.path.exists(local))  # the file itself is left alone
+            server.close()  # a second close does nothing
+
+    def test_it_only_answers_get(self):
+        with tempfile.TemporaryDirectory() as folder:
+            local = os.path.join(folder, "firmware.bin")
+            with open(local, "wb") as handle:
+                handle.write(b"test")
+            with devlink.FileServer(local, "127.0.0.1") as server:
+                for method in ("POST", "PUT", "DELETE", "HEAD"):
+                    request = urllib.request.Request(server.url, data=b"x" if method != "HEAD" else None, method=method)
+                    with self.assertRaises(urllib.error.HTTPError, msg=method) as refused:
+                        urllib.request.urlopen(request, timeout=5)
+                    self.assertEqual(refused.exception.code, 501, method)
+            with open(local, "rb") as handle:
+                self.assertEqual(handle.read(), b"test")
 
     def test_a_port_that_is_taken(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -971,15 +1014,54 @@ class FileServing(unittest.TestCase):
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as taken:
                 taken.bind(("127.0.0.1", 0))
                 taken.listen(1)
-                before = set(os.listdir(tempfile.gettempdir()))
+                threads = threading.active_count()
                 with self.assertRaisesRegex(devlink.LinkError, "cannot serve"):
                     devlink.FileServer(local, "127.0.0.1", taken.getsockname()[1])
-                left = [name for name in set(os.listdir(tempfile.gettempdir())) - before if "devlink-push" in name]
-                self.assertEqual(left, [])
+                self.assertEqual(threading.active_count(), threads)
 
     def test_a_file_that_is_not_there(self):
         with self.assertRaises(OSError):
             devlink.FileServer("/nonexistent/firmware.bin", "127.0.0.1")
+
+    def test_a_stop_signal_ends_the_run_like_ctrl_c_and_stops_the_server(self):
+        with tempfile.TemporaryDirectory() as folder:
+            local = os.path.join(folder, "firmware.bin")
+            with open(local, "wb") as handle:
+                handle.write(b"test")
+            before = signal.getsignal(signal.SIGTERM)
+            for name in ("SIGTERM", "SIGHUP"):
+                port = None
+                with self.assertRaisesRegex(KeyboardInterrupt, name):
+                    with devlink.stop_signals_as_interrupt():
+                        with devlink.FileServer(local, "127.0.0.1") as server:
+                            port = server.port
+                            os.kill(os.getpid(), getattr(signal, name))
+                            for _ in range(200):  # the handler runs between two lines of Python
+                                threading.Event().wait(0.01)
+                            self.fail("the signal did not interrupt")
+                with self.assertRaises(OSError):
+                    socket.create_connection(("127.0.0.1", port), timeout=1).close()
+            self.assertEqual(signal.getsignal(signal.SIGTERM), before)  # put back afterwards
+
+    def test_a_server_left_open_is_stopped_when_the_script_exits(self):
+        with tempfile.TemporaryDirectory() as folder:
+            local = os.path.join(folder, "firmware.bin")
+            with open(local, "wb") as handle:
+                handle.write(b"test")
+            registered = []
+            real_register, real_unregister = devlink.atexit.register, devlink.atexit.unregister
+            devlink.atexit.register = registered.append
+            devlink.atexit.unregister = registered.remove
+            try:
+                server = devlink.FileServer(local, "127.0.0.1")
+                self.assertEqual(len(registered), 1)
+                port = server.port
+                registered[0]()  # what the interpreter calls at exit
+                self.assertEqual(registered, [])
+            finally:
+                devlink.atexit.register, devlink.atexit.unregister = real_register, real_unregister
+            with self.assertRaises(OSError):
+                socket.create_connection(("127.0.0.1", port), timeout=1).close()
 
 
 class PushUpdate(unittest.TestCase):
@@ -1056,13 +1138,13 @@ class PushUpdate(unittest.TestCase):
             device.seen[:4],
             [
                 "CMD:STATUS",
-                f"CMD:FETCH {self.URL} /firmware-dev.bin {self.digest}",
-                "CMD:FLASH /firmware-dev.bin",
+                f"CMD:FETCH {self.URL} /fw-dev.bin {self.digest}",
+                f"CMD:FLASH /fw-dev.bin {self.digest}",
                 "CMD:REBOOT",
             ],
         )
         self.assertEqual(set(device.seen[4:]), {"CMD:STATUS"})
-        self.assertEqual(device.files["/firmware-dev.bin"], self.data)
+        self.assertEqual(device.files["/fw-dev.bin"], self.data)
         # The server ran for the FETCH only.
         self.assertEqual(self.served, [("start", "192.168.1.50", 0), ("stop",)])
         text = "\n".join(said)
@@ -1074,6 +1156,48 @@ class PushUpdate(unittest.TestCase):
         self.push(device, host_ip=None, find_ip=lambda: "10.1.2.3", http_port=8123, sd="/fw/new.bin")
         self.assertEqual(self.served[0], ("start", "10.1.2.3", 8123))
         self.assertIn("/fw/new.bin", device.files)
+
+    def test_an_older_download_on_the_card_is_replaced(self):
+        device = self.device(new_version="0.76.0-x4pro-dev", files={"/fw-dev.bin": b"an older build"})
+        self.push(device)
+        self.assertEqual(device.files["/fw-dev.bin"], self.data)
+
+    def test_another_file_on_the_card_is_not_replaced(self):
+        device = self.device(new_version="0.76.0-x4pro-dev", files={"/backup.bin": b"the user's file"})
+        with self.assertRaisesRegex(devlink.UpdateError, "FETCH failed: a file is already there"):
+            self.push(device, sd="/backup.bin")
+        self.assertEqual(device.files["/backup.bin"], b"the user's file")
+        self.assertEqual(len(device.seen), 2)  # no FLASH, no REBOOT
+
+    def test_flash_with_a_hash_from_the_command_line(self):
+        device = self.device(files={"/fw-dev.bin": self.data})
+        code, out, _ = self.run_main(device, "flash", "/fw-dev.bin", "--sha256", self.digest.upper())
+        self.assertEqual(code, 0)
+        self.assertEqual(device.seen, [f"CMD:FLASH /fw-dev.bin {self.digest}"])
+        code, out, _ = self.run_main(device, "flash", "/fw-dev.bin", "--sha256", "0" * 64)
+        self.assertEqual(code, 1)
+        self.assertIn("nothing was flashed", out)
+        self.assertNotIn("cmd REBOOT", out)
+        # A hash that is not one is caught before anything is sent.
+        self.assertEqual(self.run_main(device, "flash", "/fw-dev.bin", "--sha256", "abc")[0], 2)
+        self.assertEqual(len(device.seen), 2)
+        self.assertEqual(devlink.flash_command("/a.bin"), "FLASH /a.bin")
+        self.assertEqual(devlink.flash_command("/a.bin", self.digest), f"FLASH /a.bin {self.digest}")
+
+    def test_an_interrupt_ends_push_update_with_its_own_exit_code(self):
+        device = self.device()
+        real = devlink.push_update
+
+        def interrupted(*_args, **_options):
+            raise KeyboardInterrupt
+
+        devlink.push_update = interrupted
+        try:
+            code, _, err = self.run_main(device, "push-update", self.local, "--expect", "x")
+        finally:
+            devlink.push_update = real
+        self.assertEqual(code, 130)
+        self.assertIn("interrupted", err)
 
     def test_a_wrong_hash_stops_before_flash(self):
         device = self.device(new_version="0.76.0-x4pro-dev")
@@ -1151,16 +1275,16 @@ class PushUpdate(unittest.TestCase):
 
     def test_fetch_from_the_command_line(self):
         device = self.device(web={self.URL: self.data})
-        code, out, _ = self.run_main(device, "fetch", self.URL, "/firmware-dev.bin", self.digest)
+        code, out, _ = self.run_main(device, "fetch", self.URL, "/fw-dev.bin", self.digest)
         self.assertEqual(code, 0)
         lines = out.splitlines()
         self.assertEqual(json.loads(lines[0]), {"fetch": "started", "total": 4096})
         self.assertEqual(json.loads(lines[1])["percent"], 100)
         self.assertEqual(json.loads(lines[2])["sha256"], self.digest)
-        self.assertIn("devlink.py flash /firmware-dev.bin", lines[3])
-        self.assertEqual(device.seen, [f"CMD:FETCH {self.URL} /firmware-dev.bin {self.digest}"])  # no FLASH, no REBOOT
+        self.assertIn("devlink.py flash /fw-dev.bin", lines[3])
+        self.assertEqual(device.seen, [f"CMD:FETCH {self.URL} /fw-dev.bin {self.digest}"])  # no FLASH, no REBOOT
         # A wrong hash: the reader's answer, exit code 1, no hint.
-        code, out, _ = self.run_main(device, "fetch", self.URL, "/firmware-dev.bin", "0" * 64)
+        code, out, _ = self.run_main(device, "fetch", self.URL, "/fw-dev.bin", "0" * 64)
         self.assertEqual(code, 1)
         self.assertNotIn("devlink.py flash", out)
 

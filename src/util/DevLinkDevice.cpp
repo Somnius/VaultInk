@@ -538,6 +538,35 @@ void replyPut(const devlink::Parsed& parsed) {
   reply(json);
 }
 
+// True when nothing is at the path afterwards.
+bool removeIfThere(const char* path) { return !Storage.exists(path) || Storage.remove(path); }
+
+constexpr size_t HASH_CHUNK_BYTES = 2048;
+
+// The SHA-256 of a file on the card, read 2 KB at a time. False when it cannot be read.
+bool hashFile(const char* path, uint8_t digest[devlink::SHA256_BYTES]) {
+  const std::unique_ptr<uint8_t[]> chunk(new (std::nothrow) uint8_t[HASH_CHUNK_BYTES]);
+  const std::unique_ptr<wc_Sha256> sha(new (std::nothrow) wc_Sha256);
+  if (!chunk || !sha) return false;
+  HalFile file;
+  if (!Storage.openFileForRead("DEVLINK", path, file) || !file) return false;
+  if (wc_InitSha256(sha.get()) != 0) {
+    wc_Sha256Free(sha.get());
+    file.close();
+    return false;
+  }
+  bool ok = true;
+  while (ok) {
+    const int got = file.read(chunk.get(), HASH_CHUNK_BYTES);
+    if (got == 0) break;
+    ok = got > 0 && wc_Sha256Update(sha.get(), chunk.get(), static_cast<word32>(got)) == 0;
+  }
+  file.close();
+  ok = ok && wc_Sha256Final(sha.get(), digest) == 0;
+  wc_Sha256Free(sha.get());
+  return ok;
+}
+
 // A line every tenth of the way; without "ok", so the host knows more is coming.
 void flashProgress(const size_t written, const size_t total, void* ctx) {
   auto* lastTenth = static_cast<unsigned*>(ctx);
@@ -562,8 +591,15 @@ void replyFlashRefused(const char* error, const char* reason, const char* slot) 
 // slot, then the whole image (header, segments, checksum, SHA-256, chip, board tag), then
 // firmware_flash writes it to the slot that is not running and points the next boot at it. No
 // restart here: the host sends CMD:REBOOT when it wants the new firmware.
+// "FLASH <sd path> <sha256>" also hashes the file first and refuses one that is not the file the
+// host means (the card can hold an older download under the same name).
 void replyFlash(const devlink::Parsed& parsed) {
-  const std::string path(parsed.args, parsed.argsLength);
+  devlink::FlashArgs args;
+  if (!devlink::parseFlashArgs(parsed.args, parsed.argsLength, args)) {
+    replyError("usage: FLASH <sd path of a .bin> [sha256, 64 hex]");
+    return;
+  }
+  const std::string path(args.path, args.pathLength);
   if (!devlinkpaths::isAllowed(path, devlinkpaths::Access::Flash)) {
     replyError("path refused: an absolute path to a .bin on the card, no '..', not in the device's own folders");
     return;
@@ -599,6 +635,24 @@ void replyFlash(const devlink::Parsed& parsed) {
     replyFlashRefused("image refused", "TOO_LARGE", slot);
     return;
   }
+  if (args.hasSha256) {
+    uint8_t digest[devlink::SHA256_BYTES] = {};
+    if (!hashFile(path.c_str(), digest)) {
+      replyError("the file could not be hashed: nothing was flashed");
+      return;
+    }
+    if (memcmp(digest, args.sha256, sizeof(digest)) != 0) {
+      char hex[devlink::SHA256_HEX + 1];
+      devlink::sha256Hex(digest, hex);
+      devlink::JsonLine json;
+      json.addBool("ok", false)
+          .addString("error", "sha256 mismatch: nothing was flashed")
+          .addString("sha256", hex)
+          .addString("slot", slot);
+      reply(json);
+      return;
+    }
+  }
   const auto checked = firmware_flash::validateImageFile(path.c_str(), dest->size);
   if (checked != firmware_flash::Result::OK) {
     replyFlashRefused("image refused", firmware_flash::resultName(checked), slot);
@@ -632,14 +686,14 @@ void replyFlash(const devlink::Parsed& parsed) {
 // taking the card out: FETCH, then FLASH, then REBOOT. Plain http to a private IPv4 address only
 // (devlink::checkFetchUrl), to a path FLASH could read (a .bin outside the device's folders), with
 // the reader already on Wi-Fi: nothing here joins a network or knows a password. The bytes go to
-// the card as they arrive and are hashed on the way; a file whose SHA-256 is not the one asked for
-// is deleted. Like FLASH, it holds the main loop until it is done; any byte on the serial port
-// (a new command) stops it, and so do the two time limits.
+// "<path>.part" as they arrive and are hashed on the way; the part becomes <path> only when its
+// SHA-256 is the one asked for, and is removed otherwise. A file already at <path> is replaced
+// only under devlinkpaths::fetchMayReplace, and no folder is made but /debug. Like FLASH, it holds
+// the main loop until it is done; any byte on the serial port (a new command) stops it, and so do
+// the two time limits (devlink::fetchWaitStep).
 
 constexpr char FETCH_USAGE[] = "usage: FETCH http://<private IPv4>[:port]/<file> <sd path of a .bin> <sha256, 64 hex>";
 constexpr int32_t FETCH_CONNECT_MS = 5000;
-constexpr unsigned long FETCH_STALL_MS = 10000;      // no byte for this long
-constexpr unsigned long FETCH_DEADLINE_MS = 180000;  // the whole transfer
 constexpr size_t FETCH_CHUNK_BYTES = 2048;
 
 void fetchProgress(const size_t written, const size_t total, unsigned& lastTenth) {
@@ -660,21 +714,29 @@ void replyFetchRefused(const char* error, const char* reason) {
   reply(json);
 }
 
-// Waits until the server has sent something. Nullptr when it has; else why the transfer stops.
-// The cancel and the deadline are looked at first, so a server that never stops sending cannot
-// hold the reader either.
-const char* fetchWait(WiFiClient& client, const unsigned long startMs, unsigned long& lastByteMs) {
+// Waits until there is something to read. Nullptr then; else why the transfer stops. The caller
+// sets lastByteMs when it has really read a byte.
+const char* fetchWait(WiFiClient& client, const unsigned long startMs, const unsigned long lastByteMs) {
   while (true) {
-    if (logSerial.available() > 0) return "cancelled: another command arrived";
-    if (millis() - startMs > FETCH_DEADLINE_MS) return "timeout: the transfer took over 180 s";
-    if (client.available() > 0) {
-      lastByteMs = millis();
-      return nullptr;
-    }
-    if (millis() - lastByteMs > FETCH_STALL_MS) return "timeout: the server sent nothing for 10 s";
-    if (!client.connected()) return "the connection closed before the end of the file";
+    const devlink::FetchWait step = devlink::fetchWaitStep(millis(), startMs, lastByteMs, logSerial.available() > 0,
+                                                           client.available() > 0, client.connected());
+    if (step == devlink::FetchWait::Ready) return nullptr;
+    if (step != devlink::FetchWait::Wait) return devlink::fetchWaitText(step);
     delay(1);
   }
+}
+
+// The answer to a transfer that stopped after the part file was made: the part is removed, and
+// "deleted" says whether that worked.
+void replyFetchFailed(const char* error, const std::string& part, const uint32_t written, const char* gotHex) {
+  const bool deleted = removeIfThere(part.c_str());
+  if (!deleted) LOG_ERR("DEVLINK", "CMD:FETCH could not remove %s", part.c_str());
+  devlink::JsonLine json;
+  json.addBool("ok", false).addString("error", error).addUnsigned("bytes", written);
+  if (gotHex) json.addString("sha256", gotHex);
+  json.addBool("deleted", deleted);
+  if (!deleted) json.addString("left", part.c_str());
+  reply(json);
 }
 
 void replyFetch(const devlink::Parsed& parsed) {
@@ -692,6 +754,19 @@ void replyFetch(const devlink::Parsed& parsed) {
   const std::string path(args.path, args.pathLength);
   if (!devlinkpaths::isAllowed(path, devlinkpaths::Access::Flash)) {
     replyError("path refused: an absolute path to a .bin on the card, no '..', not in the device's own folders");
+    return;
+  }
+  // What is on the card now. Nothing is written, removed or made before these pass.
+  const std::string part = path + devlinkpaths::FETCH_PART_SUFFIX;
+  const bool mayReplace = devlinkpaths::fetchMayReplace(path);
+  if (!mayReplace && (Storage.exists(path.c_str()) || Storage.exists(part.c_str()))) {
+    replyError("a file is already there: FETCH replaces only a .bin whose name starts with fw, or one under /debug");
+    return;
+  }
+  const std::string parent = devlinkpaths::parentOf(path);
+  const bool makeParent = parent != "/" && !Storage.exists(parent.c_str());
+  if (makeParent && !devlinkpaths::fetchMayCreateFolder(parent)) {
+    replyError("the folder is not on the card: FETCH makes no folders (only /debug)");
     return;
   }
   if (WiFi.status() != WL_CONNECTED) {
@@ -748,7 +823,12 @@ void replyFetch(const devlink::Parsed& parsed) {
       return;
     }
     const int c = client.read();
-    if (c >= 0) headState = head.feed(static_cast<char>(c));
+    if (c < 0) {
+      delay(1);  // said to be there and was not: the stall limit ends this, not a busy loop
+      continue;
+    }
+    lastByteMs = millis();
+    headState = head.feed(static_cast<char>(c));
   }
   if (headState == devlink::HttpHead::State::Bad) {
     client.stop();
@@ -768,18 +848,25 @@ void replyFetch(const devlink::Parsed& parsed) {
   }
   const uint32_t total = head.contentLength();
 
-  Storage.ensureDirectoryExists(devlinkpaths::parentOf(path).c_str());
-  HalFile file = Storage.open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC);
+  // A part left by a transfer that lost power is ours to remove (mayReplace; refused above otherwise).
+  if (!removeIfThere(part.c_str())) {
+    client.stop();
+    replyError("an old .part file is in the way and cannot be removed");
+    return;
+  }
+  if (makeParent) Storage.ensureDirectoryExists(parent.c_str());
+  // O_EXCL: the part is a new file or nothing.
+  HalFile file = Storage.open(part.c_str(), O_WRONLY | O_CREAT | O_EXCL);
   if (!file) {
     client.stop();
-    replyError("cannot open the file for writing");
+    replyError("cannot create the .part file");
     return;
   }
   if (wc_InitSha256(sha.get()) != 0) {
+    wc_Sha256Free(sha.get());
     client.stop();
     file.close();
-    Storage.remove(path.c_str());
-    replyError("the hash could not be started");
+    replyFetchFailed("the hash could not be started", part, 0, nullptr);
     return;
   }
   LOG_INF("DEVLINK", "CMD:FETCH %s (%u bytes) to %s", host, static_cast<unsigned>(total), path.c_str());
@@ -798,7 +885,11 @@ void replyFetch(const devlink::Parsed& parsed) {
     // Never more than the length the head named: what a server sends after it is not written.
     const size_t want = std::min<size_t>(FETCH_CHUNK_BYTES, total - written);
     const int got = client.read(chunk.get(), want);
-    if (got <= 0) continue;
+    if (got <= 0) {
+      delay(1);  // lastByteMs is not touched, so the stall limit ends a socket that gives nothing
+      continue;
+    }
+    lastByteMs = millis();
     const size_t count = static_cast<size_t>(got);
     if (file.write(chunk.get(), count) != count) {
       failed = "write failed (is the card full?)";
@@ -818,23 +909,22 @@ void replyFetch(const devlink::Parsed& parsed) {
   if (!failed && wc_Sha256Final(sha.get(), digest) != 0) failed = "the hash failed";
   wc_Sha256Free(sha.get());
   if (failed) {
-    Storage.remove(path.c_str());
-    devlink::JsonLine json;
-    json.addBool("ok", false).addString("error", failed).addUnsigned("bytes", written).addBool("deleted", true);
-    reply(json);
+    replyFetchFailed(failed, part, written, nullptr);
     return;
   }
   char hex[devlink::SHA256_HEX + 1];
   devlink::sha256Hex(digest, hex);
   if (memcmp(digest, args.sha256, sizeof(digest)) != 0) {
-    Storage.remove(path.c_str());
-    devlink::JsonLine json;
-    json.addBool("ok", false)
-        .addString("error", "sha256 mismatch: the file was deleted")
-        .addUnsigned("bytes", written)
-        .addString("sha256", hex)
-        .addBool("deleted", true);
-    reply(json);
+    replyFetchFailed("sha256 mismatch: the download was not kept", part, written, hex);
+    return;
+  }
+  // Only now is the file at the path touched: the old one goes (mayReplace), the part takes its name.
+  if (Storage.exists(path.c_str()) && !(mayReplace && Storage.remove(path.c_str()))) {
+    replyFetchFailed("the file that is already there could not be replaced", part, written, hex);
+    return;
+  }
+  if (!Storage.rename(part.c_str(), path.c_str())) {
+    replyFetchFailed("the .part file could not be renamed", part, written, hex);
     return;
   }
   devlink::JsonLine json;
@@ -843,7 +933,7 @@ void replyFetch(const devlink::Parsed& parsed) {
       .addString("sha256", hex)
       .addString("path", path.c_str())
       .addUnsigned("ms", millis() - startMs)
-      .addString("next", "send CMD:FLASH <sd path>, then CMD:REBOOT");
+      .addString("next", "send CMD:FLASH <sd path> <sha256>, then CMD:REBOOT");
   reply(json);
 }
 

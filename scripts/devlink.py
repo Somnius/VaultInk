@@ -14,7 +14,8 @@
     devlink.py get /.vaultink/bench.csv bench.csv
     devlink.py put note.txt /debug/note.txt
     devlink.py flash /firmware.bin         flash a .bin that is already on the SD card; then cmd REBOOT
-    devlink.py fetch http://192.168.1.20:8000/firmware.bin /firmware-dev.bin <sha256>
+    devlink.py flash /fw-dev.bin --sha256 <sha256>   the same, only when the file has that SHA-256
+    devlink.py fetch http://192.168.1.20:8000/firmware.bin /fw-dev.bin <sha256>
                                            the reader downloads a .bin to its card over Wi-Fi (LAN only)
     devlink.py push-update firmware.bin --expect 0.75.0-x4pro-dev
                                            serve the file, FETCH, FLASH, REBOOT, wait for that version
@@ -32,20 +33,22 @@ only where termios does not exist (Windows), and that path has not been run.
 from __future__ import annotations
 
 import argparse
+import atexit
 import base64
 import binascii
+import contextlib
 import csv
 import glob
 import hashlib
+import http.server
 import json
 import os
 import select
-import shutil
+import signal
 import socket
 import struct
-import subprocess
 import sys
-import tempfile
+import threading
 import time
 import zlib
 
@@ -62,7 +65,7 @@ FETCH_TIMEOUT_S = 200.0  # the reader gives up after 180 s (src/util/DevLinkDevi
 FETCH_MAX_BYTES = 0x7F0000  # one app slot, as lib/DevLink/DevLinkFetch.h
 FETCH_MAX_URL = 160
 FETCH_URL_PATH_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-~/")
-PUSH_SD_PATH = "/firmware-dev.bin"
+PUSH_SD_PATH = "/fw-dev.bin"  # a name FETCH may replace: it starts with fw
 PUSH_SERVED_NAME = "firmware.bin"
 PUSH_BOOT_TIMEOUT_S = 90.0
 PUSH_POLL_S = 2.0
@@ -288,6 +291,12 @@ def fetch_command(url: str, path: str, sha256: str) -> str:
     if len(f"CMD:{text}".encode()) > MAX_COMMAND_BYTES:
         raise ValueError("the URL and the path are too long for a 256-byte command")
     return text
+
+
+def flash_command(path: str, sha256=None) -> str:
+    """FLASH <sd path> [sha256]: with the hash, the reader flashes the file only when it has it."""
+    text = "FLASH " + sd_path(path)
+    return f"{text} {sha256_text(sha256)}" if sha256 else text
 
 
 def sha256_file(path: str) -> tuple[str, int]:
@@ -904,79 +913,93 @@ def lan_ip() -> str:
     return address
 
 
-def free_port(address: str, port: int = 0) -> int:
-    """A port of this address that nothing listens on: `port` itself, or one the system picks for 0."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            probe.bind((address, port))
-        except OSError as error:
-            what = f"port {port} of {address}" if port else address
-            raise LinkError(f"cannot serve on {what}: {error}") from error
-        return probe.getsockname()[1]
+class _QuietServer(http.server.HTTPServer):
+    def handle_error(self, request, client_address):  # a reader that hangs up is not worth a traceback
+        pass
 
 
 class FileServer:
-    """`python3 -m http.server` bound to one address, serving a temporary folder that holds a copy
-    of one file and nothing else. Stopped, and the folder removed, by close() or at the end of a
-    `with`."""
+    """A small HTTP server on one address of this computer that answers `GET /firmware.bin` with
+    the bytes of one file, and 404 for every other path: no folder listing, no other file. The file
+    is read once, when the server starts. It runs in a thread of this process (the standard
+    library's http.server), so it cannot outlive the script; close(), the end of a `with`, and the
+    exit of the script all stop it."""
 
-    def __init__(self, file: str, address: str, port: int = 0, name: str = PUSH_SERVED_NAME, ready_s: float = 10.0):
+    def __init__(self, file: str, address: str, port: int = 0, name: str = PUSH_SERVED_NAME):
+        with open(file, "rb") as handle:
+            data = handle.read()
         self.address = address
-        self.port = free_port(address, port)
         self.name = name
-        self.folder = tempfile.mkdtemp(prefix="devlink-push-")
-        self.process = None
+        self.httpd = None
+        wanted = "/" + name
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):  # pylint: disable=invalid-name
+                if self.path != wanted:
+                    self.send_error(404)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            def log_message(self, *_):  # nothing on the terminal but the script's own lines
+                pass
+
         try:
-            shutil.copyfile(file, os.path.join(self.folder, name))
-            self.process = subprocess.Popen(  # pylint: disable=consider-using-with
-                [sys.executable, "-m", "http.server", str(self.port), "--bind", address, "--directory", self.folder],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            self._wait_ready(ready_s)
-        except BaseException:
-            self.close()
-            raise
+            self.httpd = _QuietServer((address, port), Handler)
+        except OSError as error:
+            what = f"{address}:{port}" if port else address
+            raise LinkError(f"cannot serve on {what}: {error}") from error
+        self.port = self.httpd.server_address[1]
+        self.thread = threading.Thread(target=self.httpd.serve_forever, kwargs={"poll_interval": 0.1}, daemon=True)
+        self.thread.start()
+        atexit.register(self.close)
 
     @property
     def url(self) -> str:
         return f"http://{self.address}:{self.port}/{self.name}"
 
-    def _wait_ready(self, ready_s: float) -> None:
-        deadline = time.monotonic() + ready_s
-        while True:
-            if self.process.poll() is not None:
-                raise LinkError(
-                    f"the file server did not start on {self.address}:{self.port} "
-                    f"(python3 -m http.server ended with code {self.process.returncode})"
-                )
-            try:
-                socket.create_connection((self.address, self.port), timeout=0.5).close()
-                return
-            except OSError:
-                if time.monotonic() >= deadline:
-                    raise LinkError(f"the file server on {self.address}:{self.port} does not answer") from None
-                time.sleep(0.1)
-
     def close(self) -> None:
-        if self.process is not None:
-            if self.process.poll() is None:
-                self.process.terminate()
-                try:
-                    self.process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    self.process.kill()
-                    self.process.wait()
-            self.process = None
-        shutil.rmtree(self.folder, ignore_errors=True)
+        httpd, self.httpd = self.httpd, None
+        if httpd is None:
+            return
+        atexit.unregister(self.close)
+        httpd.shutdown()
+        httpd.server_close()
+        self.thread.join(timeout=5)
 
     def __enter__(self):
         return self
 
     def __exit__(self, *_):
         self.close()
+
+
+@contextlib.contextmanager
+def stop_signals_as_interrupt():
+    """While this is open, SIGTERM and SIGHUP end the script the way Ctrl-C does: as a
+    KeyboardInterrupt, so every `with` and `finally` on the way out runs (the file server is
+    stopped, the port closed). Outside the main thread nothing is changed."""
+
+    def stop(signum, _frame):
+        raise KeyboardInterrupt(signal.Signals(signum).name)
+
+    previous = {}
+    for name in ("SIGTERM", "SIGHUP"):
+        number = getattr(signal, name, None)
+        if number is None:
+            continue
+        try:
+            previous[number] = signal.signal(number, stop)
+        except ValueError:  # not the main thread
+            pass
+    try:
+        yield
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
 
 
 def wait_for_version(
@@ -1047,7 +1070,10 @@ def push_update(
             reply, _ = command_lines(port, text, FETCH_TIMEOUT_S, lambda line: _say_progress(say, "fetch", line))
         check_fetch_reply(reply, digest, size)
         say(f"3/5 FLASH {sd}")
-        reply, _ = command_lines(port, "FLASH " + sd, FLASH_TIMEOUT_S, lambda line: _say_progress(say, "flash", line))
+        # With the hash: the reader flashes the file only if it is still the one that was sent.
+        reply, _ = command_lines(
+            port, flash_command(sd, digest), FLASH_TIMEOUT_S, lambda line: _say_progress(say, "flash", line)
+        )
         if not reply.get("ok"):
             reason = f" ({reply['reason']})" if reply.get("reason") else ""
             raise UpdateError(f"FLASH failed: {reply.get('error', reply)}{reason}. The reader keeps its firmware")
@@ -1140,13 +1166,14 @@ def main(argv=None) -> int:
         "reader does not restart: send `cmd REBOOT` afterwards",
     )
     flash.add_argument("sd_path", help="the path of the .bin on the reader's SD card, e.g. /firmware.bin")
+    flash.add_argument("--sha256", help="flash only when the file on the card has this SHA-256 (64 hex digits)")
     fetch = sub.add_parser(
         "fetch",
         help="the reader downloads a .bin to its SD card over Wi-Fi: plain http from a private IPv4 "
         "address only, checked against the SHA-256 (x4pro-dev)",
     )
     fetch.add_argument("url", help="e.g. http://192.168.1.20:8000/firmware.bin")
-    fetch.add_argument("sd_path", help="where on the reader's SD card, a .bin, e.g. /firmware-dev.bin")
+    fetch.add_argument("sd_path", help="where on the reader's SD card, a .bin, e.g. /fw-dev.bin")
     fetch.add_argument("sha256", help="the file's SHA-256, 64 hex digits")
     push = sub.add_parser(
         "push-update",
@@ -1179,12 +1206,20 @@ def main(argv=None) -> int:
             return 0
         if args.action == "push-update":
             try:
-                push_update(
-                    args.port, args.file, args.expect, args.sd_path, args.host_ip, args.http_port, args.boot_timeout
-                )
+                with stop_signals_as_interrupt():
+                    push_update(
+                        args.port, args.file, args.expect, args.sd_path, args.host_ip, args.http_port, args.boot_timeout
+                    )
             except UpdateError as error:
                 print(f"devlink: {error}", file=sys.stderr)
                 return 1
+            except KeyboardInterrupt:
+                print(
+                    "devlink: interrupted. The file server is stopped; a FETCH that was running is cancelled by "
+                    "the next command (the reader removes the unfinished .part file)",
+                    file=sys.stderr,
+                )
+                return 130
             return 0
         if args.action == "screenshot" and not args.file.lower().endswith((".png", ".bmp")):
             parser.error("the output file must end in .png or .bmp")
@@ -1207,7 +1242,7 @@ def main(argv=None) -> int:
                     "flash takes the path of a .bin on the reader's SD card (e.g. /firmware.bin). Nothing is "
                     "copied over the link: put the file on the card first (USB Drive mode or a card reader)"
                 )
-            text = "FLASH " + sd_path(args.sd_path)
+            text = flash_command(args.sd_path, args.sha256)
         elif args.action == "fetch":
             text = fetch_command(args.url, args.sd_path, args.sha256)
         elif args.action == "get":

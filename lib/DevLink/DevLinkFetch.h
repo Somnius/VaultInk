@@ -71,20 +71,51 @@ struct FetchArgs {
 // what is between them and may hold blanks. The URL and the path are not checked here.
 bool parseFetchArgs(const char* args, size_t length, FetchArgs& out);
 
+// "<sd path> [sha256]" of CMD:FLASH: a last word of 64 hex digits, with a path in front of it, is
+// the hash the file must have; anything else is all path (which may hold blanks).
+struct FlashArgs {
+  const char* path = "";
+  size_t pathLength = 0;
+  bool hasSha256 = false;
+  uint8_t sha256[SHA256_BYTES] = {};
+};
+bool parseFlashArgs(const char* args, size_t length, FlashArgs& out);
+
+// ---- when a transfer stops ----
+
+constexpr uint32_t FETCH_DEADLINE_MS = 180000;  // the whole transfer
+constexpr uint32_t FETCH_STALL_MS = 10000;      // no byte read for this long
+
+enum class FetchWait : uint8_t {
+  Ready,      // there is something to read
+  Wait,       // nothing yet: look again in a moment
+  Cancelled,  // a byte came in on the serial port (a new command)
+  Deadline,   // FETCH_DEADLINE_MS since the start
+  Stalled,    // FETCH_STALL_MS since the last byte that was really read
+  Closed,     // the server closed and nothing is left to read
+};
+// One look at the transfer. `lastByteMs` is when a byte was last READ, not when one was last said
+// to be there: a socket that reports data and then gives none cannot keep the transfer alive. The
+// cancel and the two time limits are looked at before the data, so a server that never stops
+// sending cannot hold the reader either. The times are millis(); a wrapped clock still works.
+FetchWait fetchWaitStep(uint32_t nowMs, uint32_t startMs, uint32_t lastByteMs, bool cancel, bool available,
+                        bool connected);
+const char* fetchWaitText(FetchWait step);
+
 // ---- the head of the answer ----
 
 // Reads the status line and the header lines of an HTTP answer, a byte at a time, and keeps the
-// status and Content-Length. It holds one line of LINE_MAX bytes: a longer header line is skipped,
+// status and Content-Length. It holds one line of HEAD_LINE_MAX bytes: a longer header line is skipped,
 // a longer status line is an error. The head ends at the first empty line.
 class HttpHead {
  public:
-  static constexpr size_t LINE_MAX = 160;
-  static constexpr size_t HEAD_MAX = 4096;
+  static constexpr size_t HEAD_LINE_MAX = 160;
+  static constexpr size_t HEAD_BYTES_MAX = 4096;
 
   enum class State : uint8_t { More, Done, Bad };
 
   // Done: the byte ended the head, the body starts with the next one. Bad: this is not an HTTP
-  // answer, or its head is over HEAD_MAX bytes. After Done or Bad, feed() returns the same again.
+  // answer, or its head is over HEAD_BYTES_MAX bytes. After Done or Bad, feed() returns the same again.
   State feed(char c);
 
   int status() const { return statusCode; }
@@ -96,7 +127,7 @@ class HttpHead {
  private:
   void endLine();
 
-  char line[LINE_MAX + 1] = {};
+  char line[HEAD_LINE_MAX + 1] = {};
   size_t used = 0;
   size_t total = 0;
   uint32_t length = 0;

@@ -96,4 +96,24 @@ inline std::string parentOf(const std::string& path) {
   return slash == std::string::npos || slash == 0 ? std::string("/") : path.substr(0, slash);
 }
 
+// ---- CMD:FETCH ----
+// FETCH writes where FLASH reads (Access::Flash: a .bin outside the device's folders), into
+// "<path>.part" first, which becomes <path> only when the hash is right.
+
+constexpr char FETCH_PART_SUFFIX[] = ".part";
+
+// A file that is already at the path is replaced only when it is plainly a firmware download: its
+// name starts with "fw" (fw-dev.bin), or it is under /debug. Any other .bin on the card (a file of
+// the user's that happens to end in .bin) is never overwritten or deleted. The same rule decides
+// whether a "<path>.part" that was left behind may be removed.
+inline bool fetchMayReplace(const std::string& rawPath) {
+  if (!isAllowed(rawPath, Access::Flash)) return false;
+  const std::string path = lowered(rawPath);
+  if (isUnder(path, "/debug")) return true;
+  return path.compare(path.rfind('/') + 1, 2, "fw") == 0;
+}
+
+// FETCH makes no folders, with one exception: /debug itself. Any other folder must be there.
+inline bool fetchMayCreateFolder(const std::string& folder) { return lowered(folder) == "/debug"; }
+
 }  // namespace devlinkpaths

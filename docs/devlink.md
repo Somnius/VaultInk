@@ -154,7 +154,7 @@ answers `unknown` to the rest ([The build users may install](#the-build-users-ma
 | `PUT <path> <offset> <base64>` | writes up to 180 bytes: `{"ok":true,"written":9,"size":9}` |
 | `WAIT [activity] [timeout_ms]` | answers when the reader is at rest: `{"ok":true,"activity":"Home","visit":4,"renders":9,"queued":0,"waited_ms":180}`, or after `timeout_ms` (100 to 60000, 5000 when left out) `{"ok":false,"error":"timeout","wanted":"Home","activity":...}`. See [Waiting and checked screenshots](#waiting-and-checked-screenshots) |
 | `SHOTCRC` | the CRC-32 of the framebuffer, to check a screenshot against: `{"ok":true,"crc32":1234567890,"bytes":48000,"visit":4,"renders":9}` |
-| `FLASH <sd path>` | checks a `.bin` on the card and writes it to the slot that is not running; progress lines, then `{"ok":true,"action":"flash","slot":"app1",...}`. It does not restart. See [Flashing from the SD card](#flashing-from-the-sd-card) |
+| `FLASH <sd path> [sha256]` | checks a `.bin` on the card and writes it to the slot that is not running (with the 64 hex digits: only when the file has that SHA-256); progress lines, then `{"ok":true,"action":"flash","slot":"app1",...}`. It does not restart. See [Flashing from the SD card](#flashing-from-the-sd-card) |
 | `FETCH <http url> <sd path> <sha256>` | the reader downloads a `.bin` from a computer on the same network to its card and checks its SHA-256; progress lines, then `{"ok":true,"bytes":...,"sha256":"...",...}`. It flashes nothing. See [Sending a build over Wi-Fi](#sending-a-build-over-wi-fi) |
 | `REBOOT` | `{"ok":true,"action":"reboot"}`, then a restart 100 ms later. Like the reset button: nothing is saved first |
 | `BOOTLOADER` | `{"ok":true,"action":"bootloader"}`, then a restart into the chip's download mode, where `esptool` and `pio run -t upload` can flash it. Leaving it without flashing needs a reset of the chip; how to do that on an X4 Pro is not checked |
@@ -217,7 +217,8 @@ scripts/devlink.py ls /debug
 scripts/devlink.py get /.vaultink/bench.csv bench.csv
 scripts/devlink.py put note.txt /debug/note.txt
 scripts/devlink.py flash /firmware.bin        # a file already on the card; then: cmd REBOOT
-scripts/devlink.py fetch http://192.168.1.20:8000/firmware.bin /firmware-dev.bin <sha256>
+scripts/devlink.py flash /fw-dev.bin --sha256 <sha256>   # only when the file has that SHA-256
+scripts/devlink.py fetch http://192.168.1.20:8000/firmware.bin /fw-dev.bin <sha256>
 scripts/devlink.py push-update .pio/build/x4pro-dev/firmware.bin --expect 0.75.0-x4pro-dev
 scripts/devlink.py wait --activity Home --timeout 8000
 scripts/devlink.py screenshot shot.png --verify   # checked against SHOTCRC, three tries
@@ -521,6 +522,12 @@ So the bench log no longer needs USB Drive mode or a card reader.
 1. The path: absolute, a `.bin`, one spelling as above, anywhere on the card except `/.crosspoint`
    and `/.vaultink`. The file is only read as a firmware image; nothing of it is sent back.
 2. The battery: refused under 30% unless USB power is in (`battery below 30% and no USB power`).
+   Then, only for `FLASH <sd path> <sha256>` (64 hex digits as the last word): the file is hashed,
+   and one with another SHA-256 answers `{"ok":false,"error":"sha256 mismatch: nothing was
+   flashed","sha256":"<what the file has>","slot":"app1"}`. This is how the host makes sure the
+   file on the card is the one it sent and not an older download of the same name; `push-update`
+   always sends it. A last word that is not 64 hex digits is read as part of the path, and that
+   path is then refused (it does not end in `.bin`), so a cut hash never flashes unchecked.
 3. The size against the slot that is not running, then the whole image: header, segment table,
    checksum, SHA-256, the chip, and the board tag. A refused image answers
    `{"ok":false,"error":"image refused","reason":"WRONG_BOARD","slot":"app1"}` (the reason is the
@@ -550,8 +557,8 @@ device either; only the parts that need no reader are tested, on a computer.
 
 `FLASH` needs the `.bin` on the card, and `PUT` is far too slow for 6 MB (180 bytes a line).
 `FETCH <http url> <sd path> <sha256>` lets the reader download the file itself, from a computer on
-the same network. It only puts a file on the card: `FLASH <sd path>` and `REBOOT` then finish the
-update, with every check `FLASH` has. The cable is still needed, for the commands.
+the same network. It only puts a file on the card: `FLASH <sd path> <sha256>` and `REBOOT` then
+finish the update, with every check `FLASH` has. The cable is still needed, for the commands.
 
 ```sh
 scripts/devlink.py push-update .pio/build/x4pro-dev/firmware.bin --expect 0.75.0-x4pro-dev
@@ -563,14 +570,20 @@ scripts/devlink.py push-update .pio/build/x4pro-dev/firmware.bin --expect 0.75.0
 2. `STATUS`: the reader must say `"build":"dev"` and `"wifi":true`. **Join the network on the
    reader first** (Settings → Connectivity, or any screen that connects); the link starts no radio
    and knows no password. `wifi` only says the radio is on; `FETCH` itself checks that it is joined.
-3. It copies the file as `firmware.bin` into a new temporary folder that holds nothing else and
-   starts `python3 -m http.server` there, bound to this computer's LAN address only (not to every
-   interface), on a free port. `--host-ip` names the address when the script picks the wrong one
-   (several networks, a VPN); `--http-port` names the port (for a firewall rule).
-4. `FETCH http://<that address>:<port>/firmware.bin /firmware-dev.bin <sha256>`, with the progress
-   printed. The server is stopped and the folder removed as soon as `FETCH` has answered, whatever
-   the answer. `--sd-path` changes the path on the card.
-5. `FLASH /firmware-dev.bin`, then `REBOOT`.
+3. It reads the file into memory and starts a small HTTP server in the script itself (the
+   standard library's `http.server`), bound to this computer's LAN address only (not to every
+   interface), on a free port. The server answers `GET /firmware.bin` with those bytes and 404 for
+   every other path: no folder listing, no other file. `--host-ip` names the address when the
+   script picks the wrong one (several networks, a VPN); `--http-port` names the port (for a
+   firewall rule).
+4. `FETCH http://<that address>:<port>/firmware.bin /fw-dev.bin <sha256>`, with the progress
+   printed. The server is stopped as soon as `FETCH` has answered, whatever the answer. It is a
+   thread of the script, so it also ends when the script ends for any reason: Ctrl-C, `SIGTERM`
+   and `SIGHUP` stop it in order (exit code 130), and no process or folder is left behind.
+   `--sd-path` changes the path on the card; keep a name that starts with `fw`, or `FETCH` will
+   not replace the file the next time.
+5. `FLASH /fw-dev.bin <sha256>` (the reader hashes the file again and flashes it only when it is
+   the one that was sent), then `REBOOT`.
 6. `STATUS` every two seconds, for 90 s at most (`--boot-timeout`), until the reader answers with
    the version given to `--expect` **and** an `uptime_ms` that can only be from a start after the
    `REBOOT` (two developer builds often have the same version text). `--expect` is required: it
@@ -589,36 +602,53 @@ What the reader does with `FETCH`, in this order:
 2. The URL (the rules are under [Security](#security)): a refused one answers
    `{"ok":false,"error":"url refused","reason":"..."}`.
 3. The path: the rule of `FLASH`, so an absolute path to a `.bin` outside `/.crosspoint` and
-   `/.vaultink`. A file that is there is replaced.
+   `/.vaultink`, and then what is on the card now:
+   - **A file that is already there is replaced only when its name starts with `fw`
+     (`/fw-dev.bin`, `/builds/fw_0.76.bin`) or it is under `/debug`.** For any other name the
+     answer is `a file is already there: ...` and nothing is touched: a `.bin` of yours is never
+     written over or deleted. The same goes for a `<path>.part` that is in the way.
+   - **No folder is made**, except `/debug` itself: the folder of the path must be on the card
+     (`the folder is not on the card: ...`).
 4. Wi-Fi: not joined answers `not on Wi-Fi: ...`. Nothing is connected for you.
 5. The battery: refused under 30% unless USB power is in, like `FLASH`.
 6. It connects (5 s at most), sends `GET <path> HTTP/1.0` with a `Host` line and nothing else, and
    reads the head of the answer. It takes status 200 with a `Content-Length` from 1 to the size of
    the app slot (8,323,072 bytes) and no `Transfer-Encoding`. Anything else answers
    `{"ok":false,"error":"answer refused","reason":"...","status":404}`. **A redirect is not
-   followed**: 301, 302, 307 and 308 are refused like any other status.
-7. `{"fetch":"started","total":...}`, then the bytes go to the card 2048 at a time as they arrive
-   and into the SHA-256 on the way, with a line every tenth:
+   followed**: 301, 302, 307 and 308 are refused like any other status. Up to here nothing on the
+   card has changed.
+7. `{"fetch":"started","total":...}`, then the bytes go to a new file `<path>.part`, 2048 at a
+   time as they arrive, and into the SHA-256 on the way, with a line every tenth:
    `{"fetch":"writing","written":...,"total":...,"percent":40}`. It stops at `Content-Length`: what
-   a server sends after that is not written.
-8. The hash is compared. Equal: `{"ok":true,"bytes":...,"sha256":"...","path":"/firmware-dev.bin",
-   "ms":...,"next":"send CMD:FLASH <sd path>, then CMD:REBOOT"}`. Not equal: the file is deleted
-   and the answer is `{"ok":false,"error":"sha256 mismatch: the file was deleted","bytes":...,
-   "sha256":"<what arrived>","deleted":true}`.
+   a server sends after that is not written. The file at `<path>` is still the old one, if any.
+8. The hash is compared. Equal: the old file at `<path>` (if any, and only under the rule of
+   step 3) is removed, the part is renamed to `<path>`, and the answer is
+   `{"ok":true,"bytes":...,"sha256":"...","path":"/fw-dev.bin","ms":...,"next":"send CMD:FLASH
+   <sd path> <sha256>, then CMD:REBOOT"}`. Not equal: the part is removed, `<path>` is left as it
+   was, and the answer is `{"ok":false,"error":"sha256 mismatch: the download was not
+   kept","bytes":...,"sha256":"<what arrived>","deleted":true}`.
 
-It stops, deletes the file and answers `{"ok":false,"error":"...","bytes":...,"deleted":true}`
+It stops, removes the part and answers `{"ok":false,"error":"...","bytes":...,"deleted":true}`
 when: any byte arrives on the serial port (**a new command cancels it**; that command is then
-answered as usual), the whole transfer takes over 180 s, the server sends nothing for 10 s, the
-connection closes early, or the card does not take a write. The reader does nothing else while it
-downloads, like `FLASH`. There is no TLS in it, so it needs little memory: a 2 KB buffer and the
-hash state.
+answered as usual), the whole transfer takes over 180 s, no byte could be read for 10 s (a server
+that went quiet, or a socket that says it has data and gives none), the connection closes early,
+or the card does not take a write. `deleted` is what the card answered: when the part could not be
+removed it is `false`, and `"left":"<path>.part"` names what stayed. The reader does nothing else
+while it downloads, like `FLASH`. There is no TLS in it, so it needs little memory: a 2 KB buffer
+and the hash state.
 
 Limits of `FETCH` and `push-update`:
 
 - One file, 8,323,072 bytes at most, to a `.bin` path. No resume: a transfer that stops starts
   again from the beginning.
-- The file is written straight to its path, so a download that fails also removes a file that was
-  there under that name before.
+- A download that fails leaves the file at the path as it was. Between removing the old file and
+  renaming the part (step 8) a power loss leaves only `<path>.part`; the next `FETCH` to that path
+  removes it and starts again.
+- A `.part` left behind next to a name that does not start with `fw` (outside `/debug`) is never
+  removed by `FETCH`, and that path is refused until the part is deleted by hand (USB Drive mode
+  or a card reader): there is no delete command.
+- `FLASH <path> <sha256>` hashes the file and then `firmware_flash` reads it again to check and
+  write it. Nothing else writes to the card in between (the reader runs one command at a time).
 - 180 s for the whole transfer is a guess: how fast the reader downloads to the card is not
   measured.
 - The SHA-256 says the file on the card is the file the host hashed. It does not say who built it;
@@ -704,10 +734,13 @@ a cable. So:
   - It sends nothing but the request line and a `Host` line: no credentials, no cookies, nothing
     from the card. It joins no network and stores no password; the reader must be on Wi-Fi already.
   - It writes one file, where `FLASH` could read one: a `.bin` outside `/.crosspoint` and
-    `/.vaultink`, 8,323,072 bytes at most, deleted when the hash is wrong or the transfer stops.
-    It can replace a `.bin` that is already on the card under that name (a firmware file, or any
-    other file named `.bin` outside the device's folders). It flashes nothing: `FLASH` is a
-    separate command with its own checks.
+    `/.vaultink`, 8,323,072 bytes at most. The bytes go to `<path>.part` (made as a new file, never
+    opened over an existing one) and take the name only when the hash is right; otherwise the part
+    is removed and the reply says whether that worked. **It replaces an existing file only when
+    the name starts with `fw` or the file is under `/debug`** (`devlinkpaths::fetchMayReplace`):
+    no other `.bin` on the card can be overwritten, truncated or deleted by it. It makes no folder
+    but `/debug`. It flashes nothing: `FLASH` is a separate command with its own checks, and with
+    the SHA-256 as its second argument it refuses any file but the one that was sent.
   - Plain http can be read and changed by anyone on that network. The hash stops a changed file;
     it does not hide the file. A developer build is not a secret, and nothing else is sent.
   - Who has the cable could already flash a build from the card. `FETCH` adds that the card need
@@ -849,7 +882,11 @@ Everything on the device:
   and wolfCrypt's `wc_Sha256`) and what it costs in flash; a whole `push-update` round against a
   real reader; how long 6 MB takes and whether 180 s is enough; the heap while it runs; that the
   serial port stays up and the progress lines arrive; a cancel by a new command in the middle and
-  that the file is gone afterwards; a wrong hash; a server that stops halfway (the 10 s limit); a
+  that the `.part` is gone afterwards and the old file still there; that SdFat takes
+  `O_CREAT | O_EXCL` and the rename of the part as written; a second `push-update` over the first
+  one's `/fw-dev.bin`; `FETCH` to a name that exists and does not start with `fw` (refused), and to
+  a folder that is not there; `FLASH` with a right and a wrong SHA-256 and how long hashing 6 MB
+  takes; Ctrl-C in `push-update` during a `FETCH`; a wrong hash; a server that stops halfway (the 10 s limit); a
   refused URL, a redirect and a 404 from a real server; the answer with Wi-Fi off and with the
   radio on but not joined; a full card; that the reader's Wi-Fi stays joined long enough when
   nothing on screen needs it; that the release and `x4pro-dev-user` images do not hold
