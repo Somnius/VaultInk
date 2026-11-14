@@ -686,6 +686,19 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   (docs/devlink.md, "Live test: GitHub's certificate").
   Third slice on a reader: a scripted page turn, a tap, a `get` of the bench log, a flash from SD
   followed by `REBOOT` and a `STATUS` that shows the new build.
+* ✅ (unreleased; `x4pro`, `x4pro-dev`, `x4pro-dev-user` and `x4pro-dev-verify` compile and
+  link, computer tests only, nothing run on a reader) Device test harness, slices 1 to 3:
+  `scripts/devtest.py` plays a JSON scenario (key, tap, swipe, wait, expect on STATUS, shot) over
+  one open port, logs every step to `.work/devtest/<run>/steps.jsonl` with the pictures, exits
+  0/1/2 and has `--dry-run`; it refuses POWER, REBOOT, BOOTLOADER, FLASH and PUT when the file is
+  read, drives only `"build":"dev"`, keeps a 30% battery floor, stops on UsbDrive, Sleep and the
+  update screens, and takes a picture and a STATUS when a step or the run times out. Firmware,
+  `x4pro-dev` only: `STATUS` gains `visit`, `renders`, `queued`, `wifi`, `ble`, `orientation`,
+  `screen_w`, `screen_h`; `STATUS LITE` (no battery read, no render lock); `CMD:WAIT [activity]
+  [timeout_ms]`, answered from the main loop when the input queue is empty and the screen in front
+  is painted; `CMD:SCREENSHOT` sent in pieces that wait for room and `CMD:SHOTCRC` to check it
+  against. `devlink.py wait`, `screenshot --verify`. Still to do: all of it on an X4 Pro
+  (docs/devlink.md, "What is not checked yet").
 * Next slice (not started): settings get/set; a Home key and two-finger gestures for the input
   queue. `x4pro-dev` only (`VAULTINK_DEVLINK_FULL`), never in the build users may install.
 * ✅ (unreleased, computer tests only, not compiled for the device, not tried in a browser) Debug

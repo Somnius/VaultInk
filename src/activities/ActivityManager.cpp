@@ -108,6 +108,9 @@ void ActivityManager::renderTaskLoop() {
       const uint32_t renderingVisit = screenVisit;
       currentActivity->render(std::move(lock));
       paintedVisit.store(renderingVisit, std::memory_order_release);
+#ifdef VAULTINK_DEVLINK_FULL
+      renderCount.fetch_add(1, std::memory_order_release);
+#endif
     }
     // Notify any task blocked in requestUpdateAndWait() that the render is done.
     TaskHandle_t waiter = nullptr;
@@ -573,6 +576,13 @@ bool ActivityManager::remoteClick(const RemoteButton button) {
   if (!isRemoteReaderContext() || RenderLock::peek() || requestedUpdate.load()) return false;
   return mappedInput.injectRemoteClick(button);
 }
+
+#ifdef VAULTINK_DEVLINK_FULL
+bool ActivityManager::isAtRest() const {
+  return pendingAction == PendingAction::None && !requestedUpdate.load() &&
+         paintedVisit.load(std::memory_order_acquire) == screenVisit && !RenderLock::peek();
+}
+#endif
 
 bool ActivityManager::isForegroundHomeShown() const {
   return pendingAction == PendingAction::None && currentActivity && currentActivity->name == "Home" &&

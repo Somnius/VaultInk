@@ -19,6 +19,8 @@ using devlink::KeyName;
 using devlinkpaths::Access;
 using devlinkpaths::isAllowed;
 
+constexpr uint32_t WHITE_CRC = 0xe415b746u;  // zlib.crc32(b"\xff" * 48000)
+
 devlink::Parsed parse(const std::string& line) { return devlink::parse(line.data(), line.size()); }
 
 KeyName keyArgs(const std::string& text, devlink::KeyArgs& out) {
@@ -100,7 +102,7 @@ TEST(DevParse, KnowsTheDeveloperCommands) {
 
 TEST(DevParse, EveryListedCommandParses) {
   const std::string list = devlink::commandList();
-  for (const char* name : {"KEY", "TAP", "SWIPE", "FLASH", "LS", "GET", "PUT"}) {
+  for (const char* name : {"KEY", "TAP", "SWIPE", "FLASH", "LS", "GET", "PUT", "WAIT", "SHOTCRC"}) {
     EXPECT_NE((" " + list + " ").find(std::string(" ") + name + " "), std::string::npos) << name;
   }
   size_t start = 0;
@@ -891,4 +893,180 @@ TEST(DevPaths, ParentFolder) {
   EXPECT_EQ(devlinkpaths::parentOf("/debug/a.txt"), "/debug");
   EXPECT_EQ(devlinkpaths::parentOf("/debug/run 1/a.txt"), "/debug/run 1");
   EXPECT_EQ(devlinkpaths::parentOf("/a.txt"), "/");
+}
+
+// ---- CMD:WAIT, CMD:SHOTCRC and the longer STATUS ----
+
+bool waitArgs(const std::string& text, devlink::WaitArgs& out) {
+  return devlink::parseWaitArgs(text.data(), text.size(), out);
+}
+
+TEST(DevWait, TheNamesParse) {
+  EXPECT_EQ(parse("CMD:WAIT").command, Command::Wait);
+  EXPECT_EQ(parse("CMD:WAIT Home 3000").command, Command::Wait);
+  EXPECT_EQ(parse("CMD:SHOTCRC").command, Command::ShotCrc);
+  EXPECT_EQ(parse("CMD:POWER").command, Command::Unknown);  // there is no such command
+}
+
+TEST(DevWait, Arguments) {
+  devlink::WaitArgs args;
+  ASSERT_TRUE(waitArgs("", args));
+  EXPECT_STREQ(args.activity, "");
+  EXPECT_EQ(args.timeoutMs, devlink::DEFAULT_WAIT_MS);
+
+  ASSERT_TRUE(waitArgs("Home", args));
+  EXPECT_STREQ(args.activity, "Home");
+  EXPECT_EQ(args.timeoutMs, devlink::DEFAULT_WAIT_MS);
+
+  ASSERT_TRUE(waitArgs("2500", args));
+  EXPECT_STREQ(args.activity, "");
+  EXPECT_EQ(args.timeoutMs, 2500u);
+
+  ASSERT_TRUE(waitArgs("  EpubReader   60000 ", args));
+  EXPECT_STREQ(args.activity, "EpubReader");
+  EXPECT_EQ(args.timeoutMs, 60000u);
+
+  // A name may hold blanks; only a last word of digits is the time.
+  ASSERT_TRUE(waitArgs("Two Words 100", args));
+  EXPECT_STREQ(args.activity, "Two Words");
+  EXPECT_EQ(args.timeoutMs, 100u);
+  ASSERT_TRUE(waitArgs("Room 101 5000", args));
+  EXPECT_STREQ(args.activity, "Room 101");
+}
+
+TEST(DevWait, ArgumentsThatAreRefused) {
+  devlink::WaitArgs args;
+  EXPECT_FALSE(waitArgs("99", args));
+  EXPECT_FALSE(waitArgs("60001", args));
+  EXPECT_FALSE(waitArgs("Home 0", args));
+  EXPECT_FALSE(waitArgs("Home 99999999999", args));
+  EXPECT_TRUE(waitArgs(std::string(31, 'a'), args));
+  EXPECT_FALSE(waitArgs(std::string(32, 'a'), args));
+  EXPECT_FALSE(waitArgs(std::string(32, 'a') + " 500", args));
+}
+
+TEST(DevWait, DoneOnlyAfterTheReaderStayedAtRest) {
+  using Result = devlink::WaitGate::Result;
+  devlink::WaitGate gate;
+  EXPECT_EQ(gate.tick(5, true), Result::Idle);
+  gate.start(1000, 5000);
+  EXPECT_TRUE(gate.pending());
+  // At rest from the first pass: three passes are not enough before 150 ms have gone by.
+  EXPECT_EQ(gate.tick(1000, true), Result::Pending);
+  EXPECT_EQ(gate.tick(1010, true), Result::Pending);
+  EXPECT_EQ(gate.tick(1020, true), Result::Pending);
+  EXPECT_EQ(gate.tick(1149, true), Result::Pending);
+  EXPECT_EQ(gate.tick(1150, true), Result::Done);
+  EXPECT_EQ(gate.waitedMs(), 150u);
+  EXPECT_FALSE(gate.pending());
+  EXPECT_EQ(gate.tick(1200, true), Result::Idle);
+}
+
+TEST(DevWait, APassThatIsNotAtRestStartsTheCountAgain) {
+  using Result = devlink::WaitGate::Result;
+  devlink::WaitGate gate;
+  gate.start(0, 5000);
+  EXPECT_EQ(gate.tick(10, true), Result::Pending);
+  EXPECT_EQ(gate.tick(140, true), Result::Pending);
+  EXPECT_EQ(gate.tick(150, false), Result::Pending);  // a key was acted on: a frame is pending
+  EXPECT_EQ(gate.tick(300, true), Result::Pending);
+  EXPECT_EQ(gate.tick(400, true), Result::Pending);
+  EXPECT_EQ(gate.tick(449, true), Result::Pending);
+  EXPECT_EQ(gate.tick(450, true), Result::Done);
+  // One long pass is not three: the time alone does not answer.
+  gate.start(1000, 5000);
+  EXPECT_EQ(gate.tick(1000, true), Result::Pending);
+  EXPECT_EQ(gate.tick(2000, true), Result::Pending);
+  EXPECT_EQ(gate.tick(2001, true), Result::Done);
+}
+
+TEST(DevWait, TimesOutOnceAndAcrossAClockWrap) {
+  using Result = devlink::WaitGate::Result;
+  devlink::WaitGate gate;
+  gate.start(100, 1000);
+  EXPECT_EQ(gate.tick(1099, false), Result::Pending);
+  EXPECT_EQ(gate.tick(1100, false), Result::TimedOut);
+  EXPECT_EQ(gate.waitedMs(), 1000u);
+  EXPECT_EQ(gate.tick(1101, false), Result::Idle);
+  // At rest on the pass the time runs out: done wins.
+  gate.start(0, 200);
+  EXPECT_EQ(gate.tick(0, true), Result::Pending);
+  EXPECT_EQ(gate.tick(100, true), Result::Pending);
+  EXPECT_EQ(gate.tick(200, true), Result::Done);
+  // millis() wraps after 49 days.
+  gate.start(0xFFFFFF00u, 1000);
+  EXPECT_EQ(gate.tick(0xFFFFFFF0u, false), Result::Pending);
+  EXPECT_EQ(gate.tick(0x00000100u, false), Result::Pending);
+  EXPECT_EQ(gate.tick(0x000002E8u, false), Result::TimedOut);
+  // A new start takes the place of a pending one.
+  gate.start(0, 1000);
+  gate.start(500, 1000);
+  EXPECT_EQ(gate.tick(1400, false), Result::Pending);
+  EXPECT_EQ(gate.tick(1500, false), Result::TimedOut);
+}
+
+TEST(DevShotCrc, MatchesZlib) {
+  // The check value of CRC-32 (zlib.crc32(b"123456789")).
+  const uint8_t digits[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9'};
+  EXPECT_EQ(devlink::crc32(digits, sizeof(digits)), 0xCBF43926u);
+  EXPECT_EQ(devlink::crc32(digits, 0), 0u);
+  // In two parts it is the same number.
+  EXPECT_EQ(devlink::crc32(digits + 4, 5, devlink::crc32(digits, 4)), 0xCBF43926u);
+  // A framebuffer of an 800x480 panel, all white.
+  const std::vector<uint8_t> white(48000, 0xFF);
+  EXPECT_EQ(devlink::crc32(white.data(), white.size()), WHITE_CRC);
+  std::vector<uint8_t> oneBit = white;
+  oneBit[24000] = 0xFE;
+  EXPECT_NE(devlink::crc32(oneBit.data(), oneBit.size()), WHITE_CRC);
+}
+
+// The fields of CMD:STATUS in the developer's own builds, in the order replyStatus() of
+// src/util/DevLinkDevice.cpp adds them, each with the longest value its type can hold (bench
+// minutes: the 1440 the command takes; the version: 32 bytes, twice "0.74.0-x4pro-dev"; the screen
+// name: 31 bytes, the longest today is 26). The reply must fit a JsonLine (767 bytes), or the
+// reader would answer "reply too long". It does with two bytes to spare, so a field added there
+// must be added here, and will need the line made longer or a name made shorter.
+TEST(DevStatus, TheLongestReplyFitsOneLine) {
+  const unsigned long long u32 = 0xFFFFFFFFull;
+  const std::string version(32, 'v');
+  const std::string activity(31, 'A');
+  devlink::JsonLine json;
+  json.addBool("ok", false)
+      .addString("version", version.c_str())
+      .addString("build", "dev-user")
+      .addBool("verify_github", false)
+      .addUnsigned("uptime_ms", u32)
+      .addUnsigned("heap_free", u32)
+      .addUnsigned("heap_min_free", u32)
+      .addUnsigned("heap_largest", u32)
+      .addUnsigned("psram_free", u32)
+      .addUnsigned("battery_mv", 65535)
+      .addUnsigned("battery_percent", 65535)
+      .addBool("usb", false)
+      .addBool("charging", false)
+      .addInt("wake_cause", -2147483647 - 1)
+      .addInt("esp_wake_cause", -2147483647 - 1)
+      .addInt("reset_reason", -2147483647 - 1)
+      .addUnsigned("cpu_mhz", u32)
+      .addBool("light_present", false)
+      .addBool("light_on", false)
+      .addUnsigned("light_brightness", 255)
+      .addUnsigned("light_warmth", 255)
+      .addString("activity", activity.c_str())
+      .addUnsigned("sleep_timeout_ms", u32)
+      .addUnsigned("idle_ms", u32)
+      .addBool("log_debug", false)
+      .addUnsigned("bench_minutes", 1440)
+      .addUnsigned("dropped_lines", u32)
+      .addUnsigned("visit", u32)
+      .addUnsigned("renders", u32)
+      .addUnsigned("queued", 16)
+      .addBool("wifi", false)
+      .addBool("ble", false)
+      .addUnsigned("orientation", 3)
+      .addUnsigned("screen_w", 65535)
+      .addUnsigned("screen_h", 65535);
+  EXPECT_FALSE(json.tooLong());
+  json.finish();
+  EXPECT_EQ(json.length(), 765u);
 }

@@ -140,8 +140,9 @@ answers `unknown` to the rest ([The build users may install](#the-build-users-ma
 | Command | Reply |
 | --- | --- |
 | `PING` | `{"ok":true,"pong":true,"uptime_ms":...}` |
-| `HELP` | `{"ok":true,"commands":"PING HELP STATUS LOG BENCH KEY TAP SWIPE FLASH LS GET PUT REBOOT BOOTLOADER SCREENSHOT"}` |
+| `HELP` | `{"ok":true,"commands":"PING HELP STATUS LOG BENCH KEY TAP SWIPE FLASH LS GET PUT WAIT SHOTCRC REBOOT BOOTLOADER SCREENSHOT"}` |
 | `STATUS` | the fields below |
+| `STATUS LITE` | the same without `battery_mv`, `battery_percent` and `charging`. It reads no battery gauge, so it does not wait for a screen that is being drawn (`STATUS` does). `x4pro-dev` only; `x4pro-dev-user` ignores the word |
 | `LOG <0-3>` | 2 and 3 turn debug lines on, 0 and 1 turn them off. Errors and info lines always print: the levels are fixed when the firmware is compiled, and the reply's `note` says so |
 | `BENCH` | the state of the SD bench log: `{"ok":true,"minutes":5,"on":true,"file":"/.vaultink/bench.csv","file_bytes":...,"rows":...,"failed":...}` (`rows` and `failed` count since boot) |
 | `BENCH <minutes>` | sets the interval, 0 to 1440; 0 is off. The same reply plus `"saved"`: the setting is on the card. See [The SD bench log](#the-sd-bench-log) |
@@ -151,10 +152,12 @@ answers `unknown` to the rest ([The build users may install](#the-build-users-ma
 | `LS <dir>` | one line an entry, `{"name":"a.txt","dir":false,"size":3}`, then `{"ok":true,"count":1,"truncated":false}`. See [Files on the SD card](#files-on-the-sd-card) |
 | `GET <path> <offset> <len>` | up to 2880 bytes of a file as base64: `{"offset":0,"size":9,"data":"...","len":9,"eof":true,"ok":true}` |
 | `PUT <path> <offset> <base64>` | writes up to 180 bytes: `{"ok":true,"written":9,"size":9}` |
+| `WAIT [activity] [timeout_ms]` | answers when the reader is at rest: `{"ok":true,"activity":"Home","visit":4,"renders":9,"queued":0,"waited_ms":180}`, or after `timeout_ms` (100 to 60000, 5000 when left out) `{"ok":false,"error":"timeout","wanted":"Home","activity":...}`. See [Waiting and checked screenshots](#waiting-and-checked-screenshots) |
+| `SHOTCRC` | the CRC-32 of the framebuffer, to check a screenshot against: `{"ok":true,"crc32":1234567890,"bytes":48000,"visit":4,"renders":9}` |
 | `FLASH <sd path>` | checks a `.bin` on the card and writes it to the slot that is not running; progress lines, then `{"ok":true,"action":"flash","slot":"app1",...}`. It does not restart. See [Flashing from the SD card](#flashing-from-the-sd-card) |
 | `REBOOT` | `{"ok":true,"action":"reboot"}`, then a restart 100 ms later. Like the reset button: nothing is saved first |
 | `BOOTLOADER` | `{"ok":true,"action":"bootloader"}`, then a restart into the chip's download mode, where `esptool` and `pio run -t upload` can flash it. Leaving it without flashing needs a reset of the chip; how to do that on an X4 Pro is not checked |
-| `SCREENSHOT` | not JSON: `SCREENSHOT_START:<n>`, n raw bytes, `SCREENSHOT_END` (every build) |
+| `SCREENSHOT` | not JSON: `SCREENSHOT_START:<n>`, n raw bytes, `SCREENSHOT_END` (every build). `x4pro-dev` sends the bytes in pieces of 512 that wait for room in the transmit queue; the other builds send them in one write, as before |
 | anything else | `{"ok":false,"error":"unknown"}` |
 
 A line longer than 256 bytes is dropped whole. Names are case-sensitive.
@@ -185,6 +188,16 @@ still holds: read until a line has `ok`.
 | `log_debug` | debug lines are printing |
 | `bench_minutes` | the interval of the SD bench log, 0 when it is off |
 | `dropped_lines` | lines thrown away for being over 256 bytes |
+| `visit` | `x4pro-dev` only, like the rest of the table: a number that goes up by one at every change of screen |
+| `renders` | frames the render task has finished since boot |
+| `queued` | made-up key and touch events still waiting (0 to 16) |
+| `wifi`, `ble` | the Wi-Fi mode is not off / the Bluetooth stack is running. Read only: neither starts a radio |
+| `orientation` | 0 portrait, 1 landscape clockwise, 2 portrait inverted, 3 landscape counter-clockwise |
+| `screen_w`, `screen_h` | the screen in pixels as `TAP` and a screenshot see it, in this orientation |
+
+With every field at the longest value its type can hold, a 32-byte version and a 31-byte screen
+name, the reply is 765 of the 767 bytes a line may have (`test/dev_link`, `DevStatus`). A usual
+one is near 600. The next field needs a longer line or a shorter name.
 
 ## The host script
 
@@ -203,6 +216,9 @@ scripts/devlink.py ls /debug
 scripts/devlink.py get /.vaultink/bench.csv bench.csv
 scripts/devlink.py put note.txt /debug/note.txt
 scripts/devlink.py flash /firmware.bin        # a file already on the card; then: cmd REBOOT
+scripts/devlink.py wait --activity Home --timeout 8000
+scripts/devlink.py screenshot shot.png --verify   # checked against SHOTCRC, three tries
+scripts/devtest.py scenario.json              # a whole scripted test: see Device tests
 ```
 
 `flash` copies nothing: its argument is the path of a `.bin` **on the reader's SD card**. Put the
@@ -218,6 +234,117 @@ no answer.
 battery_mv, battery_percent, heap_free, cpu_mhz, light_on, light_brightness, activity, usb, charging,
 idle_ms, uptime_ms`. When the reader does not answer, the row has `link` = `none` and the rest empty,
 and the next poll tries again.
+
+## Waiting and checked screenshots
+
+`x4pro-dev` and `x4pro-dev-verify` only. **None of this section, and none of
+[Device tests](#device-tests), has run on a reader yet**: the firmware compiles and links, the
+pure parts and the scripts are tested on a computer against a made-up reader.
+
+`WAIT` replaces "sleep a second and hope" between a key and a screenshot. The reply does not come
+at once: the main loop looks once per pass and answers when, for three passes in a row that
+together span 150 ms,
+
+- the queue of made-up input is empty,
+- no change of screen and no frame is waiting, the frame of the screen in front has been painted
+  and the render task is not drawing,
+- and, when a name was given, that screen is in front (the name as `STATUS` gives it in
+  `activity`, 31 bytes at most).
+
+Otherwise it answers `timeout` when the time is up. The handler takes no lock and does not hold
+the loop. The arguments: a last word that is a number is the time; what comes before it is the
+name. `devlink.py` and `devtest.py` always send the time.
+
+What `WAIT` cannot see, so a test must not lean on it there:
+
+- work a screen does on its own after it has painted: a Wi-Fi scan, a download, a book that is
+  still being laid out, a clock that ticks. The reader is "at rest" between two of its frames;
+- a key that a screen acts on later than 150 ms after it was let go (a double-click window);
+- the e-ink panel itself. "Painted" means the render task returned.
+
+One `WAIT` at a time: a new one takes the place of one still pending, which then gets no reply.
+A reader that goes to sleep while one is pending does not answer it.
+
+`SCREENSHOT` in these builds sends the framebuffer in pieces of 512 bytes, each only when the
+transmit queue has room, and leaves out `SCREENSHOT_END` when the host has read nothing for two
+seconds. The main loop does nothing else while the picture goes out. `SHOTCRC` gives the CRC-32
+(the one of zlib and PNG) of the framebuffer as it is when the command arrives. Neither takes the
+render lock, so a frame drawn between the two gives a different number: `devlink.py screenshot
+--verify` (and every `shot` of `devtest.py`) asks for both, compares, and asks again, three times
+at most. A match means the bytes on the computer are the bytes that were in the buffer.
+
+## Device tests
+
+`scripts/devtest.py` plays a JSON scenario over one open port and writes what happened.
+
+```sh
+scripts/devtest.py scenario.json --dry-run    # print the commands; no port is opened
+scripts/devtest.py scenario.json              # run; --port, --out <folder>, --battery-every <steps>
+```
+
+```json
+{"name": "open-settings",
+ "requires": {"build": "dev", "battery_min": 40},
+ "forbid_activity": ["WifiSelection"],
+ "timeout_s": 120,
+ "steps": [
+   {"wait": {"activity": "Home", "timeout_ms": 8000}},
+   {"key": "DOWN"},
+   {"key": {"name": "CONFIRM", "hold_ms": 200}},
+   {"wait": {}},
+   {"tap": [240, 400]},
+   {"swipe": [400, 300, 80, 300]},
+   {"expect": {"status": {"activity": "Settings", "heap_free": {">": 60000}}}},
+   {"shot": "settings.png"},
+   {"sleep_ms": 500},
+   {"cmd": "STATUS LITE"}
+ ]}
+```
+
+| Step | What it does |
+| --- | --- |
+| `{"key": "CONFIRM"}` or `{"key": {"name": ..., "hold_ms": ...}}` | `CMD:KEY` |
+| `{"tap": [x, y]}` (a third number is the hold time) or `{"tap": {"x":, "y":, "hold_ms":}}` | `CMD:TAP` |
+| `{"swipe": [x1, y1, x2, y2]}` (a fifth number is the time) or the same as an object with `ms` | `CMD:SWIPE` |
+| `{"wait": {"activity": "Home", "timeout_ms": 8000}}`, both optional | `CMD:WAIT`; a `timeout` reply fails the step |
+| `{"expect": {"status": {field: value}}}` | one `CMD:STATUS`; every field must be there and equal the value, or meet every comparison of `{">": n, ">=": n, "<": n, "<=": n, "==": v, "!=": v}` |
+| `{"shot": "name.png"}` (or `.bmp`; a file name, no folder) | a checked screenshot into the run folder |
+| `{"sleep_ms": 500}` | a pause on the computer, 10 s at most; nothing is sent |
+| `{"cmd": "PING"}` | one of `PING`, `HELP`, `STATUS`, `STATUS LITE`, `LS <dir>`, `SHOTCRC`; `ok:false` fails the step |
+
+Any step may also have `"timeout_ms"` (100 to 120000, 10000 when left out; a `wait` gets its own
+time plus three seconds) and a `"note"` that is copied to the log.
+
+The run folder is `.work/devtest/<name>-<date>-<time>/` (git-ignored): `steps.jsonl` with one line
+a step (`step`, `kind`, `commands`, the reply, `ok`, `ms`, the screen it left the reader on), a
+`start` line with the first `STATUS` and an `end` line with the result, plus the pictures.
+
+Exit code 0: every step passed. 1: a step failed or the run was stopped. 2: it did not run (a bad
+scenario, no port, the wrong build, the battery).
+
+What it will not do:
+
+- **Refused when the file is read, before the port is opened:** the key `POWER`; `REBOOT`,
+  `BOOTLOADER`, `FLASH`, `PUT`, `BENCH`, `LOG` and any command not in the list above as a `cmd`;
+  a line end or other control character in any text that goes into a command (it would start a
+  second command); a `battery_min` under 30; a `wait` for a forbidden screen.
+- **Only the developer's own build:** the first `STATUS` must say `"build":"dev"`. Anything else
+  (the release, which answers nothing; `dev-user`) ends the run with code 2 and nothing pressed.
+- **The battery:** 30% at least (`battery_min` can raise it), checked before the first step and
+  after every tenth. Below it the run stops and the reader is left alone.
+- **Forbidden screens:** `UsbDrive`, `Sleep`, `OtaUpdate`, `SdFirmwareUpdate`, plus the
+  scenario's `forbid_activity`; the scenario cannot shorten the list. After every step the script
+  asks `STATUS LITE`, and stops with nothing more sent when one of them is in front. It sees the
+  screen after the step: it cannot stop a key from opening one. Write scenarios that do not go
+  there.
+- **Time:** every step has its time and the run has `timeout_s` (300 when left out, 3600 at
+  most). When a step fails or a time runs out, it asks one `STATUS` and one checked screenshot
+  (`failure.png`), logs both, and stops. When the reader does not answer the `STATUS`, it does
+  not ask for the picture.
+
+Limits of the script: a failed step is not retried (a `queue full` reply fails it: put a `wait`
+between long runs of keys); a `shot` may take three times its step time, one for each try; the
+auto-sleep timer still runs, and each made-up key resets it as a real one does.
 
 ## The SD bench log
 
@@ -431,6 +558,9 @@ scripts/devlink.py status        # "version" is the new build's
 - **A touch is one finger and a straight line.** No Home key, no two-finger gestures, no power key.
 - **Injected input and a real finger at once** are not kept apart: use one or the other.
 - **While `FLASH` writes, the reader answers nothing.**
+- **`WAIT`, `SHOTCRC`, `STATUS LITE`, the new `STATUS` fields, the screenshot in pieces and
+  `scripts/devtest.py` have not run on a reader.** What `WAIT` cannot see is listed under
+  [Waiting and checked screenshots](#waiting-and-checked-screenshots).
 
 ## Security
 
@@ -570,6 +700,12 @@ A separate run with auto-sleep at 5 minutes instead of 10 shows what the shorter
 ## What is not checked yet
 
 Everything on the device:
+
+- `WAIT` on a reader: that it answers after a key, a tap and a change of screen and not before
+  the frame is on the panel, that 150 ms and three passes are enough, and what it does in a book
+  that is still laying out pages; `SHOTCRC` against a real screenshot; the screenshot in pieces
+  with a slow reader of the port; `STATUS LITE` while a screen is being drawn; a whole
+  `devtest.py` run, its stop on a forbidden screen, and its failure picture;
 
 - that `x4pro-dev` and `x4pro-dev-verify` compile and fit, and what they cost in flash; that the
   `x4pro` build is the size it was (its flags were moved to a shared `[x4pro_flags]` section in

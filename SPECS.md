@@ -666,6 +666,36 @@ reports AES key recovery on the S3 with voltage fault injection.
     lists seven names, BOOTLOADER answers an error. The release defines none of the three, so
     its preprocessed source is what it was. test/dev_link: a third program, DevLinkUserTest (4
     tests), 85 in all.
+  - Device test harness (2026-11-14; the four x4pro envs compile and link, host tests only,
+    nothing run on a reader). All firmware parts are inside `#ifdef VAULTINK_DEVLINK_FULL`:
+    `devlink::Command` gains `Wait` and `ShotCrc` (names in the table and in HELP only with
+    `_FULL`). lib/DevLink/DevLinkArgs: `parseWaitArgs` ("[activity] [timeout_ms]", a last word of
+    digits is the time, 100 to 60000, default 5000, name 31 bytes at most), `WaitGate`
+    (`start`, `tick(nowMs, atRest)` -> Idle/Pending/Done/TimedOut; Done after 3 passes in a row at
+    rest that span 150 ms, wrap-safe), `crc32` (zlib's, bitwise, no table). ActivityManager:
+    `renderCount` (atomic, +1 after each `render()`), `renders()`, `isAtRest()` = no pending
+    action, `requestedUpdate` false, `paintedVisit == screenVisit`, `!RenderLock::peek()`.
+    src/util/DevLinkDevice: `replyStatus(..., lite)` (`CMD:STATUS LITE` skips the battery block and
+    its RenderLock; without `_FULL` `lite` is a constant false and the fields and their order are
+    as before), eight more STATUS fields (`visit`, `renders`, `queued`, `wifi`, `ble`,
+    `orientation`, `screen_w`, `screen_h`; worst case 765 of 767 bytes, pinned by
+    `DevStatus.TheLongestReplyFitsOneLine`), `CMD:WAIT` stored and answered by `waitTick()` (called
+    from the main loop after `benchTick()`; at rest = `devInput().queued() == 0 && isAtRest()` and
+    the wanted name in front; a new WAIT replaces a pending one), `sendScreenshot()` (main.cpp
+    calls it for `CMD:SCREENSHOT` with `_FULL`: same three parts, 512-byte pieces that wait for
+    `availableForWrite()`, no end marker after 2 s without room; other builds keep the single
+    write), `CMD:SHOTCRC` (`crc32`, `bytes`, `visit`, `renders`; framebuffer read without the
+    lock). test/dev_link: DevLinkDevTest 54 tests (8 new: `DevWait`, `DevShotCrc`, `DevStatus`).
+    scripts/devlink.py: `wait_command`, `wait`, `screenshot_checked` (3 tries, compares
+    `zlib.crc32` and the byte count), `wait` and `screenshot --verify` on the command line.
+    scripts/devtest.py (stdlib, imports devlink.py): `parse_scenario` (every refusal happens here,
+    before a port is opened), `Runner` (one port; first STATUS must have `build == "dev"` and the
+    battery at `battery_min` >= 30; `STATUS LITE` after every step for the forbidden screens
+    UsbDrive, Sleep, OtaUpdate, SdFirmwareUpdate + `forbid_activity`; full STATUS every 10 steps
+    for the battery; per-step `timeout_ms` and the run's `timeout_s`; on a failure one STATUS and
+    one checked screenshot `failure.png`, skipped when the reader does not answer), JSONL log and
+    pictures in `.work/devtest/<name>-<date>-<time>/`, exit 0/1/2, `--dry-run`.
+    test/test_devtest_script.py: 28 tests against an in-memory port (parser, refusals, runs).
   - Debug page: site/debug.html (one static page, plain JS, Web Serial, vendor filter 0x303a,
     115200) + site/debuglib.js (no DOM; UMD so Node can load it): `createStreamParser` (lines
     from arbitrary chunks, CR dropped, `SCREENSHOT_START:<n>` switches to exactly n raw bytes,

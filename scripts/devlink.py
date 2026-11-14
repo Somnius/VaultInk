@@ -14,6 +14,10 @@
     devlink.py get /.vaultink/bench.csv bench.csv
     devlink.py put note.txt /debug/note.txt
     devlink.py flash /firmware.bin         flash a .bin that is already on the SD card; then cmd REBOOT
+    devlink.py wait --activity Home        wait until the reader is at rest (and that screen is in front)
+    devlink.py screenshot out.png --verify check the bytes against CMD:SHOTCRC, ask again when they differ
+
+scripts/devtest.py plays a JSON scenario of these over one open port.
 
 Only the x4pro-dev build answers the JSON commands; every build answers the screenshot. The SD
 commands reach /debug, /screenshots and a few files of /.vaultink, nothing else (docs/devlink.md).
@@ -53,6 +57,11 @@ GET_CHUNK_BYTES = 2880  # the most one CMD:GET returns
 PUT_CHUNK_BYTES = 180  # the most one CMD:PUT takes
 CHUNK_TRIES = 3
 SCREENSHOT_TIMEOUT_S = 20.0
+SCREENSHOT_TRIES = 3
+MIN_WAIT_MS = 100  # CMD:WAIT, as lib/DevLink/DevLinkArgs.h
+MAX_WAIT_MS = 60000
+DEFAULT_WAIT_MS = 5000
+MAX_ACTIVITY_NAME = 31
 CSV_COLUMNS = [
     "time",
     "epoch",
@@ -134,6 +143,19 @@ def tap_command(x: int, y: int, hold=None) -> str:
 
 def swipe_command(x1: int, y1: int, x2: int, y2: int, ms=None) -> str:
     return f"SWIPE {_pixel(x1)} {_pixel(y1)} {_pixel(x2)} {_pixel(y2)}{_hold(ms, 'the swipe time')}"
+
+
+def wait_command(activity: str = "", timeout_ms: int = DEFAULT_WAIT_MS) -> str:
+    """WAIT [activity] <timeout_ms>. The time is always written, so a screen name that ends in a
+    number cannot be taken for it."""
+    if not isinstance(timeout_ms, int) or isinstance(timeout_ms, bool) or not MIN_WAIT_MS <= timeout_ms <= MAX_WAIT_MS:
+        raise ValueError(f"the wait time must be {MIN_WAIT_MS} to {MAX_WAIT_MS} ms")
+    if not isinstance(activity, str):
+        raise ValueError("the screen name must be text")
+    activity = activity.strip()
+    if len(activity.encode()) > MAX_ACTIVITY_NAME or any(ord(c) < 0x20 or ord(c) == 0x7F for c in activity):
+        raise ValueError(f"a screen name is {MAX_ACTIVITY_NAME} bytes at most, on one line")
+    return f"WAIT {activity} {timeout_ms}" if activity else f"WAIT {timeout_ms}"
 
 
 def sd_path(path: str) -> str:
@@ -668,6 +690,32 @@ def screenshot(port, timeout: float = SCREENSHOT_TIMEOUT_S) -> bytes:
             return data
 
 
+def wait(port, activity: str = "", timeout_ms: int = DEFAULT_WAIT_MS) -> dict:
+    """CMD:WAIT: the reply comes when the reader is at rest, or with ok false and error "timeout"
+    when the time is up. The host waits three seconds longer than the reader."""
+    return command(port, wait_command(activity, timeout_ms), timeout_ms / 1000 + REPLY_TIMEOUT_S)
+
+
+def screenshot_checked(port, tries: int = SCREENSHOT_TRIES, timeout: float = SCREENSHOT_TIMEOUT_S):
+    """A screenshot whose bytes match CMD:SHOTCRC (the CRC-32 of the reader's framebuffer), taken
+    again when bytes were lost or the numbers differ (a frame drawn between the two also makes them
+    differ). Returns the bytes and the number of tries it took. Needs the developer's own build."""
+    problem = "no try made"
+    for attempt in range(1, tries + 1):
+        try:
+            data = screenshot(port, timeout)
+            reply = command(port, "SHOTCRC")
+        except LinkError as error:
+            problem = str(error)
+            continue
+        if not reply.get("ok"):
+            raise LinkError(f"SHOTCRC refused: {reply.get('error', reply)} (is this the x4pro-dev build?)")
+        if reply.get("bytes") == len(data) and reply.get("crc32") == zlib.crc32(data):
+            return data, attempt
+        problem = "the bytes do not match the reader's CRC"
+    raise LinkError(f"no good screenshot in {tries} tries: {problem}")
+
+
 def status_once(path: str | None):
     """One STATUS on a fresh connection, or None when the device is not there or does not answer."""
     try:
@@ -716,6 +764,10 @@ def main(argv=None) -> int:
     shot.add_argument("file")
     shot.add_argument("--width", type=int, default=PANEL_WIDTH, help="panel width in pixels (800)")
     shot.add_argument("--height", type=int, default=PANEL_HEIGHT, help="panel height in pixels (480)")
+    shot.add_argument("--verify", action="store_true", help="check against CMD:SHOTCRC, three tries (x4pro-dev)")
+    waiting = sub.add_parser("wait", help="wait until the reader is at rest (x4pro-dev)")
+    waiting.add_argument("--activity", default="", help="also wait for this screen, named as STATUS names it")
+    waiting.add_argument("--timeout", type=int, default=DEFAULT_WAIT_MS, help="milliseconds, 100 to 60000 (5000)")
     run = sub.add_parser("bench", help="poll STATUS into a CSV file")
     run.add_argument("--every", type=float, default=60, help="seconds between polls (60)")
     run.add_argument("--minutes", type=float, default=30, help="how long to run (30)")
@@ -774,6 +826,8 @@ def main(argv=None) -> int:
             text = tap_command(args.x, args.y, args.hold)
         elif args.action == "swipe":
             text = swipe_command(args.x1, args.y1, args.x2, args.y2, args.ms)
+        elif args.action == "wait":
+            wait_command(args.activity, args.timeout)
         elif args.action == "ls":
             text = "LS " + sd_path(args.dir)
         elif args.action == "flash":
@@ -792,13 +846,15 @@ def main(argv=None) -> int:
         port = open_port(args.port)
         try:
             if args.action == "screenshot":
-                data = screenshot(port)
+                data = screenshot_checked(port)[0] if args.verify else screenshot(port)
                 picture = encode_picture(args.file, data, args.width, args.height)
                 with open(args.file, "wb") as handle:
                     handle.write(picture)
                 print(f"{args.file}: {len(data)} bytes from the device")
                 return 0
-            if args.action == "ls":
+            if args.action == "wait":
+                reply = wait(port, args.activity, args.timeout)
+            elif args.action == "ls":
                 reply, entries = command_lines(port, text)
                 for entry in entries:
                     size = "dir" if entry.get("dir") else str(entry.get("size", ""))

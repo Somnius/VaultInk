@@ -433,7 +433,9 @@ Arrow keys are the buttons, Enter is OK, Escape is Back, and the mouse works as 
 For work on the firmware there is a developer build, `pio run -e x4pro-dev`, that answers status,
 reboot and flashing-mode commands over the USB cable (`scripts/devlink.py`), can log the battery
 to the SD card for drain tests with the cable out, and lets a script press keys, tap the screen,
-fetch the debug logs and screenshots, and flash a firmware file from the SD card. Its version ends
+fetch the debug logs and screenshots, and flash a firmware file from the SD card.
+`scripts/devtest.py` plays a whole scripted test from a JSON file (keys, taps, waits, checks,
+screenshots) and keeps a log of it. The build's version ends
 in `-dev`. It is never a release build and has not been tried on a device yet:
 [docs/devlink.md](docs/devlink.md).
 

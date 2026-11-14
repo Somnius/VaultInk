@@ -236,6 +236,74 @@ bool base64Decode(const char* text, const size_t length, uint8_t* out, const siz
   return true;
 }
 
+bool parseWaitArgs(const char* args, const size_t length, WaitArgs& out) {
+  out = WaitArgs{};
+  if (!args || length == 0) return true;
+  const char* end = args + length;
+  while (end > args && isBlank(end[-1])) --end;
+  while (args < end && isBlank(*args)) ++args;
+  if (args == end) return true;
+  // The last word, when it is a number, is the time.
+  const char* last = end;
+  while (last > args && !isBlank(last[-1])) --last;
+  bool digits = true;
+  for (const char* at = last; at < end; ++at) digits = digits && *at >= '0' && *at <= '9';
+  if (digits) {
+    uint32_t value = 0;
+    if (!parseUnsigned(last, static_cast<size_t>(end - last), value) || value < MIN_WAIT_MS || value > MAX_WAIT_MS) {
+      return false;
+    }
+    out.timeoutMs = value;
+    end = last;
+    while (end > args && isBlank(end[-1])) --end;
+  }
+  const size_t nameLength = static_cast<size_t>(end - args);
+  if (nameLength > MAX_ACTIVITY_NAME) return false;
+  memcpy(out.activity, args, nameLength);
+  out.activity[nameLength] = '\0';
+  return true;
+}
+
+void WaitGate::start(const uint32_t nowMs, const uint32_t timeout) {
+  startMs = nowMs;
+  lastMs = nowMs;
+  timeoutMs = timeout;
+  restSinceMs = nowMs;
+  restPasses = 0;
+  active = true;
+}
+
+WaitGate::Result WaitGate::tick(const uint32_t nowMs, const bool atRest) {
+  if (!active) return Result::Idle;
+  lastMs = nowMs;
+  // Unsigned subtraction: a wrapped clock still gives the gap.
+  if (atRest) {
+    if (restPasses == 0) restSinceMs = nowMs;
+    ++restPasses;
+    if (restPasses >= SETTLE_PASSES && nowMs - restSinceMs >= SETTLE_MS) {
+      active = false;
+      return Result::Done;
+    }
+  } else {
+    restPasses = 0;
+  }
+  if (nowMs - startMs >= timeoutMs) {
+    active = false;
+    return Result::TimedOut;
+  }
+  return Result::Pending;
+}
+
+uint32_t crc32(const uint8_t* data, const size_t length, const uint32_t crc) {
+  // Bit by bit, no table: 48 KB of framebuffer is a few milliseconds, and a table is 1 KB.
+  uint32_t value = ~crc;
+  for (size_t i = 0; i < length; ++i) {
+    value ^= data[i];
+    for (int bit = 0; bit < 8; ++bit) value = (value >> 1) ^ (0xEDB88320u & (0u - (value & 1u)));
+  }
+  return ~value;
+}
+
 }  // namespace devlink
 
 #endif  // VAULTINK_DEVLINK_FULL

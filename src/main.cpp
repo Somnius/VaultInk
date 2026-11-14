@@ -1114,11 +1114,15 @@ void loop() {
     if (!serialLines.feed(static_cast<char>(incoming), millis())) continue;
     const devlink::Parsed parsed = devlink::parse(serialLines.line(), serialLines.length());
     if (parsed.command == devlink::Command::Screenshot && parsed.argsLength == 0) {
+#ifdef VAULTINK_DEVLINK_FULL
+      devlinkdevice::sendScreenshot();  // the same reply, sent in pieces that wait for room
+#else
       const uint32_t bufferSize = display.getBufferSize();
       logSerial.printf("SCREENSHOT_START:%d\n", bufferSize);
       uint8_t* buf = display.getFrameBuffer();
       logSerial.write(buf, bufferSize);
       logSerial.printf("SCREENSHOT_END\n");
+#endif
     }
 #ifdef VAULTINK_DEVLINK
     else if (parsed.command != devlink::Command::None) {
@@ -1129,6 +1133,9 @@ void loop() {
   }
 #ifdef VAULTINK_DEVLINK
   devlinkdevice::benchTick();  // the SD bench log; off unless CMD:BENCH turned it on
+#endif
+#ifdef VAULTINK_DEVLINK_FULL
+  devlinkdevice::waitTick();  // answers a pending CMD:WAIT
 #endif
 
   if (gpio.wasAnyPressed() || gpio.wasAnyReleased() || gpio.wasTouchActivity() || halTiltSensor.hadActivity() ||

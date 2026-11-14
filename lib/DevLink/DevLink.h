@@ -11,7 +11,7 @@
 //                           link of the user-installable developer build (x4pro-dev-user): PING HELP
 //                           STATUS LOG BENCH REBOOT SCREENSHOT and nothing else.
 //   + VAULTINK_DEVLINK_FULL the developer's own builds (x4pro-dev, x4pro-dev-verify): also
-//                           BOOTLOADER, KEY, TAP, SWIPE, FLASH, LS, GET and PUT.
+//                           BOOTLOADER, KEY, TAP, SWIPE, FLASH, LS, GET, PUT, WAIT and SHOTCRC.
 #if defined(VAULTINK_DEVLINK_FULL) && !defined(VAULTINK_DEVLINK)
 #error "VAULTINK_DEVLINK_FULL needs VAULTINK_DEVLINK"
 #endif
@@ -66,13 +66,15 @@ enum class Command : uint8_t {
   // The names below are in the table only with VAULTINK_DEVLINK_FULL (the developer's own
   // builds): every other build, the read-only x4pro-dev-user included, parses them as Unknown,
   // and its name table is the size it was.
-  Key,    // CMD:KEY <name> [hold_ms]
-  Tap,    // CMD:TAP x y [hold_ms]
-  Swipe,  // CMD:SWIPE x1 y1 x2 y2 [ms]
-  Flash,  // CMD:FLASH <sd path>
-  Ls,     // CMD:LS <dir>
-  Get,    // CMD:GET <path> <offset> <len>
-  Put,    // CMD:PUT <path> <offset> <base64>
+  Key,      // CMD:KEY <name> [hold_ms]
+  Tap,      // CMD:TAP x y [hold_ms]
+  Swipe,    // CMD:SWIPE x1 y1 x2 y2 [ms]
+  Flash,    // CMD:FLASH <sd path>
+  Ls,       // CMD:LS <dir>
+  Get,      // CMD:GET <path> <offset> <len>
+  Put,      // CMD:PUT <path> <offset> <base64>
+  Wait,     // CMD:WAIT [activity] [timeout_ms]
+  ShotCrc,  // CMD:SHOTCRC
 };
 
 struct Parsed {

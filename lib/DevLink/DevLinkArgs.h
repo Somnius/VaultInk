@@ -1,8 +1,8 @@
 #pragma once
 
-// Arguments of the developer build's commands (docs/devlink.md): KEY, TAP, SWIPE, GET, PUT, and
-// base64. Platform-free and heap-free, tested in test/dev_link. Compiled only with
-// VAULTINK_DEVLINK_FULL (x4pro-dev, x4pro-dev-verify): no other build has any of it.
+// Arguments of the developer build's commands (docs/devlink.md): KEY, TAP, SWIPE, GET, PUT, WAIT,
+// base64, the CRC of a screenshot and the gate CMD:WAIT answers through. Platform-free and heap-free, tested in
+// test/dev_link. Compiled only with VAULTINK_DEVLINK_FULL (x4pro-dev, x4pro-dev-verify): no other build has any of it.
 #ifdef VAULTINK_DEVLINK_FULL
 
 #include <cstddef>
@@ -80,6 +80,57 @@ bool parsePutArgs(const char* args, size_t length, FileArgs& out);
 size_t base64Length(size_t bytes);
 size_t base64Encode(const uint8_t* data, size_t length, char* out, size_t capacity);
 bool base64Decode(const char* text, size_t length, uint8_t* out, size_t capacity, size_t& outLength);
+
+// ---- CMD:WAIT ----
+
+constexpr uint32_t MIN_WAIT_MS = 100;
+constexpr uint32_t MAX_WAIT_MS = 60000;
+constexpr uint32_t DEFAULT_WAIT_MS = 5000;
+constexpr size_t MAX_ACTIVITY_NAME = 31;
+
+struct WaitArgs {
+  char activity[MAX_ACTIVITY_NAME + 1] = {};  // "": any screen
+  uint32_t timeoutMs = DEFAULT_WAIT_MS;
+};
+// "[activity] [timeout_ms]". A last word that is a number is the time (100 to 60000); what comes
+// before it is the screen's name as STATUS gives it, which may hold blanks. False for a time out
+// of range or a name over 31 bytes. A name that is, or ends in, a word of digits needs the time
+// written after it.
+bool parseWaitArgs(const char* args, size_t length, WaitArgs& out);
+
+// Decides when a pending CMD:WAIT is answered. The firmware calls tick() once per pass of the
+// main loop with whether the reader is at rest now (no made-up input queued, nothing to draw, the
+// wanted screen in front). One pass at rest is not enough: a key that was let go in this pass is
+// acted on in a later one. So the answer is Done only after SETTLE_PASSES passes in a row at rest
+// that also span SETTLE_MS. Platform-free; the caller passes millis().
+class WaitGate {
+ public:
+  static constexpr uint32_t SETTLE_MS = 150;
+  static constexpr uint32_t SETTLE_PASSES = 3;
+
+  enum class Result : uint8_t { Idle, Pending, Done, TimedOut };
+
+  void start(uint32_t nowMs, uint32_t timeoutMs);
+  // Done and TimedOut are returned once: the gate is idle after either.
+  Result tick(uint32_t nowMs, bool atRest);
+  bool pending() const { return active; }
+  // From start() to the last tick().
+  uint32_t waitedMs() const { return lastMs - startMs; }
+
+ private:
+  uint32_t startMs = 0;
+  uint32_t lastMs = 0;
+  uint32_t timeoutMs = 0;
+  uint32_t restSinceMs = 0;
+  uint32_t restPasses = 0;
+  bool active = false;
+};
+
+// ---- CMD:SHOTCRC ----
+
+// CRC-32 as zlib, PNG and Python's zlib.crc32 compute it. Pass the result back in as `crc` to go
+// on with more data; start with 0.
+uint32_t crc32(const uint8_t* data, size_t length, uint32_t crc = 0);
 
 }  // namespace devlink
 

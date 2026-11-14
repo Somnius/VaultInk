@@ -86,11 +86,18 @@ void replyError(const char* error) {
 
 uint32_t benchMinutes();
 
+// `lite` (CMD:STATUS LITE, the developer's own builds only) reads no battery gauge and so takes no
+// RenderLock: it answers while a screen is being drawn, and leaves the three battery fields out.
+#ifdef VAULTINK_DEVLINK_FULL
+void replyStatus(const unsigned long msSinceInput, const uint32_t droppedLines, const bool lite) {
+#else
 void replyStatus(const unsigned long msSinceInput, const uint32_t droppedLines) {
+  constexpr bool lite = false;
+#endif
   uint16_t millivolts = 0;
   uint16_t percent = 0;
   bool charging = false;
-  {
+  if (!lite) {
     // The themes read the gauge from the render task; the lock keeps the two apart.
     RenderLock lock;
     const BatteryMonitor battery;
@@ -114,12 +121,11 @@ void replyStatus(const unsigned long msSinceInput, const uint32_t droppedLines) 
       .addUnsigned("heap_free", heap.freeBytes)
       .addUnsigned("heap_min_free", heap.minFreeBytes)
       .addUnsigned("heap_largest", heap.largestBlockBytes)
-      .addUnsigned("psram_free", psram.freeBytes)
-      .addUnsigned("battery_mv", millivolts)
-      .addUnsigned("battery_percent", percent)
-      .addBool("usb", gpio.isUsbConnected())
-      .addBool("charging", charging)
-      .addInt("wake_cause", wakeCause)
+      .addUnsigned("psram_free", psram.freeBytes);
+  if (!lite) json.addUnsigned("battery_mv", millivolts).addUnsigned("battery_percent", percent);
+  json.addBool("usb", gpio.isUsbConnected());
+  if (!lite) json.addBool("charging", charging);
+  json.addInt("wake_cause", wakeCause)
       .addInt("esp_wake_cause", static_cast<int>(esp_sleep_get_wakeup_cause()))
       .addInt("reset_reason", static_cast<int>(esp_reset_reason()))
       .addUnsigned("cpu_mhz", getCpuFrequencyMhz())
@@ -133,6 +139,17 @@ void replyStatus(const unsigned long msSinceInput, const uint32_t droppedLines) 
       .addBool("log_debug", logDebugOn)
       .addUnsigned("bench_minutes", benchMinutes())
       .addUnsigned("dropped_lines", droppedLines);
+#ifdef VAULTINK_DEVLINK_FULL
+  // What a test on the link steers by. Each only reads a state: no radio is started, no lock taken.
+  json.addUnsigned("visit", activityManager.visit())
+      .addUnsigned("renders", activityManager.renders())
+      .addUnsigned("queued", HalGPIO::devInput().queued())
+      .addBool("wifi", WiFi.getMode() != WIFI_MODE_NULL)
+      .addBool("ble", bleturner::status().running)
+      .addUnsigned("orientation", static_cast<unsigned>(renderer.getOrientation()))
+      .addUnsigned("screen_w", static_cast<unsigned>(std::max(renderer.getScreenWidth(), 0)))
+      .addUnsigned("screen_h", static_cast<unsigned>(std::max(renderer.getScreenHeight(), 0)));
+#endif
   reply(json);
 }
 
@@ -605,6 +622,84 @@ void replyFlash(const devlink::Parsed& parsed) {
   reply(json);
 }
 
+// ---- CMD:WAIT ----
+// Answered later, from waitTick() in the main loop, when the reader is at rest: no made-up input
+// left in the queue, no screen change or frame pending, the frame of the screen in front painted,
+// and (when a name was given) that screen in front. Nothing here waits or takes the RenderLock.
+
+struct PendingWait {
+  devlink::WaitGate gate;
+  devlink::WaitArgs args;
+};
+PendingWait pendingWait;
+
+void replyWait(const devlink::Parsed& parsed) {
+  devlink::WaitArgs args;
+  if (!devlink::parseWaitArgs(parsed.args, parsed.argsLength, args)) {
+    replyError("usage: WAIT [activity] [timeout_ms 100-60000], the name 31 bytes at most");
+    return;
+  }
+  // A new WAIT takes the place of one that is still pending; that one gets no reply.
+  pendingWait.args = args;
+  pendingWait.gate.start(millis(), args.timeoutMs);
+}
+
+void answerWait(const bool done) {
+  devlink::JsonLine json;
+  json.addBool("ok", done);
+  if (!done) json.addString("error", "timeout").addString("wanted", pendingWait.args.activity);
+  json.addString("activity", activityManager.currentActivityName())
+      .addUnsigned("visit", activityManager.visit())
+      .addUnsigned("renders", activityManager.renders())
+      .addUnsigned("queued", HalGPIO::devInput().queued())
+      .addUnsigned("waited_ms", pendingWait.gate.waitedMs());
+  reply(json);
+}
+
+// ---- CMD:SCREENSHOT in pieces, and CMD:SHOTCRC ----
+
+constexpr size_t SHOT_PIECE_BYTES = 512;       // half the transmit queue
+constexpr unsigned long SHOT_STALL_MS = 2000;  // no room for this long: the host is not reading
+
+// Sends all of it, a piece at a time, each only when the transmit queue has room for it (see
+// send() for why a write that does not fit is not just tried). False when the host stopped
+// reading: the rest is not sent.
+bool sendAll(const uint8_t* data, const size_t length) {
+  size_t sent = 0;
+  unsigned long lastProgress = millis();
+  while (sent < length) {
+    const size_t room = static_cast<size_t>(std::max(logSerial.availableForWrite(), 0));
+    const size_t fits = std::min({room, length - sent, SHOT_PIECE_BYTES});
+    if (fits == 0) {
+      if (millis() - lastProgress > SHOT_STALL_MS) return false;
+      delay(1);
+      continue;
+    }
+    const size_t written = logSerial.write(data + sent, fits);
+    if (written > 0) lastProgress = millis();
+    sent += written;
+  }
+  return true;
+}
+
+void replyShotCrc() {
+  const uint8_t* frame = renderer.getFrameBuffer();
+  const size_t size = renderer.getBufferSize();
+  if (!frame || size == 0) {
+    replyError("no framebuffer");
+    return;
+  }
+  // The buffer is read as the screenshot reads it, without the RenderLock: a frame drawn between
+  // the two gives a different number, and the host takes the screenshot again.
+  devlink::JsonLine json;
+  json.addBool("ok", true)
+      .addUnsigned("crc32", devlink::crc32(frame, size))
+      .addUnsigned("bytes", size)
+      .addUnsigned("visit", activityManager.visit())
+      .addUnsigned("renders", activityManager.renders());
+  reply(json);
+}
+
 #endif  // VAULTINK_DEVLINK_FULL
 
 // Give the last reply time to leave the queue before the USB port goes away. Not flush(): with the
@@ -630,7 +725,11 @@ void handle(const devlink::Parsed& parsed, const unsigned long msSinceInput, con
       return;
     }
     case devlink::Command::Status:
+#ifdef VAULTINK_DEVLINK_FULL
+      replyStatus(msSinceInput, droppedLines, parsed.argsLength == 4 && memcmp(parsed.args, "LITE", 4) == 0);
+#else
       replyStatus(msSinceInput, droppedLines);
+#endif
       return;
     case devlink::Command::Log:
       replyLog(parsed);
@@ -659,6 +758,12 @@ void handle(const devlink::Parsed& parsed, const unsigned long msSinceInput, con
       return;
     case devlink::Command::Flash:
       replyFlash(parsed);
+      return;
+    case devlink::Command::Wait:
+      replyWait(parsed);
+      return;
+    case devlink::Command::ShotCrc:
+      replyShotCrc();
       return;
 #endif
     case devlink::Command::Reboot: {
@@ -693,6 +798,39 @@ void handle(const devlink::Parsed& parsed, const unsigned long msSinceInput, con
       return;
   }
 }
+
+#ifdef VAULTINK_DEVLINK_FULL
+void waitTick() {
+  if (!pendingWait.gate.pending()) return;
+  const char* wanted = pendingWait.args.activity;
+  const bool atRest = HalGPIO::devInput().queued() == 0 && activityManager.isAtRest() &&
+                      (wanted[0] == '\0' || strcmp(wanted, activityManager.currentActivityName()) == 0);
+  switch (pendingWait.gate.tick(millis(), atRest)) {
+    case devlink::WaitGate::Result::Done:
+      answerWait(true);
+      return;
+    case devlink::WaitGate::Result::TimedOut:
+      answerWait(false);
+      return;
+    default:
+      return;
+  }
+}
+
+void sendScreenshot() {
+  const uint8_t* frame = renderer.getFrameBuffer();
+  const size_t size = renderer.getBufferSize();
+  char text[40];
+  snprintf(text, sizeof(text), "SCREENSHOT_START:%u\n", static_cast<unsigned>(size));
+  send(text, strlen(text));
+  if (!frame || !sendAll(frame, size)) {
+    // No end marker: the host sees that bytes are missing and asks again.
+    LOG_ERR("DEVLINK", "Screenshot not sent whole: the host stopped reading");
+    return;
+  }
+  sendText("SCREENSHOT_END\n");
+}
+#endif
 
 void benchTick() {
   loadBench();
