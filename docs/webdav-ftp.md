@@ -1,6 +1,6 @@
 # WebDAV and FTP servers
 
-Not released yet. The parts without a network are tested on a computer; nothing here has run on a device
+Released in 0.74.0. The parts without a network are tested on a computer; nothing here has run on a device
 or against a real server so far (see [What is not tested](#what-is-not-tested)).
 
 VaultInk can copy files between the SD card and a file server:

@@ -389,7 +389,7 @@ curl -X POST \
 ## WebDAV and FTP Server API
 
 The servers of Settings > Network > WebDAV and FTP servers
-([webdav-ftp.md](webdav-ftp.md)). Not released yet.
+([webdav-ftp.md](webdav-ftp.md)). Released in 0.74.0.
 
 ### `GET /api/remotes`
 

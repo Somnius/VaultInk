@@ -14,7 +14,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Screenshots](#screenshots)
 - [Reading presets](#reading-presets-0700)
 - [Book menu options](#book-menu-options-0730)
-- [Continuous scrolling](#continuous-scrolling-not-released-never-seen-on-a-device)
+- [Continuous scrolling](#continuous-scrolling-0750)
 - [The More menu in a book](#the-more-menu-in-a-book-0700)
 - [Go to page](#go-to-page-0680)
 - [Hidden chapters](#hidden-chapters-left-out-of-the-page-count)
@@ -190,11 +190,11 @@ In the file each such preset has a `"gestures"` block with two lists, `slots` (n
 
 **Settings → Reader → Book menu options** (the last row) arranges the reader's toolbar panels (kos25k #15). The first row picks the panel, **More** or **Text**. The second says what a tap on an entry does: **moves it** (tap an entry to pick it up, then tap where it goes) or **shows or hides it** (the switch on each row). The last row puts the panel back to the default. In More, **Back** (in a note) and **Go home** can't be hidden, and a panel is never left empty. An entry that only exists sometimes (Footnotes, Bookmarks, a note's Edit) keeps the place you gave it for when it shows up. **Contents** is the chapter list of the book, so there is nothing to arrange there. The classic list menu is not changed.
 
-## Continuous scrolling (not released, never seen on a device)
+## Continuous scrolling (0.75.0)
 
 **Settings → Reader → Continuous scrolling** (kos25k #30) makes an EPUB, and anything else the EPUB reader shows (vault notes among them), scroll instead of turning pages. It is off by default, and with it off nothing changes. The same switch is a checkbox at the bottom of the book's **Text** panel, and **Settings → Reader → Book menu options → Text** can move or hide it like the other rows (an order you saved before keeps its order; the new row comes last).
 
-**Not tested on a real device.** The code was written and its position math is host-tested, but it has never run on a panel, and it was not compiled for the device when this was written. How much ghosting the steps leave and how long a step takes are unknown.
+**Tried once on a real X4 Pro** (2026-11-14, a developer build): it works, and a step took about 1.4 seconds against about 0.6 for a page turn. The position math is host-tested. How much ghosting the steps leave over a long session was not judged.
 
 How it works:
 
@@ -232,7 +232,7 @@ Book menu → **More → Go to page** (under Go to %) opens a slider that counts
 
 ## Hidden chapters (left out of the page count)
 
-Not released yet, tested on a computer only. In an EPUB you can hide chapters you don't want counted, such as a long list of notes, an index or a preview of another book at the end (KOReader calls this hidden flows). In the chapter list (**Select Chapter**, or **Contents** in the toolbar menu), **long-press a chapter**, or hold Confirm on it for a second with the buttons. The row then says **Hidden**; the same press shows it again. In Select Chapter the header says **Hold: hide** as a reminder.
+Released in 0.74.0, tested on a computer only. In an EPUB you can hide chapters you don't want counted, such as a long list of notes, an index or a preview of another book at the end (KOReader calls this hidden flows). In the chapter list (**Select Chapter**, or **Contents** in the toolbar menu), **long-press a chapter**, or hold Confirm on it for a second with the buttons. The row then says **Hidden**; the same press shows it again. In Select Chapter the header says **Hold: hide** as a reminder.
 
 A hidden chapter is left out of:
 
@@ -252,7 +252,7 @@ The details:
 
 ## Book map (and page numbers in the chapter list)
 
-Not released yet, tested on a computer only: it has not run on a device or in the simulator. In an EPUB, book menu → **More → Book map** (after Go to page) shows the whole book as one strip across the screen. It is what KOReader calls the skim widget and the book map, in one screen and without page thumbnails.
+Released in 0.74.0, tested on a computer only: it has not run on a device or in the simulator. In an EPUB, book menu → **More → Book map** (after Go to page) shows the whole book as one strip across the screen. It is what KOReader calls the skim widget and the book map, in one screen and without page thumbnails.
 
 - **One segment per chapter**, from the contents list, as wide as the chapter is long. A book without a contents list gets one segment per file. A very short chapter is still 3 pixels wide, and a finger hits it from 12 pixels either side.
 - **Hidden chapters** (above) are narrow hatched slivers that take no part in the scale, so the strip shows the same book the percent counts.
@@ -304,7 +304,7 @@ only turn pages when the page gestures (Settings → Controls) allow taps.
 
 ## Gestures and the Quick Menu
 
-Not released yet. Computer tests only: not built for a device and not tried on one.
+Released in 0.74.0. Computer tests only: not built for a device and not tried on one.
 
 **Settings → Reader → Gestures** (touch boards) chooses what the reader does on nine touches inside a book or note: a tap in each of the four corners, a tap in the centre, and a swipe left, right, up or down in the page. A tap on a row opens the list of actions:
 
@@ -521,9 +521,9 @@ all, if you prefer a ragged right edge.
 
 Three changes to the file browser and the lists (kos25k #6, #14, #15):
 
-- **File types** (0.71.0): the gear opens a short menu, **Sort files** and **File types**. File types has a switch for EPUB, PDF, TXT, Markdown, XTC / XTCH, CBZ and MOBI / AZW (which also covers FB2, HTML and RTF, 0.74.0, and DOC and CHM, not released yet), and since 0.72.0 for Pictures, Drawings (canvas and Excalidraw) and ZIP files, with **All** on top to tick them all; the ones you switch off don't show in Browse Files or in its search. Folders always show. A **refresh** button left of the gear reads the folder again. The Library's own format list has an All row too.
+- **File types** (0.71.0): the gear opens a short menu, **Sort files** and **File types**. File types has a switch for EPUB, PDF, TXT, Markdown, XTC / XTCH, CBZ and MOBI / AZW (which also covers FB2, HTML and RTF, 0.74.0, and DOC and CHM, 0.75.0), and since 0.72.0 for Pictures, Drawings (canvas and Excalidraw) and ZIP files, with **All** on top to tick them all; the ones you switch off don't show in Browse Files or in its search. Folders always show. A **refresh** button left of the gear reads the folder again. The Library's own format list has an All row too.
 - **Sort gear**: a gear left of the magnifier opens **Sort files**: name A to Z or Z to A, newest or oldest first, largest or smallest first. Date means when the file was added to the card or last changed (the later of its created and modified time), the same time Info shows. Folders always come first. It applies in every folder, and it is kept until you change it. Folders have no size, so for size they stay in name order.
-- **File type inside the icon**: books show a page icon with their type written in it (EPUB, PDF, MOBI, AZW, TXT, MD, XTC, CBZ, FB2, HTM, RTF since 0.74.0, and DOC, CHM, not released yet), and a folder shows a folder icon with the type that most of its files have (counted the first time you see it, up to 300 files). The icons are bigger than before, in Browse Files and in the Library lists.
+- **File type inside the icon**: books show a page icon with their type written in it (EPUB, PDF, MOBI, AZW, TXT, MD, XTC, CBZ, FB2, HTM, RTF since 0.74.0, and DOC, CHM, 0.75.0), and a folder shows a folder icon with the type that most of its files have (counted the first time you see it, up to 300 files). The icons are bigger than before, in Browse Files and in the Library lists.
 - **Favourites star**: a book that is in your favourites has a ★ before its file type in Browse Files, at the right of the Continue Reading card on the home screen, and at the right of the book card in the quick settings (swipe down in a book).
 
 ## Wi-Fi and Bluetooth marks (0.69.0)
@@ -587,7 +587,7 @@ turn pages. Tap a picture for:
 
 The first time a page is shown its thumbnails are decoded, which takes a moment per picture; they
 are kept in `/.crosspoint/thumbs`, so the page comes back fast. Up to 2000 pictures are listed.
-After 0.74.0 the page appears at once with the thumbnails it already has and a named frame for the
+Since 0.75.0 the page appears at once with the thumbnails it already has and a named frame for the
 others, which then fill in (the screen follows about every two seconds). Interlaced PNGs and PNGs
 with 16 bits per channel, which used to stay an empty frame, are shown too; they take longer the
 first time. This is tried on a computer only, not yet on a device.
@@ -780,7 +780,7 @@ something or the device sleeps, and carries on where you left it.
 
 ## Certificate checks
 
-Not released yet: tested on a computer only, not on a reader.
+Released in 0.74.0: tested on a computer only, not on a reader.
 
 An `https://` address is always encrypted. Whether the reader also checks *who* it is talking to
 depends on the server:

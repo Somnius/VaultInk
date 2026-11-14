@@ -1,6 +1,6 @@
 # Sending highlights to Readwise and Memos
 
-Not released yet. Tested on a computer only (the request bodies, the batches, the error messages and the list of what was sent); it has not been compiled for the device, and no request has gone to a real Readwise account or Memos server. The section [What is not verified](#what-is-not-verified) lists every part that still needs a real test.
+Released in 0.74.0. Tested on a computer only (the request bodies, the batches, the error messages and the list of what was sent); it has not been compiled for the device, and no request has gone to a real Readwise account or Memos server. The section [What is not verified](#what-is-not-verified) lists every part that still needs a real test.
 
 A book's clippings (its highlights) can be sent to:
 

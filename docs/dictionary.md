@@ -88,7 +88,7 @@ The screen also closes if a failed forward lookup cannot reload the current defi
 
 ## Wikipedia when the dictionary has no entry
 
-Not released yet: tested on a computer only, not on a reader.
+Released in 0.74.0: tested on a computer only, not on a reader.
 
 When the dictionary has no entry for what you picked, the **Not found** message asks
 **Look up on Wikipedia?** and stays for about eight seconds.
@@ -133,7 +133,7 @@ Good to know:
 
 ## Translate when the dictionary has no entry
 
-Not released yet: tested on a computer only (the addresses, the request, reading the answers and the error
+Released in 0.75.0: tested on a computer only (the addresses, the request, reading the answers and the error
 messages). It has not been compiled for the reader or tried on one, and the reader's own connection to the
 service has never been made.
 

@@ -1,6 +1,6 @@
 # Gamepad buttons in the reader
 
-Not released yet. Tested on a computer only (the button map, how it is saved, and how a press reaches the book).
+Released in 0.75.0. Tested on a computer only (the button map, how it is saved, and how a press reaches the book).
 **It has never been tried with a real gamepad**, on a reader or in the simulator, so treat everything below
 about what a pad sends as read from the code, not seen.
 

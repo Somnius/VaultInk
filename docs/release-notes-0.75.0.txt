@@ -1,0 +1,23 @@
+Scroll mode, more formats and network tools. Part of it was checked on a real X4 Pro, the rest on a computer only.
+
+Checked on a real X4 Pro (developer build):
+- Search no longer freezes: the keyboard comes first and an unchanged vault is not indexed again.
+- Gallery shows interlaced and 16-bit PNGs.
+- Library shows the list first, then the percents.
+- Home fits all 10 rows.
+- Scroll mode (Settings, Reader, Continuous scrolling, off by default). It works, but each step refreshes the whole screen (about 1.4 s).
+- GitHub's certificate check works in a developer build (SHA-384 fix). The release build still does not check it.
+
+Computer tests only, not tried on a device:
+- Translate when the dictionary has no entry (MyMemory, or your own LibreTranslate server).
+- SSH terminal and SFTP client (X4 Pro only; Settings, Network, SSH servers).
+- DOC and CHM books open as text.
+- Gamepad buttons for the reader's actions (never tried with a real gamepad).
+- Auto warmth from sunset to sunrise.
+- Gestures inside Reading presets.
+- Open-source licences screen (Settings, System, About).
+- A read-only developer build and a debug page for bug reports.
+
+Known: the System row in Settings needs a scroll before it takes a tap.
+
+The firmware now holds wolfSSH, so the binaries are under GPL-3.0-or-later; VaultInk's own code stays MIT (docs/licenses.md).

@@ -302,7 +302,7 @@
   <nav class="sans" aria-label="Page sections">
     <a href="#install">Install</a>
     <a href="#features">Features</a>
-    <a href="#milestone">New</a>
+    <a href="#release">New</a>
     <a href="#comics">Comics</a>
     <a href="#companion">Companion app</a>
     <a href="https://github.com/Somnius/VaultInk">GitHub</a>
@@ -699,6 +699,64 @@
     </div>
   </section>
 
+  <section id="release">
+    <div class="wrap">
+      <p class="eyebrow sans">New in 0.75.0</p>
+      <h2>Scroll mode, SSH, and the first checks on a real X4 Pro</h2>
+      <p class="lead">The first release where I could check part of the work on a real X4 Pro myself, over a USB developer link. Every item says which it is: checked on the device, or tried on a computer only. The screenshots are from the simulator.</p>
+
+      <div class="features">
+        <figure class="feature">
+          <a href="shot-home-10.png" class="shot"><img src="shot-home-10.png" width="480" height="800" loading="lazy" alt="The home screen with all ten rows on, none cut off"></a>
+          <figcaption>
+            <h3>Home rows fit the screen</h3>
+            <p>With all 10 rows on, the tiles shrink and close up so no row is cut off under the Continue card. Checked on a real X4 Pro. In landscape 10 rows still don&rsquo;t fit.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-scroll-mode.png" class="shot"><img src="shot-scroll-mode.png" width="480" height="800" loading="lazy" alt="Settings, Reader: Continuous scrolling, Scroll step and Clean screen every N scrolls"></a>
+          <figcaption>
+            <h3>Scroll mode</h3>
+            <p>Settings &gt; Reader &gt; Continuous scrolling, off by default: an EPUB scrolls by a step you choose instead of turning pages. It works on a real X4 Pro, but the whole screen refreshes on every step: about 1.4 seconds a step against 0.6 for a page turn.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-translation.png" class="shot"><img src="shot-translation.png" width="480" height="800" loading="lazy" alt="Settings, Connectivity, Translation"></a>
+          <figcaption>
+            <h3>Translate lookups</h3>
+            <p>When the dictionary has no entry, Translate sits next to Wikipedia. It asks MyMemory (free, no key) or a LibreTranslate server of your own. Only the selected text and the two language codes are sent, and it asks before the first use. Tried on a computer only: the reader has never connected to the service.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-licences.png" class="shot"><img src="shot-licences.png" width="480" height="800" loading="lazy" alt="The Open-source licences screen under About"></a>
+          <figcaption>
+            <h3>Open-source licences</h3>
+            <p>Settings &gt; System &gt; About lists every library, font and icon with its licence, and <a href="https://github.com/Somnius/VaultInk/blob/main/docs/licenses.md">docs/licenses.md</a> says where each one was read from.</p>
+          </figcaption>
+        </figure>
+      </div>
+
+      <h3 style="margin-top:2.4rem">Also checked on a real X4 Pro</h3>
+      <ul class="list">
+        <li><strong>Search no longer freezes.</strong> Opening Search blocked the reader for about 12 seconds on a vault of a few hundred notes. Now the keyboard comes first, and an unchanged vault costs one walk of its folders.</li>
+        <li><strong>Gallery shows interlaced and 16-bit PNGs</strong>, which used to be an empty frame, and a page appears first with the thumbnails it already has.</li>
+        <li><strong>Library shows the list first</strong>; the read percents follow.</li>
+        <li><strong>The certificate check for GitHub works</strong> in a developer build: the update check, the font list and a firmware download passed with it on, after SHA-384 was added to the TLS library. The release build still doesn&rsquo;t check GitHub&rsquo;s certificate; that switch stays off for one more release.</li>
+      </ul>
+
+      <h3 style="margin-top:2.4rem">Tried on a computer only</h3>
+      <ul class="list">
+        <li><strong>SSH terminal and SFTP client</strong> (X4 Pro builds only): a shell on your own server on a line terminal, and SFTP in the same file browser as WebDAV and FTP. Tried against a real OpenSSH server from the computer, never from a device. There is no screenshot: the simulator is built without SSH.</li>
+        <li><strong>DOC and CHM books</strong>: Word 97-2003 <code>.doc</code> files and <code>.chm</code> help files open as text.</li>
+        <li><strong>Gamepad buttons</strong> (a scaffold): one Bluetooth gamepad&rsquo;s buttons can be learned for the reader&rsquo;s actions. It has never seen a real gamepad.</li>
+        <li><strong>Auto warmth by the sun</strong>: the night window can run from sunset to sunrise for the latitude and longitude you type.</li>
+        <li><strong>Gestures inside Reading presets</strong>: Save preset asks &ldquo;Include gestures&rdquo;.</li>
+        <li><strong>Developer link, debug page and a developer build you can install</strong>: a read-only build answers status and log requests over USB, and the <a href="debug.html">debug page</a> makes a report file from it. I used the full developer build for my own tests; the read-only build and the page haven&rsquo;t been tried on a reader yet.</li>
+        <li>The X4 Pro firmware now also holds wolfSSH (GPL-3.0-or-later), so the firmware binaries are under GPL-3.0-or-later; VaultInk&rsquo;s own code stays MIT.</li>
+      </ul>
+    </div>
+  </section>
+
   <section id="milestone">
     <div class="wrap">
       <p class="eyebrow sans">New in 0.74.0</p>
@@ -744,7 +802,7 @@
         <li><strong>WebDAV and FTP clients</strong> to browse a server and copy files to or from the card. FTP isn&rsquo;t encrypted and asks before every connect.</li>
         <li><strong>USB Drive</strong> (File Transfer over the USB-C cable) and the <strong>Power + Down screenshot</strong> now have guides in the docs.</li>
         <li>KOReader sync has a Check certificate switch. The update check and GitHub downloads aren&rsquo;t certificate-checked yet; that code waits for a test on a real device.</li>
-        <li>Not in it: scroll mode, the SSH terminal and SFTP, the gamepad scaffold. wolfSSL (GPL-2.0-or-later) and Apache-2.0 libraries mean the firmware binaries are under GPL-3.0-or-later; VaultInk&rsquo;s own code stays MIT.</li>
+        <li>Not in 0.74.0 (they came in 0.75.0): scroll mode, the SSH terminal and SFTP, the gamepad scaffold. wolfSSL (GPL-2.0-or-later) and Apache-2.0 libraries mean the firmware binaries are under GPL-3.0-or-later; VaultInk&rsquo;s own code stays MIT.</li>
       </ul>
     </div>
   </section>

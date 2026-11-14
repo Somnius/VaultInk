@@ -40,7 +40,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (MIT). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Still early.** VaultInk is at 0.74.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
+> **Still early.** VaultInk is at 0.75.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
 > tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Much of the
 > newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
 > the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
@@ -90,6 +90,41 @@ MOBI and AZW books, the status bar options with the book page number, and Advanc
 
 More screenshots are in the sections below and in [docs/](docs/).
 
+## New in 0.75.0: scroll mode, SSH, and the first checks on a real X4 Pro
+
+This is the first release where I could check part of the work on a real X4 Pro myself, over a USB developer link. Below, every item says which it is: checked on the device, or tried on a computer only. The screenshots are from the simulator.
+
+<p>
+  <img src="docs/images/vaultink/home-10-rows-0.75.0.png" width="190" alt="The home screen with all ten rows on, none cut off under the Continue card">
+  <img src="docs/images/vaultink/scroll-mode-0.75.0.png" width="190" alt="Settings, Reader: Continuous scrolling, Scroll step and Clean screen every N scrolls">
+  <img src="docs/images/vaultink/translation-0.75.0.png" width="190" alt="Settings, Connectivity, Translation: MyMemory by default, or a LibreTranslate server address, its API key and a Check Certificate switch">
+  <img src="docs/images/vaultink/licences-0.75.0.png" width="190" alt="Settings, System, About: the Open-source licences screen">
+</p>
+
+Home with all ten rows, the scroll mode settings, the Translation settings, and the licences screen. There is no picture of the SSH screens: the simulator is built without SSH.
+
+Checked on a real X4 Pro (a developer build of this code):
+
+- **Search no longer freezes.** Opening Search blocked the reader for about 12 seconds on a vault of a few hundred notes. Now the keyboard comes first, and an unchanged vault costs one walk of its folders instead of a new index.
+- **Gallery shows interlaced and 16-bit PNGs**, which used to be an empty frame, and a page appears first with the thumbnails it already has.
+- **Library shows the list first**; the read percents follow.
+- **Home rows fit the screen** with all 10 rows on (not yet in landscape).
+- **Scroll mode** (kos25k #30): Settings → Reader → Continuous scrolling, off by default. It works on the device, but the whole screen refreshes on every step: about 1.4 seconds a step against 0.6 for a page turn. [docs/reading-and-files.md](docs/reading-and-files.md#continuous-scrolling-0750)
+- **The certificate check for GitHub works** in a developer build: the update check, the font list and a firmware download all passed with it on, after SHA-384 was added to the TLS library (GitHub's chain is signed with it). The release build still doesn't check GitHub's certificate; that switch stays off for one more release.
+
+Tried on a computer only, not on a device:
+
+- **Translate lookups** when the dictionary has no entry: MyMemory (free, no key) or a LibreTranslate server of your own. Only the selected text and the two language codes are sent, and it asks before the first use. [docs/dictionary.md](docs/dictionary.md#translate-when-the-dictionary-has-no-entry)
+- **SSH terminal and SFTP client** (X4 Pro builds only): a shell on your own server on a line terminal, and SFTP in the same file browser as WebDAV and FTP. Tried against a real OpenSSH server from the computer, never from a device. [docs/ssh.md](docs/ssh.md)
+- **DOC and CHM books**: Word 97-2003 `.doc` files and `.chm` help files open as text. [docs/book-formats.md](docs/book-formats.md)
+- **Gamepad buttons** (a scaffold): one Bluetooth gamepad's buttons can be learned for the reader's actions. It has never seen a real gamepad. [docs/gamepad.md](docs/gamepad.md)
+- **Auto warmth by the sun**: the night window can run from sunset to sunrise for the latitude and longitude you type.
+- **Gestures inside Reading presets**: Save preset asks "Include gestures".
+- **Open-source licences**: a screen under Settings → System → About, and [docs/licenses.md](docs/licenses.md) with every library, font and icon.
+- **Developer link, debug page and a developer build you can install**: a read-only build answers status and log requests over USB, and the [debug page](https://somnius.github.io/VaultInk/debug.html) makes a report file from it. I used the full developer build for my own tests; the read-only build and the page haven't been tried on a reader yet. [docs/debug-page.md](docs/debug-page.md)
+
+The X4 Pro firmware now also holds wolfSSH (GPL-3.0-or-later), so the firmware binaries are distributed under the GPL-3.0-or-later; VaultInk's own code stays MIT ([docs/licenses.md](docs/licenses.md), [NOTICE](NOTICE)).
+
 ## New in 0.74.0: the KOReader milestone
 
 A batch of reading tools and transfer features, picked from what KOReader has and VaultInk didn't. Everything below was tried on a computer and in the simulator, not on a device yet. The screenshots are from the simulator.
@@ -106,14 +141,13 @@ Book map, the More menu that opens it, the Gestures screen, and Auto Warmth in D
 - **Book map and hidden flows** (EPUB): one strip with a segment per chapter and ticks for bookmarks and highlights, drag to jump; long press a chapter to leave it out of the page count and percent. [docs/reading-and-files.md](docs/reading-and-files.md)
 - **Gestures and a Quick Menu**: set what the corner taps, the centre tap and the four swipes do in the reader. Every row starts on Default, which is how it worked before; the buttons and the edge gestures can't be changed, so you can't lock yourself out.
 - **FB2, HTML and RTF books**, Greek included, open like text books.
-- **DOC and CHM books** (not released yet, tested on a computer only): Word 97-2003 `.doc` files and `.chm` help files open as text.
 - **Auto warmth by the clock**: warmer light, and night mode if you want, between two hours or from sunset to sunrise.
 - **Wikipedia lookup** when the dictionary has no entry, with the connection certificate-checked.
 - **Highlights to Readwise or Memos** from the Clippings screen. [docs/exports.md](docs/exports.md)
 - **WebDAV and FTP clients** to browse a server and copy files to or from the card. FTP is not encrypted and asks before every connect. [docs/webdav-ftp.md](docs/webdav-ftp.md)
 - **USB Drive** (File Transfer over the USB-C cable) and the **Power + Down screenshot** now have guides. [docs/webserver.md](docs/webserver.md)
 
-What isn't in it: scroll mode (it needs a test on the device first), the SSH terminal and SFTP, the gamepad scaffold, and gestures as profiles. The update check and GitHub downloads are not certificate-checked yet; that code is written and waits for a real device. wolfSSL (TLS 1.3) is GPL-2.0-or-later, so the firmware binaries are under the GPL terms; VaultInk's own code stays MIT ([NOTICE](NOTICE)).
+What isn't in 0.74.0 (all of it came in 0.75.0): scroll mode, the SSH terminal and SFTP, the gamepad scaffold, and gestures as profiles. The update check and GitHub downloads are not certificate-checked yet; that code is written and waits for a real device. wolfSSL (TLS 1.3) is GPL-2.0-or-later, so the firmware binaries are under the GPL terms; VaultInk's own code stays MIT ([NOTICE](NOTICE)).
 
 ## New since 0.62 (up to 0.70.0)
 
@@ -216,17 +250,17 @@ Each line links to its guide where there is one; all the guides are listed in [d
 - Everything CrossPoint Reader offers: EPUB, TXT and XTC/XTCH books, SD-card fonts, hyphenation, bookmarks, highlights, dictionaries, KOReader sync, OPDS catalogs, Calibre wireless transfer and SD-card plugins. [docs/reading-and-files.md](docs/reading-and-files.md)
 - **MOBI, PRC, AZW and AZW3** (0.67.0, 0.67.1): they open like a text book, read a record at a time, with bold, italic, headings, lists, tables and pictures; Huffman-compressed files too. No chapters yet, and AZW3 shows text only. DRM books are refused. Opened on a real X4 Pro (a MOBI, an AZW3 and an AZW). [docs/reading-and-files.md](docs/reading-and-files.md#mobi-azw-and-azw3-books-0670-0671)
 - **FB2, HTML and RTF** (0.74.0, tested on a computer only): `.fb2`, `.html` / `.htm` / `.xhtml` and `.rtf` files open like a text book, read a piece at a time. FB2 keeps its sections, titles, poems and quotes; HTML its headings, lists and quotes; RTF its paragraphs, bold and italic. Greek works in all three (UTF-8, Windows-1253, ISO-8859-7, RTF `\u` and `\'hh`). No pictures and no chapters. [docs/book-formats.md](docs/book-formats.md#fb2-html-and-rtf-in-detail)
-- **DOC and CHM** (not released yet; tested on a computer only, not built into the firmware or run on a device): Word 97-2003 `.doc` files open as text (paragraphs, the result of fields, tables as text, footnotes at the end; no formatting, no pictures; password-protected files and `.docx` are refused: convert `.docx` to EPUB). `.chm` help files open as one book, the pages in the order of the contents list (no pictures, no links). VaultInk's own code, no library added. DjVu and scanned PDFs stay outside the reader: convert them first. [docs/book-formats.md](docs/book-formats.md#doc-and-chm-in-detail)
+- **DOC and CHM** (0.75.0; tested on a computer only, not on a device): Word 97-2003 `.doc` files open as text (paragraphs, the result of fields, tables as text, footnotes at the end; no formatting, no pictures; password-protected files and `.docx` are refused: convert `.docx` to EPUB). `.chm` help files open as one book, the pages in the order of the contents list (no pictures, no links). VaultInk's own code, no library added. DjVu and scanned PDFs stay outside the reader: convert them first. [docs/book-formats.md](docs/book-formats.md#doc-and-chm-in-detail)
 - **Book map** (0.74.0, computer tests only): More → Book map shows an EPUB as one strip, a segment per chapter, with marks for bookmarks and clippings and the place you were at. Drag along it to see the chapter, percent and estimated page, let go to jump; tap a bookmark's mark to open it. The chapter lists now show the page each chapter starts on. [docs/reading-and-files.md](docs/reading-and-files.md#book-map-and-page-numbers-in-the-chapter-list)
 - **Hidden chapters** (0.74.0, computer tests only): long-press a chapter in an EPUB's chapter list to leave it out of the book percent, the book page number, Go to page and Go to %. It can still be read. [docs/reading-and-files.md](docs/reading-and-files.md#hidden-chapters-left-out-of-the-page-count)
-- **Auto warmth by the clock** (0.74.0, computer tests only): Settings → Display turns the light warmer, and optionally night mode on, between two hours you pick. Or from sunset to sunrise where you are (unreleased, computer tests only): type your latitude and longitude and the times are worked out on the device. [docs/reading-and-files.md](docs/reading-and-files.md#auto-warmth-and-night-mode-by-the-clock)
+- **Auto warmth by the clock** (0.74.0, computer tests only): Settings → Display turns the light warmer, and optionally night mode on, between two hours you pick. Or from sunset to sunrise where you are (0.75.0, computer tests only): type your latitude and longitude and the times are worked out on the device. [docs/reading-and-files.md](docs/reading-and-files.md#auto-warmth-and-night-mode-by-the-clock)
 - **Wikipedia lookup** (0.74.0, computer tests only): when the dictionary has no entry, the Not found message offers Wikipedia. Wi-Fi comes on only on your tap, the article's summary shows as plain text in the book's language, and Wi-Fi goes off again. [docs/dictionary.md](docs/dictionary.md#wikipedia-when-the-dictionary-has-no-entry)
-- **Translation lookup** (not released, computer tests only, not compiled for the reader): the same Not found message also offers Translate. Only the word or phrase you selected and the two language codes are sent, and a question says so before the first use. It asks MyMemory (free, no key, 5000 characters a day, results credited "MyMemory"), or a LibreTranslate server of your own set in Settings → Network → Translation. [docs/dictionary.md](docs/dictionary.md#translate-when-the-dictionary-has-no-entry)
-- **Gamepad buttons** (not released, computer tests only, never tried with a real gamepad): the buttons of one Bluetooth gamepad can be learned for the reader's actions (pages, chapters, menus, night mode, light, bookmark, refresh, Home, screenshot) under Bluetooth Page Turner → Gamepad Buttons. Buttons only: no sticks, no triggers, no games. [docs/gamepad.md](docs/gamepad.md)
+- **Translation lookup** (0.75.0, computer tests only: the reader has never connected to the service): the same Not found message also offers Translate. Only the word or phrase you selected and the two language codes are sent, and a question says so before the first use. It asks MyMemory (free, no key, 5000 characters a day, results credited "MyMemory"), or a LibreTranslate server of your own set in Settings → Network → Translation. [docs/dictionary.md](docs/dictionary.md#translate-when-the-dictionary-has-no-entry)
+- **Gamepad buttons** (0.75.0, computer tests only, never tried with a real gamepad): the buttons of one Bluetooth gamepad can be learned for the reader's actions (pages, chapters, menus, night mode, light, bookmark, refresh, Home, screenshot) under Bluetooth Page Turner → Gamepad Buttons. Buttons only: no sticks, no triggers, no games. [docs/gamepad.md](docs/gamepad.md)
 - **Highlights to Readwise and Memos** (0.74.0, computer tests only, never tried against the real services): send a book's clippings to Readwise or to your own Memos server from the book menu or the Clippings screen. Wi-Fi comes on only for that job, what was sent is remembered so sending again sends only the new ones, and the access tokens are kept on the SD card (anyone with the card and the reader can get them). [docs/exports.md](docs/exports.md)
 - **WebDAV and FTP servers** (0.74.0, computer tests only, not tried on a device or against a real server): Settings → Network → WebDAV and FTP servers. Browse a server's folders, tap a file to download it to the card, upload a file from the card, make a folder. WebDAV over https can check the server's certificate; FTP and http:// are not encrypted, and the device says so and asks before every connection. Passwords are kept on the SD card only lightly scrambled, like the OPDS ones. [docs/webdav-ftp.md](docs/webdav-ftp.md)
-- **SSH terminal and SFTP** (unreleased, X4 Pro; computer tests only, not built for or run on a device): Settings → Network → SSH servers. A shell on your own server on a line terminal (no vim or htop), typed with a Bluetooth keyboard or the key row on the screen, and SFTP in the same file browser as WebDAV and FTP. The password is typed at every connection and never saved, or the device signs in with its own Ed25519 key, made on the device and shown as a QR code for `authorized_keys`. The server's key is pinned at the first connection and a changed key is refused. The SSH library (wolfSSH) is GPL-3.0-or-later, which makes the firmware binaries GPL-3.0-or-later from that release. [docs/ssh.md](docs/ssh.md)
-- **Certificate checks** (0.74.0, computer tests only): Wikipedia is always checked against root certificates built into the firmware. The update check and downloads from GitHub are not checked yet, as before: that is ready in the code but waits for a test on a real device. KOReader sync has a new **Check certificate** switch, off by default so existing setups keep working. [docs/reading-and-files.md](docs/reading-and-files.md#certificate-checks)
+- **SSH terminal and SFTP** (0.75.0, X4 Pro builds only; computer tests only, never run on a device): Settings → Network → SSH servers. A shell on your own server on a line terminal (no vim or htop), typed with a Bluetooth keyboard or the key row on the screen, and SFTP in the same file browser as WebDAV and FTP. The password is typed at every connection and never saved, or the device signs in with its own Ed25519 key, made on the device and shown as a QR code for `authorized_keys`. The server's key is pinned at the first connection and a changed key is refused. The SSH library (wolfSSH) is GPL-3.0-or-later, which makes the firmware binaries GPL-3.0-or-later from 0.75.0. [docs/ssh.md](docs/ssh.md)
+- **Certificate checks** (0.74.0, computer tests only): Wikipedia is always checked against root certificates built into the firmware. The update check and downloads from GitHub are not checked yet in the release build. In 0.75.0 the check was tried on a real X4 Pro in a developer build (update check, font list, firmware download) and works, after SHA-384 was added to the TLS library; it stays off in the release for one more version. KOReader sync has a new **Check certificate** switch, off by default so existing setups keep working. [docs/reading-and-files.md](docs/reading-and-files.md#certificate-checks)
 - **PDF as text**: a PDF opens as reflowing text, Greek and filled-in form fields included, up to four columns, with its headings, bold and italic (the Style setting turns them off) and its filled boxes marked by dash lines (0.73.0); no pictures, tables or scans. PDFs are listed in the Library. [docs/reading-and-files.md](docs/reading-and-files.md#pdf-as-text)
 - **Comics**: CBZ files open straight from the card (JPEG and PNG pages, chapters from folders, covers, landscape spreads as two pages, manga right to left, a page cache for faster turns). XTC/XTCH files from the Banana Comic Converter open with their chapters; a QR code in Settings opens the converter on your phone. [docs/comics.md](docs/comics.md)
 - **Highlights to a vault note**: a book's clippings written to `Highlights/<title>.md` in your vault, and sent on by LiveSync. [docs/reading-and-files.md](docs/reading-and-files.md#highlights-to-a-vault-note)
@@ -251,7 +285,7 @@ Each line links to its guide where there is one; all the guides are listed in [d
 - **Search in Book**: a word or phrase, partial or whole words (accents and capitals never matter), starting at your chapter and wrapping, with the words shaded on the page and a bar to step through the hits or go back to your place. A gear sets the type and the range; an opt-in index makes repeat searches faster. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-a-book)
 - **Text panel** in the book with every layout setting: font, size, line spacing 0 to 10, alignment, hyphenation (on by default, Greek and polytonic too), Even Word Gaps, word and character spacing, screen margin down to 0, paragraph indent. Changes show at once. [docs/reading-and-files.md](docs/reading-and-files.md#in-the-book-the-text-panel-0270)
 - **Advanced Typography** (0.66.0): switches for ligatures, kerning, widow and orphan control, headings kept with their text, and hanging punctuation. [docs/reading-and-files.md](docs/reading-and-files.md#advanced-typography-0660-renamed-from-experimental-in-0661)
-- **Reading presets** (0.70.0): ten named sets of your Text settings, saved and applied from Settings → Reader or the last row of the book menu's More, so one press applies one while you read. A preset can also carry your gestures and Quick Menu (unreleased, computer tests only): Save preset asks "Include gestures". [docs/reading-and-files.md](docs/reading-and-files.md#reading-presets-0700)
+- **Reading presets** (0.70.0): ten named sets of your Text settings, saved and applied from Settings → Reader or the last row of the book menu's More, so one press applies one while you read. A preset can also carry your gestures and Quick Menu (0.75.0, computer tests only): Save preset asks "Include gestures". [docs/reading-and-files.md](docs/reading-and-files.md#reading-presets-0700)
 - **Page backgrounds**: fourteen of them, from plain to papyrus and bath towel, a set you choose for the quick-settings paper tile, and a 0 to 100 contrast slider with a preview. [Mostly for fun](#page-backgrounds).
 - **Status bar**: choose what it shows, hide it from Settings or the book menu, and show the page number counted from the start of the book in brackets, even with the bar hidden (the number is an estimate for books). **Go to page** in the book menu under More (0.68.0) jumps by that number. [docs/reading-and-files.md](docs/reading-and-files.md#hide-status-bar-and-the-book-page-number)
 - **Tap Zones**: turn pages from the whole page or the corners only, so a stray finger does nothing. [docs/reading-and-files.md](docs/reading-and-files.md#tap-zones-corners-only-0250)
@@ -354,10 +388,11 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 
 The [roadmap](ROADMAP.md) has the details and the order. Open items right now:
 
-- Real-device testing of everything new in 0.74.0 (book map, hidden flows, gestures, FB2/HTML/RTF, auto warmth, Wikipedia, Readwise and Memos, WebDAV and FTP), then switching on the certificate check for the update check.
-- Scroll mode (Settings → Reader → Continuous scrolling, off by default) is written and host-tested but has never run on a device: the whole screen refreshes on every step, and ghosting and speed are unknown. See [Continuous scrolling](docs/reading-and-files.md#continuous-scrolling-not-released-never-seen-on-a-device).
-- The SSH terminal and the SFTP client: written and tested on the computer against a real OpenSSH server, not yet built for or run on a device ([docs/ssh.md](docs/ssh.md)).
-- Gamepad buttons and the translation lookup are written and tested on a computer only; neither has been compiled for the reader, the gamepad code has never seen a real pad, and the reader has never connected to the translation service.
+- Real-device testing of what 0.75.0 has only run on a computer: the SSH terminal and SFTP, DOC and CHM books, the translation lookup (the reader has never connected to the service), the gamepad buttons (never tried with a real pad), sunset-to-sunrise warmth, gestures in presets, the read-only developer build and the debug page.
+- Real-device testing of most of 0.74.0 (book map, hidden flows, gestures, FB2/HTML/RTF, auto warmth, Wikipedia, Readwise and Memos, WebDAV and FTP).
+- Switching on the certificate check for the update check in the release build. It passed on a real X4 Pro in a developer build in 0.75.0.
+- Scroll mode works on the device but refreshes the whole screen on every step (about 1.4 seconds); a partial refresh would make it usable for long reading. See [Continuous scrolling](docs/reading-and-files.md#continuous-scrolling-0750).
+- The bottom row of the Settings list (System) doesn't react to a tap until the list is scrolled.
 - Real-device testing of older features: MOBI and AZW books, Advanced Typography, Dice, VaultEUC with a real wheel and the Bluetooth client and keyboard.
 - Chapters and the cover for MOBI books, and pictures and links for AZW3.
 - The XTCH refresh choice and a few share-to-reader edge cases wait for device tests.
@@ -456,7 +491,7 @@ it. Nothing is uploaded by the page. Attach the report to a
 [debug report issue](https://github.com/Somnius/VaultInk/issues/new?template=debug_report.yml)
 (issues are public) or e-mail it to me@lefteros.com.
 
-The page and the developer build are new and have not been tried on a reader yet; Windows is
+The page and the read-only developer build are new and have not been tried on a reader yet (my own tests used the full developer build); Windows is
 untested and phones are not supported yet. [docs/debug-page.md](docs/debug-page.md) has the steps
 and the Linux notes, [docs/devlink.md](docs/devlink.md) what the link can and cannot do.
 
