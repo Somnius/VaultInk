@@ -42,7 +42,8 @@ RowText rowText(const NetworkMode mode) {
 }
 }  // namespace
 
-NetworkModeSelectionActivity::NetworkModeSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
+NetworkModeSelectionActivity::NetworkModeSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
+                                                           const NetworkMode selected)
     : UiListActivity("NetworkModeSelection", renderer, mappedInput),
       rows_(networkmodes::buildRows(HAS_USB_DRIVE, sshdevice::available())) {
   // Entirely static, so built once here rather than every buildScreen() call.
@@ -55,6 +56,12 @@ NetworkModeSelectionActivity::NetworkModeSelectionActivity(GfxRenderer& renderer
     item.actionValue = static_cast<int16_t>(i);  // the row index, as UiListActivity expects
     rowItems_[i] = item;
   }
+  startRow_ = networkmodes::startRow(rows_, selected);
+}
+
+void NetworkModeSelectionActivity::onEnter() {
+  UiListActivity::onEnter();  // puts the cursor on the first row
+  nav.selected = startRow_;
 }
 
 int NetworkModeSelectionActivity::listCount() const { return rows_.count; }

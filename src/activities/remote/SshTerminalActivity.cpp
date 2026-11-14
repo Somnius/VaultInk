@@ -129,8 +129,12 @@ struct SshTerminalActivity::Impl {
   uint16_t rows = 24;
 };
 
-SshTerminalActivity::SshTerminalActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, RemoteServer server)
-    : Activity("SshTerminal", renderer, mappedInput), impl_(makeUniqueNoThrow<Impl>()), server_(std::move(server)) {}
+SshTerminalActivity::SshTerminalActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, RemoteServer server,
+                                         const RemoteOrigin origin)
+    : Activity("SshTerminal", renderer, mappedInput),
+      impl_(makeUniqueNoThrow<Impl>()),
+      server_(std::move(server)),
+      origin_(origin) {}
 
 SshTerminalActivity::~SshTerminalActivity() { sshkey::wipe(server_.password.data(), server_.password.size()); }
 
@@ -222,7 +226,8 @@ void SshTerminalActivity::askPassword() {
 
 void SshTerminalActivity::startWifi() {
   Impl& s = *impl_;
-  // Past this point the radio may have been on, so the way out switches it off (onExit()).
+  // Past this point the radio may have been on (the Wi-Fi picker's scan brings it up even when it
+  // is cancelled), so the way out looks at the radio and switches it off if it is on (onExit()).
   s.wifiUsed = true;
   if (WiFi.status() == WL_CONNECTED) {
     s.connectPending = true;
@@ -406,14 +411,21 @@ void SshTerminalActivity::onExit() {
   sshkey::wipe(server_.password.data(), server_.password.size());
   server_.password.clear();
   Activity::onExit();
-  if (impl_ && impl_->wifiUsed) {
+  const auto restart = remoteorigin::terminalExit(origin_, impl_ && impl_->wifiUsed, WiFi.getMode() != WIFI_MODE_NULL);
+  if (restart != remoteorigin::ExitRestart::None) {
     // The radio goes off with the session, on every way out (Disconnect, sleep, USB Drive). On the
     // way to sleep the restart below does nothing (silentRestartTo checks for it); otherwise it
-    // gives the settings screen a clean heap, as after the other network screens.
+    // gives the next screen a clean heap, as after the other network screens: Home for a session
+    // opened from Home > Transfer & Remotes (as the file browser does), Settings for one opened
+    // from Settings > Connectivity. With the radio never brought up there is no restart at all.
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
     delay(30);
-    silentRestartToSettings();
+    if (restart == remoteorigin::ExitRestart::Settings) {
+      silentRestartToSettings();
+    } else {
+      silentRestart();
+    }
   }
 }
 
@@ -769,8 +781,9 @@ void SshTerminalActivity::render(RenderLock&&) {
 
 struct SshTerminalActivity::Impl {};
 
-SshTerminalActivity::SshTerminalActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, RemoteServer server)
-    : Activity("SshTerminal", renderer, mappedInput), server_(std::move(server)) {}
+SshTerminalActivity::SshTerminalActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, RemoteServer server,
+                                         const RemoteOrigin origin)
+    : Activity("SshTerminal", renderer, mappedInput), server_(std::move(server)), origin_(origin) {}
 SshTerminalActivity::~SshTerminalActivity() = default;
 
 void SshTerminalActivity::onEnter() {

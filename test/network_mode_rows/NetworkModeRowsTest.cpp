@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "src/activities/network/NetworkModeRows.h"
+#include "src/activities/remote/RemoteOrigin.h"
 
 namespace {
 std::vector<NetworkMode> shown(const bool usbDrive, const bool ssh) {
@@ -58,4 +59,34 @@ TEST(NetworkModeRowsTest, NeverMoreThanTheStorage) {
       EXPECT_EQ(rows.count, 4 + (usb ? 1 : 0) + (ssh ? 1 : 0));
     }
   }
+}
+
+// Coming back from a list, the cursor is on the row that was opened, not on Join a Network.
+TEST(NetworkModeRowsTest, StartRow) {
+  const networkmodes::Rows all = networkmodes::buildRows(true, true);
+  EXPECT_EQ(networkmodes::startRow(all, NetworkMode::JOIN_NETWORK), 0);
+  EXPECT_EQ(networkmodes::startRow(all, NetworkMode::CONNECT_CALIBRE), 1);
+  EXPECT_EQ(networkmodes::startRow(all, NetworkMode::REMOTE_SERVERS), 4);
+  EXPECT_EQ(networkmodes::startRow(all, NetworkMode::SSH_TERMINAL), 5);
+
+  const networkmodes::Rows plain = networkmodes::buildRows(false, false);
+  EXPECT_EQ(networkmodes::startRow(plain, NetworkMode::REMOTE_SERVERS), 3);
+  // A mode the screen does not show: the first row.
+  EXPECT_EQ(networkmodes::startRow(plain, NetworkMode::SSH_TERMINAL), 0);
+  EXPECT_EQ(networkmodes::startRow(plain, NetworkMode::USB_DRIVE), 0);
+}
+
+// Leaving the SSH terminal: the restart goes back to the side the list was opened from.
+TEST(RemoteOriginTest, TerminalExit) {
+  using remoteorigin::ExitRestart;
+  using remoteorigin::terminalExit;
+  EXPECT_EQ(terminalExit(RemoteOrigin::Home, true, true), ExitRestart::Home);
+  EXPECT_EQ(terminalExit(RemoteOrigin::Settings, true, true), ExitRestart::Settings);
+  // Left before the Wi-Fi step (no password typed): nothing to switch off, no restart.
+  EXPECT_EQ(terminalExit(RemoteOrigin::Home, false, false), ExitRestart::None);
+  EXPECT_EQ(terminalExit(RemoteOrigin::Settings, false, false), ExitRestart::None);
+  // The Wi-Fi step was reached but the radio never came up: no restart.
+  EXPECT_EQ(terminalExit(RemoteOrigin::Home, true, false), ExitRestart::None);
+  // A radio that some other screen left on is not this screen's to switch off.
+  EXPECT_EQ(terminalExit(RemoteOrigin::Home, false, true), ExitRestart::None);
 }

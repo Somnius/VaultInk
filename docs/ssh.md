@@ -249,7 +249,7 @@ folder chosen at the top, **Upload a file here**, **New folder**.
   device yet.** Too low and a connection fails half way with a memory error; too high and it is
   refused when it would have worked.
 - SSH is opened from Settings, not from a book, so the reader's memory is not in use. Leaving the
-  screen restarts the device (into Settings from the terminal, to Home from the file browser), as
+  screen restarts the device (to Home from the file browser; from the terminal to Home when it was opened from Transfer & Remotes, into Settings when it was opened from Settings → Connectivity), as
   the other network screens do, to give the heap back.
 
 ## Licence
