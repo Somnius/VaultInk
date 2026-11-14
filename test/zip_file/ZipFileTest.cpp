@@ -354,30 +354,60 @@ TEST_F(ZipFileTest, RejectsArchivesWithoutAnEndOfCentralDirectoryRecord) {
   EXPECT_FALSE(tiny.getInflatedFileSize("anything", &size));
 }
 
-TEST_F(ZipFileTest, SignatureCheckTellsArchivesFromOtherBooksWithOneSmallRead) {
+TEST_F(ZipFileTest, ProbeTellsArchivesFromOtherBooksQuietly) {
   ZipBuilder builder;
   builder.addStored("a.txt", "abcd");
   install(builder);
-  EXPECT_TRUE(ZipFile::hasZipSignature(path));
-  ASSERT_EQ(HalFile::readOffsets.size(), 1u);  // the first bytes only, never the end-record scan
+  EXPECT_EQ(ZipFile::probe(path), ZipFile::Probe::Archive);
+  ASSERT_EQ(HalFile::readOffsets.size(), 1u);  // a ZIP start is settled by the first four bytes
   EXPECT_EQ(HalFile::readOffsets[0], 0u);
 
   // A Mobipocket book: the PalmDB name, then BOOKMOBI at offset 60.
-  std::vector<uint8_t> mobi(128, 0);
+  std::vector<uint8_t> mobi(4096, 0);
   std::memcpy(mobi.data(), "My_Book", 7);
   std::memcpy(mobi.data() + 60, "BOOKMOBI", 8);
   Storage.setFile(path, mobi);
-  EXPECT_FALSE(ZipFile::hasZipSignature(path));
+  EXPECT_EQ(ZipFile::probe(path), ZipFile::Probe::NotArchive);
 
   const std::string fb2 = "<?xml version=\"1.0\"?><FictionBook>";
   Storage.setFile(path, std::vector<uint8_t>(fb2.begin(), fb2.end()));
-  EXPECT_FALSE(ZipFile::hasZipSignature(path));
+  EXPECT_EQ(ZipFile::probe(path), ZipFile::Probe::NotArchive);
 
-  Storage.setFile(path, std::vector<uint8_t>{'P', 'K'});  // shorter than a signature
-  EXPECT_FALSE(ZipFile::hasZipSignature(path));
+  Storage.setFile(path, std::vector<uint8_t>{'P', 'K'});  // read fine, too short to be anything
+  EXPECT_EQ(ZipFile::probe(path), ZipFile::Probe::NotArchive);
   Storage.setFile(path, std::vector<uint8_t>{});
-  EXPECT_FALSE(ZipFile::hasZipSignature(path));
-  EXPECT_FALSE(ZipFile::hasZipSignature("/books/missing.epub"));
+  EXPECT_EQ(ZipFile::probe(path), ZipFile::Probe::NotArchive);
+}
+
+TEST_F(ZipFileTest, ProbeOfAFileThatCannotBeOpenedIsNotANo) {
+  // The protected-content check must still run for such a file: "not an archive" would skip it.
+  ZipBuilder builder;
+  builder.addStored("a.txt", "abcd");
+  install(builder);
+  EXPECT_EQ(ZipFile::probe("/books/missing.epub"), ZipFile::Probe::Unreadable);
+}
+
+TEST_F(ZipFileTest, ProbeKeepsAnArchiveWithBytesInFrontOfIt) {
+  // The reader finds such an archive by its end record, so the probe has to say Archive as well.
+  ZipBuilder builder;
+  builder.addStored("a.txt", "abcd");
+  std::vector<uint8_t> bytes = builder.build();
+  std::vector<uint8_t> prefixed(300, '#');
+  prefixed.insert(prefixed.end(), bytes.begin(), bytes.end());
+  Storage.setFile(path, prefixed);
+  EXPECT_EQ(ZipFile::probe(path), ZipFile::Probe::Archive);
+
+  // The end record anywhere in the last 1 KB counts (a trailing comment), further back does not.
+  std::vector<uint8_t> commented = prefixed;
+  commented.insert(commented.end(), 1024 - 22, ' ');
+  Storage.setFile(path, commented);
+  EXPECT_EQ(ZipFile::probe(path), ZipFile::Probe::Archive);
+  commented.push_back(' ');
+  Storage.setFile(path, commented);
+  EXPECT_EQ(ZipFile::probe(path), ZipFile::Probe::NotArchive);
+  ZipFile zip(path);  // and the reader agrees
+  size_t size = 0;
+  EXPECT_FALSE(zip.getInflatedFileSize("a.txt", &size));
 }
 
 TEST(ZipSignature, AcceptsTheThreeArchiveStartsOnly) {

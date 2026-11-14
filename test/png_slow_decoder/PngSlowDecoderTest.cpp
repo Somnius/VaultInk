@@ -224,6 +224,102 @@ TEST(PngSlowDecoder, RefusesBadArgumentsAndPicturesTooWide) {
   EXPECT_EQ(pngslow::rowBytes(wide), pngslow::MAX_ROW_BYTES);
 }
 
+// Scanline memory under test control: PSRAM present or absent, the heap willing or not.
+struct FakeMemory {
+  static inline bool hasPsram = true;
+  static inline bool heapGives = true;
+  static inline int psramBlocks = 0;
+  static inline int heapBlocks = 0;
+  static inline int live = 0;
+  static inline size_t lastBytes = 0;
+
+  static void reset(const bool psram, const bool heap) {
+    hasPsram = psram;
+    heapGives = heap;
+    psramBlocks = heapBlocks = live = 0;
+    lastBytes = 0;
+  }
+  static uint8_t* allocate(const size_t bytes, const bool psram) {
+    if (psram ? !hasPsram : !heapGives) return nullptr;
+    (psram ? psramBlocks : heapBlocks)++;
+    live++;
+    lastBytes = bytes;
+    return static_cast<uint8_t*>(malloc(bytes));
+  }
+  static void release(uint8_t* block, bool) {
+    live--;
+    free(block);
+  }
+};
+constexpr pngslow::RowMemory kFakeMemory = {FakeMemory::allocate, FakeMemory::release};
+
+pngslow::Result decodeWith(const Fixture& f, const pngslow::Header& header, Source& source,
+                           std::vector<uint8_t>& canvas) {
+  const pngslow::Region whole{0, 0, static_cast<int>(header.width), f.height};
+  canvas.assign(static_cast<size_t>(f.width) * f.height, 7);
+  return pngslow::decodeGray(&Source::read, &source, header, whole, canvas.data(), f.width, f.height, nullptr, nullptr,
+                             &kFakeMemory);
+}
+
+TEST(PngSlowDecoder, ScanlinesComeFromPsramWhenThereIsSome) {
+  for (const Fixture& f : kFixtures) {
+    FakeMemory::reset(true, true);
+    Source source{f.png, f.pngSize, 0, 4096};
+    std::vector<uint8_t> canvas;
+    ASSERT_EQ(decodeWith(f, headerOf(f), source, canvas), pngslow::Result::Ok) << f.name;
+    EXPECT_EQ(canvas, std::vector<uint8_t>(f.gray, f.gray + static_cast<size_t>(f.width) * f.height)) << f.name;
+    EXPECT_EQ(FakeMemory::psramBlocks, 1) << f.name;
+    EXPECT_EQ(FakeMemory::heapBlocks, 0) << f.name;
+    EXPECT_EQ(FakeMemory::lastBytes, 2 * (pngslow::rowBytes(headerOf(f)) + 1)) << f.name;
+    EXPECT_EQ(FakeMemory::live, 0) << f.name;  // given back
+  }
+}
+
+TEST(PngSlowDecoder, WithoutPsramSmallScanlinesUseTheHeap) {
+  for (const Fixture& f : kFixtures) {
+    FakeMemory::reset(false, true);
+    Source source{f.png, f.pngSize, 0, 4096};
+    std::vector<uint8_t> canvas;
+    ASSERT_EQ(decodeWith(f, headerOf(f), source, canvas), pngslow::Result::Ok) << f.name;
+    EXPECT_EQ(canvas, std::vector<uint8_t>(f.gray, f.gray + static_cast<size_t>(f.width) * f.height)) << f.name;
+    EXPECT_EQ(FakeMemory::heapBlocks, 1) << f.name;
+    EXPECT_EQ(FakeMemory::live, 0) << f.name;
+  }
+}
+
+TEST(PngSlowDecoder, RefusesBeforeReadingWhenTheScanlinesDoNotFit) {
+  const Fixture& f = kFixtures[0];
+  std::vector<uint8_t> canvas;
+
+  // No memory at all: said at once, the file untouched, the canvas untouched.
+  FakeMemory::reset(false, false);
+  Source source{f.png, f.pngSize, 0, 4096};
+  EXPECT_EQ(decodeWith(f, headerOf(f), source, canvas), pngslow::Result::NoMemory);
+  EXPECT_EQ(source.pos, 0u);
+  EXPECT_EQ(canvas[0], 7);
+  EXPECT_EQ(FakeMemory::live, 0);
+
+  // No PSRAM and a scanline over the heap limit: too large, and the heap is not even asked.
+  pngslow::Header wide = headerOf(f);
+  wide.colorType = 6;
+  wide.bitDepth = 8;
+  wide.width = 4097;  // one pixel past 16 KB of 8-bit RGBA
+  FakeMemory::reset(false, true);
+  EXPECT_EQ(decodeWith(f, wide, source, canvas), pngslow::Result::TooLarge);
+  EXPECT_EQ(FakeMemory::heapBlocks, 0);
+  EXPECT_EQ(source.pos, 0u);
+  wide.width = 4096;
+  EXPECT_EQ(pngslow::rowBytes(wide), pngslow::MAX_HEAP_ROW_BYTES);
+
+  // The same picture with PSRAM gets its buffers there (the decode then fails on the fixture's data, which is not that
+  // wide).
+  FakeMemory::reset(true, true);
+  wide.width = 4097;
+  EXPECT_NE(decodeWith(f, wide, source, canvas), pngslow::Result::TooLarge);
+  EXPECT_EQ(FakeMemory::psramBlocks, 1);
+  EXPECT_EQ(FakeMemory::live, 0);
+}
+
 TEST(PngSlowDecoder, TicksOncePerScanline) {
   for (const Fixture& f : kFixtures) {
     if (f.interlace) continue;

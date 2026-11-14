@@ -5,6 +5,7 @@
 
 #include "activities/Activity.h"
 #include "components/OptionPopup.h"
+#include "util/FailedKeys.h"
 
 // A grid of the pictures (PNG, JPEG, BMP, GIF) in a folder and its subfolders (kos25k #8).
 // Swipe or the page buttons turn pages; tap a picture for View, Delete, Move or Copy. Thumbnails
@@ -40,5 +41,6 @@ class GalleryActivity final : public Activity {
   std::vector<std::string> pictures;  // full paths, sorted
   int page = 0;
   bool truncated = false;
+  FailedKeys failedThumbs;  // thumbnails that could not be decoded, until the next scan
   OptionPopup optionPopup;
 };

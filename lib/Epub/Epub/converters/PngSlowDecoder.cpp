@@ -1,6 +1,7 @@
 #include "PngSlowDecoder.h"
 
 #include <InflateStream.h>
+#include <esp_heap_caps.h>
 
 #include <cstdlib>
 #include <cstring>
@@ -250,6 +251,44 @@ uint8_t grayAt(const uint8_t* row, const size_t index, const Header& header, con
   }
 }
 
+uint8_t* defaultAllocate(const size_t bytes, const bool psram) {
+  return static_cast<uint8_t*>(psram ? heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) : malloc(bytes));
+}
+
+void defaultRelease(uint8_t* block, const bool psram) {
+  if (psram) {
+    heap_caps_free(block);
+  } else {
+    free(block);
+  }
+}
+
+constexpr RowMemory DEFAULT_MEMORY = {defaultAllocate, defaultRelease};
+
+// The two scanlines, from PSRAM when there is some, else from the heap if they are small enough.
+struct Lines {
+  const RowMemory& memory;
+  uint8_t* block = nullptr;
+  bool psram = false;
+
+  explicit Lines(const RowMemory& m) : memory(m) {}
+  Lines(const Lines&) = delete;
+  Lines& operator=(const Lines&) = delete;
+  ~Lines() {
+    if (block) memory.release(block, psram);
+  }
+
+  Result take(const uint64_t rowBytes) {
+    const size_t bytes = 2 * (static_cast<size_t>(rowBytes) + 1);  // each with its filter byte in front
+    block = memory.allocate(bytes, true);
+    psram = block != nullptr;
+    if (block) return Result::Ok;
+    if (rowBytes > MAX_HEAP_ROW_BYTES) return Result::TooLarge;
+    block = memory.allocate(bytes, false);
+    return block ? Result::Ok : Result::NoMemory;
+  }
+};
+
 struct Pass {
   uint8_t xStart, yStart, xStep, yStep;
 };
@@ -295,7 +334,7 @@ const char* describe(const Result result) {
     case Result::BadFile:
       return "damaged or cut-off file";
     case Result::TooLarge:
-      return "picture too wide";
+      return "picture too wide for the memory there is";
     case Result::NoMemory:
       return "not enough memory";
     default:
@@ -304,7 +343,7 @@ const char* describe(const Result result) {
 }
 
 Result decodeGray(const ReadFn read, void* user, const Header& header, const Region& region, uint8_t* canvas,
-                  const int outWidth, const int outHeight, const TickFn tick, void* tickUser) {
+                  const int outWidth, const int outHeight, const TickFn tick, void* tickUser, const RowMemory* memory) {
   if (!read || !canvas || outWidth <= 0 || outHeight <= 0) return Result::BadArguments;
   if (!depthAllowed(header.colorType, header.bitDepth) || header.width == 0 || header.height == 0) {
     return Result::BadArguments;
@@ -317,15 +356,17 @@ Result decodeGray(const ReadFn read, void* user, const Header& header, const Reg
   const uint64_t fullRow = rowBytes(header);
   if (fullRow > MAX_ROW_BYTES) return Result::TooLarge;
 
-  memset(canvas, 255, static_cast<size_t>(outWidth) * static_cast<size_t>(outHeight));
-
+  // Everything is taken before a byte of the file is read, so a picture that does not fit is refused at once.
   // The 32 KB inflate window first: it is the block a fragmented heap is least likely to have.
   InflateStream inflate;
   if (!inflate.init(true)) return Result::NoMemory;
+  Lines lines(memory ? *memory : DEFAULT_MEMORY);
+  const Result taken = lines.take(fullRow);
+  if (taken != Result::Ok) return taken;
   std::unique_ptr<Stream> stream(new (std::nothrow) Stream());
-  // Each scanline is read with its filter byte in front.
-  std::unique_ptr<uint8_t[]> lines(new (std::nothrow) uint8_t[2 * (static_cast<size_t>(fullRow) + 1)]);
-  if (!stream || !lines) return Result::NoMemory;
+  if (!stream) return Result::NoMemory;
+
+  memset(canvas, 255, static_cast<size_t>(outWidth) * static_cast<size_t>(outHeight));
   stream->read = read;
   stream->user = user;
   stream->header = &header;
@@ -342,8 +383,8 @@ Result decodeGray(const ReadFn read, void* user, const Header& header, const Reg
   inflate.setZlibWrapped();
 
   const size_t bytesPerPixel = static_cast<size_t>((channelsOf(header.colorType) * header.bitDepth + 7) / 8);
-  uint8_t* current = lines.get();
-  uint8_t* previous = lines.get() + fullRow + 1;
+  uint8_t* current = lines.block;
+  uint8_t* previous = lines.block + fullRow + 1;
 
   const int passes = header.interlace ? 7 : 1;
   for (int passIndex = 0; passIndex < passes; passIndex++) {

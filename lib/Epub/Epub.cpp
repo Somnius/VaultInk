@@ -454,7 +454,9 @@ bool Epub::openProtection() {
   // Only an archive can carry META-INF/encryption.xml. MOBI, FB2, RTF, text and the other single-file
   // books are told apart by their first bytes, so the ZIP reader is never pointed at them (it logged
   // "EOCD signature not found" for each one, every time the Library or the home read a percent).
-  if (!ZipFile::hasZipSignature(filepath)) return true;
+  // Skipped only for a file that was read and is plainly no archive. One that could not be read
+  // goes through the check as before, and so does an archive with something in front of it.
+  if (ZipFile::probe(filepath) == ZipFile::Probe::NotArchive) return true;
   std::string err;
   decryptor = freeink::content::openProtectedBook(filepath, err);
   if (!err.empty()) {
