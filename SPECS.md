@@ -759,6 +759,7 @@ reports AES key recovery on the S3 with voltage fault injection.
     that holds `usage: FETCH http://`. Tests: test/dev_link/DevLinkFetchTest.cpp (36 tests, in
     DevLinkDevTest, 90 there, 129 in the three programs); test/test_devlink_script.py 73 tests
     (32 new: the texts, the file server on 127.0.0.1, push-update against the fake device).
+  - Backup and restore page (2026-11-14; test/backup_test.js 30 tests with a mocked loader, no device run): site/backup.html + site/backuplib.js (no DOM, UMD); esptool-js 0.7.0 from cdn.jsdelivr.net, fetched with a SHA-384 integrity check and imported from a blob; ESP32-S3 with 16MB only; read in 64 windows of 256 kB, SHA-256 by crypto.subtle; restore = `writeFlash` at 0, mode/freq/size keep, compress, own `md5Hex` for the MD5 check; restart = clear bit 0 of RTC_CNTL_OPTION1_REG (0x6000812c), DTR off, RTS pulse of 100 ms; docs/backup-restore.md.
   - Debug page: site/debug.html (one static page, plain JS, Web Serial, vendor filter 0x303a,
     115200) + site/debuglib.js (no DOM; UMD so Node can load it): `createStreamParser` (lines
     from arbitrary chunks, CR dropped, `SCREENSHOT_START:<n>` switches to exactly n raw bytes,

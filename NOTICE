@@ -78,7 +78,9 @@ Companion app:
 
 Site (the loader page):
 
-- ESP Web Tools 10.4.0 (The Install button on the loader page): not verified.
+- ESP Web Tools 10.4.0 (The Install button on the loader page): Apache-2.0.
+- esptool-js 0.7.0 (The backup and restore page: reading and writing the flash over USB): Apache-2.0.
+- pako (in esptool-js) 2.1.0 (Compression of the data the backup and restore page sends): MIT AND Zlib, Copyright (C) 2014-2017 by Vitaly Puzrin and Andrei Tuputcyn.
 
 'not verified' means no licence file was available to read. The full table, with the file each
 licence was read from, is in docs/licenses.md.

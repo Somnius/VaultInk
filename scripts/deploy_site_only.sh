@@ -65,6 +65,9 @@ fi
 for page in debug.html debuglib.js; do
   [[ -s "$OUT/$page" ]] || { echo "site/$page is missing: the debug page would not be published." >&2; exit 1; }
 done
+for page in backup.html backuplib.js; do
+  [[ -s "$OUT/$page" ]] || { echo "site/$page is missing: the backup and restore page would not be published." >&2; exit 1; }
+done
 touch "$OUT/.nojekyll"
 cd "$OUT"
 git init -q -b gh-pages

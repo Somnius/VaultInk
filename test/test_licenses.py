@@ -73,7 +73,8 @@ class Data(unittest.TestCase):
 
     def test_files_in_the_repository_exist(self):
         # Paths the build tools download, and the submodule, are not in a plain checkout.
-        outside = (".pio/", "~/", "freeink-sdk/")
+        # A web address is where a library the pages load at run time was read from.
+        outside = (".pio/", "~/", "freeink-sdk/", "https://")
         checked = 0
         for c in self.components:
             path = c["verified_from"].split(" ")[0].rstrip(",")

@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VaultInk backup and restore: copy the X4 Pro's whole flash over USB</title>
+  <meta name="description" content="Read the whole flash of an Xteink X4 Pro into a file on your computer, and write such a file back. Nothing is uploaded. Experimental: not tested on a real reader yet.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#F3F1EC" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#161B24" media="(prefers-color-scheme: dark)">
+  <link rel="icon" type="image/svg+xml" href="logo-light.svg">
+  <style>
+    /* The colours and the type of index.html. */
+    :root {
+      --paper: #F3F1EC;
+      --paper-2: #EAE6DE;
+      --paper-3: #DFDAD0;
+      --ink: #1F3A5F;
+      --ink-2: #2E4D78;
+      --text: #1E1F22;
+      --muted: #5C5F66;
+      --line: #CFC9BC;
+      --control-line: #7D7A72;
+      --warn-bg: #F6E9C9;
+      --warn-line: #B8862A;
+      --warn-ink: #5A3F08;
+      --error-bg: #F7E1E0;
+      --error-line: #A33A3A;
+      --error-ink: #5E1B1B;
+      --button: var(--ink);
+      --button-text: #F3F1EC;
+      --shadow: 0 1px 2px rgba(31, 58, 95, .08), 0 6px 20px rgba(31, 58, 95, .06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #161B24;
+        --paper-2: #1D2330;
+        --paper-3: #262E3D;
+        --ink: #A9C1E3;
+        --ink-2: #C3D5EE;
+        --text: #E7E3DA;
+        --muted: #A3A6AE;
+        --line: #3E4759;
+        --control-line: #737E95;
+        --warn-bg: #2C2410;
+        --warn-line: #A8832D;
+        --warn-ink: #F0DDAA;
+        --error-bg: #33191B;
+        --error-line: #C76A6A;
+        --error-ink: #F3D2D2;
+        --button: #A9C1E3;
+        --button-text: #161B24;
+        --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--paper); color: var(--text);
+      font: 17px/1.6 Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino,
+        "Noto Serif", "DejaVu Serif", serif;
+    }
+    .sans { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Noto Sans", sans-serif; }
+    h1, h2, h3 { font-weight: 600; letter-spacing: -.01em; line-height: 1.2; color: var(--ink); margin: 0; }
+    h1 { font-size: clamp(1.8rem, 1.4rem + 2vw, 2.6rem); margin-bottom: .6rem; }
+    h2 { font-size: clamp(1.3rem, 1.1rem + 1vw, 1.6rem); margin-bottom: .5rem; }
+    h3 { font-size: 1.05rem; margin: 1rem 0 .25rem; }
+    p { margin: .6em 0; }
+    a { color: var(--ink); text-decoration-color: var(--line); text-underline-offset: 3px; }
+    a:hover { text-decoration-color: var(--ink); }
+    code, pre {
+      font: .88em ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    }
+    code {
+      background: var(--paper-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px;
+      overflow-wrap: anywhere;
+    }
+    kbd { font: .9em system-ui, sans-serif; font-weight: 600; color: var(--ink); }
+    .wrap { width: min(1040px, 100% - 32px); margin: 0 auto; }
+    section { padding: 28px 0; }
+    section + section { border-top: 1px solid var(--line); }
+    .eyebrow {
+      font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+      margin: 0 0 .6rem; font-weight: 600;
+    }
+    .lead { font-size: 1.1rem; color: var(--muted); max-width: 72ch; }
+    .muted { color: var(--muted); font-size: .95rem; }
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-weight: 600; font-size: 1.15rem; }
+    .brand img { width: 40px; height: 30px; display: block; }
+    .top nav { display: flex; gap: 20px; flex-wrap: wrap; justify-content: flex-end; font-size: .95rem; }
+    .top nav a { text-decoration: none; color: var(--muted); padding: 10px 2px; display: inline-block; }
+    .top nav a:hover { color: var(--ink); }
+
+    .btn {
+      appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border: 1px solid var(--button); border-radius: 10px; padding: 9px 18px; cursor: pointer;
+      background: var(--button); color: var(--button-text); text-decoration: none;
+      font: 600 .97rem system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 44px;
+    }
+    .btn:hover { filter: brightness(1.08); }
+    .btn.ghost { background: transparent; color: var(--ink); border-color: var(--control-line); }
+    .btn.ghost:hover { border-color: var(--ink); filter: none; }
+    .btn[disabled] { opacity: .5; cursor: not-allowed; filter: none; }
+    .btn:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visible {
+      outline: 3px solid var(--ink); outline-offset: 2px;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+    .notice {
+      background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-ink);
+      border-left-width: 5px; border-radius: 10px; padding: 14px 18px; margin: 16px 0; max-width: 80ch;
+    }
+    .notice strong { color: inherit; }
+    .notice a { color: inherit; text-decoration: underline; text-decoration-color: currentColor; font-weight: 600; }
+    .notice.error { background: var(--error-bg); border-color: var(--error-line); color: var(--error-ink); }
+    .notice code { background: transparent; border-color: currentColor; color: inherit; }
+    .card {
+      background: var(--paper-2); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px;
+      box-shadow: var(--shadow);
+    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+    input[type=file] { font: 1rem system-ui, sans-serif; color: var(--text); max-width: 100%; }
+    label.check { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0; cursor: pointer; font-size: .97rem; }
+    label.check input { margin-top: 5px; width: 18px; height: 18px; flex: none; accent-color: var(--ink); }
+    .state { font-weight: 600; }
+    table.status { border-collapse: collapse; width: 100%; font-size: .92rem; margin-top: 8px; }
+    table.status th, table.status td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    table.status th { font-weight: 600; white-space: nowrap; width: 1%; }
+    table.status td { overflow-wrap: anywhere; }
+    .bar {
+      height: 14px; border: 1px solid var(--control-line); border-radius: 7px; background: var(--paper);
+      overflow: hidden; margin: 12px 0 4px;
+    }
+    .bar > div { height: 100%; width: 0; background: var(--ink); }
+    .hash { font: .82rem ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; overflow-wrap: anywhere; }
+    #log {
+      margin: 0; height: 220px; overflow: auto; background: var(--paper); border: 1px solid var(--line);
+      border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .82rem; line-height: 1.4;
+    }
+    .steps { list-style: none; counter-reset: step; padding: 0; margin: 12px 0 0; }
+    .steps li { counter-increment: step; position: relative; padding: 0 0 18px 48px; margin: 0; }
+    .steps li::before {
+      content: counter(step); position: absolute; left: 0; top: 2px; width: 32px; height: 32px;
+      border-radius: 50%; background: var(--ink); color: var(--paper);
+      font: 600 .95rem system-ui, sans-serif; display: grid; place-items: center;
+    }
+    .steps h3 { font-size: 1.05rem; margin: 0 0 2px; }
+    .steps p { margin: 0; color: var(--muted); font-size: .97rem; }
+    .steps p strong { color: var(--text); }
+    ul.plain { padding-left: 20px; margin: .4em 0; max-width: 80ch; }
+    ul.plain li { margin: .5em 0; }
+    details { margin: 12px 0; }
+    details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+    footer { border-top: 1px solid var(--line); padding: 28px 0 44px; color: var(--muted); font-size: .92rem; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 480px) {
+      body { font-size: 16px; }
+      .top { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .top nav { justify-content: flex-start; gap: 14px; }
+      .card { padding: 16px 14px; }
+      .steps li { padding-left: 42px; }
+      .steps li::before { width: 28px; height: 28px; font-size: .85rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="wrap top">
+  <a class="brand" href="./">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="logo-dark.svg">
+      <img src="logo-light.svg" alt="" width="40" height="30">
+    </picture>
+    VaultInk
+  </a>
+  <nav class="sans" aria-label="Links">
+    <a href="./#install">Install page</a>
+    <a href="https://github.com/Somnius/VaultInk/blob/main/docs/backup-restore.md">How to use this page</a>
+    <a href="https://github.com/Somnius/VaultInk">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <section>
+    <div class="wrap">
+      <p class="eyebrow sans">Xteink X4 Pro</p>
+      <h1>Back up and restore</h1>
+      <p class="lead">Copy everything stored in the reader's own memory (all 16 MB of flash: bootloader,
+        firmware, settings) into one file on your computer, and write such a file back later. The SD card
+        is not part of it.</p>
+      <div class="notice" role="note">
+        <strong>Experimental: not tested on a real reader yet.</strong> The page's logic is tested on a
+        computer with a simulated reader. Reading a backup, writing one back and the restart after it
+        have not been tried on an X4 Pro. If you try it, please
+        <a href="https://github.com/Somnius/VaultInk/issues">tell us what happened</a>.
+      </div>
+      <p><strong>Nothing is uploaded.</strong> The page talks to the reader over USB, inside your browser.
+        The backup is a file you save on your own computer. The browser downloads one program from a public
+        server (jsDelivr) when you press Connect: esptool-js, Espressif's open-source flashing library.</p>
+
+      <div class="notice error" id="unsupported" hidden role="alert">
+        <strong>Not supported in this browser.</strong> This page needs Web Serial. Use desktop
+        <strong>Chrome</strong>, <strong>Edge</strong> or <strong>Opera</strong> on a computer.
+        Firefox, Safari and browsers on phones and tablets are not supported.
+      </div>
+      <div class="notice error" id="insecure" hidden role="alert">
+        <strong>This page must be opened over https</strong> (or from <code>localhost</code>). The browser
+        does not allow USB access from other pages.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap grid">
+      <div class="card">
+        <h2>1. Connect</h2>
+        <p class="muted sans">Use a USB-C data cable. Close other programs and tabs that use the port
+          (a serial monitor, the install page, the debug page). Connecting restarts the reader into its
+          download mode; if that fails, see <a href="#download-mode">step 4</a>.</p>
+        <div class="row">
+          <button class="btn" id="connect" type="button" disabled>Connect</button>
+          <button class="btn ghost" id="restart" type="button" disabled>Restart the reader</button>
+          <span class="sans state" id="state" role="status" aria-live="polite">Not connected</span>
+        </div>
+        <div class="notice error" id="error" hidden role="alert"></div>
+        <table class="status sans" id="deviceTable" hidden>
+          <tbody>
+            <tr><th>Chip</th><td id="devChip"></td></tr>
+            <tr><th>Flash size</th><td id="devFlash"></td></tr>
+            <tr><th>MAC address</th><td id="devMac"></td></tr>
+          </tbody>
+        </table>
+        <p class="muted sans">The page only works with an ESP32-S3 that has 16 MB of flash (the X4 Pro)
+          and refuses anything else. While connected, the reader stays in download mode and its screen
+          does not change. <strong>Restart the reader</strong> leaves that mode and disconnects.</p>
+      </div>
+
+      <div class="card">
+        <h2>2. Read the flash (backup)</h2>
+        <p class="muted sans">Reads all 16 MB and takes several minutes. Make the backup
+          <strong>before</strong> you install VaultInk if you want a way back to the stock firmware.</p>
+        <div class="row">
+          <button class="btn" id="read" type="button" disabled>Read the flash (backup)</button>
+        </div>
+        <div id="readProgress" hidden>
+          <div class="bar" role="progressbar" aria-label="Reading the flash" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="readBarBox"><div id="readBar"></div></div>
+          <p class="sans" id="readText" aria-live="off"></p>
+          <p class="sans"><strong>Do not unplug while the bar moves.</strong></p>
+        </div>
+        <div id="readDone" hidden>
+          <p class="sans"><a class="btn" id="download" href="#">Download</a></p>
+          <p><strong>Keep this file. A backup of the stock firmware is the only way back to it.</strong></p>
+          <p class="sans muted">SHA-256 of the file:</p>
+          <p class="hash" id="readHash"></p>
+          <p class="sans muted">The file stays in this tab's memory until you close or reload it: download
+            it now. Then press <strong>Restart the reader</strong>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>3. Write a backup back (restore)</h2>
+      <div class="notice error" role="note">
+        <strong>This replaces everything on the reader, bootloader included.</strong> The firmware, the
+        settings and everything else stored in the reader itself become what the file holds. The SD card is
+        not touched. Use the cable that worked for the backup and a charged battery, and do not unplug
+        while it writes.
+      </div>
+      <div class="grid">
+        <div>
+          <label class="sans" for="file"><strong>The backup file</strong> (16,777,216 bytes, made by step 2)</label>
+          <div class="row"><input type="file" id="file" accept=".bin,application/octet-stream"></div>
+          <div class="notice error" id="fileError" hidden role="alert"></div>
+          <div id="fileInfo" hidden>
+            <p class="sans" id="fileName"></p>
+            <p class="sans muted">SHA-256 of the file (compare it with the one shown when you made the backup):</p>
+            <p class="hash" id="fileHash"></p>
+          </div>
+          <div class="notice" id="macWarning" hidden role="alert"></div>
+        </div>
+        <div>
+          <label class="check sans"><input type="checkbox" id="agree" disabled> <span>This replaces everything on the reader, bootloader included.</span></label>
+          <div class="row">
+            <button class="btn" id="write" type="button" disabled>Write the backup to the reader</button>
+          </div>
+          <div id="writeProgress" hidden>
+            <div class="bar" role="progressbar" aria-label="Writing the flash" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="writeBarBox"><div id="writeBar"></div></div>
+            <p class="sans" id="writeText" aria-live="off"></p>
+            <p class="sans" id="writeHold"><strong>Do not unplug while the bar moves.</strong></p>
+          </div>
+          <p class="sans muted">The file is sent compressed, so the byte count is smaller than 16 MB. After
+            the last byte the reader computes a checksum (MD5) of its flash and the page compares it with
+            the file's. Then the page restarts the reader.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="download-mode">
+    <div class="wrap">
+      <h2>4. Download mode on the X4 Pro</h2>
+      <p>The reader's chip has a small loader in its ROM that reads and writes the flash over USB. Connect
+        asks the chip to restart into it over the USB cable (the USB-JTAG-Serial reset of esptool-js).
+        We assume this works while VaultInk is running, and do not know whether it works from the stock
+        firmware; it is <strong>not tested on a real reader yet</strong>. If Connect fails, put the reader into that mode
+        by hand, the same way as for installing, then press Connect again:</p>
+      <ol class="steps">
+        <li>
+          <h3>Put the X4 Pro into boot mode</h3>
+          <p>With the reader switched off, press and hold <strong>Power</strong>, then also press
+            and hold <strong>both page-turn buttons</strong>, and keep holding them.</p>
+        </li>
+        <li>
+          <h3>Connect it to your computer</h3>
+          <p>Use a USB-C <em>data</em> cable (some cables only charge). Use Chrome, Edge or
+            another browser with Web Serial, on a computer, not a phone.</p>
+        </li>
+        <li>
+          <h3>Press Connect on this page</h3>
+          <p>Choose the reader in the browser's list. When you are done, press <strong>Restart the
+            reader</strong>; if the reader does not start, restart it with Power.</p>
+        </li>
+      </ol>
+      <details>
+        <summary class="sans">The reader is not in the list, or Connect fails</summary>
+        <p>Try another cable (some only charge) or another USB port, and check the reader is still in
+          boot mode. On Linux your user must be allowed to open the port (<code>/dev/ttyACM0</code>):
+          the <a href="debug.html">debug page</a> lists the usual ways. Whether Windows needs a driver
+          is not verified.</p>
+      </details>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>5. Privacy and safety</h2>
+      <ul class="plain">
+        <li><strong>Nothing is uploaded.</strong> The backup goes from the reader to this tab and from
+          there to a file on your computer. The page has no server to send it to.</li>
+        <li><strong>Do not share a backup.</strong> It holds this reader's secret and its settings.
+          Do not attach it to an issue or send it to anyone, us included.</li>
+        <li><strong>A failed restore can be tried again.</strong> The loader this page talks to is in
+          the chip's ROM and cannot be overwritten, so a reader whose restore stopped halfway should
+          still enter download mode (step 4) and take the backup again over USB.</li>
+        <li><strong>Do not unplug in the middle of a write.</strong> Use a cable you trust and a charged
+          battery. An interrupted read does no harm: the flash is not changed by reading.</li>
+        <li><strong>A backup from another reader</strong> carries that reader's settings and secret. The
+          page warns when the MAC address in the file's name is not the connected reader's. Writing
+          another reader's backup is not tested.</li>
+        <li><strong>The page checks little about the file:</strong> its size, its first byte, and after
+          writing that the flash holds the same bytes. It cannot tell whether the file is a working
+          firmware. The SHA-256 is for you, to see that the file is still the one you saved.</li>
+      </ul>
+      <h3>Messages from the loader</h3>
+      <pre id="log" tabindex="0" aria-label="Messages from esptool-js"></pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap sans">
+    VaultInk backup and restore page. Experimental: not tested on a real reader yet.
+    <a href="https://github.com/Somnius/VaultInk/blob/main/docs/backup-restore.md">docs/backup-restore.md</a>
+    explains it. It uses <a href="https://github.com/espressif/esptool-js">esptool-js</a> 0.7.0 (Apache-2.0),
+    and the restart sequence follows the open flasher of <a href="https://explorink.com">explorink.com</a>.
+  </div>
+</footer>
+
+<script src="backuplib.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const lib = window.BackupLib;
+
+  // esptool-js, this exact version. The browser checks the file against the hash before the page
+  // runs it: a different file under the same address is refused.
+  const ESPTOOL_URL = "https://cdn.jsdelivr.net/npm/esptool-js@0.7.0/bundle.js";
+  const ESPTOOL_SHA384 = "sha384-gg1uFHEfaf6612Q8/ovFzAYvLxRakqrLWyMjLe8LEMBP3+2qgUvxuYxTuk87KdIb";
+  // The X4 Pro's port is the chip's own USB, which has no baud rate; with the ROM's default the
+  // library does not try to change it.
+  const BAUD = 115200;
+
+  let esptool = null;
+  let port = null;
+  let transport = null;
+  let loader = null;
+  let device = null; // what identify() returned
+  let fileData = null; // Uint8Array of the chosen file
+  let fileName = "";
+  let downloadUrl = null;
+  let leaving = false; // the page itself is restarting the reader: its port going away is expected
+  let state = lib.initialState("serial" in navigator);
+
+  function text(value) {
+    return String(value == null ? "" : value).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  }
+  function message(error) {
+    return error && error.message ? error.message : String(error);
+  }
+  function setState(value) { $("state").textContent = value; }
+  function showError(html) { $("error").innerHTML = html; $("error").hidden = false; }
+  function clearError() { $("error").hidden = true; }
+  function logLine(line) {
+    const log = $("log");
+    log.textContent += line;
+    if (log.textContent.length > 60000) log.textContent = log.textContent.slice(-40000);
+    log.scrollTop = log.scrollHeight;
+  }
+  function pageLine(line) { logLine("[page] " + line + "\n"); }
+  // What esptool-js prints goes to the box at the end of the page.
+  const terminal = {
+    clean: function () {},
+    writeLine: function (data) { logLine(data + "\n"); },
+    write: function (data) { logLine(data); },
+  };
+
+  function apply(event) {
+    if (event) state = lib.nextState(state, event);
+    const c = lib.controls(state);
+    $("connect").disabled = !c.connect;
+    $("restart").disabled = !c.restart;
+    $("read").disabled = !c.read;
+    $("file").disabled = !c.pickFile;
+    $("agree").disabled = !c.agree;
+    $("agree").checked = state.agreed;
+    $("write").disabled = !c.write;
+  }
+  function setBar(name, done, total) {
+    const value = lib.percent(done, total);
+    $(name + "Bar").style.width = value + "%";
+    $(name + "BarBox").setAttribute("aria-valuenow", String(value));
+  }
+
+  async function loadEsptool() {
+    if (esptool) return esptool;
+    const response = await fetch(ESPTOOL_URL, { integrity: ESPTOOL_SHA384, cache: "force-cache" });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const url = URL.createObjectURL(new Blob([await response.arrayBuffer()], { type: "text/javascript" }));
+    try {
+      const loaded = await import(url);
+      if (typeof loaded.ESPLoader !== "function" || typeof loaded.Transport !== "function") {
+        throw new Error("the file has no ESPLoader or Transport");
+      }
+      esptool = loaded;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+    return esptool;
+  }
+
+  async function closePort() {
+    const old = transport;
+    transport = null;
+    loader = null;
+    port = null;
+    device = null;
+    if (old) {
+      try { await old.disconnect(); } catch (error) { /* gone already */ }
+    }
+  }
+  async function dropConnection(stateText) {
+    await closePort();
+    leaving = false;
+    $("deviceTable").hidden = true;
+    apply({ type: "disconnected" });
+    setState(stateText || "Not connected");
+    showMacWarning();
+  }
+
+  // ---- 1. connect ----
+
+  $("connect").addEventListener("click", async () => {
+    clearError();
+    let chosen;
+    try {
+      // Espressif's USB vendor id: the list then shows only such devices.
+      chosen = await navigator.serial.requestPort({ filters: [{ usbVendorId: lib.USB_VENDOR_ESPRESSIF }] });
+    } catch (error) {
+      if (error && error.name === "NotFoundError") {
+        showError("<strong>No port was chosen.</strong> If the reader is not in the list: use a data cable " +
+          "(some cables only charge), and try the boot mode of <a href=\"#download-mode\">step 4</a>.");
+      } else {
+        showError("<strong>The browser did not open the list of ports.</strong> It said: " +
+          text(error && error.name) + ": " + text(message(error)));
+      }
+      return;
+    }
+    apply({ type: "busy" });
+    setState("Loading esptool-js…");
+    let mod;
+    try {
+      mod = await loadEsptool();
+    } catch (error) {
+      apply({ type: "idle" });
+      setState("Not connected");
+      showError("<strong>esptool-js could not be loaded</strong> from cdn.jsdelivr.net, or the file is not " +
+        "the one this page expects. Nothing was sent to the reader. The browser said: " + text(message(error)));
+      return;
+    }
+    setState("Connecting…");
+    try {
+      port = chosen;
+      transport = new mod.Transport(chosen, false);
+      loader = new mod.ESPLoader({ transport: transport, baudrate: BAUD, terminal: terminal });
+      device = await lib.identify(loader);
+    } catch (error) {
+      pageLine("connect failed: " + message(error));
+      await closePort();
+      apply({ type: "idle" });
+      setState("Not connected");
+      showError("<strong>The reader did not answer in download mode.</strong> Put it into boot mode by hand " +
+        "(<a href=\"#download-mode\">step 4</a>) and press Connect again. Also close other programs and tabs " +
+        "that use the port. The loader said: " + text(message(error)));
+      return;
+    }
+    $("devChip").textContent = device.chip;
+    $("devFlash").textContent = device.flashSize || "unknown";
+    $("devMac").textContent = device.mac || "unknown";
+    $("deviceTable").hidden = false;
+    const check = lib.checkDevice(device);
+    apply({ type: "idle" });
+    apply({ type: "connected", deviceOk: check.ok });
+    if (check.ok) {
+      setState("Connected, in download mode");
+    } else {
+      setState("Connected, but not an X4 Pro");
+      showError("<strong>This page will not read or write this device.</strong> " + text(check.reason) +
+        " Press <strong>Restart the reader</strong> to leave download mode.");
+    }
+    showMacWarning();
+  });
+
+  // Leaves download mode and closes the port. The chip goes away from USB while it restarts.
+  async function restartReader() {
+    leaving = true;
+    let cleared = true;
+    try {
+      cleared = (await lib.resetToFirmware(loader, transport)).cleared;
+    } catch (error) {
+      pageLine("restart failed: " + message(error));
+      await dropConnection("Not connected");
+      showError("<strong>The page could not restart the reader.</strong> Restart it with Power. " +
+        "The browser said: " + text(message(error)));
+      return false;
+    }
+    if (!cleared) pageLine("the download-mode bit could not be cleared; the reset pulse was sent anyway");
+    await dropConnection("Restarted. Not connected");
+    return true;
+  }
+
+  $("restart").addEventListener("click", async () => {
+    clearError();
+    apply({ type: "busy" });
+    await restartReader();
+  });
+
+  if ("serial" in navigator) {
+    navigator.serial.addEventListener("disconnect", (event) => {
+      const gone = event.target && typeof event.target.open === "function" ? event.target : event.port;
+      if (!port || gone !== port || leaving) return;
+      const wasBusy = state.busy;
+      dropConnection("Not connected").then(() => {
+        if (wasBusy) {
+          showError("<strong>The reader went away from USB</strong> while the page was working with it. " +
+            "If it was writing, the reader may not start: enter download mode (step 4) and write the backup again.");
+        }
+      });
+    });
+  }
+
+  // ---- 2. read ----
+
+  $("read").addEventListener("click", async () => {
+    clearError();
+    apply({ type: "busy" });
+    $("readDone").hidden = true;
+    $("readProgress").hidden = false;
+    setBar("read", 0, 1);
+    $("readText").textContent = "Starting…";
+    const started = performance.now();
+    const mac = device.mac;
+    try {
+      const chunks = await lib.readFlash(loader, {
+        onProgress: (done, total) => {
+          setBar("read", done, total);
+          $("readText").textContent = lib.progressText(done, total, performance.now() - started);
+        },
+      });
+      $("readText").textContent = "Read. Computing the SHA-256…";
+      const blob = new Blob(chunks, { type: "application/octet-stream" });
+      if (blob.size !== lib.FLASH_BYTES) throw new Error("The backup is " + blob.size + " bytes, not " + lib.FLASH_BYTES + ".");
+      const hash = await lib.sha256Hex(await blob.arrayBuffer());
+      const name = lib.backupFilename(mac, new Date());
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+      downloadUrl = URL.createObjectURL(blob);
+      $("download").href = downloadUrl;
+      $("download").download = name;
+      $("download").textContent = "Download " + name;
+      $("readHash").textContent = hash;
+      $("readDone").hidden = false;
+      $("readText").textContent = "Read " + lib.formatBytes(blob.size) + " in " +
+        Math.round((performance.now() - started) / 1000) + " s.";
+      pageLine("backup read: " + blob.size + " bytes, sha256 " + hash);
+    } catch (error) {
+      pageLine("backup failed: " + message(error));
+      $("readText").textContent = "Stopped.";
+      showError("<strong>The backup was not made.</strong> " + text(message(error)) +
+        " Nothing on the reader was changed. Press Restart the reader, or connect again and retry.");
+    }
+    if (state.connected) apply({ type: "idle" });
+  });
+
+  // ---- 3. restore ----
+
+  function showMacWarning() {
+    const box = $("macWarning");
+    const verdict = fileData && device ? lib.compareMac(fileName, device.mac) : "none";
+    if (verdict === "different") {
+      box.innerHTML = "<strong>This backup seems to be from another reader.</strong> Its name has the MAC address " +
+        text(lib.macFromFilename(fileName)) + ", the connected reader is " + text(lib.normaliseMac(device.mac)) +
+        ". You can still write it, but it carries the other reader's settings and secret.";
+      box.hidden = false;
+    } else if (verdict === "unknown") {
+      box.innerHTML = "<strong>The file's name has no MAC address in it</strong>, so the page cannot tell " +
+        "which reader it came from. Make sure it is this reader's backup.";
+      box.hidden = false;
+    } else {
+      box.hidden = true;
+    }
+  }
+
+  $("file").addEventListener("change", async () => {
+    const file = $("file").files && $("file").files[0];
+    fileData = null;
+    fileName = "";
+    $("fileError").hidden = true;
+    $("fileInfo").hidden = true;
+    $("writeProgress").hidden = true;
+    apply({ type: "file", ok: false });
+    showMacWarning();
+    if (!file) return;
+    try {
+      const first = new Uint8Array(await file.slice(0, 1).arrayBuffer());
+      const check = lib.checkBackupFile({ size: file.size, firstByte: first[0] });
+      if (!check.ok) throw new Error(check.reason);
+      const data = new Uint8Array(await file.arrayBuffer());
+      const hash = await lib.sha256Hex(data);
+      if ($("file").files[0] !== file) return; // another file was chosen meanwhile
+      fileData = data;
+      fileName = file.name;
+      $("fileName").textContent = file.name + " (" + file.size.toLocaleString("en-US") + " bytes)";
+      $("fileHash").textContent = hash;
+      $("fileInfo").hidden = false;
+      apply({ type: "file", ok: true });
+      showMacWarning();
+    } catch (error) {
+      $("fileError").innerHTML = "<strong>This file cannot be written.</strong> " + text(message(error));
+      $("fileError").hidden = false;
+    }
+  });
+
+  $("agree").addEventListener("change", () => apply({ type: "agree", value: $("agree").checked }));
+
+  $("write").addEventListener("click", async () => {
+    if (!lib.controls(state).write || !fileData) return;
+    clearError();
+    const data = fileData;
+    apply({ type: "busy" });
+    $("writeProgress").hidden = false;
+    $("writeHold").hidden = false;
+    setBar("write", 0, 1);
+    $("writeText").textContent = "Compressing the file. The page can stop responding for a while…";
+    // Let the browser draw that line: the library compresses 16 MB before the first byte goes out.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const started = performance.now();
+    try {
+      await lib.restore(loader, data, (written, total) => {
+        setBar("write", written, total);
+        $("writeText").textContent = written >= total
+          ? "Sent. The reader is checking what was written…"
+          : "Sent " + lib.progressText(written, total, performance.now() - started) + " (compressed)";
+      });
+    } catch (error) {
+      pageLine("restore failed: " + message(error));
+      $("writeText").textContent = "Stopped.";
+      $("writeHold").hidden = true;
+      showError("<strong>The restore did not finish.</strong> " + text(message(error)) +
+        " The reader may not start now. It should still enter download mode (step 4): connect and write " +
+        "the backup again.");
+      if (state.connected) apply({ type: "idle" });
+      $("error").scrollIntoView({ block: "nearest" });
+      return;
+    }
+    pageLine("restore written and checked in " + Math.round((performance.now() - started) / 1000) + " s");
+    $("writeHold").hidden = true;
+    $("writeText").textContent = "Written and checked. Restarting the reader…";
+    const restarted = await restartReader();
+    $("writeText").textContent = restarted
+      ? "Written and checked. The reader was restarted; if its screen does not change, restart it with Power."
+      : "Written and checked. Restart the reader with Power.";
+  });
+
+  window.addEventListener("beforeunload", (event) => {
+    if (state.busy) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+  });
+
+  // ---- start ----
+
+  if (!("serial" in navigator)) {
+    // Without https the browser hides Web Serial even where it has it: say that first.
+    $(window.isSecureContext ? "unsupported" : "insecure").hidden = false;
+    setState("This browser cannot connect");
+  }
+  apply();
+})();
+</script>
+</body>
+</html>

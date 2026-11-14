@@ -81,6 +81,9 @@ cp site/* "$PAGES/"
 for page in debug.html debuglib.js; do
   [[ -s "$PAGES/$page" ]] || { echo "site/$page is missing: the debug page would not be published." >&2; exit 1; }
 done
+for page in backup.html backuplib.js; do
+  [[ -s "$PAGES/$page" ]] || { echo "site/$page is missing: the backup and restore page would not be published." >&2; exit 1; }
+done
 cp .pio/build/x4pro-gh_release/firmware.factory.bin "$PAGES/vaultink-x4pro-factory.bin"
 # The developer build's full image, made the same way (firmware.factory.bin of its own env).
 cp .pio/build/x4pro-dev-user/firmware.factory.bin "$PAGES/vaultink-x4pro-dev-factory.bin"

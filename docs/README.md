@@ -49,6 +49,7 @@ Start with the [main README](../README.md) for what VaultInk is and how to insta
 | [Troubleshooting](troubleshooting.md) | common problems |
 | [Debug logs](debug-logs.md) | saving logs to report a bug |
 | [The debug page](debug-page.md) | help us debug: install the developer build, connect it to the debug page in Chrome or Edge, make a report |
+| [Back up and restore](backup-restore.md) | copy the X4 Pro's whole flash to a file over USB and write it back (experimental, not tested on a real reader yet) |
 | [Fix a bricked Xteink](fix-bricked-xteink.md) | getting a device back |
 | [Translating](translating.md), [translators](translators.md), [i18n](i18n.md) | adding or fixing a language |
 

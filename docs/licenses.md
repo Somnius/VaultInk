@@ -103,11 +103,15 @@ Notes:
 
 | Component | Version | Used for | Licence | Copyright | Source | Licence read from |
 | --- | --- | --- | --- | --- | --- | --- |
-| ESP Web Tools | 10.4.0 (loaded from unpkg.com) | The Install button on the loader page | not verified |  | <https://github.com/esphome/esp-web-tools> |  |
+| ESP Web Tools | 10.4.0 (loaded from unpkg.com) | The Install button on the loader page | Apache-2.0 |  | <https://github.com/esphome/esp-web-tools> | https://registry.npmjs.org/esp-web-tools/10.4.0 (the "license" field) and https://unpkg.com/esp-web-tools@10.4.0/LICENSE (Apache License, Version 2.0), read 2026-11-14 |
+| esptool-js | 0.7.0 (loaded from cdn.jsdelivr.net) | The backup and restore page: reading and writing the flash over USB | Apache-2.0 |  | <https://github.com/espressif/esptool-js> | https://unpkg.com/esptool-js@0.7.0/LICENSE (Apache License, Version 2.0) and https://unpkg.com/esptool-js@0.7.0/package.json (the "license" field), read 2026-11-14 |
+| pako (in esptool-js) | 2.1.0 (inside the esptool-js 0.7.0 bundle) | Compression of the data the backup and restore page sends | MIT AND Zlib | Copyright (C) 2014-2017 by Vitaly Puzrin and Andrei Tuputcyn | <https://github.com/nodeca/pako> | https://cdn.jsdelivr.net/npm/esptool-js@0.7.0/bundle.js (the banner "pako 2.1.0 ... @license (MIT AND Zlib)"), https://registry.npmjs.org/pako (2.1.0, the "license" field) and https://unpkg.com/pako@2.1.0/LICENSE, read 2026-11-14 |
 
 Notes:
 
-- **ESP Web Tools**: The page loads it from unpkg.com at run time; there is no copy in this repository or on this machine to read a licence from.
+- **ESP Web Tools**: The page loads it from unpkg.com at run time; there is no copy in this repository.
+- **esptool-js**: The page loads bundle.js from cdn.jsdelivr.net at run time and checks its SHA-384 first; there is no copy in this repository.
+- **pako (in esptool-js)**: It comes inside esptool-js's bundle.js; the page does not load it by itself.
 
 ## Not verified
 
@@ -117,7 +121,6 @@ No licence file or package metadata was available for these, so their licence is
 - Hyphenation patterns (typst/hypher) (firmware): <https://github.com/typst/hypher>
 - HTML entity table (diy-esp32-epub-reader) (firmware): <https://github.com/atomic14/diy-esp32-epub-reader>
 - Self-hosted LiveSync (document id scheme) (firmware): <https://github.com/vrtmrz/obsidian-livesync>
-- ESP Web Tools (site): <https://github.com/esphome/esp-web-tools>
 
 ## Not in this list
 

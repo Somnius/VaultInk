@@ -512,12 +512,34 @@
       "name": "ESP Web Tools",
       "version": "10.4.0 (loaded from unpkg.com)",
       "used_for": "The Install button on the loader page",
-      "licence": "not verified",
+      "licence": "Apache-2.0",
       "copyright": "",
       "source": "https://github.com/esphome/esp-web-tools",
       "used_in": "site",
-      "verified_from": "",
-      "notes": "The page loads it from unpkg.com at run time; there is no copy in this repository or on this machine to read a licence from."
+      "verified_from": "https://registry.npmjs.org/esp-web-tools/10.4.0 (the \"license\" field) and https://unpkg.com/esp-web-tools@10.4.0/LICENSE (Apache License, Version 2.0), read 2026-11-14",
+      "notes": "The page loads it from unpkg.com at run time; there is no copy in this repository."
+    },
+    {
+      "name": "esptool-js",
+      "version": "0.7.0 (loaded from cdn.jsdelivr.net)",
+      "used_for": "The backup and restore page: reading and writing the flash over USB",
+      "licence": "Apache-2.0",
+      "copyright": "",
+      "source": "https://github.com/espressif/esptool-js",
+      "used_in": "site",
+      "verified_from": "https://unpkg.com/esptool-js@0.7.0/LICENSE (Apache License, Version 2.0) and https://unpkg.com/esptool-js@0.7.0/package.json (the \"license\" field), read 2026-11-14",
+      "notes": "The page loads bundle.js from cdn.jsdelivr.net at run time and checks its SHA-384 first; there is no copy in this repository."
+    },
+    {
+      "name": "pako (in esptool-js)",
+      "version": "2.1.0 (inside the esptool-js 0.7.0 bundle)",
+      "used_for": "Compression of the data the backup and restore page sends",
+      "licence": "MIT AND Zlib",
+      "copyright": "Copyright (C) 2014-2017 by Vitaly Puzrin and Andrei Tuputcyn",
+      "source": "https://github.com/nodeca/pako",
+      "used_in": "site",
+      "verified_from": "https://cdn.jsdelivr.net/npm/esptool-js@0.7.0/bundle.js (the banner \"pako 2.1.0 ... @license (MIT AND Zlib)\"), https://registry.npmjs.org/pako (2.1.0, the \"license\" field) and https://unpkg.com/pako@2.1.0/LICENSE, read 2026-11-14",
+      "notes": "It comes inside esptool-js's bundle.js; the page does not load it by itself."
     }
   ]
 }

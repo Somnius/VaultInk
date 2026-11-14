@@ -725,6 +725,7 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   (`manifest-dev.json`); `deploy_web_installer.sh` builds and publishes it and has `--dry-run`; a
   Debug Report issue form; "Help us debug" in the README and in the companion's About.
   [docs/debug-page.md](docs/debug-page.md)
+* Backup and restore page (2026-11-14, computer tests only, **not tested on a real reader yet**): `site/backup.html` + `site/backuplib.js` read the X4 Pro's whole 16 MB flash to a file over Web Serial (esptool-js 0.7.0) and write such a file back; still to do: try read, restore, the restart and the automatic download mode on an X4 Pro. [docs/backup-restore.md](docs/backup-restore.md)
 * Still to do for the debug page: build `x4pro-dev-user` and check its size; run
   `deploy_web_installer.sh --dry-run`; try the page on a reader on Linux and Windows (COM port and
   driver: unverified); reconnect after sleep; Android Chrome (unverified, not supported yet); the
