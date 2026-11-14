@@ -36,10 +36,10 @@ function test(name, body) {
 // lib/targets/esp32s3.js, lib/webserial.js). Anything else read from a mock throws, so a call to
 // a method the real library does not have (writeRegister, say) fails the test.
 const REAL_API = {
-  loader: ["main", "detectFlashSize", "readFlash", "flashMd5sum", "writeFlash", "writeReg", "readReg",
-    "isUsbJtagSerialPort", "secureDownloadMode", "chip"],
+  loader: ["main", "sync", "detectFlashSize", "readFlash", "flashMd5sum", "writeFlash", "writeReg", "readReg",
+    "isUsbJtagSerialPort", "secureDownloadMode", "debugLogging", "chip"],
   chip: ["CHIP_NAME", "readMac"],
-  transport: ["setDTR", "setRTS"],
+  transport: ["setDTR", "setRTS", "disconnect", "setDeviceLostCallback", "tracing", "traceLog"],
 };
 function strict(kind, target) {
   for (const name of Object.keys(target)) assert.ok(REAL_API[kind].includes(name), "the mock has " + kind + "." + name);
@@ -71,9 +71,18 @@ function mock(options) {
       readMac: async () => o.mac || "aa:bb:cc:dd:ee:ff",
     }),
     isUsbJtagSerialPort: () => o.usbJtag !== false,
-    main: async () => {
-      calls.push(["main"]);
+    // The real one: main(mode = "default_reset"), mode one of esptool-js's Before values.
+    main: async (...args) => {
+      assert.equal(args.length, 1, "main(mode)");
+      assert.ok(["default_reset", "usb_reset", "no_reset"].includes(args[0]), "main() mode " + args[0]);
+      calls.push(["main", args[0]]);
+      if (o.mainFails && o.mainFails(args[0])) throw new Error("Failed to connect with the device");
       return "ESP32-S3 (QFN56) (revision v0.2)";
+    },
+    sync: async () => {
+      calls.push(["sync"]);
+      if (o.syncFails) throw new Error("Timeout");
+      return [0, new Uint8Array(4)];
     },
     detectFlashSize: async () => (o.flashSize === undefined ? "16MB" : o.flashSize),
     readFlash: async (offset, size, onPacket) => {
@@ -122,6 +131,11 @@ function mock(options) {
       assert.equal(typeof state, "boolean");
       calls.push(["setRTS", state]);
     },
+    disconnect: async () => {
+      calls.push(["disconnect"]);
+      if (o.disconnectFails) throw new Error("The port is already closed.");
+    },
+    traceLog: o.trace || "",
   });
   const sleep = async (ms) => calls.push(["sleep", ms]);
   return { loader, transport, sleep, calls };
@@ -175,16 +189,17 @@ test("the mock's method names are in the real esptool-js 0.7.0 bundle (optional)
     return;
   }
   const bundle = fs.readFileSync(file, "utf8");
-  for (const name of ["main", "detectFlashSize", "readFlash", "flashMd5sum", "writeFlash", "writeReg", "readReg", "readMac", "setDTR", "setRTS"]) {
+  for (const name of ["main", "sync", "detectFlashSize", "readFlash", "flashMd5sum", "writeFlash", "writeReg", "readReg", "readMac", "setDTR", "setRTS", "disconnect"]) {
     assert.ok(bundle.includes("async " + name + "("), "the bundle has no async " + name + "()");
   }
-  for (const name of ["isUsbJtagSerialPort(){", "secureDownloadMode", "CHIP_NAME=\"ESP32-S3\""]) {
+  for (const name of ["isUsbJtagSerialPort(){", "secureDownloadMode", "CHIP_NAME=\"ESP32-S3\"", "setDeviceLostCallback(", "this.traceLog", "this.tracing", "this.debugLogging", "\"no_reset\""]) {
     assert.ok(bundle.includes(name), "the bundle has no " + name);
   }
   assert.equal(bundle.includes("writeRegister("), false);
   // writeReg(addr, value, mask = 0xffffffff, delayUs = 0, delayAfterUs = 0), minified.
   assert.match(bundle, /async writeReg\(\w+,\w+,\w+=4294967295,\w+=0,\w+=0\)/);
   assert.match(bundle, /async flashMd5sum\(\w+,\w+\)/);
+  assert.match(bundle, /async main\(\w+="default_reset"\)/);
 });
 
 // ---- window maths ----
@@ -362,7 +377,9 @@ test("identify reads the chip, the flash size and the MAC from the loader", asyn
     mac: "10:20:30:40:50:60",
     secureDownloadMode: false,
   });
-  assert.deepEqual(m.calls, [["main"]]);
+  assert.deepEqual(m.calls, [["main", "default_reset"]]);
+  await lib.identify(m.loader, "no_reset");
+  assert.deepEqual(m.calls[1], ["main", "no_reset"]);
   const unknown = await lib.identify(mock({ flashSize: null }).loader);
   assert.equal(unknown.flashSize, "");
   assert.equal(lib.checkDevice(unknown).ok, false);
@@ -636,6 +653,210 @@ test("reset never asserts DTR", async () => {
   assert.deepEqual(m.calls[m.calls.length - 1], ["setRTS", false]);
 });
 
+// ---- connecting ----
+
+// A SerialPort as far as the library looks at it.
+function fakePort(pid, vid) {
+  return { readable: {}, getInfo: () => ({ usbVendorId: vid === undefined ? 0x303a : vid, usbProductId: pid === undefined ? 0x1001 : pid }) };
+}
+// The env of connectWithRetries: every makeLoader() is a new mock pair; `behave(tryNumber, port)`
+// gives the mock's options for that try; `ports()` is what getPorts() answers.
+function connectEnv(behave, ports) {
+  const env = { made: [], lines: [], sleeps: [], live: true, getPortsCalls: 0 };
+  env.makeLoader = (port) => {
+    const m = mock(behave(env.made.length + 1, port) || {});
+    m.port = port;
+    env.made.push(m);
+    return { transport: m.transport, loader: m.loader, trace: () => m.transport.traceLog };
+  };
+  env.getPorts = async () => {
+    ++env.getPortsCalls;
+    return ports ? ports() : env.made.length ? [env.made[env.made.length - 1].port] : [];
+  };
+  env.sleep = async (ms) => env.sleeps.push(ms);
+  env.log = (line) => env.lines.push(line);
+  env.isLive = () => env.live;
+  return env;
+}
+const failing = () => ({ mainFails: () => true });
+
+test("the tries are: without a reset, with the reset, without again", () => {
+  assert.deepEqual(lib.CONNECT_MODES, ["no_reset", "default_reset", "no_reset"]);
+  assert.equal(lib.CONNECT_RETRY_MS, 300);
+});
+
+test("connect: a reader already in download mode answers the first try and is never reset", async () => {
+  const port = fakePort();
+  const env = connectEnv(() => ({}));
+  const made = await lib.connectWithRetries(port, env);
+  assert.equal(env.made.length, 1);
+  assert.deepEqual(env.made[0].calls, [["main", "no_reset"]]);
+  assert.equal(made.mode, "no_reset");
+  assert.equal(made.tries, 1);
+  assert.equal(made.port, port);
+  assert.equal(made.loader, env.made[0].loader);
+  assert.equal(made.transport, env.made[0].transport);
+  assert.equal(made.device.chipName, "ESP32-S3");
+  assert.deepEqual(env.sleeps, []);
+  assert.equal(env.getPortsCalls, 0);
+  assert.match(env.lines[0], /try 1 of 3: mode no_reset, port 0x303a:0x1001/);
+});
+
+test("connect: running firmware fails the first try; the second resets it, with a new Transport and loader", async () => {
+  const port = fakePort();
+  const env = connectEnv((n) => (n === 1 ? { mainFails: () => true, trace: "TRACE 3.000 readLoop exited\n" } : {}));
+  const made = await lib.connectWithRetries(port, env);
+  assert.equal(env.made.length, 2);
+  assert.notEqual(env.made[0].loader, env.made[1].loader);
+  assert.notEqual(env.made[0].transport, env.made[1].transport);
+  // The first pair is closed before the next try, and the wait is between them.
+  assert.deepEqual(env.made[0].calls, [["main", "no_reset"], ["disconnect"]]);
+  assert.deepEqual(env.made[1].calls, [["main", "default_reset"]]);
+  assert.deepEqual(env.sleeps, [300]);
+  assert.equal(made.mode, "default_reset");
+  assert.equal(made.tries, 2);
+  assert.equal(made.loader, env.made[1].loader);
+  const log = env.lines.join("\n");
+  assert.match(log, /try 1 failed \(no_reset\): Failed to connect with the device; port.readable is there/);
+  assert.match(log, /transport trace of try 1:\nTRACE 3\.000 readLoop exited/);
+  assert.match(log, /try 2 of 3: mode default_reset/);
+});
+
+test("connect: three failures give the last error, after no_reset, default_reset, no_reset", async () => {
+  const env = connectEnv(() => ({ mainFails: () => true, disconnectFails: true }));
+  let error = null;
+  try {
+    await lib.connectWithRetries(fakePort(), env);
+  } catch (caught) {
+    error = caught;
+  }
+  assert.match(error.message, /Failed to connect with the device/);
+  assert.equal(error.tries, 3);
+  assert.equal(error.portChanged, undefined);
+  assert.deepEqual(env.made.map((m) => m.calls[0]), [["main", "no_reset"], ["main", "default_reset"], ["main", "no_reset"]]);
+  assert.equal(new Set(env.made.map((m) => m.transport)).size, 3);
+  for (const m of env.made) assert.deepEqual(m.calls[1], ["disconnect"]);
+  assert.deepEqual(env.sleeps, [300, 300]);
+});
+
+test("connect: a port that was lost is found again among the allowed ports, without a click", async () => {
+  const first = fakePort();
+  const again = fakePort(); // the same reader after it came back: a new port object
+  const stranger = fakePort(0x1001, 0x10c4); // another maker's device
+  const otherEspressif = fakePort(0x0002); // Espressif, but another product
+  const env = connectEnv(
+    (n, port) => {
+      if (n === 1) {
+        port.readable = null; // "The device has been lost"
+        return failing();
+      }
+      return {};
+    },
+    () => [stranger, otherEspressif, again]
+  );
+  const made = await lib.connectWithRetries(first, env);
+  assert.equal(made.port, again);
+  assert.equal(env.made[1].port, again);
+  assert.equal(made.mode, "default_reset");
+  const log = env.lines.join("\n");
+  assert.match(log, /try 1 failed \(no_reset\): .*port.readable is null/);
+  assert.match(log, /try 2: the port was found again among the allowed ports/);
+});
+
+test("connect: the same port object is kept when the browser still lists it", () => {
+  const port = fakePort();
+  const twin = fakePort();
+  assert.equal(lib.pickPort([twin, port], port, { usbProductId: 0x1001 }), port);
+  assert.equal(lib.pickPort([twin], port, { usbProductId: 0x1001 }), twin);
+  assert.equal(lib.pickPort([], port, { usbProductId: 0x1001 }), null);
+  assert.equal(lib.pickPort([twin, fakePort()], port, { usbProductId: 0x1001 }), null, "two candidates: none is picked by chance");
+  assert.equal(lib.pickPort([fakePort(0x1001, 0x1a86)], port, { usbProductId: 0x1001 }), null);
+  assert.equal(lib.pickPort([{ getInfo: () => { throw new Error("gone"); } }], port, { usbProductId: 0x1001 }), null);
+});
+
+test("connect: when the port cannot be found again, the user is asked to choose it", async () => {
+  for (const ports of [() => [], () => [fakePort(), fakePort()], () => [fakePort(0x1001, 0x10c4)]]) {
+    const env = connectEnv(failing, ports);
+    let error = null;
+    try {
+      await lib.connectWithRetries(fakePort(), env);
+    } catch (caught) {
+      error = caught;
+    }
+    assert.equal(error.message, "The reader restarted and its port changed. Press Connect and choose it again.");
+    assert.equal(error.message, lib.PORT_CHANGED);
+    assert.equal(error.portChanged, true);
+    assert.equal(env.made.length, 1, "no second try on a port nobody chose");
+  }
+});
+
+test("connect: a Connect that was overtaken stops and closes what it opened", async () => {
+  const env = connectEnv(failing);
+  env.sleep = async () => { env.live = false; };
+  await assert.rejects(lib.connectWithRetries(fakePort(), env), (error) => error.stale === true);
+  assert.equal(env.made.length, 1);
+  // Overtaken while the chip was answering: the pair is closed and not handed back.
+  const late = connectEnv(() => ({}));
+  const original = late.makeLoader;
+  late.makeLoader = (port) => {
+    const made = original(port);
+    late.live = false;
+    return made;
+  };
+  await assert.rejects(lib.connectWithRetries(fakePort(), late), (error) => error.stale === true);
+  assert.deepEqual(late.made[0].calls, [["main", "no_reset"], ["disconnect"]]);
+});
+
+// ---- after the reset ----
+
+function restartEnv(goneAfter, m) {
+  const env = { sleeps: 0 };
+  env.portGone = () => goneAfter !== null && env.sleeps >= goneAfter;
+  env.sync = () => m.loader.sync();
+  env.sleep = async (ms) => {
+    assert.equal(ms, 100);
+    ++env.sleeps;
+  };
+  return env;
+}
+
+test("restart: the port going away means restarted, and the loader is not asked", async () => {
+  const m = mock();
+  const env = restartEnv(3, m);
+  assert.equal(await lib.confirmRestart(env), "gone");
+  assert.equal(env.sleeps, 3);
+  assert.deepEqual(m.calls, []);
+});
+
+test("restart: the port stays but the loader is silent means restarted", async () => {
+  const m = mock({ syncFails: true });
+  const env = restartEnv(null, m);
+  assert.equal(await lib.confirmRestart(env), "silent");
+  assert.equal(env.sleeps, 10, "one second of waiting for the port first");
+  assert.deepEqual(m.calls, [["sync"]]);
+});
+
+test("restart: a loader that still answers is not called restarted", async () => {
+  const m = mock();
+  assert.equal(await lib.confirmRestart(restartEnv(null, m)), "answers");
+  assert.deepEqual(m.calls, [["sync"]]);
+});
+
+test("restart: the words for the user", () => {
+  const unsure = "Reset sent; the page cannot confirm the reader started: if the screen stays blank, unplug and replug it and press the power button.";
+  assert.equal(lib.restartText("cleared", "gone"), "Restarted.");
+  assert.equal(lib.restartText("cleared", "silent"), "Restarted.");
+  assert.equal(lib.restartText("skipped", "gone"), "Restarted.");
+  assert.equal(lib.restartText("cleared", "answers"), unsure);
+  assert.equal(lib.restartText("skipped", "answers"), unsure);
+  // The bit could not be cleared: never "Restarted", whatever was seen after.
+  for (const seen of ["gone", "silent", "answers"]) {
+    const words = lib.restartText("failed", seen);
+    assert.ok(words.includes("the reader may re-enter download mode; unplug it and power it on with the power button"), seen);
+    assert.equal(words.includes("Restarted"), false);
+  }
+});
+
 // ---- the page's state ----
 
 const MINE = "aa:bb:cc:dd:ee:ff";
@@ -839,13 +1060,16 @@ test("backup.html calls no loader method the real library lacks", () => {
   const transportUsed = new Set();
   for (const match of page.matchAll(/\b(?:transport|c\.transport|conn\.transport)\.([A-Za-z_]+)/g)) transportUsed.add(match[1]);
   // disconnect() is Transport's own (lib/webserial.js); the page closes the port with it.
-  for (const name of transportUsed) assert.ok(["setDTR", "setRTS", "disconnect"].includes(name), "backup.html uses transport." + name);
+  for (const name of transportUsed) assert.ok(REAL_API.transport.includes(name), "backup.html uses transport." + name);
+  assert.equal(/BOOTLOADER/.test(page), false);
   assert.equal(page.includes("writeRegister"), false);
 });
 
 test("backup.html says what a failed bit clear means, and that a write cannot be stopped", () => {
   const page = squash(pageText());
-  assert.ok(page.includes("the reader may re-enter download mode; unplug it and power it on with the power button"));
+  assert.ok(page.includes("lib.restartText(bit, seen)"));
+  assert.ok(page.includes("lib.PORT_CHANGED"));
+  assert.ok(page.includes('id="copyLog"'));
   assert.ok(page.includes("A write cannot be stopped safely"));
   assert.ok(page.includes('id="abort"'));
   assert.ok(page.includes('id="agreeOther"'));

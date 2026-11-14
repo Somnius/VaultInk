@@ -282,8 +282,10 @@
 
   // What Connect shows: {chip, chipName, flashSize, mac, secureDownloadMode}. `loader` is a new
   // ESPLoader; main() resets the chip into the ROM loader, reads the chip and starts the stub.
-  async function identify(loader) {
-    const chip = await loader.main();
+  // `mode` is esptool-js's "before" mode: "no_reset" only tries to talk (a reader that is
+  // already in download mode is not reset), "default_reset" resets the chip into the loader first.
+  async function identify(loader, mode) {
+    const chip = await loader.main(mode || "default_reset");
     const secure = Boolean(loader.secureDownloadMode);
     return {
       chip: String(chip),
@@ -292,6 +294,131 @@
       mac: secure ? "" : String(await loader.chip.readMac(loader)),
       secureDownloadMode: secure,
     };
+  }
+
+  // The tries of one Connect, in order. First without a reset: a reader that is already in
+  // download mode answers, and is never reset out of it. Then with the reset, for a reader whose
+  // firmware is running. Then without again: the reset may have worked while the port was lost.
+  const CONNECT_MODES = ["no_reset", "default_reset", "no_reset"];
+  const CONNECT_RETRY_MS = 300;
+  const PORT_CHANGED = "The reader restarted and its port changed. Press Connect and choose it again.";
+
+  function portInfo(port) {
+    try {
+      const info = port.getInfo() || {};
+      return { usbVendorId: info.usbVendorId, usbProductId: info.usbProductId };
+    } catch (error) {
+      return {};
+    }
+  }
+  function hex4(value) {
+    return typeof value === "number" ? "0x" + value.toString(16).padStart(4, "0") : "?";
+  }
+
+  // The port to use for the next try, from the ports the browser already allows this page
+  // (navigator.serial.getPorts(), which needs no click): the same port when it is still there,
+  // else the one allowed Espressif port with the same product id. null when there is none, or
+  // more than one (the page will not pick a device by chance).
+  function pickPort(ports, port, wanted) {
+    if (ports.includes(port)) return port;
+    const same = ports.filter((candidate) => {
+      const info = portInfo(candidate);
+      return info.usbVendorId === USB_VENDOR_ESPRESSIF && info.usbProductId === wanted.usbProductId;
+    });
+    return same.length === 1 ? same[0] : null;
+  }
+
+  // Connects, with up to three tries (CONNECT_MODES). Every try has a new Transport and a new
+  // ESPLoader: esptool-js's read loop ends for good when the port fails, so an old pair cannot be
+  // used again. env:
+  //   makeLoader(port) -> {transport, loader, trace()}  a new pair for this port; trace() is the
+  //                                                     transport's trace text, for the log
+  //   getPorts()       -> the ports this page is allowed (navigator.serial.getPorts())
+  //   sleep(ms), log(line), isLive() (false = this Connect was overtaken: stop quietly)
+  // Returns {port, transport, loader, device, mode, tries}. Throws the last try's error, with
+  // .tries; .portChanged is true (and the message is PORT_CHANGED) when the port went away and
+  // could not be found again without asking the user; .stale is true when isLive() said no.
+  async function connectWithRetries(port, env) {
+    const wanted = portInfo(port);
+    let current = port;
+    let lastError = null;
+    for (let i = 0; i < CONNECT_MODES.length; ++i) {
+      const mode = CONNECT_MODES[i];
+      if (i > 0) {
+        await env.sleep(CONNECT_RETRY_MS);
+        const next = pickPort(await env.getPorts(), current, wanted);
+        if (next === null) {
+          env.log("try " + (i + 1) + ": the port is gone and no single allowed port has the product id " + hex4(wanted.usbProductId));
+          const changed = new Error(PORT_CHANGED);
+          changed.portChanged = true;
+          changed.tries = i;
+          throw changed;
+        }
+        if (next !== current) env.log("try " + (i + 1) + ": the port was found again among the allowed ports");
+        current = next;
+      }
+      if (!env.isLive()) break;
+      const info = portInfo(current);
+      env.log("try " + (i + 1) + " of " + CONNECT_MODES.length + ": mode " + mode + ", port " + hex4(info.usbVendorId) + ":" + hex4(info.usbProductId));
+      let made = null;
+      try {
+        made = env.makeLoader(current);
+        const device = await identify(made.loader, mode);
+        if (!env.isLive()) {
+          try { await made.transport.disconnect(); } catch (error) { /* gone already */ }
+          break;
+        }
+        env.log("try " + (i + 1) + ": connected (" + mode + ")");
+        return { port: current, transport: made.transport, loader: made.loader, device: device, mode: mode, tries: i + 1 };
+      } catch (error) {
+        lastError = error;
+        env.log("try " + (i + 1) + " failed (" + mode + "): " + (error && error.message ? error.message : error) +
+          "; port.readable is " + (current.readable ? "there" : "null"));
+        if (made) {
+          const trace = made.trace ? String(made.trace() || "") : "";
+          if (trace) env.log("transport trace of try " + (i + 1) + ":\n" + trace.slice(-6000));
+          try { await made.transport.disconnect(); } catch (closeError) { /* not open, or gone */ }
+        }
+      }
+    }
+    if (!env.isLive()) {
+      const stale = new Error("This Connect was overtaken.");
+      stale.stale = true;
+      throw stale;
+    }
+    const failed = lastError instanceof Error ? lastError : new Error(String(lastError));
+    failed.tries = CONNECT_MODES.length;
+    throw failed;
+  }
+
+  // After the reset was sent: did the reader really leave download mode? env: portGone() (the
+  // browser reported the port's disconnect), sync() (loader.sync(): rejects when nothing
+  // answers), sleep(ms). "gone": the port went away. "silent": the port is there but the loader
+  // no longer answers. Both mean the chip restarted. "answers": the loader is still there, so the
+  // page cannot say the reader started.
+  async function confirmRestart(env) {
+    for (let waited = 0; waited < 1000; waited += 100) {
+      if (env.portGone()) return "gone";
+      await env.sleep(100);
+    }
+    if (env.portGone()) return "gone";
+    try {
+      await env.sync();
+    } catch (error) {
+      return env.portGone() ? "gone" : "silent";
+    }
+    return "answers";
+  }
+
+  // The line for the user after a restart. bit: resetToFirmware()'s; seen: confirmRestart()'s.
+  function restartText(bit, seen) {
+    if (bit === "failed") {
+      return "The reset was sent, but the page could not clear the download-mode flag first: the reader may " +
+        "re-enter download mode; unplug it and power it on with the power button.";
+    }
+    if (seen === "gone" || seen === "silent") return "Restarted.";
+    return "Reset sent; the page cannot confirm the reader started: if the screen stays blank, unplug and " +
+      "replug it and press the power button.";
   }
 
   // Stops the two watchdogs that would otherwise reset an ESP32-S3 in the middle of a long read
@@ -541,6 +668,13 @@
     sha256Hex: sha256Hex,
     md5Hex: md5Hex,
     identify: identify,
+    CONNECT_MODES: CONNECT_MODES,
+    CONNECT_RETRY_MS: CONNECT_RETRY_MS,
+    PORT_CHANGED: PORT_CHANGED,
+    pickPort: pickPort,
+    connectWithRetries: connectWithRetries,
+    confirmRestart: confirmRestart,
+    restartText: restartText,
     disableWatchdogs: disableWatchdogs,
     readFlash: readFlash,
     writeOptions: writeOptions,

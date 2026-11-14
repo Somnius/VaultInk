@@ -191,9 +191,11 @@
         is not part of it.</p>
       <div class="notice" role="note">
         <strong>Experimental: not tested on a real reader yet.</strong> The page's logic is tested on a
-        computer with a simulated reader. Reading a backup, writing one back and the restart after it
-        have not been tried on an X4 Pro. If you try it, please
-        <a href="https://github.com/Somnius/VaultInk/issues">tell us what happened</a>.
+        computer with a simulated reader. No backup has been read from an X4 Pro with it yet: the first
+        try on a real reader stopped at Connect ("Failed to connect with the device"), and we are still
+        finding out why. If you try it, please
+        <a href="https://github.com/Somnius/VaultInk/issues">tell us what happened</a>, with the text
+        that <strong>Copy log</strong> at the end of the page gives.
       </div>
       <p><strong>Nothing is uploaded.</strong> The page talks to the reader over USB, inside your browser.
         The backup is a file you save on your own computer. The browser downloads one program from a public
@@ -216,8 +218,10 @@
       <div class="card">
         <h2>1. Connect</h2>
         <p class="muted sans">Use a USB-C data cable. Close other programs and tabs that use the port
-          (a serial monitor, the install page, the debug page). Connecting restarts the reader into its
-          download mode; if that fails, see <a href="#download-mode">step 4</a>.</p>
+          (a serial monitor, the install page, the debug page). The page first tries to talk to a reader
+          that is already in download mode, without resetting it; if nothing answers, it restarts the
+          reader into download mode and tries again. If that fails, see
+          <a href="#download-mode">step 4</a>.</p>
         <div class="row">
           <button class="btn" id="connect" type="button" disabled>Connect</button>
           <button class="btn ghost" id="restart" type="button" disabled>Restart the reader</button>
@@ -322,10 +326,12 @@
   <section id="download-mode">
     <div class="wrap">
       <h2>4. Download mode on the X4 Pro</h2>
-      <p>The reader's chip has a small loader in its ROM that reads and writes the flash over USB. Connect
-        asks the chip to restart into it over the USB cable (the USB-JTAG-Serial reset of esptool-js).
-        We assume this works while VaultInk is running, and do not know whether it works from the stock
-        firmware; it is <strong>not tested on a real reader yet</strong>. If Connect fails, put the reader into that mode
+        <p>The reader's chip has a small loader in its ROM that reads and writes the flash over USB. Connect
+        makes up to three tries: first it only talks, so a reader that is already in download mode is not
+        reset out of it; then it asks the chip to restart into the loader over the USB cable (the
+        USB-JTAG-Serial reset of esptool-js); then it talks once more. If the reader's USB port goes away
+        and comes back in between, the page finds it again by itself when the browser allows it.
+        None of this has worked on a real reader yet. If Connect fails, put the reader into that mode
         by hand, the same way as for installing, then press Connect again:</p>
       <ol class="steps">
         <li>
@@ -341,7 +347,9 @@
         <li>
           <h3>Press Connect on this page</h3>
           <p>Choose the reader in the browser's list. When you are done, press <strong>Restart the
-            reader</strong>; if the reader does not start, restart it with Power.</p>
+            reader</strong>. The page says "Restarted" only when it saw the reader leave download mode;
+            otherwise it says that it cannot confirm it: if the screen stays blank, unplug and replug the
+            reader and press the power button.</p>
         </li>
       </ol>
       <details>
@@ -382,7 +390,13 @@
         <li><strong>Memory.</strong> A backup needs about twice its size (32 MB) in the tab for a
           moment, and a restore the file plus its compressed copy.</li>
       </ul>
-      <h3>Messages from the loader</h3>
+      <h3 id="log-title">Messages from the loader</h3>
+      <p class="sans muted">What the page and esptool-js did, with times. If something fails, this is what
+        helps us find out why. It has the reader's MAC address in it and nothing else of yours.</p>
+      <div class="row">
+        <button class="btn ghost" id="copyLog" type="button">Copy log</button>
+        <span class="sans muted" id="copyLogNote" role="status"></span>
+      </div>
       <pre id="log" tabindex="0" aria-label="Messages from esptool-js"></pre>
     </div>
   </section>
@@ -419,6 +433,7 @@
   let downloadUrl = null;
   let abortRead = false;
   let leaving = false; // the page itself is restarting the reader: its port going away is expected
+  let goneWhileLeaving = false; // ... and it did go away
   let state = lib.initialState("serial" in navigator);
 
   function text(value) {
@@ -433,10 +448,19 @@
   function logLine(line) {
     const log = $("log");
     log.textContent += line;
-    if (log.textContent.length > 60000) log.textContent = log.textContent.slice(-40000);
+    if (log.textContent.length > 300000) log.textContent = log.textContent.slice(-200000);
     log.scrollTop = log.scrollHeight;
   }
-  function pageLine(line) { logLine("[page] " + line + "\n"); }
+  const pageStart = performance.now();
+  // "[page +12.345 s] ...": seconds since the page was opened.
+  function pageLine(line) { logLine("[page +" + ((performance.now() - pageStart) / 1000).toFixed(3) + " s] " + line + "\n"); }
+  function portText(port) {
+    try {
+      return JSON.stringify(port.getInfo());
+    } catch (error) {
+      return "getInfo() failed: " + message(error);
+    }
+  }
   // What esptool-js prints goes to the box at the end of the page.
   const terminal = {
     clean: function () {},
@@ -553,31 +577,51 @@
     }
     if (!live()) return;
     setState("Connecting…");
-    let c = null;
-    let device;
+    pageLine("connect: the chosen port is " + portText(chosen));
+    let made;
     try {
-      const transport = new mod.Transport(chosen, false);
-      c = { port: chosen, transport: transport, loader: new mod.ESPLoader({ transport: transport, baudrate: BAUD, terminal: terminal }), device: null };
-      conn = c;
-      device = await lib.identify(c.loader);
+      made = await lib.connectWithRetries(chosen, {
+        // A new Transport and ESPLoader for every try, with the library's trace and debug lines on.
+        makeLoader: (port) => {
+          const opened = performance.now();
+          const transport = new mod.Transport(port, true);
+          transport.setDeviceLostCallback(() => {
+            pageLine("the transport reports the device lost, " + Math.round(performance.now() - opened) + " ms after it was made");
+          });
+          const loader = new mod.ESPLoader({ transport: transport, baudrate: BAUD, terminal: terminal, debugLogging: true });
+          conn = { port: port, transport: transport, loader: loader, device: null };
+          return { transport: transport, loader: loader, trace: () => transport.traceLog };
+        },
+        getPorts: () => navigator.serial.getPorts(),
+        sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+        log: pageLine,
+        isLive: live,
+      });
     } catch (error) {
+      if (!live() || (error && error.stale)) return;
       pageLine("connect failed: " + message(error));
-      if (c) {
-        try { await c.transport.disconnect(); } catch (closeError) { /* not open */ }
-      }
-      if (!live()) return;
       conn = null;
       apply({ type: "idle" });
       setState("Not connected");
-      showError("<strong>The reader did not answer in download mode.</strong> Put it into boot mode by hand " +
-        "(<a href=\"#download-mode\">step 4</a>) and press Connect again. Also close other programs and tabs " +
-        "that use the port. The loader said: " + text(message(error)));
+      if (error && error.portChanged) {
+        showError("<strong>" + text(lib.PORT_CHANGED) + "</strong>");
+      } else {
+        showError("<strong>The reader did not answer in download mode.</strong> The page tried " +
+          lib.CONNECT_MODES.length + " times, without and with a reset. Put the reader into boot mode by hand " +
+          "(<a href=\"#download-mode\">step 4</a>) and press Connect again. Also close other programs and tabs " +
+          "that use the port. The loader said: " + text(message(error)) + " The box <a href=\"#log\">Messages " +
+          "from the loader</a> has the details; <strong>Copy log</strong> copies them for a report.");
+      }
       return;
     }
-    if (!live() || conn !== c) {
-      try { await c.transport.disconnect(); } catch (closeError) { /* gone already */ }
-      return;
-    }
+    // The long reads and writes would fill the log and the memory with every byte: quiet now.
+    made.transport.tracing = false;
+    made.transport.traceLog = "";
+    made.loader.debugLogging = false;
+    const c = { port: made.port, transport: made.transport, loader: made.loader, device: null };
+    conn = c;
+    const device = made.device;
+    pageLine("connected on try " + made.tries + " (" + made.mode + ")");
     c.device = device;
     $("devChip").textContent = device.chip;
     $("devFlash").textContent = device.flashSize || "unknown";
@@ -601,15 +645,14 @@
     }
   });
 
-  const MANUAL_START = "the reader may re-enter download mode; unplug it and power it on with the power button";
-
   // Leaves download mode and closes the port: of the connection `c` it is given, never of a
-  // newer one. Returns "cleared" or "skipped" (restarted), "failed" (the reset was sent but the
-  // download-mode bit is still set), "error" (no reset was sent) or "stale".
+  // newer one. Returns the line for the user (lib.restartText), null when no reset could be
+  // sent, or "stale".
   async function restartReader(c, mine) {
     const live = () => lib.isCurrent(state, mine) && conn === c;
     if (!live()) return "stale";
     leaving = true;
+    goneWhileLeaving = false;
     let bit;
     try {
       bit = (await lib.resetToFirmware(c.loader, c.transport)).bit;
@@ -617,20 +660,27 @@
       if (!live()) return "stale";
       pageLine("restart failed: " + message(error));
       await dropConnection("Not connected");
-      showError("<strong>The page could not restart the reader.</strong> Unplug it and power it on with the " +
+      showError("<strong>The page could not send the reset.</strong> Unplug the reader and power it on with the " +
         "power button. The browser said: " + text(message(error)));
-      return "error";
+      return null;
     }
     if (!live()) return "stale";
-    if (bit === "failed") {
-      pageLine("the download-mode bit could not be cleared; the reset pulse was sent anyway");
-      await dropConnection("Reset sent. Not connected");
-      showError("<strong>The page could not clear the download-mode flag before the reset</strong>, so " +
-        MANUAL_START + ". To connect again later, use the boot mode of <a href=\"#download-mode\">step 4</a>.");
-      return "failed";
+    // The port going away now is what a restart looks like.
+    const seen = await lib.confirmRestart({
+      portGone: () => goneWhileLeaving,
+      sync: () => c.loader.sync(),
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    });
+    if (!live()) return "stale";
+    const words = lib.restartText(bit, seen);
+    pageLine("restart: download-mode bit " + bit + ", after the reset: " + seen);
+    const restarted = bit !== "failed" && seen !== "answers";
+    await dropConnection(restarted ? "Restarted. Not connected" : "Reset sent. Not connected");
+    if (!restarted) {
+      showError("<strong>" + text(words) + "</strong> To connect again later, use the boot mode of " +
+        "<a href=\"#download-mode\">step 4</a>.");
     }
-    await dropConnection("Restarted. Not connected");
-    return bit;
+    return words;
   }
 
   $("restart").addEventListener("click", async () => {
@@ -643,16 +693,20 @@
   });
 
   if ("serial" in navigator) {
+    navigator.serial.addEventListener("connect", (event) => {
+      const came = event.target && typeof event.target.open === "function" ? event.target : event.port;
+      pageLine("serial event: connect " + (came ? portText(came) : ""));
+    });
     navigator.serial.addEventListener("disconnect", (event) => {
       const gone = event.target && typeof event.target.open === "function" ? event.target : event.port;
-      if (!conn || gone !== conn.port || leaving) return;
-      if (!conn.device) {
-        // Still connecting: the chip is being reset into download mode. Whether its port goes
-        // away for a moment then is not known yet, so only write it down; if the port is really
-        // gone, the connect fails by itself.
-        pageLine("the port reported a disconnect while connecting");
+      pageLine("serial event: disconnect " + (gone ? portText(gone) : "") + (conn && gone === conn.port ? " (the port in use)" : ""));
+      if (!conn || gone !== conn.port) return;
+      if (leaving) {
+        goneWhileLeaving = true;
         return;
       }
+      // While connecting, the tries of connectWithRetries deal with a lost port themselves.
+      if (!conn.device) return;
       const wasBusy = state.busy;
       dropConnection("Not connected").then(() => {
         if (wasBusy) {
@@ -662,6 +716,15 @@
       });
     });
   }
+
+  $("copyLog").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText($("log").textContent);
+      $("copyLogNote").textContent = "Copied.";
+    } catch (error) {
+      $("copyLogNote").textContent = "The browser did not allow the copy: select the text in the box and copy it.";
+    }
+  });
 
   // ---- 2. read ----
 
@@ -814,9 +877,8 @@
     $("writeText").textContent = "Written and checked. Restarting the reader…";
     const outcome = await restartReader(c, mine);
     if (outcome === "stale") return;
-    $("writeText").textContent = outcome === "cleared" || outcome === "skipped"
-      ? "Written and checked. A reset was sent; if the reader's screen does not change, restart it with Power."
-      : "Written and checked, but the reader was not restarted cleanly: " + MANUAL_START + ".";
+    $("writeText").textContent = "Written and checked. " +
+      (outcome === null ? "The reset could not be sent: unplug the reader and power it on with the power button." : outcome);
   });
 
   window.addEventListener("beforeunload", (event) => {

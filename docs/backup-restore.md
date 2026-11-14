@@ -8,9 +8,9 @@ and writes such a file back: <https://somnius.github.io/VaultInk/backup.html>
 of it.
 
 **Experimental: not tested on a real reader yet.** The page's logic is tested on a computer with a
-simulated reader (`node test/backup_test.js`), and the page was opened in a desktop browser without
-a reader. Reading a backup, writing one back, the restart after it and the automatic download mode
-have not been tried on an X4 Pro. [What is not checked yet](#what-is-not-checked-yet) lists it.
+simulated reader (`node test/backup_test.js`). On a real X4 Pro it has not got past Connect yet
+(see [What is known from a real reader](#what-is-known-from-a-real-reader)), so no backup has been
+read or written with it. [What is not checked yet](#what-is-not-checked-yet) lists the rest.
 
 **Nothing is uploaded.** The page talks to the reader inside your browser, and the backup is a file
 you save yourself. When you press Connect the browser downloads one library from the public
@@ -35,12 +35,24 @@ project can offer.
 ## 1. Connect
 
 Press **Connect** and choose the reader in the browser's list (the list shows only devices with
-Espressif's USB vendor id, 0x303a). The page restarts the chip into its download mode, and shows
-the chip, the flash size and the MAC address.
+Espressif's USB vendor id, 0x303a). When the chip answers, the page shows the chip, the flash size
+and the MAC address.
 
-The page tries to enter download mode by itself, with the USB reset of esptool-js. We assume that
-works while VaultInk is running and do not know whether it works from the stock firmware; neither
-is tested. If Connect fails, put the reader into boot mode by hand, as for installing:
+One Connect makes up to three tries, each with a new connection to the port, 300 ms apart:
+
+1. **Without a reset** (`no_reset`): the page only talks. A reader that is already in download mode
+   answers, and is not reset out of it.
+2. **With the reset** (`default_reset`): the page asks the chip to restart into the loader over the
+   cable (the USB-JTAG-Serial reset of esptool-js). This is for a reader whose firmware is running.
+3. **Without a reset again**: for the case where the reset worked but the port was lost meanwhile.
+
+If the reader's USB port goes away and comes back between two tries, the page looks for it among
+the ports the browser already allows this page, and goes on without a new click when exactly one
+allowed port has the same USB ids. When it cannot find it, it says "The reader restarted and its
+port changed. Press Connect and choose it again."
+
+None of the three tries has connected to a real reader yet. If Connect fails, put the reader into
+boot mode by hand, as for installing:
 
 1. With the reader switched off, press and hold **Power**, then also press and hold **both
    page-turn buttons**, and keep holding them.
@@ -50,9 +62,31 @@ is tested. If Connect fails, put the reader into boot mode by hand, as for insta
 After connecting, the page switches off the chip's two watchdogs (see [Watchdogs](#watchdogs)).
 
 While connected the reader stays in download mode and its screen does not change. **Restart the
-reader** leaves that mode and disconnects. If the reader does not start, restart it with Power.
-If the page says it could not clear the download-mode flag, the reader may re-enter download mode:
-unplug it and power it on with the power button.
+reader** sends a reset and disconnects. The page then says one of three things:
+
+- **Restarted**: it saw the reader's port go away, or the loader stopped answering.
+- **Reset sent; the page cannot confirm the reader started**: the loader still answered after the
+  reset. If the screen stays blank, unplug and replug the reader and press the power button.
+- That it **could not clear the download-mode flag**: the reader may re-enter download mode; unplug
+  it and power it on with the power button.
+
+### The log
+
+The box **Messages from the loader** at the end of the page shows what the page and esptool-js did,
+with times: each try and its mode, the port's USB ids, whether the port was still readable after a
+failure, esptool-js's own debug and trace lines while connecting, and the browser's serial connect
+and disconnect events. **Copy log** copies it. It has the reader's MAC address in it and nothing
+else of yours; it is what to send when Connect fails.
+
+## What is known from a real reader
+
+One attempt so far, on an X4 Pro that was already in download mode (Espressif's own `esptool.py`
+connected to it fine in that state). The page, in the version before this one, answered "Failed
+to connect with the device". The browser's console showed that the read from the port ended with
+"The device has been lost" almost at once. **Why the port is lost is not known yet.** That version
+always reset the chip first and used one connection
+for all its attempts; the three tries above and the log were added to find the cause, and have not
+been run on the reader yet.
 
 ## 2. Read the flash (backup)
 
@@ -150,10 +184,10 @@ Whether the sequence has the intended effect on the X4 Pro is not tested.
 
 Nothing here has run on a real reader. To check on an X4 Pro:
 
-- Connect from running VaultInk, and from the stock firmware, without the buttons. Also whether the
-  port reports a disconnect while the chip restarts into download mode (the page writes that into
-  its message box and goes on).
-- Connect after entering boot mode with the buttons.
+- Connect at all: from a reader already in download mode (the case that failed), from running
+  VaultInk, and from the stock firmware. The log says which try connected, and whether the port
+  reported a disconnect on the way.
+- That the page says "Restarted" when the reader really started, and not otherwise.
 - The watchdog step: that it reports "done", and that a long read is not cut by a restart.
 - A full read: that it finishes with every block checked, how long it takes, and that two reads
   give the same SHA-256 (where the reader was not started in between).
