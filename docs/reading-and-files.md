@@ -454,6 +454,12 @@ Since 0.44.0 the home also has a **Favourites** row (after Vaults), which opens 
 Favourites tab. **Settings → Display → Home Screen Items** has a switch for each row: untick the
 ones you don't want on the home (kos25k #14). Books and Settings always stay.
 
+With every row switched on (10 with Random page) the tiles get shorter and closer together so that
+all of them fit under the Continue card. If that is still not enough, Books and Vaults drop to the
+same text size and icon as the other tiles, and after that the small status line under each name is
+left out. A tile is never shorter than 44 px. On a screen turned sideways 10 rows can still be more
+than fits: hide a few there.
+
 ## Battery page (0.44.0)
 
 **Settings → System → Battery** shows what the battery chip reports: the charge, the voltage,

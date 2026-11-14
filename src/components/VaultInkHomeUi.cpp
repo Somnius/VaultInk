@@ -17,6 +17,7 @@
 #include "icons/listIcons.h"
 #include "icons/search32.h"
 #include "util/BookProgress.h"
+#include "util/HomeRowLayout.h"
 #include "util/HomeRowOrder.h"
 
 namespace fui = freeink::ui;
@@ -24,10 +25,9 @@ namespace {
 constexpr fui::ActionId SELECT = 1;
 constexpr fui::ActionId CARD_INFO = 2;  // long press on the Continue card: book info (kos25k #15)
 constexpr int16_t CARD_COVER_HEIGHT = 132;
-constexpr int16_t ROW_ICON_SIZE = 32;
-constexpr int16_t STAR_STRIP = 30;       // the favourites star at the right of the Continue Reading card
-constexpr int16_t BOOKS_ICON_SIZE = 48;  // the Books tile's icon, bigger than the others (kos25k #14)
-constexpr int ROW_HEIGHT = 68;           // every home tile has this height
+constexpr int16_t ROW_ICON_SIZE = homelayout::ICON_SIZE;
+constexpr int16_t STAR_STRIP = 30;  // the favourites star at the right of the Continue Reading card
+constexpr int16_t BOOKS_ICON_SIZE = homelayout::BOOKS_ICON_SIZE;
 // Focus outline for button navigation: thick enough to find at a glance, white inside so a
 // move repaints only the two rows involved and leaves no large black area to ghost.
 constexpr uint8_t FOCUS_BORDER = 4;
@@ -300,6 +300,12 @@ void VaultInkHomeUi::setCounts(const int books, const int vaults) {
 
 void VaultInkHomeUi::drawRows(UiScreen& screen) {
   const auto& theme = screen.theme();
+  // Row height, gap and how much each tile shows, so that every row fits under the card (util/HomeRowLayout.h).
+  auto& target = screen.target();
+  const homelayout::Layout layout = homelayout::compute(
+      std::max<int>(0, screen.body().height), rowCount,
+      homelayout::Fonts{target.lineHeight(theme.titleText.font), target.lineHeight(theme.bodyText.font),
+                        target.lineHeight(theme.smallText.font)});
   for (int i = 0; i < rowCount; ++i) {
     fui::ListItem& item = items[i];
     item = fui::ListItem{};
@@ -308,8 +314,9 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
       case Row::Books:
         item.label = tr(STR_HOME_BOOKS);
         item.subtitle = booksText[0] ? booksText : tr(STR_HOME_BOOKS_DESC);
-        item.icon = i == 0 ? fui::bitmapFromIcon(icon_book_open_48)
-                           : fui::bitmapFromIcon(icon_book_open_32);  // the first list is Books alone, at 48
+        // The first list is Books alone, at 48 while the rows are tall enough for it.
+        item.icon = i == 0 && layout.bigPrimary ? fui::bitmapFromIcon(icon_book_open_48)
+                                                : fui::bitmapFromIcon(icon_book_open_32);
         break;
       case Row::Vaults:
         item.label = tr(STR_VAULTS);
@@ -357,29 +364,25 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
         item.icon = fui::bitmapFromIcon(icon_bookmark_32);
         break;
     }
+    if (!layout.subtitles) item.subtitle = nullptr;  // too many rows for a status line each
   }
   // Books and Vaults (always rows 0 and 1) are the main destinations: a black outline. The rest share a
   // lighter list below. Every tile is the same height with the same gap (kos25k #14); Books has a bigger icon.
   const int primaryCount = std::min(rowCount, 2);
-  const bool compact = rowCount > 9;
-  const int rowGap = compact ? 3 : 8;
-  const int full = rowCount * (ROW_HEIGHT + rowGap);
-  const int scale = std::min(100, std::max<int>(1, screen.body().height) * 100 / std::max(1, full));
   const auto drawList = [&](const int first, const int count, const bool primary, const int16_t iconSize) {
+    if (count <= 0) return;
     fui::ListProps props;
     props.items = items.data() + first;
     props.count = static_cast<uint16_t>(count);
     props.selectedIndex = static_cast<int16_t>(selected - cardCount() - first);
     props.action = SELECT;
     props.inputMask = fui::InputTouch;  // buttons are handled by HomeActivity::loop()
-    props.labelText = primary ? theme.titleText : theme.bodyText;
+    props.labelText = primary && layout.bigPrimary ? theme.titleText : theme.bodyText;
     props.labelText.bold = true;
     props.subtitleText = theme.smallText;
     props.iconSize = iconSize;
-    // Full size in portrait; on a short (landscape) screen the rows shrink to fit, down to the
-    // touch minimum the list enforces itself.
-    props.rowHeight = static_cast<int16_t>(ROW_HEIGHT * scale / 100);
-    props.rowGap = static_cast<int16_t>(rowGap);
+    props.rowHeight = static_cast<int16_t>(layout.rowHeight);
+    props.rowGap = static_cast<int16_t>(layout.rowGap);
     props.rowRadius = 10;
     props.rowInset = 0;
     props.sidePadding = 16;
@@ -394,10 +397,11 @@ void VaultInkHomeUi::drawRows(UiScreen& screen) {
     props.rowStyles.selected.border = fui::Paint::solid(fui::Color::Black);
     props.rowStyles.selected.borderWidth = FOCUS_BORDER;
     props.rowStyles.active = props.rowStyles.selected;
-    const int16_t height = static_cast<int16_t>(count * (props.rowHeight + props.rowGap));
-    screen.list(props, height);
+    // The gap after the last row of all is not needed, and would push it out of a tight fit.
+    const int height = homelayout::listHeight(layout, count) + (first + count < rowCount ? layout.rowGap : 0);
+    screen.list(props, static_cast<int16_t>(height));
   };
-  if (primaryCount > 0) drawList(0, 1, true, BOOKS_ICON_SIZE);
+  if (primaryCount > 0) drawList(0, 1, true, layout.bigPrimary ? BOOKS_ICON_SIZE : ROW_ICON_SIZE);
   if (primaryCount > 1) drawList(1, 1, true, ROW_ICON_SIZE);
   drawList(primaryCount, rowCount - primaryCount, false, ROW_ICON_SIZE);
 }
