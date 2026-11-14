@@ -7,8 +7,9 @@
 
 #include "activities/UiListActivity.h"
 
-// Search across every vault: brings each vault's index up to date (with a progress popup), asks
-// for the words with the on-screen keyboard, lists the matching notes and opens the picked one.
+// Search across every vault: asks for the words with the on-screen keyboard, brings each vault's
+// index up to date (a walk of its folders when nothing changed; a progress popup when notes are
+// read again), lists the matching notes and opens the picked one.
 // Given a note path instead, lists the notes in its vault that link to it (backlinks).
 class VaultSearchActivity final : public UiListActivity {
  public:
@@ -47,6 +48,8 @@ class VaultSearchActivity final : public UiListActivity {
   std::string backlinksOf;
   bool indexed = false;
   bool askPending = true;
+  bool searchPending = false;  // `pendingQuery` runs from the next loop()
+  std::string pendingQuery;
   std::string initialQuery;
   std::string query;
   std::string queryLabel;

@@ -35,20 +35,30 @@ void VaultSearchActivity::onEnter() {
 }
 
 void VaultSearchActivity::loop() {
-  // The index update and the keyboard run from the loop, after the screen exists.
-  if (!indexed) {
+  // Backlinks need the index at once. Search asks for the words first, so the keyboard is there
+  // right away; the index is brought up to date when the words are in, just before the search.
+  if (backlinkMode() && !indexed) {
     indexed = true;
     updateIndexes();
-    if (backlinkMode()) findBacklinks();
+    findBacklinks();
   }
   if (askPending) {
     askPending = false;
-    if (!initialQuery.empty()) {
-      runSearch(initialQuery);
-      initialQuery.clear();
-    } else {
+    if (initialQuery.empty()) {
       askForQuery();
+      return;
     }
+    pendingQuery = std::move(initialQuery);
+    initialQuery.clear();
+    searchPending = true;
+  }
+  if (searchPending) {
+    searchPending = false;
+    if (!indexed) {
+      indexed = true;
+      updateIndexes();
+    }
+    runSearch(pendingQuery);
     return;
   }
   UiListActivity::loop();
@@ -67,11 +77,13 @@ void VaultSearchActivity::updateIndexes() {
   bool shown = false;
   for (size_t v = 0; v < vaults.size(); ++v) {
     vaultindex::BuildStats stats;
+    const unsigned long started = millis();
     const bool ok = vaultindex::build(
         vaults[v].path, vaultfiles::indexPathFor(vaults[v].path), fs, &stats, [&](size_t done, size_t total) {
           delay(1);                // big vaults take a while; let the other tasks run
           if (total == 0) return;  // still checking which notes changed
-          // Only notes that changed are read, so the popup shows only when there is work.
+          // The popup shows only when the index is written again (a note was added, changed or
+          // removed); only those notes are read.
           if (!shown) {
             RenderLock lock;
             popup = GUI.drawPopup(renderer, tr(STR_UPDATING_SEARCH));
@@ -82,8 +94,12 @@ void VaultSearchActivity::updateIndexes() {
             GUI.fillPopupProgress(renderer, popup, static_cast<int>((v * 100 + done * 100 / total) / vaults.size()));
           }
         });
-    LOG_DBG("VLT", "Index %s: %s, %u notes, %u read", vaults[v].name.c_str(), ok ? "ok" : "FAILED",
-            static_cast<unsigned>(stats.notes), static_cast<unsigned>(stats.rescanned));
+    LOG_DBG("VLT", "Index %s: %s, %u notes, %u read, %s, %lu ms", vaults[v].name.c_str(), ok ? "ok" : "FAILED",
+            static_cast<unsigned>(stats.notes), static_cast<unsigned>(stats.rescanned),
+            stats.unchanged   ? "unchanged"
+            : stats.rewritten ? "rewritten"
+                              : "checked",
+            millis() - started);
   }
 }
 
@@ -98,7 +114,9 @@ void VaultSearchActivity::askForQuery() {
       if (query.empty()) finish();  // nothing searched yet: leave
       return;
     }
-    runSearch(std::get<KeyboardResult>(result.data).text);
+    // Run from loop(): the index update may draw its progress popup.
+    pendingQuery = std::get<KeyboardResult>(result.data).text;
+    searchPending = true;
   });
 }
 

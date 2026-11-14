@@ -3,6 +3,7 @@
 #include <HalStorage.h>
 
 #include <algorithm>
+#include <cstring>
 
 namespace vaultsd {
 namespace {
@@ -17,6 +18,10 @@ struct Writer {
   std::string tmp;
 };
 Writer writer;
+
+uint64_t stampOf(HalFile& file) {
+  return (static_cast<uint64_t>(file.modificationTime()) << 32) | static_cast<uint32_t>(file.fileSize()) | 1u << 31;
+}
 
 }  // namespace
 
@@ -35,7 +40,18 @@ vaultindex::IndexFs fs() {
   fs.stamp = [](const std::string& path) -> uint64_t {
     HalFile file;
     if (!Storage.openFileForRead("VLT", path, file)) return 0;
-    return (static_cast<uint64_t>(file.modificationTime()) << 32) | static_cast<uint32_t>(file.fileSize()) | 1u << 31;
+    return stampOf(file);
+  };
+  // The same stamp from the file the folder walk has open already: no second open by path.
+  fs.listStamped = [](const std::string& dir, const std::function<void(const std::string&, bool, uint64_t)>& entry) {
+    HalFile root = Storage.open(dir.c_str());
+    if (!root || !root.isDirectory()) return;
+    char name[NAME_LEN];
+    for (auto file = root.openNextFile(); file; file = root.openNextFile()) {
+      file.getName(name, sizeof(name));
+      const bool isDir = file.isDirectory();
+      entry(name, isDir, isDir ? 0 : stampOf(file));
+    }
   };
   // The first `cap` bytes; empty notes are fine (they are still found by title).
   fs.read = [](const std::string& path, const size_t cap, std::string& out) {
@@ -51,16 +67,20 @@ vaultindex::IndexFs fs() {
     HalFile file;
     if (!Storage.exists(path.c_str()) || !Storage.openFileForRead("VLT", path, file)) return false;
     std::string current;
-    uint8_t buf[1024];
+    char buf[1024];
     int n = 0;
     while ((n = file.read(buf, sizeof(buf))) > 0) {
-      for (int i = 0; i < n; ++i) {
-        if (buf[i] == '\n') {
-          if (!line(current)) return true;
-          current.clear();
-        } else if (current.size() < LINE_CAP) {
-          current += static_cast<char>(buf[i]);
+      // Whole runs up to the next line end are added at once, not byte by byte.
+      for (int i = 0; i < n;) {
+        const char* end = static_cast<const char*>(memchr(buf + i, '\n', n - i));
+        const int stop = end ? static_cast<int>(end - buf) : n;
+        if (current.size() < LINE_CAP) {
+          current.append(buf + i, std::min<size_t>(stop - i, LINE_CAP - current.size()));
         }
+        if (!end) break;
+        if (!line(current)) return true;
+        current.clear();
+        i = stop + 1;
       }
     }
     if (!current.empty()) line(current);

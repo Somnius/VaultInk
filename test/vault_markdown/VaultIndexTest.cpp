@@ -4,6 +4,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "VaultIndex.h"
 
@@ -15,6 +16,11 @@ struct MemFs {
   std::set<std::string> dirs;
   std::map<std::string, int> edits;
   std::string pendingPath, pending;
+  // What a build cost: files opened by path for their stamp, notes read, files written.
+  int stamps = 0, reads = 0;
+  std::vector<std::string> written;
+  std::set<std::string> unreadable;
+  bool stampedListing = false;  // fs() also offers listStamped, like the SD card does
 
   vaultindex::IndexFs fs() {
     vaultindex::IndexFs out;
@@ -30,10 +36,20 @@ struct MemFs {
     };
     // Stamp: size plus an edit counter standing in for the modification time.
     out.stamp = [this](const std::string& p) -> uint64_t {
-      return files.count(p) ? (static_cast<uint64_t>(edits[p]) << 32) | (files[p].size() + 1) : 0;
+      ++stamps;
+      return stampOf(p);
     };
+    if (stampedListing) {
+      out.listStamped = [this, list = out.list](const std::string& dir,
+                                                const std::function<void(const std::string&, bool, uint64_t)>& entry) {
+        list(dir, [&](const std::string& name, const bool isDir) {
+          entry(name, isDir, isDir ? 0 : stampOf((dir == "/" ? "" : dir) + "/" + name));
+        });
+      };
+    }
     out.read = [this](const std::string& p, size_t cap, std::string& o) {
-      if (!files.count(p)) return false;
+      ++reads;
+      if (!files.count(p) || unreadable.count(p)) return false;
       o = files[p].substr(0, cap);
       return true;
     };
@@ -60,9 +76,17 @@ struct MemFs {
     };
     out.commit = [this](bool keep) {
       if (keep) files[pendingPath] = pending;
+      if (keep) written.push_back(pendingPath);
       return true;
     };
     return out;
+  }
+  uint64_t stampOf(const std::string& p) {
+    return files.count(p) ? (static_cast<uint64_t>(edits[p]) << 32) | (files[p].size() + 1) : 0;
+  }
+  void resetCost() {
+    stamps = reads = 0;
+    written.clear();
   }
 };
 
@@ -277,4 +301,219 @@ TEST(VaultIndex, HeadingsRoundTrip) {
   ASSERT_TRUE(vaultindex::fromLine(vaultindex::toLine(n), back));
   EXPECT_EQ(back.headings, n.headings);
   EXPECT_EQ(back.terms, n.terms);
+}
+
+// The measured case: Search opened on a vault where nothing changed. No note is read and nothing
+// is written; with stamps from the folder listing no note is opened by path either.
+TEST(VaultIndex, UnchangedVaultIsOnlyWalked) {
+  auto m = demo();
+  m.stampedListing = true;
+  vaultindex::BuildStats stats;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_TRUE(stats.rewritten);
+  EXPECT_FALSE(stats.unchanged);
+  EXPECT_EQ(m.stamps, 0);
+  EXPECT_TRUE(m.files.count(vaultindex::statePathFor("/V")));
+  const std::string before = m.files[INDEX];
+
+  m.resetCost();
+  int updates = 0;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats, [&](size_t, size_t total) { updates += total > 0; }));
+  EXPECT_TRUE(stats.unchanged);
+  EXPECT_FALSE(stats.rewritten);
+  EXPECT_EQ(stats.notes, 3u);
+  EXPECT_EQ(stats.rescanned, 0u);
+  EXPECT_EQ(m.stamps, 0);
+  EXPECT_EQ(m.reads, 0);
+  EXPECT_TRUE(m.written.empty());
+  EXPECT_EQ(updates, 0);  // no popup
+  EXPECT_EQ(m.files[INDEX], before);
+}
+
+// Without stamps in the listing (the host fake's default) the result is the same.
+TEST(VaultIndex, UnchangedVaultWithoutStampedListing) {
+  auto m = demo();
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  m.resetCost();
+  vaultindex::BuildStats stats;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_TRUE(stats.unchanged);
+  EXPECT_EQ(m.reads, 0);
+  EXPECT_TRUE(m.written.empty());
+}
+
+// Every kind of change gets past the fingerprint.
+TEST(VaultIndex, FingerprintCatchesEveryChange) {
+  auto m = demo();
+  m.stampedListing = true;
+  vaultindex::BuildStats stats;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  auto rebuild = [&] {
+    m.resetCost();
+    EXPECT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  };
+
+  m.files["/V/Books/Shopping.md"] = "milk, bread, eggs and coffee";  // a note grew
+  rebuild();
+  EXPECT_FALSE(stats.unchanged);
+  EXPECT_EQ(stats.rescanned, 1u);
+  EXPECT_EQ(m.reads, 1);
+  EXPECT_EQ(vaultindex::search(INDEX, "coffee", m.fs()).size(), 1u);
+
+  m.files["/V/Books/Shopping.md"] = "milk, bread, eggs and toffee";  // same length, newer time
+  ++m.edits["/V/Books/Shopping.md"];
+  rebuild();
+  EXPECT_EQ(stats.rescanned, 1u);
+  EXPECT_EQ(vaultindex::search(INDEX, "toffee", m.fs()).size(), 1u);
+  EXPECT_TRUE(vaultindex::search(INDEX, "coffee", m.fs()).empty());
+
+  m.files["/V/New.md"] = "brand new";  // a note appeared
+  rebuild();
+  EXPECT_EQ(stats.rescanned, 1u);
+  EXPECT_EQ(vaultindex::search(INDEX, "brand", m.fs()).size(), 1u);
+
+  m.files.erase("/V/New.md");  // and went: nothing to read, but its line must go
+  rebuild();
+  EXPECT_FALSE(stats.unchanged);
+  EXPECT_TRUE(stats.rewritten);
+  EXPECT_EQ(stats.rescanned, 0u);
+  EXPECT_EQ(m.reads, 0);
+  EXPECT_TRUE(vaultindex::search(INDEX, "brand", m.fs()).empty());
+
+  m.files["/V/Moved.md"] = m.files["/V/Welcome.md"];  // renamed
+  m.files.erase("/V/Welcome.md");
+  rebuild();
+  EXPECT_EQ(stats.rescanned, 1u);
+  const auto hits = vaultindex::search(INDEX, "guide", m.fs());
+  ASSERT_EQ(hits.size(), 1u);
+  EXPECT_EQ(hits[0].path, "/V/Moved.md");
+
+  rebuild();  // and then it is quiet again
+  EXPECT_TRUE(stats.unchanged);
+}
+
+// A picture added to the vault changes the file list but no note: the index file is left alone.
+TEST(VaultIndex, OtherFilesRefreshOnlyTheFileList) {
+  auto m = demo();
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  m.files["/V/Books/cover.png"] = "png";
+  m.resetCost();
+  vaultindex::BuildStats stats;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_FALSE(stats.unchanged);
+  EXPECT_FALSE(stats.rewritten);
+  EXPECT_EQ(m.reads, 0);
+  EXPECT_EQ(m.written, (std::vector<std::string>{vaultindex::fileListPathFor("/V"), vaultindex::statePathFor("/V")}));
+  EXPECT_NE(m.files[vaultindex::fileListPathFor("/V")].find("/V/Books/cover.png\n"), std::string::npos);
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_TRUE(stats.unchanged);
+}
+
+// The fingerprint is trusted only while the files it stands for are there and whole.
+TEST(VaultIndex, MissingPiecesAreRebuilt) {
+  auto m = demo();
+  vaultindex::BuildStats stats;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+
+  m.files.erase(vaultindex::fileListPathFor("/V"));  // dropped when a note is made or renamed on the device
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_FALSE(stats.unchanged);
+  EXPECT_FALSE(stats.rewritten);
+  EXPECT_TRUE(m.files.count(vaultindex::fileListPathFor("/V")));
+
+  m.files.erase(INDEX);  // Settings: rebuild the search index
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_EQ(stats.rescanned, 3u);
+
+  m.files[INDEX] = "vaultink-index 0\n";  // an older firmware's index
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_EQ(stats.rescanned, 3u);
+  EXPECT_EQ(vaultindex::search(INDEX, "milk", m.fs()).size(), 1u);
+
+  // An index from before the state file existed: checked once, not read again, then quiet.
+  m.files.erase(vaultindex::statePathFor("/V"));
+  m.resetCost();
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_FALSE(stats.unchanged);
+  EXPECT_FALSE(stats.rewritten);
+  EXPECT_EQ(m.reads, 0);
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_TRUE(stats.unchanged);
+}
+
+// A note that couldn't be read is tried again by every build until it works.
+TEST(VaultIndex, UnreadNoteIsRetried) {
+  auto m = demo();
+  m.unreadable.insert("/V/Books/Shopping.md");
+  vaultindex::BuildStats stats;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_EQ(stats.rescanned, 2u);
+  EXPECT_FALSE(m.files.count(vaultindex::statePathFor("/V")));
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_FALSE(stats.unchanged);
+  m.unreadable.clear();
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_EQ(stats.rescanned, 1u);
+  EXPECT_EQ(vaultindex::search(INDEX, "milk", m.fs()).size(), 1u);
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_TRUE(stats.unchanged);
+}
+
+// A damaged index (the same note twice, a line that isn't one) is written clean.
+TEST(VaultIndex, DamagedLinesAreDropped) {
+  auto m = demo();
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  const std::string good = m.files[INDEX];
+  const size_t firstNote = good.find('\n') + 1;
+  m.files[INDEX] = good + good.substr(firstNote, good.find('\n', firstNote) + 1 - firstNote) + "not a line\n";
+  m.files.erase(vaultindex::statePathFor("/V"));
+  vaultindex::BuildStats stats;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_TRUE(stats.rewritten);
+  EXPECT_EQ(stats.rescanned, 0u);
+  EXPECT_EQ(std::count(m.files[INDEX].begin(), m.files[INDEX].end(), '\n'), 4);  // header and 3 notes
+}
+
+// A made-up vault of 600 notes: an unchanged build walks it without reading or writing, and one
+// edited note is the only one read.
+TEST(VaultIndex, BigVaultStaysCheap) {
+  MemFs m;
+  m.stampedListing = true;
+  m.dirs = {"/V"};
+  for (int d = 0; d < 20; ++d) {
+    const std::string dir = "/V/Folder " + std::to_string(d);
+    m.dirs.insert(dir);
+    for (int n = 0; n < 30; ++n) {
+      m.files[dir + "/Note " + std::to_string(n) + ".md"] = "word" + std::to_string(d * 30 + n) + " shared text";
+    }
+  }
+  vaultindex::BuildStats stats;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_EQ(stats.rescanned, 600u);
+  m.resetCost();
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_TRUE(stats.unchanged);
+  EXPECT_EQ(m.stamps + m.reads, 0);
+  EXPECT_TRUE(m.written.empty());
+
+  m.files["/V/Folder 7/Note 3.md"] = "changed entirely";
+  m.resetCost();
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_EQ(stats.notes, 600u);
+  EXPECT_EQ(stats.rescanned, 1u);
+  EXPECT_EQ(m.reads, 1);
+  EXPECT_EQ(vaultindex::search(INDEX, "entirely", m.fs()).size(), 1u);
+  EXPECT_EQ(vaultindex::search(INDEX, "word599", m.fs()).size(), 1u);
+  EXPECT_TRUE(vaultindex::search(INDEX, "word213", m.fs()).empty());
+}
+
+// Terms stay unique and in first-seen order, and stop at the cap.
+TEST(VaultIndex, TermsAreUniqueInOrderAndCapped) {
+  const auto note = vaultindex::scanNote("/V/Zeta.md", "beta alpha beta gamma alpha zeta");
+  EXPECT_EQ(note.terms, (std::vector<std::string>{"zeta", "beta", "alpha", "gamma"}));
+  std::string big;
+  for (int i = 0; i < 4000; ++i) big += "w" + std::to_string(i % 3000) + " ";
+  const auto capped = vaultindex::scanNote("/V/Big.md", big);
+  EXPECT_EQ(capped.terms.size(), vaultindex::MAX_TERMS_PER_NOTE);
+  EXPECT_EQ(std::set<std::string>(capped.terms.begin(), capped.terms.end()).size(), capped.terms.size());
 }

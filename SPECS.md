@@ -274,10 +274,23 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   note's folder. Case and accents are ignored (search folding, Greek too); `.md` in any case.
   Links take at most half of an index line.
 - File list (0.9.1): `files.txt` next to `index.tsv`, every file path in the vault (dot folders
-  skipped, up to 20,000), rewritten with each index update. Links, images and note embeds with a
+  skipped, up to 20,000), rewritten whenever the vault's listing changed. Links, images and note embeds with a
   bare name look it up there first (same order as the scan: fewest folders deep, then shortest
   path); the SD scan runs only when there is no list yet or the listed file is gone (renamed, or
   added since the list was written). Settings → Vaults → Rebuild Search Index deletes both files.
+- Update cost (after 0.74.0): `state.txt` next to `index.tsv` holds one line: a 64-bit fingerprint
+  (FNV-1a) of every file path in the vault plus each note's stamp, and the note count. An update
+  first walks the vault's folders once; stamps come from the folder entries, so no note is opened.
+  Same fingerprint, a current `index.tsv` header and a `files.txt`: nothing else is read or
+  written. Otherwise the old index is checked line by line (path and stamp only); it is written
+  again only when a note was added, changed or removed, and only those notes are read; then
+  `files.txt` and `state.txt` are written. `state.txt` is written last and not at all when a note
+  couldn't be read, so a cut-short update is redone. The walk keeps the note paths in one block
+  of memory and a note's words are deduplicated without a heap node per word (both were small
+  allocations, which stay in the internal heap). Search shows the keyboard first and updates the
+  indexes when the words are in. On the device, before this, opening Search on an unchanged
+  284-note vault took about 10 s and the internal heap fell to 604 bytes free; the new cost is
+  not measured on a device yet.
 - Headings (0.47.0, index version 4): up to 64 heading texts per note (`#` to `######` followed by a
   space, outside code fences, trailing `#`s dropped), a field before the words, within 3/4 of the
   line. A search hit gets the first heading holding every query word (prefix match), unless the

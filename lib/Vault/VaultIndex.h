@@ -11,7 +11,9 @@
 
 // The vault's search index: one text line per note, kept outside the vault on the SD card. Built
 // incrementally (a note whose size didn't change keeps its line) and searched by streaming the
-// file line by line, so memory stays bounded. File access goes through callbacks for host tests.
+// file line by line, so memory stays bounded. A small state file next to it holds a fingerprint
+// of the vault's folder listing: while that matches, build() only walks the folders and touches
+// neither the index nor the notes. File access goes through callbacks for host tests.
 namespace vaultindex {
 
 constexpr const char* INDEX_VERSION = "vaultink-index 5";  // 3: outgoing links, 4: headings, 5: block ids
@@ -38,6 +40,11 @@ struct Note {
 struct IndexFs : vaultlink::Fs {
   // Changes whenever the file does (size and modification time); 0 when it can't be read.
   std::function<uint64_t(const std::string& path)> stamp;
+  // Optional: `list` with each file's stamp taken from the folder entry, so build() doesn't open
+  // every note by path. The stamps must equal what `stamp` returns. Without it, `stamp` is used.
+  std::function<void(const std::string& dir,
+                     const std::function<void(const std::string& name, bool isDir, uint64_t stamp)>& entry)>
+      listStamped;
   // Reads up to `cap` bytes of a file into `out`.
   std::function<bool(const std::string& path, size_t cap, std::string& out)> read;
   // Streams the lines of a file (without '\n') to `line`; stops when it returns false.
@@ -53,6 +60,11 @@ struct IndexFs : vaultlink::Fs {
 // files.txt lists every file in the vault (one path per line) for vaultlink's `known` lookup.
 std::string indexPathFor(const std::string& root);
 std::string fileListPathFor(const std::string& root);
+// state.txt next to them: one line with the fingerprint of the folder listing the index and the
+// file list were last brought up to date with.
+std::string statePathFor(const std::string& root);
+constexpr const char* STATE_VERSION = "vaultink-state 1";
+constexpr size_t MAX_INDEXED_NOTES = 5000;
 constexpr size_t MAX_LISTED_FILES = 20000;
 
 // Parses a note's text (frontmatter aliases/tags, inline #tags, words).
@@ -68,10 +80,16 @@ std::vector<std::string> listNotes(const std::string& root, const IndexFs& fs, s
 struct BuildStats {
   size_t notes = 0;
   size_t rescanned = 0;
+  bool unchanged = false;  // the folder listing matched the state file: nothing was read or written
+  bool rewritten = false;  // index.tsv was written again
 };
 // Brings the index at `indexPath` up to date with the vault at `root`, and rewrites the file list
-// next to it (fileListPathFor). `progress(done, total)`
-// may be null; it is also called every few notes while checking, so a device can yield.
+// next to it (fileListPathFor) and the state file (statePathFor).
+// - Nothing changed since the last build (same files, sizes and times): one walk of the folders.
+// - Otherwise the old index is checked against the listing; it is written again only when a note
+//   was added, changed or removed, and only those notes are read.
+// `progress(done, total)` may be null. It is called with total 0 every few files while checking,
+// so a device can yield, and with total > 0 once the index is being written.
 bool build(const std::string& root, const std::string& indexPath, const IndexFs& fs, BuildStats* stats = nullptr,
            const std::function<void(size_t done, size_t total)>& progress = nullptr);
 

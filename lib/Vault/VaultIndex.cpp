@@ -4,8 +4,6 @@
 #include <cctype>
 #include <deque>
 #include <functional>
-#include <map>
-#include <set>
 
 #include "TextFold.h"
 
@@ -81,8 +79,8 @@ std::string join(const std::string& dir, const std::string& name) {
 bool startsWith(std::string_view s, std::string_view p) { return s.substr(0, p.size()) == p; }
 
 // Every file under `root` (dot folders skipped), breadth-first, for vaultlink's `known` lookup.
-void writeFileList(const std::string& root, const IndexFs& fs, const std::function<void(size_t, size_t)>& progress) {
-  if (!fs.begin(fileListPathFor(root))) return;
+bool writeFileList(const std::string& root, const IndexFs& fs, const std::function<void(size_t, size_t)>& progress) {
+  if (!fs.begin(fileListPathFor(root))) return false;
   bool ok = true;
   size_t listed = 0;
   std::deque<std::string> dirs{root};
@@ -94,13 +92,124 @@ void writeFileList(const std::string& root, const IndexFs& fs, const std::functi
       if (isDir) {
         dirs.push_back(join(dir, name));
       } else {
-        ok = fs.append(join(dir, name) + "\n");
+        ok = fs.append(join(dir, name)) && fs.append("\n");
         ++listed;
         if (progress && listed % 64 == 0) progress(0, 0);
       }
     });
   }
-  fs.commit(ok);
+  return fs.commit(ok) && ok;
+}
+
+// The vault's folders as build() sees them: the notes with their stamps, and a fingerprint of
+// every file path plus the notes' stamps. The paths sit in one block of memory, not one
+// allocation each, so a big vault doesn't use up the small-allocation heap.
+struct Listing {
+  struct Entry {
+    uint32_t offset;
+    uint32_t length;
+    uint64_t stamp;
+    bool kept;
+  };
+  std::string paths;
+  std::vector<Entry> notes;                       // in walk order: shortest paths first
+  std::vector<uint32_t> order;                    // indexes into `notes`, sorted by path
+  uint64_t fingerprint = 1469598103934665603ull;  // FNV-1a
+  bool stamped = true;                            // false when a note's stamp couldn't be read
+
+  std::string_view path(const Entry& e) const { return std::string_view(paths).substr(e.offset, e.length); }
+
+  void mix(std::string_view bytes) {
+    for (const char c : bytes) fingerprint = (fingerprint ^ static_cast<uint8_t>(c)) * 1099511628211ull;
+  }
+  void mix(uint64_t value) {
+    for (int i = 0; i < 8; ++i, value >>= 8) fingerprint = (fingerprint ^ (value & 0xff)) * 1099511628211ull;
+  }
+
+  Entry* find(std::string_view p) {
+    const auto it = std::lower_bound(order.begin(), order.end(), p,
+                                     [&](const uint32_t i, std::string_view key) { return path(notes[i]) < key; });
+    return it != order.end() && path(notes[*it]) == p ? &notes[*it] : nullptr;
+  }
+};
+
+Listing walk(const std::string& root, const IndexFs& fs, const std::function<void(size_t, size_t)>& progress) {
+  Listing out;
+  size_t files = 0;
+  std::deque<std::string> dirs{root};
+  while (!dirs.empty() && files < MAX_LISTED_FILES) {
+    const std::string dir = dirs.front();
+    dirs.pop_front();
+    const auto entry = [&](const std::string& name, const bool isDir, const uint64_t* known) {
+      if (name.empty() || name[0] == '.' || files >= MAX_LISTED_FILES) return;
+      if (isDir) {
+        dirs.push_back(join(dir, name));
+        return;
+      }
+      ++files;
+      if (progress && files % 64 == 0) progress(0, 0);
+      const std::string path = join(dir, name);
+      out.mix(path);
+      out.mix(uint64_t{0xffff});  // ends the path, so "a" + "bc" differs from "ab" + "c"
+      if (!isMarkdown(name)) return;
+      const uint64_t stamp = known ? *known : fs.stamp(path);
+      if (stamp == 0) out.stamped = false;
+      out.mix(stamp);
+      if (out.notes.size() >= MAX_INDEXED_NOTES) return;
+      out.notes.push_back({static_cast<uint32_t>(out.paths.size()), static_cast<uint32_t>(path.size()), stamp, false});
+      out.paths += path;
+    };
+    if (fs.listStamped) {
+      fs.listStamped(
+          dir, [&](const std::string& name, const bool isDir, const uint64_t stamp) { entry(name, isDir, &stamp); });
+    } else {
+      fs.list(dir, [&](const std::string& name, const bool isDir) { entry(name, isDir, nullptr); });
+    }
+  }
+  out.order.resize(out.notes.size());
+  for (uint32_t i = 0; i < out.order.size(); ++i) out.order[i] = i;
+  std::sort(out.order.begin(), out.order.end(),
+            [&](const uint32_t a, const uint32_t b) { return out.path(out.notes[a]) < out.path(out.notes[b]); });
+  return out;
+}
+
+std::string stateLine(const Listing& listing) {
+  return std::string(STATE_VERSION) + FIELD + std::to_string(listing.fingerprint) + FIELD +
+         std::to_string(listing.notes.size());
+}
+
+// The first line of a file; false when the file is missing or empty.
+bool firstLine(const std::string& path, const IndexFs& fs, std::string& out) {
+  bool got = false;
+  fs.lines(path, [&](std::string_view line) {
+    out.assign(line);
+    got = true;
+    return false;
+  });
+  return got;
+}
+
+// "path<TAB>stamp<TAB>..." of an index line.
+bool pathAndStamp(std::string_view line, std::string_view& path, uint64_t& stamp) {
+  const size_t tab1 = line.find(FIELD);
+  const size_t tab2 = tab1 == std::string_view::npos ? tab1 : line.find(FIELD, tab1 + 1);
+  if (tab2 == std::string_view::npos || tab2 == tab1 + 1) return false;
+  path = line.substr(0, tab1);
+  stamp = 0;
+  for (const char c : line.substr(tab1 + 1, tab2 - tab1 - 1)) {
+    if (c < '0' || c > '9') return false;
+    stamp = stamp * 10 + static_cast<uint64_t>(c - '0');
+  }
+  return true;
+}
+
+// The note an index line is still good for: listed, same stamp, and not taken by an earlier line.
+Listing::Entry* keeps(Listing& listing, std::string_view line) {
+  std::string_view path;
+  uint64_t stamp = 0;
+  if (!pathAndStamp(line, path, stamp)) return nullptr;
+  Listing::Entry* note = listing.find(path);
+  return note && !note->kept && note->stamp != 0 && note->stamp == stamp ? note : nullptr;
 }
 
 }  // namespace
@@ -112,6 +221,11 @@ std::string indexPathFor(const std::string& root) {
 std::string fileListPathFor(const std::string& root) {
   std::string path = indexPathFor(root);
   return path.substr(0, path.find_last_of('/')) + "/files.txt";
+}
+
+std::string statePathFor(const std::string& root) {
+  std::string path = indexPathFor(root);
+  return path.substr(0, path.find_last_of('/')) + "/state.txt";
 }
 
 Note scanNote(const std::string& path, std::string_view text) {
@@ -250,11 +364,18 @@ Note scanNote(const std::string& path, std::string_view text) {
     if (!headingText.empty()) note.headings.emplace_back(headingText);
   }
 
-  std::set<std::string> seen;
+  // Which terms are in already: their indexes sorted by word, in one small block (a std::set
+  // of strings took a heap node per word).
+  std::vector<uint16_t> seen;
+  seen.reserve(MAX_TERMS_PER_NOTE);
   auto addTerms = [&](std::string_view s, const size_t minLength = 2) {
     for (auto& w : textfold::words(s, minLength)) {
       if (note.terms.size() >= MAX_TERMS_PER_NOTE) return;
-      if (seen.insert(w).second) note.terms.push_back(std::move(w));
+      const auto at = std::lower_bound(seen.begin(), seen.end(), w,
+                                       [&](const uint16_t i, const std::string& key) { return note.terms[i] < key; });
+      if (at != seen.end() && note.terms[*at] == w) continue;
+      seen.insert(at, static_cast<uint16_t>(note.terms.size()));
+      note.terms.push_back(std::move(w));
     }
   };
   addTerms(note.title);
@@ -343,74 +464,97 @@ std::vector<std::string> listNotes(const std::string& root, const IndexFs& fs, c
 
 bool build(const std::string& root, const std::string& indexPath, const IndexFs& fs, BuildStats* stats,
            const std::function<void(size_t, size_t)>& progress) {
-  // Pass 1: which notes the old index has, at which size.
-  std::map<std::string, uint64_t> indexed;
-  bool header = true;
-  bool valid = false;
-  fs.lines(indexPath, [&](std::string_view line) {
-    if (header) {
-      header = false;
-      valid = line == INDEX_VERSION;
-      return valid;
-    }
-    const size_t tab1 = line.find(FIELD);
-    const size_t tab2 = tab1 == std::string_view::npos ? tab1 : line.find(FIELD, tab1 + 1);
-    if (tab2 != std::string_view::npos) {
-      indexed[std::string(line.substr(0, tab1))] =
-          std::strtoull(std::string(line.substr(tab1 + 1, tab2 - tab1 - 1)).c_str(), nullptr, 10);
-    }
-    return true;
-  });
-  if (!valid) indexed.clear();
+  if (stats) *stats = BuildStats{};
+  Listing listing = walk(root, fs, progress);
+  const size_t total = listing.notes.size();
+  const std::string state = stateLine(listing);
+  const std::string statePath = statePathFor(root);
+  if (stats) stats->notes = total;
 
-  const std::vector<std::string> notes = listNotes(root, fs);
-  std::map<std::string, uint64_t> stamps;
-  for (size_t i = 0; i < notes.size(); ++i) {
-    stamps[notes[i]] = fs.stamp(notes[i]);
-    if (progress && i % 32 == 31) progress(0, 0);  // lets a device yield on big vaults
+  // Nothing changed since the last complete build: the index and the file list are as they were.
+  std::string line;
+  const bool indexValid = firstLine(indexPath, fs, line) && line == INDEX_VERSION;
+  if (indexValid && listing.stamped && firstLine(statePath, fs, line) && line == state &&
+      fs.lines(fileListPathFor(root), [](std::string_view) { return false; })) {
+    if (stats) stats->unchanged = true;
+    return true;
   }
 
-  if (!fs.begin(indexPath)) return false;
-  bool ok = fs.append(std::string(INDEX_VERSION) + "\n");
-  std::set<std::string> kept;
-  // Pass 2: unchanged notes keep their old line.
-  if (!indexed.empty()) {
-    header = true;
-    fs.lines(indexPath, [&](std::string_view line) {
+  // Which notes the old index has with the same stamp. A line for a note that is gone or changed,
+  // or a second line for the same note, means the index must be written again.
+  size_t kept = 0;
+  bool stale = !indexValid;
+  if (indexValid) {
+    bool header = true;
+    size_t seen = 0;
+    fs.lines(indexPath, [&](std::string_view l) {
       if (header) {
         header = false;
         return true;
       }
-      const std::string path(line.substr(0, line.find(FIELD)));
-      const auto old = indexed.find(path);
-      const auto now = stamps.find(path);
-      if (old != indexed.end() && now != stamps.end() && now->second != 0 && now->second == old->second &&
-          kept.insert(path).second) {
-        ok = ok && fs.append(std::string(line) + "\n");
+      if (progress && ++seen % 32 == 0) progress(0, 0);
+      if (Listing::Entry* note = keeps(listing, l)) {
+        note->kept = true;
+        ++kept;
+      } else {
+        stale = true;
       }
-      return ok;
+      return true;
     });
   }
-  // New and changed notes are read again.
-  size_t done = kept.size();
+
+  bool ok = true;
+  bool allRead = true;
   size_t rescanned = 0;
-  for (const auto& path : notes) {
-    if (!ok) break;
-    if (kept.count(path)) continue;
+  if (stale || kept != total) {
+    if (progress && total > 0) progress(kept, total);
+    if (!fs.begin(indexPath)) return false;
+    ok = fs.append(INDEX_VERSION) && fs.append("\n");
+    // Unchanged notes keep their old line.
+    if (kept > 0) {
+      for (auto& note : listing.notes) note.kept = false;
+      bool header = true;
+      fs.lines(indexPath, [&](std::string_view l) {
+        if (header) {
+          header = false;
+          return true;
+        }
+        if (Listing::Entry* note = keeps(listing, l)) {
+          note->kept = true;
+          ok = ok && fs.append(l) && fs.append("\n");
+        }
+        return ok;
+      });
+    }
+    // New and changed notes are read again.
+    size_t done = kept;
     std::string text;
-    if (!fs.read(path, MAX_NOTE_BYTES, text)) continue;
-    Note note = scanNote(path, text);
-    note.stamp = stamps[path];
-    ok = fs.append(toLine(note) + "\n");
-    ++rescanned;
-    if (progress) progress(++done, notes.size());
+    for (const auto& entry : listing.notes) {
+      if (!ok) break;
+      if (entry.kept) continue;
+      const std::string path(listing.path(entry));
+      if (!fs.read(path, MAX_NOTE_BYTES, text)) {
+        allRead = false;  // tried again by the next build
+        continue;
+      }
+      Note note = scanNote(path, text);
+      note.stamp = entry.stamp;
+      ok = fs.append(toLine(note)) && fs.append("\n");
+      ++rescanned;
+      if (progress) progress(++done, total);
+    }
+    if (!fs.commit(ok)) return false;
+    if (stats) {
+      stats->rewritten = ok;
+      stats->rescanned = rescanned;
+    }
   }
-  if (!fs.commit(ok)) return false;
   // A list that can't be written only costs speed: links fall back to scanning the folders.
-  writeFileList(root, fs, progress);
-  if (stats) {
-    stats->notes = notes.size();
-    stats->rescanned = rescanned;
+  const bool listed = writeFileList(root, fs, progress);
+  // The state is written last and only when all of the above is complete: a build that was cut
+  // short, or a note that couldn't be read, is tried again next time.
+  if (ok && listed && allRead && listing.stamped && fs.begin(statePath)) {
+    fs.commit(fs.append(state) && fs.append("\n"));
   }
   return ok;
 }

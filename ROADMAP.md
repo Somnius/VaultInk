@@ -168,7 +168,9 @@ and PBKDF2 timing, the hardware checklist. Reading statistics: ✅ 0.51.0 the fi
   images and note embeds are found from the index's file list, so they don't scan the SD card
   (the scan is the fallback for files added since the last index update). ✅ (0.47.0) Headings stored: a
   search match in a heading opens the note there. ✅ (0.53.0) Block ids `^id`: searching for one
-  opens the note at that block.
+  opens the note at that block. ✅ (after 0.74.0, host tests only, not yet timed on a device) An
+  unchanged vault costs one walk of its folders (a fingerprint in `state.txt`): no note is opened
+  and the index isn't rewritten; Search shows the keyboard first.
 * 🚧 Search: ✅ Search row on home, all vaults at once, Greek and accent folding, tags and aliases,
   exact words ranked first. ✅ Greek on-screen keyboard (with English, switched by the globe
   key; offered to the FreeInk SDK upstream). ✅ Backlinks: More → Backlinks in a note lists the
