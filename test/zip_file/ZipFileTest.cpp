@@ -354,4 +354,45 @@ TEST_F(ZipFileTest, RejectsArchivesWithoutAnEndOfCentralDirectoryRecord) {
   EXPECT_FALSE(tiny.getInflatedFileSize("anything", &size));
 }
 
+TEST_F(ZipFileTest, SignatureCheckTellsArchivesFromOtherBooksWithOneSmallRead) {
+  ZipBuilder builder;
+  builder.addStored("a.txt", "abcd");
+  install(builder);
+  EXPECT_TRUE(ZipFile::hasZipSignature(path));
+  ASSERT_EQ(HalFile::readOffsets.size(), 1u);  // the first bytes only, never the end-record scan
+  EXPECT_EQ(HalFile::readOffsets[0], 0u);
+
+  // A Mobipocket book: the PalmDB name, then BOOKMOBI at offset 60.
+  std::vector<uint8_t> mobi(128, 0);
+  std::memcpy(mobi.data(), "My_Book", 7);
+  std::memcpy(mobi.data() + 60, "BOOKMOBI", 8);
+  Storage.setFile(path, mobi);
+  EXPECT_FALSE(ZipFile::hasZipSignature(path));
+
+  const std::string fb2 = "<?xml version=\"1.0\"?><FictionBook>";
+  Storage.setFile(path, std::vector<uint8_t>(fb2.begin(), fb2.end()));
+  EXPECT_FALSE(ZipFile::hasZipSignature(path));
+
+  Storage.setFile(path, std::vector<uint8_t>{'P', 'K'});  // shorter than a signature
+  EXPECT_FALSE(ZipFile::hasZipSignature(path));
+  Storage.setFile(path, std::vector<uint8_t>{});
+  EXPECT_FALSE(ZipFile::hasZipSignature(path));
+  EXPECT_FALSE(ZipFile::hasZipSignature("/books/missing.epub"));
+}
+
+TEST(ZipSignature, AcceptsTheThreeArchiveStartsOnly) {
+  const uint8_t local[] = {'P', 'K', 0x03, 0x04};
+  const uint8_t empty[] = {'P', 'K', 0x05, 0x06};
+  const uint8_t spanned[] = {'P', 'K', 0x07, 0x08};
+  const uint8_t central[] = {'P', 'K', 0x01, 0x02};  // a directory entry never starts a file
+  const uint8_t text[] = {'P', 'K', ' ', 'x'};
+  EXPECT_TRUE(ZipFile::isZipSignature(local, 4));
+  EXPECT_TRUE(ZipFile::isZipSignature(empty, 4));
+  EXPECT_TRUE(ZipFile::isZipSignature(spanned, 4));
+  EXPECT_FALSE(ZipFile::isZipSignature(central, 4));
+  EXPECT_FALSE(ZipFile::isZipSignature(text, 4));
+  EXPECT_FALSE(ZipFile::isZipSignature(local, 3));
+  EXPECT_FALSE(ZipFile::isZipSignature(nullptr, 4));
+}
+
 }  // namespace

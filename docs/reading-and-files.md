@@ -587,6 +587,10 @@ turn pages. Tap a picture for:
 
 The first time a page is shown its thumbnails are decoded, which takes a moment per picture; they
 are kept in `/.crosspoint/thumbs`, so the page comes back fast. Up to 2000 pictures are listed.
+After 0.74.0 the page appears at once with the thumbnails it already has and a named frame for the
+others, which then fill in (the screen follows about every two seconds). Interlaced PNGs and PNGs
+with 16 bits per channel, which used to stay an empty frame, are shown too; they take longer the
+first time. This is tried on a computer only, not yet on a device.
 
 At the top right (kos25k #8):
 

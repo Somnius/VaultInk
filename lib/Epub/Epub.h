@@ -69,7 +69,10 @@ class Epub {
   explicit Epub(std::string filepath, const std::string& cacheDir);
   ~Epub() = default;
   std::string& getBasePath() { return contentBasePath; }
-  bool load(bool buildIfMissing = true, bool skipLoadingCss = false);
+  // skipProtection: leave out the protected-content check (a scan of the archive's directory for
+  // META-INF/encryption.xml). Only for callers that read cached numbers (spine, sizes, progress) and
+  // never the book's content.
+  bool load(bool buildIfMissing = true, bool skipLoadingCss = false, bool skipProtection = false);
   bool loadMetadata(std::string& title, std::string& author);
   bool loadSyncMetadata(SyncMetadata& metadata);
   bool clearCache() const;

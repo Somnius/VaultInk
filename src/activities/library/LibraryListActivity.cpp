@@ -149,7 +149,14 @@ void LibraryListActivity::onEnter() {
   // Entered while Confirm was still held (typical when launched from the home
   // menu): ignore its release, or we would open whatever sits at row 0.
   lockNextConfirmRelease = mappedInput.isPressed(MappedInputManager::Button::Confirm);
+  deferPercents = true;  // list first, percents with the paint after it
   requestUpdate(true);
+}
+
+void LibraryListActivity::forgetPercents() {
+  percentCache.reset();
+  percentCacheSize = 0;
+  pathPercents.clear();
 }
 
 void LibraryListActivity::onExit() {
@@ -158,8 +165,7 @@ void LibraryListActivity::onExit() {
 }
 
 bool LibraryListActivity::rebuildIndex() {
-  percentCache.reset();  // the ordinals change with the index
-  percentCacheSize = 0;
+  forgetPercents();  // the ordinals change with the index
   library::BuildStats stats;
   const bool ok = library::buildLibraryIndex("/", stats, SETTINGS.libraryUseMetadata != 0);
   if (!ok) {
@@ -283,7 +289,8 @@ void LibraryListActivity::openBookAtEntry(const int entry) {
 // hold a file open at a time, and the reader is about to open files of its own.
 void LibraryListActivity::openBookByPath(const std::string& path) {
   app.clearTapFlash();
-  percentCache.reset();  // reading changes the percent
+  // Reading changes the percent. The by-path percents go with this screen: the reader replaces it.
+  percentCache.reset();
   percentCacheSize = 0;
   index.close();
   onSelectBook(path);
@@ -1015,6 +1022,10 @@ int LibraryListActivity::percentForRow(const uint16_t row) {
     if (percentCache) std::fill_n(percentCache.get(), percentCacheSize, int8_t{-2});
   }
   if (percentCache && ordinal < percentCacheSize && percentCache[ordinal] != -2) return percentCache[ordinal];
+  if (deferPercents) {
+    percentsSkipped = true;
+    return -1;
+  }
   library::ClixRecord record{};
   std::string path;
   int percent = -1;
@@ -1027,13 +1038,14 @@ int LibraryListActivity::percentForRow(const uint16_t row) {
 int LibraryListActivity::percentForEntry(const int entry) {
   if (favouritesTab()) {
     const auto& favs = FAVOURITES.getAll();
-    return entry >= 0 && entry < static_cast<int>(favs.size())
-               ? loadBookProgressQuick(favs[static_cast<size_t>(entry)].path)
-               : -1;
+    if (entry < 0 || entry >= static_cast<int>(favs.size())) return -1;
+    return pathPercents.get(favs[static_cast<size_t>(entry)].path, deferPercents, percentsSkipped,
+                            &loadBookProgressQuick);
   }
   if (entry < pinnedCount()) {
     const auto& books = RECENT_BOOKS.getBooks();
-    return entry >= 0 && pinnedStore[entry] < books.size() ? loadBookProgressQuick(books[pinnedStore[entry]].path) : -1;
+    if (entry < 0 || pinnedStore[entry] >= books.size()) return -1;
+    return pathPercents.get(books[pinnedStore[entry]].path, deferPercents, percentsSkipped, &loadBookProgressQuick);
   }
   return percentForRow(static_cast<uint16_t>(rowFor(entry)));
 }
@@ -1042,6 +1054,7 @@ int LibraryListActivity::percentForEntry(const int entry) {
 // Recent order among equals. Reads one file check per book that was never opened, the first time only.
 void LibraryListActivity::sortFilteredByPercent() {
   if (!filtered || filteredCount < 2) return;
+  deferPercents = false;  // the order needs every percent now
   GUI.drawPopup(renderer, tr(STR_LIBRARY_SORTING));
   const bool mostFirst = percentSort == 1;
   std::vector<std::pair<int8_t, uint16_t>> keyed;
@@ -1679,7 +1692,14 @@ void LibraryListActivity::drawHoldHelp() const {
 // included) whenever it is up, mirroring the FileBrowser pattern.
 void LibraryListActivity::render(RenderLock&& lock) {
   if (optionPopup.processRender(renderer, mappedInput)) return;
+  percentsSkipped = false;
   UiTabListActivity::render(std::move(lock));
+  if (deferPercents) {
+    // That was the quick first paint. Rows left without a percent get it with the next one, which
+    // reads those books' cached metadata while the list is already on screen.
+    deferPercents = false;
+    if (percentsSkipped) requestUpdate();
+  }
 }
 
 void LibraryListActivity::drawFooter() {

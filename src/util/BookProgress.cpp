@@ -27,7 +27,8 @@ int loadBookProgress(const std::string& path) {
       LOG_ERR("HOME", "OOM: progress metadata");
       return -1;
     }
-    if (!epub->load(false, true)) return -1;
+    // Cached numbers only: no CSS and no protected-content check, which would scan the archive's directory.
+    if (!epub->load(false, true, true)) return -1;
     HalFile file;
     if (!Storage.openFileForRead("HOME", epub->getCachePath() + "/progress.bin", file)) return -1;
     const int size = file.read(data, sizeof(data));

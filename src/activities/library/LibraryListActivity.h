@@ -11,6 +11,7 @@
 #include "activities/UiTabListActivity.h"
 #include "components/OptionPopup.h"
 #include "util/LibraryTabOrder.h"
+#include "util/PathPercentCache.h"
 
 // One Library screen: every indexed book on the card shown by recency, title,
 // or author. The Recent shelf orders by file modification time (when a book
@@ -217,6 +218,13 @@ class LibraryListActivity final : public UiTabListActivity {
   // Per index record (ordinal): -2 not read yet, -1 no percent, else 0..100. Dropped when a book is opened.
   std::unique_ptr<int8_t[]> percentCache;
   uint16_t percentCacheSize = 0;
+  // The same for the rows that have no index ordinal to key on: the pinned recents and the favourites.
+  PathPercentCache pathPercents;
+  // The first paint after entering draws the rows without the percents it does not know yet, so the
+  // list is on screen before any book's metadata is read; a second paint then fills them in.
+  bool deferPercents = false;
+  bool percentsSkipped = false;
+  void forgetPercents();
 
   // One start row per group. Grouping is only offered for the sorted <=512-book
   // index, so this fallible allocation is at most 1 KiB and is reused after its

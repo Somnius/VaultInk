@@ -124,6 +124,12 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   fourth tab lists it directly (not the library index). Toggles: reader menu (books only) and the
   Recent long-press popup. Rename/move (file browser, reader, web server) update the path; a
   delete removes the entry.
+- Library percents (after 0.74.0): the first paint after onEnter skips percents it does not have
+  (`deferPercents`), then asks for one more paint that loads them; pinned recents and favourites are
+  kept by path in `src/util/PathPercentCache.h` (index rows keep `percentCache`). `loadBookProgress`
+  calls `Epub::load(false, true, true)`: cached numbers only, no protected-content check.
+  `Epub::openProtection` asks `ZipFile::hasZipSignature` first, so single-file books never reach the
+  ZIP end-record scan.
 - Books only (0.35.0): `libraryBooksOnly` in settings.json. Drops `.md`/`.canvas` rows from the
   Library index lists and from the Recent pins (`pinnedStore` maps shown pins to store rows).
   Book info (`util/BookInfo`): title/author from the index, else recents, favourites, file name.
@@ -242,7 +248,10 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   caps the justify extra at half a space, else the line stays ragged). `src/util/ZipExtract`
   (`safeEntryPath`), `src/util/WhatsNew` (`APP_STATE.lastVersionRun`; CHANGELOG.md embedded as
   `src/util/ChangelogData.generated.h`), `src/activities/home/GalleryActivity` (thumbs as pixel
-  caches `/.crosspoint/thumbs/<hash>_<size>_<w>x<h>.pxc`), `src/util/FileOps` (copy, shared).
+  caches `/.crosspoint/thumbs/<hash>_<size>_<w>x<h>.pxc`; after 0.74.0 render() draws the cached
+  thumbs and frames, shows the page, then decodes the missing ones with a refresh every 2 s at most;
+  `PngToFramebufferConverter` falls back to `PngSlowDecoder` (Adam7 and 16-bit, a gray canvas of the
+  output size in PSRAM or heap, scanline up to 64 KB) when PNGdec's open() returns 5), `src/util/FileOps` (copy, shared).
 - File browser (0.20.0): Move/Copy through a folder-only picker, New folder, folder rename. A
   book's cache, bookmarks and clippings move with a file; a folder moves as one rename. Copy
   streams through `name.part` and removes it on a short write.

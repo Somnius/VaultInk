@@ -2,6 +2,7 @@
 
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalMemory.h>
 #include <HalStorage.h>
 #include <Logging.h>
 #include <Memory.h>
@@ -15,8 +16,17 @@
 #include "DirectPixelWriter.h"
 #include "DitherUtils.h"
 #include "PixelCache.h"
+#include "PngSlowDecoder.h"
 
 namespace {
+
+// What PNGdec's open() answers for an interlaced picture or one with 16 bits per channel
+// (PNG_UNSUPPORTED_FEATURE in PNGdec.h). Kept as a number because the simulator's stand-in PNGdec.h
+// has no such name: its decoder takes every PNG and never returns it.
+constexpr int PNGDEC_UNSUPPORTED_FEATURE = 5;
+#ifndef PNG_SUCCESS  // the real library declares its codes as an enum, the stand-in as macros
+static_assert(PNG_UNSUPPORTED_FEATURE == PNGDEC_UNSUPPORTED_FEATURE, "PNGdec changed its error codes");
+#endif
 
 // Context struct passed through PNGdec callbacks to avoid global mutable state.
 // The draw callback receives this via pDraw->pUser (set by png.decode()).
@@ -212,6 +222,8 @@ void convertLineToGray(const uint8_t* pPixels, uint8_t* grayLine, int width, int
   }
 }
 
+void renderGrayRows(PngContext* ctx, int firstDstY, int endDstY);
+
 int pngDrawCallback(PNGDRAW* pDraw) {
   PngContext* ctx = reinterpret_cast<PngContext*>(pDraw->pUser);
   if (!ctx || !ctx->config || !ctx->renderer || !ctx->grayLineBuffer) return 0;
@@ -244,6 +256,14 @@ int pngDrawCallback(PNGDRAW* pDraw) {
   convertLineToGray(pDraw->pPixels, ctx->grayLineBuffer, srcWidth, pDraw->iPixelType, pDraw->iBpp, pDraw->pPalette,
                     pDraw->iHasAlpha, transparentColor, ctx->alphaLineBuffer);
 
+  renderGrayRows(ctx, firstDstY, endDstY);
+  return 1;
+}
+
+// Draws output rows [firstDstY, endDstY) from the source row in ctx->grayLineBuffer (and
+// alphaLineBuffer): scaled across, dithered, written to the frame buffer and to the pixel cache.
+// Rows must come top to bottom, the cache streams to disk in that order.
+void renderGrayRows(PngContext* ctx, int firstDstY, int endDstY) {
   // Render scaled rows using Bresenham-style integer stepping (no floating-point division)
   int dstWidth = ctx->dstWidth;
   int outXBase = ctx->config->x;
@@ -306,73 +326,10 @@ int pngDrawCallback(PNGDRAW* pDraw) {
       }
     }
   }
-
-  return 1;
 }
 
-}  // namespace
-
-bool PngToFramebufferConverter::getDimensionsStatic(const std::string& imagePath, ImageDimensions& out) {
-  size_t freeHeap = ESP.getFreeHeap();
-  if (freeHeap < MIN_FREE_HEAP_FOR_PNG) {
-    LOG_ERR("PNG", "Not enough heap for PNG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_PNG);
-    return false;
-  }
-
-  std::unique_ptr<PNG> png(new (std::nothrow) PNG());
-  if (!png) {
-    LOG_ERR("PNG", "Failed to allocate PNG decoder for dimensions");
-    return false;
-  }
-
-  int rc = png->open(imagePath.c_str(), pngOpenWithHandle, pngCloseWithHandle, pngReadWithHandle, pngSeekWithHandle,
-                     nullptr);
-  const ScopedCleanup cleanup{[&png]() { png->close(); }};
-
-  if (rc != 0) {
-    LOG_ERR("PNG", "Failed to open PNG for dimensions: %d", rc);
-    return false;
-  }
-
-  return validateAndStoreDimensions(png->getWidth(), png->getHeight(), out, "PNG");
-}
-
-bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath, GfxRenderer& renderer,
-                                                    const RenderConfig& config) {
-  LOG_DBG("PNG", "Decoding PNG: %s", imagePath.c_str());
-
-  size_t freeHeap = ESP.getFreeHeap();
-  if (freeHeap < MIN_FREE_HEAP_FOR_PNG) {
-    LOG_ERR("PNG", "Not enough heap for PNG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_PNG);
-    return false;
-  }
-
-  // Heap-allocate PNG decoder (~42 KB) - freed at end of function
-  std::unique_ptr<PNG> png(new (std::nothrow) PNG());
-  if (!png) {
-    LOG_ERR("PNG", "Failed to allocate PNG decoder");
-    return false;
-  }
-
-  PngContext ctx;
-  ctx.decoder = png.get();
-  ctx.renderer = &renderer;
-  ctx.config = &config;
-  ctx.screenWidth = renderer.getScreenWidth();
-  ctx.screenHeight = renderer.getScreenHeight();
-
-  int rc = png->open(imagePath.c_str(), pngOpenWithHandle, pngCloseWithHandle, pngReadWithHandle, pngSeekWithHandle,
-                     pngDrawCallback);
-  const ScopedCleanup cleanup{[&png]() { png->close(); }};
-  if (rc != PNG_SUCCESS) {
-    LOG_ERR("PNG", "Failed to open PNG: %d", rc);
-    return false;
-  }
-
-  ImageDimensions sourceDimensions;
-  if (!validateAndStoreDimensions(png->getWidth(), png->getHeight(), sourceDimensions, "PNG")) return false;
-
-  // Calculate output dimensions
+// Source crop and output size for a picture of the given size: fills the scaling fields of ctx.
+bool planGeometry(PngContext& ctx, const RenderConfig& config, const ImageDimensions& sourceDimensions) {
   ctx.srcWidth = sourceDimensions.width;
   ctx.srcHeight = sourceDimensions.height;
   ctx.cropLeft = static_cast<int>(ctx.srcWidth * std::clamp(config.sourceCropX, 0.0f, 0.99f) / 2.0f);
@@ -405,6 +362,176 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
     ctx.dstHeight = (int)(ctx.visibleHeight * ctx.scale);
   }
   ctx.lastDstY = -1;  // Reset row tracking
+  return true;
+}
+
+int slowRead(void* user, uint8_t* dst, int len) { return static_cast<HalFile*>(user)->read(dst, len); }
+
+void slowTick(void* user) { ImageToFramebufferDecoder::yieldDuringDecode(*static_cast<uint32_t*>(user)); }
+
+// The file's signature and IHDR. False when it cannot be read or is not a PNG.
+bool readSlowHeader(const std::string& imagePath, pngslow::Header& header) {
+  HalFile file;
+  if (!Storage.openFileForRead("PNG", imagePath, file)) return false;
+  uint8_t head[pngslow::HEADER_BYTES];
+  const int got = file.read(head, sizeof(head));
+  file.close();
+  return got == static_cast<int>(sizeof(head)) && pngslow::parseHeader(head, sizeof(head), header);
+}
+
+}  // namespace
+
+bool PngToFramebufferConverter::getDimensionsStatic(const std::string& imagePath, ImageDimensions& out) {
+  size_t freeHeap = ESP.getFreeHeap();
+  if (freeHeap < MIN_FREE_HEAP_FOR_PNG) {
+    LOG_ERR("PNG", "Not enough heap for PNG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_PNG);
+    return false;
+  }
+
+  std::unique_ptr<PNG> png(new (std::nothrow) PNG());
+  if (!png) {
+    LOG_ERR("PNG", "Failed to allocate PNG decoder for dimensions");
+    return false;
+  }
+
+  int rc = png->open(imagePath.c_str(), pngOpenWithHandle, pngCloseWithHandle, pngReadWithHandle, pngSeekWithHandle,
+                     nullptr);
+  const ScopedCleanup cleanup{[&png]() { png->close(); }};
+
+  if (rc == PNGDEC_UNSUPPORTED_FEATURE) {
+    // Interlaced or 16 bits per channel: PNGdec (1.1.6, PNGParseInfo) stops at the header, after it
+    // has stored the width and height. decodeToFramebuffer() takes such a picture through the slow
+    // decoder, so it still has a size.
+    return validateAndStoreDimensions(png->getWidth(), png->getHeight(), out, "PNG");
+  }
+  if (rc != 0) {
+    LOG_ERR("PNG", "Failed to open PNG for dimensions: %d", rc);
+    return false;
+  }
+
+  return validateAndStoreDimensions(png->getWidth(), png->getHeight(), out, "PNG");
+}
+
+bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath, GfxRenderer& renderer,
+                                                    const RenderConfig& config) {
+  bool needsSlowDecoder = false;
+  if (decodeWithPngdec(imagePath, renderer, config, needsSlowDecoder)) return true;
+  // PNGdec and its file handle are gone by now: the slow decoder needs the memory and opens the file itself.
+  return needsSlowDecoder && decodeSlow(imagePath, renderer, config);
+}
+
+// For the pictures PNGdec refuses at the header (interlaced, 16 bits per channel). The whole
+// picture is sampled into a gray canvas of the output size, then drawn and cached row by row like
+// any other. Transparency is blended onto white (preserveAlpha is not honoured here).
+bool PngToFramebufferConverter::decodeSlow(const std::string& imagePath, GfxRenderer& renderer,
+                                           const RenderConfig& config) {
+  pngslow::Header header;
+  if (!readSlowHeader(imagePath, header)) {
+    LOG_ERR("PNG", "Not a PNG the slow decoder can read: %s", imagePath.c_str());
+    return false;
+  }
+  const char* why = pngslow::fastDecoderRefusal(header);
+  ImageDimensions sourceDimensions;
+  if (!validateAndStoreDimensions(header.width, header.height, sourceDimensions, "PNG")) return false;
+
+  PngContext ctx;
+  ctx.renderer = &renderer;
+  ctx.config = &config;
+  ctx.screenWidth = renderer.getScreenWidth();
+  ctx.screenHeight = renderer.getScreenHeight();
+  if (!planGeometry(ctx, config, sourceDimensions)) return false;
+  if (ctx.dstWidth <= 0 || ctx.dstHeight <= 0) return false;
+  LOG_INF("PNG", "Slow decoder (%s): %dx%d -> %dx%d, %s", why ? why : "asked for", ctx.srcWidth, ctx.srcHeight,
+          ctx.dstWidth, ctx.dstHeight, imagePath.c_str());
+
+  const size_t canvasBytes = static_cast<size_t>(ctx.dstWidth) * static_cast<size_t>(ctx.dstHeight);
+  // One byte per output pixel: about 30 KB for a Gallery thumbnail, several hundred KB for a full
+  // screen. PSRAM where the board has it, the heap otherwise (a full screen is then usually refused here).
+  HalMemory::PsramBuffer psramCanvas = HalMemory::allocatePsram(canvasBytes);
+  std::unique_ptr<uint8_t[]> heapCanvas;
+  if (!psramCanvas) heapCanvas = makeUniqueNoThrow<uint8_t[]>(canvasBytes);
+  uint8_t* const canvas = psramCanvas ? psramCanvas.get() : heapCanvas.get();
+  if (!canvas) {
+    LOG_ERR("PNG", "%s PNG not shown: no %u bytes for a %dx%d canvas", why ? why : "This",
+            static_cast<unsigned>(canvasBytes), ctx.dstWidth, ctx.dstHeight);
+    return false;
+  }
+
+  HalFile file;
+  if (!Storage.openFileForRead("PNG", imagePath, file)) return false;
+  const unsigned long decodeStart = millis();
+  ctx.lastYieldMs = decodeStart;
+  const pngslow::Region region{ctx.cropLeft, ctx.cropTop, ctx.visibleWidth, ctx.visibleHeight};
+  const pngslow::Result result = pngslow::decodeGray(slowRead, &file, header, region, canvas, ctx.dstWidth,
+                                                     ctx.dstHeight, slowTick, &ctx.lastYieldMs);
+  file.close();
+  if (result != pngslow::Result::Ok) {
+    LOG_ERR("PNG", "%s PNG not shown (%s): %s", why ? why : "This", pngslow::describe(result), imagePath.c_str());
+    return false;
+  }
+
+  // The canvas already has the output size: from here each of its rows is one source row, unscaled.
+  ctx.srcWidth = ctx.visibleWidth = ctx.dstWidth;
+  ctx.srcHeight = ctx.visibleHeight = ctx.dstHeight;
+  ctx.cropLeft = 0;
+  ctx.cropTop = 0;
+  ctx.lastDstY = -1;
+  ctx.caching = !config.preserveAlpha && !config.cachePath.empty();
+  if (ctx.caching && !ctx.cache.begin(config.cachePath, ctx.dstWidth, ctx.dstHeight, config.x, config.y, 1)) {
+    LOG_ERR("PNG", "Failed to start cache stream, continuing without caching");
+    ctx.caching = false;
+  }
+  for (int y = 0; y < ctx.dstHeight; y++) {
+    ctx.grayLineBuffer = canvas + static_cast<size_t>(y) * static_cast<size_t>(ctx.dstWidth);
+    renderGrayRows(&ctx, y, y + 1);
+    yieldDuringDecode(ctx.lastYieldMs);
+  }
+  ctx.grayLineBuffer = nullptr;
+  LOG_DBG("PNG", "Slow PNG decoding complete - render time: %lu ms", millis() - decodeStart);
+  if (ctx.caching) ctx.cache.finalize();
+  return true;
+}
+
+bool PngToFramebufferConverter::decodeWithPngdec(const std::string& imagePath, GfxRenderer& renderer,
+                                                 const RenderConfig& config, bool& needsSlowDecoder) {
+  LOG_DBG("PNG", "Decoding PNG: %s", imagePath.c_str());
+
+  size_t freeHeap = ESP.getFreeHeap();
+  if (freeHeap < MIN_FREE_HEAP_FOR_PNG) {
+    LOG_ERR("PNG", "Not enough heap for PNG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_PNG);
+    return false;
+  }
+
+  // Heap-allocate PNG decoder (~42 KB) - freed at end of function
+  std::unique_ptr<PNG> png(new (std::nothrow) PNG());
+  if (!png) {
+    LOG_ERR("PNG", "Failed to allocate PNG decoder");
+    return false;
+  }
+
+  PngContext ctx;
+  ctx.decoder = png.get();
+  ctx.renderer = &renderer;
+  ctx.config = &config;
+  ctx.screenWidth = renderer.getScreenWidth();
+  ctx.screenHeight = renderer.getScreenHeight();
+
+  int rc = png->open(imagePath.c_str(), pngOpenWithHandle, pngCloseWithHandle, pngReadWithHandle, pngSeekWithHandle,
+                     pngDrawCallback);
+  const ScopedCleanup cleanup{[&png]() { png->close(); }};
+  if (rc == PNGDEC_UNSUPPORTED_FEATURE) {
+    needsSlowDecoder = true;  // interlaced or 16 bits per channel: not an error, the slow decoder takes it
+    return false;
+  }
+  if (rc != PNG_SUCCESS) {
+    LOG_ERR("PNG", "Failed to open PNG: %d", rc);
+    return false;
+  }
+
+  ImageDimensions sourceDimensions;
+  if (!validateAndStoreDimensions(png->getWidth(), png->getHeight(), sourceDimensions, "PNG")) return false;
+
+  if (!planGeometry(ctx, config, sourceDimensions)) return false;
 
   const int pixelType = png->getPixelType();
   const int bitsPerSample = png->getBpp();

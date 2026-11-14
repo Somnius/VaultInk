@@ -451,6 +451,10 @@ CssParser::ParseResult Epub::parseCssFiles(const CssParser::CacheStatus existing
 // means normal ZIP reads should be used. A hard error refuses the open with a
 // user-presentable reason.
 bool Epub::openProtection() {
+  // Only an archive can carry META-INF/encryption.xml. MOBI, FB2, RTF, text and the other single-file
+  // books are told apart by their first bytes, so the ZIP reader is never pointed at them (it logged
+  // "EOCD signature not found" for each one, every time the Library or the home read a percent).
+  if (!ZipFile::hasZipSignature(filepath)) return true;
   std::string err;
   decryptor = freeink::content::openProtectedBook(filepath, err);
   if (!err.empty()) {
@@ -464,10 +468,10 @@ bool Epub::openProtection() {
   return true;
 }
 
-bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
+bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss, const bool skipProtection) {
   LOG_DBG("EBP", "Loading ePub: %s", filepath.c_str());
 
-  if (!openProtection()) return false;
+  if (!skipProtection && !openProtection()) return false;
 
   // Initialize spine/TOC cache
   bookMetadataCache = makeUniqueNoThrow<BookMetadataCache>(cachePath);
