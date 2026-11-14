@@ -23,8 +23,12 @@
  */
 class NetworkModeSelectionActivity final : public UiListActivity {
  public:
-  explicit NetworkModeSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput);
+  // selected: the row the cursor starts on (the one just left, when coming back from it), so a
+  // stray Confirm reopens that row and not Join a Network. A mode that is not shown gives the first row.
+  explicit NetworkModeSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
+                                        NetworkMode selected = NetworkMode::JOIN_NETWORK);
 
+  void onEnter() override;
   void onModeSelected(NetworkMode mode);
   void onCancel();
 
@@ -38,5 +42,6 @@ class NetworkModeSelectionActivity final : public UiListActivity {
   // Row storage: the rows never change while the screen is open, so they are built once in the
   // constructor instead of every buildScreen() call, into fixed-capacity storage (no heap).
   networkmodes::Rows rows_;
+  int startRow_ = 0;  // where the cursor starts (UiListActivity::onEnter() resets it to 0)
   freeink::ui::ListItem rowItems_[networkmodes::MAX_ROWS]{};
 };

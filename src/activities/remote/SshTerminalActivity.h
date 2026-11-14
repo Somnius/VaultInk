@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 
+#include "RemoteOrigin.h"
 #include "activities/Activity.h"
 
 // The terminal itself is only in a device build with the SSH library. Without it the screen has no
@@ -49,7 +50,9 @@
  */
 class SshTerminalActivity final : public Activity {
  public:
-  explicit SshTerminalActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, RemoteServer server);
+  // origin: where the server list was opened from; the restart after a session returns there.
+  explicit SshTerminalActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, RemoteServer server,
+                               RemoteOrigin origin = RemoteOrigin::Settings);
   ~SshTerminalActivity() override;
 
   void onEnter() override;
@@ -65,7 +68,8 @@ class SshTerminalActivity final : public Activity {
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
-  RemoteServer server_;  // a copy; its password field holds the typed password until the sign-in is over
+  RemoteServer server_;
+  RemoteOrigin origin_;  // a copy; its password field holds the typed password until the sign-in is over
 
 #if VAULTINK_SSH_TERMINAL
   void showMessage(const char* text);

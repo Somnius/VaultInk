@@ -63,8 +63,8 @@ class CrossPointWebServerActivity final : public Activity {
   void renderServerRunning() const;
   void renderWifiIndicator(int subHeaderTop) const;
 
-  // Opens the Transfer & Remotes picker; Back there is Home.
-  void showModePicker();
+  // Opens the Transfer & Remotes picker with the cursor on `selected`; Back there is Home.
+  void showModePicker(NetworkMode selected = NetworkMode::JOIN_NETWORK);
   // Opens the saved servers (all of them, or the SSH servers only); Back there is the picker.
   void showRemoteServers(bool sshOnly);
   void onNetworkModeSelected(NetworkMode mode);

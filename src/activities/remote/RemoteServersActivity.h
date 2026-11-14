@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "RemoteOrigin.h"
 #include "RemoteServerStore.h"
 #include "activities/UiListActivity.h"
 
@@ -17,7 +18,9 @@
  */
 class RemoteServerListActivity final : public UiListActivity {
  public:
-  explicit RemoteServerListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, bool sshOnly = false);
+  // origin: where the list was opened from (the restart after an SSH terminal session returns there).
+  explicit RemoteServerListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, bool sshOnly = false,
+                                    RemoteOrigin origin = RemoteOrigin::Settings);
 
   void onEnter() override;
 
@@ -33,6 +36,7 @@ class RemoteServerListActivity final : public UiListActivity {
   // The store index of each server row (the SSH list leaves the other servers out).
   std::vector<int16_t> rowServer_;
   bool sshOnly_;
+  RemoteOrigin origin_;
   int forgetAllRow_ = -1;  // the row of "Forget all host keys" in the SSH list, -1 when it is not shown
   // The row of "Terminal text size" in the SSH list (-1 when it is not shown) and its value text.
   int textSizeRow_ = -1;
@@ -52,8 +56,9 @@ class RemoteServerActivity final : public UiListActivity {
  public:
   // serverIndex: index into RemoteServerStore, or -1 for a new server.
   // newAsSsh: a new server starts as an SSH server (opened from the SSH list).
+  // origin: where the list was opened from, handed on to the terminal.
   explicit RemoteServerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, int serverIndex = -1,
-                                bool newAsSsh = false);
+                                bool newAsSsh = false, RemoteOrigin origin = RemoteOrigin::Settings);
 
   void onEnter() override;
 
@@ -76,6 +81,7 @@ class RemoteServerActivity final : public UiListActivity {
 
   int serverIndex;
   bool newAsSsh;
+  RemoteOrigin origin;
   RemoteServer editServer;
   bool isNewServer = false;
   bool showSaveError = false;

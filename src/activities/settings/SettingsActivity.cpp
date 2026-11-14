@@ -460,14 +460,16 @@ void SettingsActivity::toggleSelectedSetting() {
         startActivityForResult(std::make_unique<OpdsServerListActivity>(renderer, mappedInput), resultHandler);
         break;
       case SettingAction::RemoteServers:
-        if (auto activity = makeUniqueNoThrow<RemoteServerListActivity>(renderer, mappedInput)) {
+        if (auto activity = makeUniqueNoThrow<RemoteServerListActivity>(renderer, mappedInput, /*sshOnly=*/false,
+                                                                        RemoteOrigin::Settings)) {
           startActivityForResult(std::move(activity), resultHandler);
         } else {
           LOG_ERR("SETTINGS", "OOM: RemoteServerListActivity");
         }
         break;
       case SettingAction::SshServers:
-        if (auto activity = makeUniqueNoThrow<RemoteServerListActivity>(renderer, mappedInput, /*sshOnly=*/true)) {
+        if (auto activity = makeUniqueNoThrow<RemoteServerListActivity>(renderer, mappedInput, /*sshOnly=*/true,
+                                                                        RemoteOrigin::Settings)) {
           startActivityForResult(std::move(activity), resultHandler);
         } else {
           LOG_ERR("SETTINGS", "OOM: SSH server list");

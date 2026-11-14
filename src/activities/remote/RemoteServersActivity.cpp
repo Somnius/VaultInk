@@ -50,8 +50,8 @@ void setListMargins(UiAppHost::UiScreen& screen, const GfxRenderer& renderer) {
 // ---- the list ----
 
 RemoteServerListActivity::RemoteServerListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
-                                                   const bool sshOnly)
-    : UiListActivity("RemoteServerList", renderer, mappedInput), sshOnly_(sshOnly) {}
+                                                   const bool sshOnly, const RemoteOrigin origin)
+    : UiListActivity("RemoteServerList", renderer, mappedInput), sshOnly_(sshOnly), origin_(origin) {}
 
 void RemoteServerListActivity::onEnter() {
   UiListActivity::onEnter();
@@ -158,7 +158,7 @@ void RemoteServerListActivity::activateIndex(const int index) {
   }
   const auto serverRows = static_cast<int>(rowServer_.size());
   const int storeIndex = index >= 0 && index < serverRows ? rowServer_[static_cast<size_t>(index)] : -1;
-  auto page = makeUniqueNoThrow<RemoteServerActivity>(renderer, mappedInput, storeIndex, sshOnly_);
+  auto page = makeUniqueNoThrow<RemoteServerActivity>(renderer, mappedInput, storeIndex, sshOnly_, origin_);
   if (!page) {
     LOG_ERR("RMT", "OOM: server page");
     return;
@@ -186,8 +186,11 @@ void RemoteServerListActivity::buildScreen(UiScreen& screen) {
 // ---- one server ----
 
 RemoteServerActivity::RemoteServerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
-                                           const int serverIndex, const bool newAsSsh)
-    : UiListActivity("RemoteServer", renderer, mappedInput), serverIndex(serverIndex), newAsSsh(newAsSsh) {}
+                                           const int serverIndex, const bool newAsSsh, const RemoteOrigin origin)
+    : UiListActivity("RemoteServer", renderer, mappedInput),
+      serverIndex(serverIndex),
+      newAsSsh(newAsSsh),
+      origin(origin) {}
 
 void RemoteServerActivity::onEnter() {
   UiListActivity::onEnter();
@@ -479,7 +482,7 @@ void RemoteServerActivity::forgetHostKey() {
 }
 
 void RemoteServerActivity::openTerminal() {
-  auto terminal = makeUniqueNoThrow<SshTerminalActivity>(renderer, mappedInput, editServer);
+  auto terminal = makeUniqueNoThrow<SshTerminalActivity>(renderer, mappedInput, editServer, origin);
   if (!terminal) {
     LOG_ERR("RMT", "OOM: terminal");
     return;

@@ -102,10 +102,10 @@ void CrossPointWebServerActivity::onEnter() {
   showModePicker();
 }
 
-void CrossPointWebServerActivity::showModePicker() {
+void CrossPointWebServerActivity::showModePicker(const NetworkMode selected) {
   state = WebServerActivityState::MODE_SELECTION;
   LOG_DBG("WEBACT", "Launching NetworkModeSelectionActivity...");
-  startActivityForResult(std::make_unique<NetworkModeSelectionActivity>(renderer, mappedInput),
+  startActivityForResult(std::make_unique<NetworkModeSelectionActivity>(renderer, mappedInput, selected),
                          [this](const ActivityResult& result) {
                            if (result.isCancelled) {
                              onGoHome();
@@ -116,16 +116,18 @@ void CrossPointWebServerActivity::showModePicker() {
 }
 
 void CrossPointWebServerActivity::showRemoteServers(const bool sshOnly) {
-  auto list = makeUniqueNoThrow<RemoteServerListActivity>(renderer, mappedInput, sshOnly);
+  const NetworkMode mode = sshOnly ? NetworkMode::SSH_TERMINAL : NetworkMode::REMOTE_SERVERS;
+  auto list = makeUniqueNoThrow<RemoteServerListActivity>(renderer, mappedInput, sshOnly, RemoteOrigin::Home);
   if (!list) {
     LOG_ERR("WEBACT", "OOM: RemoteServerListActivity");
-    showModePicker();
+    showModePicker(mode);
     return;
   }
-  // Back from the list is the picker again, and Back there is Home. A visit that used Wi-Fi does
-  // not come back here: the file browser and the terminal switch Wi-Fi off and restart the device
-  // on their way out (CatalogActivity::onExit, SshTerminalActivity::onExit).
-  startActivityForResult(std::move(list), [this](const ActivityResult&) { showModePicker(); });
+  // Back from the list is the picker again, with the cursor on the row that was opened, and Back
+  // there is Home. A visit that used Wi-Fi does not come back here: the file browser and the
+  // terminal switch Wi-Fi off and restart the device to Home on their way out
+  // (CatalogActivity::onExit, SshTerminalActivity::onExit with RemoteOrigin::Home).
+  startActivityForResult(std::move(list), [this, mode](const ActivityResult&) { showModePicker(mode); });
 }
 
 void CrossPointWebServerActivity::onExit() {
@@ -199,7 +201,7 @@ void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) 
 
   if (mode == NetworkMode::CONNECT_CALIBRE) {
     startActivityForResult(std::make_unique<CalibreConnectActivity>(renderer, mappedInput),
-                           [this](const ActivityResult&) { showModePicker(); });
+                           [this](const ActivityResult&) { showModePicker(NetworkMode::CONNECT_CALIBRE); });
     return;
   }
 

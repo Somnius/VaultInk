@@ -39,4 +39,10 @@ constexpr int rowOf(const Rows& rows, const NetworkMode mode) {
   return -1;
 }
 
+// The row the cursor starts on: the row of `selected`, or the first row when it is not shown.
+constexpr int startRow(const Rows& rows, const NetworkMode selected) {
+  const int row = rowOf(rows, selected);
+  return row < 0 ? 0 : row;
+}
+
 }  // namespace networkmodes
