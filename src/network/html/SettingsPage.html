@@ -795,7 +795,7 @@
   }
 
   // --- WebDAV and FTP servers ---
-  // The same fields as Settings > Network > WebDAV and FTP servers on the device, over
+  // The same fields as Settings > Connectivity > WebDAV and FTP servers on the device, over
   // /api/remotes. A stored password is never sent to this page: the field stays empty and
   // "(set)" shows that there is one; leaving it empty keeps it.
   let remoteServers = [];
@@ -845,7 +845,7 @@
   function renderRemoteSection() {
     const container = document.getElementById('remote-container');
     let html = '<div class="card"><h2>WebDAV and FTP servers</h2>' +
-      '<p>Browse them on the device: Settings, Network, WebDAV and FTP servers. Passwords are kept on the SD card, ' +
+      '<p>Browse them on the device: Settings, Connectivity, WebDAV and FTP servers. Passwords are kept on the SD card, ' +
       'only lightly scrambled: anyone who has the card and the device can read them.</p>';
     if (remoteServers.length === 0) {
       html += '<p style="color:var(--label-color);text-align:center;">No servers configured</p>';

@@ -10,7 +10,7 @@ Checked on a real X4 Pro (developer build):
 
 Computer tests only, not tried on a device:
 - Translate when the dictionary has no entry (MyMemory, or your own LibreTranslate server).
-- SSH terminal and SFTP client (X4 Pro only; Settings, Network, SSH servers).
+- SSH terminal and SFTP client (X4 Pro only; Settings, Connectivity, SSH servers).
 - DOC and CHM books open as text.
 - Gamepad buttons for the reader's actions (never tried with a real gamepad).
 - Auto warmth from sunset to sunrise.

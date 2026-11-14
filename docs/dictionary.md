@@ -178,7 +178,7 @@ translate into, and the reader says so without connecting.
 - The connection is always checked against the certificates built into the firmware (its chain ends at Amazon
   Root CA 1, which is one of them). There is no switch for it.
 
-**A LibreTranslate server of your own**, in **Settings → Network → Translation**:
+**A LibreTranslate server of your own**, in **Settings → Connectivity → Translation**:
 
 | Row | What it is |
 | --- | --- |

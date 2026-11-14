@@ -19,7 +19,7 @@ With nothing learned, nothing changes: a remote or a keyboard works exactly as b
 
 ## Setting it up
 
-1. **Settings → Network → Bluetooth Page Turner**: switch it on, **Scan for Remotes**, and pair the gamepad like a
+1. **Settings → Connectivity → Bluetooth Page Turner**: switch it on, **Scan for Remotes**, and pair the gamepad like a
    page-turner remote. It has to show up as a Bluetooth LE HID device (a pad that only speaks classic Bluetooth
    will not be found).
 2. With the pad connected, open **Gamepad Buttons** on the same screen.

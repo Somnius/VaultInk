@@ -13,7 +13,7 @@ The export to a note in your vault ([Highlights to a vault note](reading-and-fil
 
 ## Set up
 
-**Settings → Network → Highlight Exports** has four rows:
+**Settings → Connectivity → Highlight Exports** has four rows:
 
 | Row | What to enter |
 | --- | --- |

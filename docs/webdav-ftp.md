@@ -15,7 +15,7 @@ device is the client and the files live on your server.
 
 ## Setting up a server
 
-**Settings → Network → WebDAV and FTP servers → Add Server.** Up to 6 servers. Each field is saved as
+**Settings → Connectivity → WebDAV and FTP servers → Add Server.** Up to 6 servers. Each field is saved as
 soon as you leave the keyboard.
 
 | Field | What to enter |
