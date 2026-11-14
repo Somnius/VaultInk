@@ -31,7 +31,7 @@ pio run -e x4pro-dev -t upload
 
 - The version text ends in `-dev` (`0.74.0-x4pro-dev`), see [The developer label](#the-developer-label).
 - `-DVAULTINK_DEVLINK=1` compiles the link in, and `-DVAULTINK_DEVLINK_FULL=1` the commands that act
-  on the reader (`BOOTLOADER`, `KEY`, `TAP`, `SWIPE`, `FLASH`, `LS`, `GET`, `PUT`). Only this build
+  on the reader (`BOOTLOADER`, `KEY`, `TAP`, `SWIPE`, `FLASH`, `LS`, `GET`, `PUT`, `FETCH`). Only this build
   and `x4pro-dev-verify` define `VAULTINK_DEVLINK_FULL`.
 - `-DLOG_DBG_RUNTIME=1` makes debug log lines switchable, so `CMD:LOG` has something to switch. They
   start off, unless Settings → System → Debug Logs is on.
@@ -64,7 +64,7 @@ What it answers, and what it does not:
 | --- | --- |
 | **Answers** | `PING`, `HELP`, `STATUS` (with `"build":"dev-user"`), `LOG <0-3>`, `BENCH [minutes]`, `REBOOT`, `SCREENSHOT` |
 | **Refuses** | `BOOTLOADER`: `{"ok":false,"error":"BOOTLOADER is not in this build (read-only developer link)"}` |
-| **Does not know** | `KEY`, `TAP`, `SWIPE`, `FLASH`, `LS`, `GET`, `PUT`: `{"ok":false,"error":"unknown"}`. Their names are not in its command table and their code is not in the image |
+| **Does not know** | `KEY`, `TAP`, `SWIPE`, `FLASH`, `LS`, `GET`, `PUT`, `FETCH`: `{"ok":false,"error":"unknown"}`. Their names are not in its command table and their code is not in the image |
 
 "Read-only" is the short name, and it is not the whole truth, so exactly: over this link
 it can reboot the reader, change the log level, take a screenshot and write a small bench log to the SD card; it cannot read or write your files or settings. Nothing the cable sends can press a key, touch the screen or install firmware
@@ -140,7 +140,7 @@ answers `unknown` to the rest ([The build users may install](#the-build-users-ma
 | Command | Reply |
 | --- | --- |
 | `PING` | `{"ok":true,"pong":true,"uptime_ms":...}` |
-| `HELP` | `{"ok":true,"commands":"PING HELP STATUS LOG BENCH KEY TAP SWIPE FLASH LS GET PUT WAIT SHOTCRC REBOOT BOOTLOADER SCREENSHOT"}` |
+| `HELP` | `{"ok":true,"commands":"PING HELP STATUS LOG BENCH KEY TAP SWIPE FLASH LS GET PUT FETCH WAIT SHOTCRC REBOOT BOOTLOADER SCREENSHOT"}` |
 | `STATUS` | the fields below |
 | `STATUS LITE` | the same without `battery_mv`, `battery_percent` and `charging`. It reads no battery gauge, so it does not wait for a screen that is being drawn (`STATUS` does). `x4pro-dev` only; `x4pro-dev-user` ignores the word |
 | `LOG <0-3>` | 2 and 3 turn debug lines on, 0 and 1 turn them off. Errors and info lines always print: the levels are fixed when the firmware is compiled, and the reply's `note` says so |
@@ -155,6 +155,7 @@ answers `unknown` to the rest ([The build users may install](#the-build-users-ma
 | `WAIT [activity] [timeout_ms]` | answers when the reader is at rest: `{"ok":true,"activity":"Home","visit":4,"renders":9,"queued":0,"waited_ms":180}`, or after `timeout_ms` (100 to 60000, 5000 when left out) `{"ok":false,"error":"timeout","wanted":"Home","activity":...}`. See [Waiting and checked screenshots](#waiting-and-checked-screenshots) |
 | `SHOTCRC` | the CRC-32 of the framebuffer, to check a screenshot against: `{"ok":true,"crc32":1234567890,"bytes":48000,"visit":4,"renders":9}` |
 | `FLASH <sd path>` | checks a `.bin` on the card and writes it to the slot that is not running; progress lines, then `{"ok":true,"action":"flash","slot":"app1",...}`. It does not restart. See [Flashing from the SD card](#flashing-from-the-sd-card) |
+| `FETCH <http url> <sd path> <sha256>` | the reader downloads a `.bin` from a computer on the same network to its card and checks its SHA-256; progress lines, then `{"ok":true,"bytes":...,"sha256":"...",...}`. It flashes nothing. See [Sending a build over Wi-Fi](#sending-a-build-over-wi-fi) |
 | `REBOOT` | `{"ok":true,"action":"reboot"}`, then a restart 100 ms later. Like the reset button: nothing is saved first |
 | `BOOTLOADER` | `{"ok":true,"action":"bootloader"}`, then a restart into the chip's download mode, where `esptool` and `pio run -t upload` can flash it. Leaving it without flashing needs a reset of the chip; how to do that on an X4 Pro is not checked |
 | `SCREENSHOT` | not JSON: `SCREENSHOT_START:<n>`, n raw bytes, `SCREENSHOT_END` (every build). `x4pro-dev` sends the bytes in pieces of 512 that wait for room in the transmit queue; the other builds send them in one write, as before |
@@ -162,7 +163,7 @@ answers `unknown` to the rest ([The build users may install](#the-build-users-ma
 
 A line longer than 256 bytes is dropped whole. Names are case-sensitive.
 
-`LS` and `FLASH` send more than one line. Their extra lines (an entry, a progress step) are JSON
+`LS`, `FLASH` and `FETCH` send more than one line. Their extra lines (an entry, a progress step) are JSON
 objects **without** an `ok` field; the line with `ok` is always the last one. So the rule above
 still holds: read until a line has `ok`.
 
@@ -216,6 +217,8 @@ scripts/devlink.py ls /debug
 scripts/devlink.py get /.vaultink/bench.csv bench.csv
 scripts/devlink.py put note.txt /debug/note.txt
 scripts/devlink.py flash /firmware.bin        # a file already on the card; then: cmd REBOOT
+scripts/devlink.py fetch http://192.168.1.20:8000/firmware.bin /firmware-dev.bin <sha256>
+scripts/devlink.py push-update .pio/build/x4pro-dev/firmware.bin --expect 0.75.0-x4pro-dev
 scripts/devlink.py wait --activity Home --timeout 8000
 scripts/devlink.py screenshot shot.png --verify   # checked against SHOTCRC, three tries
 scripts/devtest.py scenario.json              # a whole scripted test: see Device tests
@@ -225,6 +228,7 @@ scripts/devtest.py scenario.json              # a whole scripted test: see Devic
 file there first (USB Drive mode, or a card reader). `get` asks for 2880 bytes a time and asks
 again, three times at most, for a part that came back cut. `put` sends as much as fits a 256-byte
 line each time (about 170 bytes with a short path). `key` refuses POWER before anything is sent.
+`fetch` and `push-update` are under [Sending a build over Wi-Fi](#sending-a-build-over-wi-fi).
 
 It uses `--port`, else `$DEVLINK_PORT`, else the first `/dev/serial/by-id/*Espressif*JTAG*`, else the
 first `/dev/ttyACM*`. The exit code is 0 for `ok:true`, 1 for `ok:false`, 2 when there is no port or
@@ -539,6 +543,90 @@ scripts/devlink.py flash /firmware.bin && scripts/devlink.py cmd REBOOT
 scripts/devlink.py status        # "version" is the new build's
 ```
 
+## Sending a build over Wi-Fi
+
+**Nothing in this section has run on a reader.** The firmware side has not been compiled for the
+device either; only the parts that need no reader are tested, on a computer.
+
+`FLASH` needs the `.bin` on the card, and `PUT` is far too slow for 6 MB (180 bytes a line).
+`FETCH <http url> <sd path> <sha256>` lets the reader download the file itself, from a computer on
+the same network. It only puts a file on the card: `FLASH <sd path>` and `REBOOT` then finish the
+update, with every check `FLASH` has. The cable is still needed, for the commands.
+
+```sh
+scripts/devlink.py push-update .pio/build/x4pro-dev/firmware.bin --expect 0.75.0-x4pro-dev
+```
+
+`push-update` does the whole round:
+
+1. It takes the SHA-256 and the size of the file (a `.bin`, not empty, 8,323,072 bytes at most).
+2. `STATUS`: the reader must say `"build":"dev"` and `"wifi":true`. **Join the network on the
+   reader first** (Settings → Connectivity, or any screen that connects); the link starts no radio
+   and knows no password. `wifi` only says the radio is on; `FETCH` itself checks that it is joined.
+3. It copies the file as `firmware.bin` into a new temporary folder that holds nothing else and
+   starts `python3 -m http.server` there, bound to this computer's LAN address only (not to every
+   interface), on a free port. `--host-ip` names the address when the script picks the wrong one
+   (several networks, a VPN); `--http-port` names the port (for a firewall rule).
+4. `FETCH http://<that address>:<port>/firmware.bin /firmware-dev.bin <sha256>`, with the progress
+   printed. The server is stopped and the folder removed as soon as `FETCH` has answered, whatever
+   the answer. `--sd-path` changes the path on the card.
+5. `FLASH /firmware-dev.bin`, then `REBOOT`.
+6. `STATUS` every two seconds, for 90 s at most (`--boot-timeout`), until the reader answers with
+   the version given to `--expect` **and** an `uptime_ms` that can only be from a start after the
+   `REBOOT` (two developer builds often have the same version text). `--expect` is required: it
+   is what `STATUS` of the new build says, for `x4pro-dev` the version of `platformio.ini` plus
+   `-x4pro-dev`.
+
+It stops at the first step that fails and says which one. Exit code 0 when the reader runs the new
+build, 1 when the reader refused a step or the version did not come, 2 for a wrong argument, no
+port or no answer. A firewall on the computer must let the reader reach that port. `devlink.py
+fetch <url> <sd path> <sha256>` sends only the `FETCH`, for a server you run yourself.
+
+What the reader does with `FETCH`, in this order:
+
+1. The arguments: the first word is the URL, the last one the SHA-256 (64 hex digits), the path
+   is between them.
+2. The URL (the rules are under [Security](#security)): a refused one answers
+   `{"ok":false,"error":"url refused","reason":"..."}`.
+3. The path: the rule of `FLASH`, so an absolute path to a `.bin` outside `/.crosspoint` and
+   `/.vaultink`. A file that is there is replaced.
+4. Wi-Fi: not joined answers `not on Wi-Fi: ...`. Nothing is connected for you.
+5. The battery: refused under 30% unless USB power is in, like `FLASH`.
+6. It connects (5 s at most), sends `GET <path> HTTP/1.0` with a `Host` line and nothing else, and
+   reads the head of the answer. It takes status 200 with a `Content-Length` from 1 to the size of
+   the app slot (8,323,072 bytes) and no `Transfer-Encoding`. Anything else answers
+   `{"ok":false,"error":"answer refused","reason":"...","status":404}`. **A redirect is not
+   followed**: 301, 302, 307 and 308 are refused like any other status.
+7. `{"fetch":"started","total":...}`, then the bytes go to the card 2048 at a time as they arrive
+   and into the SHA-256 on the way, with a line every tenth:
+   `{"fetch":"writing","written":...,"total":...,"percent":40}`. It stops at `Content-Length`: what
+   a server sends after that is not written.
+8. The hash is compared. Equal: `{"ok":true,"bytes":...,"sha256":"...","path":"/firmware-dev.bin",
+   "ms":...,"next":"send CMD:FLASH <sd path>, then CMD:REBOOT"}`. Not equal: the file is deleted
+   and the answer is `{"ok":false,"error":"sha256 mismatch: the file was deleted","bytes":...,
+   "sha256":"<what arrived>","deleted":true}`.
+
+It stops, deletes the file and answers `{"ok":false,"error":"...","bytes":...,"deleted":true}`
+when: any byte arrives on the serial port (**a new command cancels it**; that command is then
+answered as usual), the whole transfer takes over 180 s, the server sends nothing for 10 s, the
+connection closes early, or the card does not take a write. The reader does nothing else while it
+downloads, like `FLASH`. There is no TLS in it, so it needs little memory: a 2 KB buffer and the
+hash state.
+
+Limits of `FETCH` and `push-update`:
+
+- One file, 8,323,072 bytes at most, to a `.bin` path. No resume: a transfer that stops starts
+  again from the beginning.
+- The file is written straight to its path, so a download that fails also removes a file that was
+  there under that name before.
+- 180 s for the whole transfer is a guess: how fast the reader downloads to the card is not
+  measured.
+- The SHA-256 says the file on the card is the file the host hashed. It does not say who built it;
+  `FLASH` then checks that it is an image for this chip and board, and nothing checks a signature.
+- `push-update` needs the reader and the computer on the same network, with nothing between them
+  that blocks the port (a guest network that keeps clients apart will).
+- On Windows the script's serial port path has not been run, and neither has `push-update`.
+
 ## Limits
 
 - **The link dies at sleep.** The firmware closes the USB serial port before deep sleep, and
@@ -557,7 +645,10 @@ scripts/devlink.py status        # "version" is the new build's
   long: ask again.
 - **A touch is one finger and a straight line.** No Home key, no two-finger gestures, no power key.
 - **Injected input and a real finger at once** are not kept apart: use one or the other.
-- **While `FLASH` writes, the reader answers nothing.**
+- **While `FLASH` writes, the reader answers nothing.** While `FETCH` downloads, a new command
+  cancels it.
+- **`FETCH` and `push-update` have not run on a reader**, and the firmware side has not been
+  compiled for the device ([Sending a build over Wi-Fi](#sending-a-build-over-wi-fi)).
 - **`WAIT`, `SHOTCRC`, `STATUS LITE`, the new `STATUS` fields, the screenshot in pieces and
   `scripts/devtest.py` have not run on a reader.** What `WAIT` cannot see is listed under
   [Waiting and checked screenshots](#waiting-and-checked-screenshots).
@@ -569,14 +660,17 @@ a cable. So:
 
 - **None of this is in a release.** Every command but `SCREENSHOT` is compiled into the developer
   builds only, and it must stay that way: never add `VAULTINK_DEVLINK` to a release build. In the
-  release, the code for `KEY`, `TAP`, `SWIPE`, `LS`, `GET`, `PUT` and `FLASH` does not exist: their
+  release, the code for `KEY`, `TAP`, `SWIPE`, `LS`, `GET`, `PUT`, `FETCH` and `FLASH` does not exist: their
   names are not even in the command table, and a line with one of them is ignored like any other
   unknown line.
 - **The build users may install is read-only.** `x4pro-dev-user` has the state commands and
-  nothing that acts: no input, no files, no flashing, no download mode
+  nothing that acts: no input, no files, no flashing, no downloading, no download mode
   ([The build users may install](#the-build-users-may-install)). Never add
   `VAULTINK_DEVLINK_FULL` to it; `x4pro-dev` and `x4pro-dev-verify` are the only builds with that
-  flag and they are never published.
+  flag and they are never published. `scripts/deploy_web_installer.sh` refuses to publish an
+  `x4pro-dev-user` image that holds the full link's HELP text (`KEY TAP SWIPE FLASH LS GET PUT`)
+  or the usage line of `FETCH` (`usage: FETCH http://`): keep both texts as they are, or change the
+  script with them.
 - A reader with `x4pro-dev` obeys anyone who has the cable. What that person can and cannot do:
 
 | | Allowed | Why |
@@ -586,12 +680,38 @@ a cable. So:
 | Read files | `/debug`, `/screenshots`, the bench log and its setting, the battery log | the logs and pictures a test produces |
 | Write files | `/debug/...`, `/.vaultink/bench.cfg` | test notes, and the bench interval |
 | Flash | a `.bin` on the card that passes every check of the Settings screen (chip, board, checksum, SHA-256) | the same door the Settings screen has; a wrong or broken image is refused, and the reader does not restart on its own |
+| Download | `FETCH`: one `.bin`, by plain http, from an IPv4 address in 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16, to a path `FLASH` could read, checked against a SHA-256 | to send a build without taking the card out. The rules are below |
 | **Never** | `/.crosspoint` (settings, Wi-Fi, OPDS, KOReader, WebDAV and FTP passwords), `/Vaults`, `/books`, the lock PIN, the LiveSync profile, anything else on the card | notes and passwords must not leave over a debug port |
 
 - The file rule is an allow-list: a path is refused unless it is one of the entries above, so a new
   folder on the card is closed until someone opens it here. The path checks reuse
   `src/network/ProtectedPaths.h` (the web server's rule for the password files and the device
   folders), and traversal, case, 8.3 aliases and double slashes are tested.
+- `FETCH` makes the reader open a connection, so what it may reach is as narrow as its job
+  (`devlink::checkFetchUrl` in lib/DevLink/DevLinkFetch.cpp, tested in test/dev_link):
+  - **Plain `http://` only**, written in lower case. `https` is refused, not downgraded: there is
+    no certificate to check for an address on a home network, and the SHA-256 is what says the file
+    is the right one.
+  - **The host is an IPv4 address in numbers, in 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16.** No
+    host name (nothing is looked up, so no DNS answer can point it elsewhere), no `user@`, no IPv6,
+    no octal, hex or single-number spelling, no leading zero. Loopback (127/8), link-local
+    (169.254/16), 0.0.0.0, 100.64/10 and every public address are refused: the reader cannot be
+    made to fetch from the internet.
+  - The port is 1 to 65535 (80 when left out). The path holds letters, digits and `. _ - ~ /`
+    only, with no `..` and no `//`: no query, no percent escape, no blank, so nothing can add a
+    line to the request. The URL is 160 bytes at most and nothing may follow it.
+  - **Redirects are not followed**, so a server on the LAN cannot send the reader elsewhere.
+  - It sends nothing but the request line and a `Host` line: no credentials, no cookies, nothing
+    from the card. It joins no network and stores no password; the reader must be on Wi-Fi already.
+  - It writes one file, where `FLASH` could read one: a `.bin` outside `/.crosspoint` and
+    `/.vaultink`, 8,323,072 bytes at most, deleted when the hash is wrong or the transfer stops.
+    It can replace a `.bin` that is already on the card under that name (a firmware file, or any
+    other file named `.bin` outside the device's folders). It flashes nothing: `FLASH` is a
+    separate command with its own checks.
+  - Plain http can be read and changed by anyone on that network. The hash stops a changed file;
+    it does not hide the file. A developer build is not a secret, and nothing else is sent.
+  - Who has the cable could already flash a build from the card. `FETCH` adds that the card need
+    not be taken out, and that the reader makes one outgoing connection inside its own network.
 - There are no settings commands: the link cannot read or change a setting, except through the
   screen like a finger.
 - What injected input shows on screen can be photographed with `SCREENSHOT`, in every build as
@@ -725,6 +845,15 @@ Everything on the device:
 - `FLASH` on a reader: the slot label it reports, how long it takes, that the reader keeps running
   the old firmware until `REBOOT` and starts the new one after it, and that the serial port stays
   up while the flash is written;
+- `FETCH` and `push-update`, all of it: that `x4pro-dev` compiles with it (it uses `WiFiClient`
+  and wolfCrypt's `wc_Sha256`) and what it costs in flash; a whole `push-update` round against a
+  real reader; how long 6 MB takes and whether 180 s is enough; the heap while it runs; that the
+  serial port stays up and the progress lines arrive; a cancel by a new command in the middle and
+  that the file is gone afterwards; a wrong hash; a server that stops halfway (the 10 s limit); a
+  refused URL, a redirect and a 404 from a real server; the answer with Wi-Fi off and with the
+  radio on but not joined; a full card; that the reader's Wi-Fi stays joined long enough when
+  nothing on screen needs it; that the release and `x4pro-dev-user` images do not hold
+  `usage: FETCH http://`;
 - that the `x4pro` build did not grow: the seven new names and all new code are inside
   `#ifdef VAULTINK_DEVLINK_FULL` (lib/DevLink, lib/hal/HalGPIO, src/util/DevLinkDevice), which only
   `x4pro-dev` and `x4pro-dev-verify` define. No device build was run;

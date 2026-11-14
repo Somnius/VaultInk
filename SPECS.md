@@ -721,6 +721,36 @@ reports AES key recovery on the S3 with voltage fault injection.
     one checked screenshot `failure.png`, skipped when the reader does not answer), JSONL log and
     pictures in `.work/devtest/<name>-<date>-<time>/`, exit 0/1/2, `--dry-run`.
     test/test_devtest_script.py: 28 tests against an in-memory port (parser, refusals, runs).
+  - A build over Wi-Fi, `CMD:FETCH` (2026-11-14; host tests only, not compiled for the device,
+    nothing run on a reader). All of it inside `#ifdef VAULTINK_DEVLINK_FULL`; `devlink::Command`
+    gains `Fetch` (the name and HELP's `FETCH`, after `PUT`, only with `_FULL`).
+    lib/DevLink/DevLinkFetch.{h,cpp}, platform-free and heap-free: `checkFetchUrl` (exactly
+    `http://`, four decimal octets with no leading zero, `isPrivateIpv4` = 10/8, 172.16/12,
+    192.168/16, port 1-65535 or 80, path of `[A-Za-z0-9._~/-]` with no `..`, no `//`, no end slash,
+    160 bytes at most; results Ok/TooLong/NotHttp/BadHost/NotPrivate/BadPort/BadPath),
+    `parseFetchArgs` ("<url> <sd path> <sha256>", split from both ends so the path keeps its
+    blanks), `parseSha256Hex`/`sha256Hex`, `HttpHead` (status line and headers a byte at a time,
+    160-byte line buffer, 4096-byte head cap, Content-Length strict, Transfer-Encoding noted) and
+    `checkHead` (200 only, so no redirect is followed; length 1 to `FETCH_MAX_BYTES` = 0x7F0000).
+    src/util/DevLinkDevice.cpp `replyFetch`: args, URL, `devlinkpaths::isAllowed(path, Flash)`,
+    `WiFi.status() == WL_CONNECTED` (no radio started, no credentials), the 30% battery floor of
+    FLASH, cap = min(0x7F0000, next OTA partition size), `WiFiClient::connect(ip, port, 5000)`,
+    `GET <path> HTTP/1.0` + `Host`, head check, then 2048-byte chunks (heap) to
+    `Storage.open(path, O_WRONLY|O_CREAT|O_TRUNC)` and into wolfCrypt `wc_Sha256` (heap), progress
+    lines `{"fetch":"writing",...}` every tenth, never past Content-Length; stop reasons from
+    `fetchWait`: a byte on the serial port (cancel), 180 s in all, 10 s without a byte, closed
+    early; any failure and a hash mismatch remove the file; reply `{ok,bytes,sha256,path,ms,next}`.
+    It does not use HttpDownloader (that one follows redirects, has no hash hook and no deadline).
+    scripts/devlink.py: `fetch <url> <sd path> <sha256>` (the same URL rule before anything is
+    sent) and `push-update <file.bin> --expect <version> [--sd-path --host-ip --http-port
+    --boot-timeout]`: `check_push_file`, STATUS must be `build: dev` + `wifi`, `lan_ip()` (UDP
+    socket, no packet), `FileServer` (`python3 -m http.server <port> --bind <ip> --directory
+    <temp folder with a copy named firmware.bin>`, stopped after FETCH), FETCH, FLASH, REBOOT,
+    `wait_for_version` (STATUS every 2 s until the version matches and `uptime_ms` is from after
+    the REBOOT); exit 0/1/2. scripts/deploy_web_installer.sh also refuses an `x4pro-dev-user` image
+    that holds `usage: FETCH http://`. Tests: test/dev_link/DevLinkFetchTest.cpp (25 tests, in
+    DevLinkDevTest, 79 there, 118 in the three programs); test/test_devlink_script.py 66 tests
+    (25 new: the texts, the file server on 127.0.0.1, push-update against the fake device).
   - Debug page: site/debug.html (one static page, plain JS, Web Serial, vendor filter 0x303a,
     115200) + site/debuglib.js (no DOM; UMD so Node can load it): `createStreamParser` (lines
     from arbitrary chunks, CR dropped, `SCREENSHOT_START:<n>` switches to exactly n raw bytes,

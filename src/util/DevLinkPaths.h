@@ -1,6 +1,6 @@
 #pragma once
 
-// Which SD paths the developer link may touch (CMD:LS, CMD:GET, CMD:PUT, CMD:FLASH; docs/devlink.md).
+// Which SD paths the developer link may touch (CMD:LS, CMD:GET, CMD:PUT, CMD:FLASH, CMD:FETCH; docs/devlink.md).
 // An allow-list: three folders and nothing else, so settings, saved passwords, vaults and books are
 // out of reach whatever the path is spelled like. Header-only and platform-free (test/dev_link);
 // only DevLinkDevice.cpp includes it, inside VAULTINK_DEVLINK.
@@ -62,7 +62,8 @@ inline bool isUnder(const std::string& path, const char* folder) {
 //                 battery log; write the bench setting. Nothing else in there: it also holds the
 //                 lock PIN and the LiveSync profile and setup text.
 //   Flash         a .bin anywhere on the card outside the device's own folders (it is only read
-//                 as a firmware image and checked as one; nothing of it is sent back).
+//                 as a firmware image and checked as one; nothing of it is sent back). CMD:FETCH
+//                 writes under the same rule: only a file CMD:FLASH could then read.
 // FAT names ignore case, so the comparison does too.
 inline bool isAllowed(const std::string& rawPath, const Access access) {
   if (!isPlainPath(rawPath)) return false;

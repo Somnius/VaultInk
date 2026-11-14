@@ -32,6 +32,7 @@ constexpr Name NAMES[] = {
     {"LS", Command::Ls},
     {"GET", Command::Get},
     {"PUT", Command::Put},
+    {"FETCH", Command::Fetch},
     {"WAIT", Command::Wait},
     {"SHOTCRC", Command::ShotCrc},
 #endif
@@ -104,7 +105,7 @@ Parsed parse(const char* line, size_t length) {
 
 const char* commandList() {
 #if defined(VAULTINK_DEVLINK_FULL)
-  return "PING HELP STATUS LOG BENCH KEY TAP SWIPE FLASH LS GET PUT WAIT SHOTCRC REBOOT BOOTLOADER SCREENSHOT";
+  return "PING HELP STATUS LOG BENCH KEY TAP SWIPE FLASH LS GET PUT FETCH WAIT SHOTCRC REBOOT BOOTLOADER SCREENSHOT";
 #elif defined(VAULTINK_DEVLINK)
   // The read-only link. BOOTLOADER still parses (the name table is shared) and is refused.
   return "PING HELP STATUS LOG BENCH REBOOT SCREENSHOT";

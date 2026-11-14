@@ -32,9 +32,14 @@
 // flashing and the download mode. The read-only link of x4pro-dev-user compiles none of it.
 #ifdef VAULTINK_DEVLINK_FULL
 #include <DevLinkArgs.h>
+#include <DevLinkFetch.h>
 #include <esp_ota_ops.h>
 #include <soc/rtc_cntl_reg.h>
 #include <soc/soc.h>
+#include <wolfssl/wolfcrypt/hash.h>
+
+#include <memory>
+#include <new>
 
 #include "network/FirmwareFlasher.h"
 #include "util/DevLinkPaths.h"
@@ -622,6 +627,226 @@ void replyFlash(const devlink::Parsed& parsed) {
   reply(json);
 }
 
+// ---- CMD:FETCH <http url> <sd path> <sha256> ----
+// Copies one file from a computer on the same network to the card, so a build can be sent without
+// taking the card out: FETCH, then FLASH, then REBOOT. Plain http to a private IPv4 address only
+// (devlink::checkFetchUrl), to a path FLASH could read (a .bin outside the device's folders), with
+// the reader already on Wi-Fi: nothing here joins a network or knows a password. The bytes go to
+// the card as they arrive and are hashed on the way; a file whose SHA-256 is not the one asked for
+// is deleted. Like FLASH, it holds the main loop until it is done; any byte on the serial port
+// (a new command) stops it, and so do the two time limits.
+
+constexpr char FETCH_USAGE[] = "usage: FETCH http://<private IPv4>[:port]/<file> <sd path of a .bin> <sha256, 64 hex>";
+constexpr int32_t FETCH_CONNECT_MS = 5000;
+constexpr unsigned long FETCH_STALL_MS = 10000;      // no byte for this long
+constexpr unsigned long FETCH_DEADLINE_MS = 180000;  // the whole transfer
+constexpr size_t FETCH_CHUNK_BYTES = 2048;
+
+void fetchProgress(const size_t written, const size_t total, unsigned& lastTenth) {
+  const unsigned tenth = total > 0 ? static_cast<unsigned>(static_cast<uint64_t>(written) * 10 / total) : 0;
+  if (tenth == lastTenth) return;
+  lastTenth = tenth;
+  devlink::JsonLine json;
+  json.addString("fetch", "writing")
+      .addUnsigned("written", written)
+      .addUnsigned("total", total)
+      .addUnsigned("percent", tenth * 10);
+  reply(json);
+}
+
+void replyFetchRefused(const char* error, const char* reason) {
+  devlink::JsonLine json;
+  json.addBool("ok", false).addString("error", error).addString("reason", reason);
+  reply(json);
+}
+
+// Waits until the server has sent something. Nullptr when it has; else why the transfer stops.
+// The cancel and the deadline are looked at first, so a server that never stops sending cannot
+// hold the reader either.
+const char* fetchWait(WiFiClient& client, const unsigned long startMs, unsigned long& lastByteMs) {
+  while (true) {
+    if (logSerial.available() > 0) return "cancelled: another command arrived";
+    if (millis() - startMs > FETCH_DEADLINE_MS) return "timeout: the transfer took over 180 s";
+    if (client.available() > 0) {
+      lastByteMs = millis();
+      return nullptr;
+    }
+    if (millis() - lastByteMs > FETCH_STALL_MS) return "timeout: the server sent nothing for 10 s";
+    if (!client.connected()) return "the connection closed before the end of the file";
+    delay(1);
+  }
+}
+
+void replyFetch(const devlink::Parsed& parsed) {
+  devlink::FetchArgs args;
+  if (!devlink::parseFetchArgs(parsed.args, parsed.argsLength, args)) {
+    replyError(FETCH_USAGE);
+    return;
+  }
+  devlink::FetchUrl url;
+  const devlink::UrlCheck urlCheck = devlink::checkFetchUrl(args.url, args.urlLength, url);
+  if (urlCheck != devlink::UrlCheck::Ok) {
+    replyFetchRefused("url refused", devlink::urlCheckText(urlCheck));
+    return;
+  }
+  const std::string path(args.path, args.pathLength);
+  if (!devlinkpaths::isAllowed(path, devlinkpaths::Access::Flash)) {
+    replyError("path refused: an absolute path to a .bin on the card, no '..', not in the device's own folders");
+    return;
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    replyError("not on Wi-Fi: join a network on the reader first (FETCH starts no radio and knows no password)");
+    return;
+  }
+  uint16_t percent = 0;
+  {
+    RenderLock lock;  // the themes read the gauge from the render task
+    percent = powerManager.getBatteryPercentage();
+  }
+  if (percent < FLASH_MIN_BATTERY_PERCENT && !gpio.isUsbConnected()) {
+    devlink::JsonLine json;
+    json.addBool("ok", false)
+        .addString("error", "battery below 30% and no USB power")
+        .addUnsigned("battery_percent", percent);
+    reply(json);
+    return;
+  }
+  // No larger than the slot FLASH would write it to.
+  uint32_t maxBytes = devlink::FETCH_MAX_BYTES;
+  if (const esp_partition_t* dest = esp_ota_get_next_update_partition(nullptr)) {
+    maxBytes = std::min<uint32_t>(maxBytes, dest->size);
+  }
+  const std::unique_ptr<uint8_t[]> chunk(new (std::nothrow) uint8_t[FETCH_CHUNK_BYTES]);
+  const std::unique_ptr<wc_Sha256> sha(new (std::nothrow) wc_Sha256);
+  if (!chunk || !sha) {
+    replyError("out of memory");
+    return;
+  }
+
+  const unsigned long startMs = millis();
+  unsigned long lastByteMs = startMs;
+  WiFiClient client;
+  if (client.connect(IPAddress(url.ip[0], url.ip[1], url.ip[2], url.ip[3]), url.port, FETCH_CONNECT_MS) == 0) {
+    replyError("cannot connect to the server");
+    return;
+  }
+  // HTTP/1.0: the answer is the file as it is, then the server closes. Nothing is sent but these lines.
+  char host[32];
+  snprintf(host, sizeof(host), "%u.%u.%u.%u:%u", url.ip[0], url.ip[1], url.ip[2], url.ip[3], url.port);
+  client.print("GET ");
+  client.write(reinterpret_cast<const uint8_t*>(url.path), url.pathLength);
+  client.print(" HTTP/1.0\r\nHost: ");
+  client.print(host);
+  client.print("\r\nConnection: close\r\n\r\n");
+
+  devlink::HttpHead head;
+  devlink::HttpHead::State headState = devlink::HttpHead::State::More;
+  while (headState == devlink::HttpHead::State::More) {
+    if (const char* stopped = fetchWait(client, startMs, lastByteMs)) {
+      client.stop();
+      replyError(stopped);
+      return;
+    }
+    const int c = client.read();
+    if (c >= 0) headState = head.feed(static_cast<char>(c));
+  }
+  if (headState == devlink::HttpHead::State::Bad) {
+    client.stop();
+    replyFetchRefused("answer refused", "not an HTTP answer, or its head is too long");
+    return;
+  }
+  const devlink::HeadCheck headCheck = devlink::checkHead(head, maxBytes);
+  if (headCheck != devlink::HeadCheck::Ok) {
+    client.stop();
+    devlink::JsonLine json;
+    json.addBool("ok", false)
+        .addString("error", "answer refused")
+        .addString("reason", devlink::headCheckText(headCheck))
+        .addInt("status", head.status());
+    reply(json);
+    return;
+  }
+  const uint32_t total = head.contentLength();
+
+  Storage.ensureDirectoryExists(devlinkpaths::parentOf(path).c_str());
+  HalFile file = Storage.open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC);
+  if (!file) {
+    client.stop();
+    replyError("cannot open the file for writing");
+    return;
+  }
+  if (wc_InitSha256(sha.get()) != 0) {
+    client.stop();
+    file.close();
+    Storage.remove(path.c_str());
+    replyError("the hash could not be started");
+    return;
+  }
+  LOG_INF("DEVLINK", "CMD:FETCH %s (%u bytes) to %s", host, static_cast<unsigned>(total), path.c_str());
+  {
+    devlink::JsonLine json;
+    json.addString("fetch", "started").addUnsigned("total", total);
+    reply(json);
+  }
+
+  uint32_t written = 0;
+  unsigned lastTenth = 0;
+  const char* failed = nullptr;
+  while (written < total) {
+    failed = fetchWait(client, startMs, lastByteMs);
+    if (failed) break;
+    // Never more than the length the head named: what a server sends after it is not written.
+    const size_t want = std::min<size_t>(FETCH_CHUNK_BYTES, total - written);
+    const int got = client.read(chunk.get(), want);
+    if (got <= 0) continue;
+    const size_t count = static_cast<size_t>(got);
+    if (file.write(chunk.get(), count) != count) {
+      failed = "write failed (is the card full?)";
+      break;
+    }
+    if (wc_Sha256Update(sha.get(), chunk.get(), static_cast<word32>(count)) != 0) {
+      failed = "the hash failed";
+      break;
+    }
+    written += static_cast<uint32_t>(count);
+    fetchProgress(written, total, lastTenth);
+  }
+  client.stop();
+  file.close();
+
+  uint8_t digest[devlink::SHA256_BYTES] = {};
+  if (!failed && wc_Sha256Final(sha.get(), digest) != 0) failed = "the hash failed";
+  wc_Sha256Free(sha.get());
+  if (failed) {
+    Storage.remove(path.c_str());
+    devlink::JsonLine json;
+    json.addBool("ok", false).addString("error", failed).addUnsigned("bytes", written).addBool("deleted", true);
+    reply(json);
+    return;
+  }
+  char hex[devlink::SHA256_HEX + 1];
+  devlink::sha256Hex(digest, hex);
+  if (memcmp(digest, args.sha256, sizeof(digest)) != 0) {
+    Storage.remove(path.c_str());
+    devlink::JsonLine json;
+    json.addBool("ok", false)
+        .addString("error", "sha256 mismatch: the file was deleted")
+        .addUnsigned("bytes", written)
+        .addString("sha256", hex)
+        .addBool("deleted", true);
+    reply(json);
+    return;
+  }
+  devlink::JsonLine json;
+  json.addBool("ok", true)
+      .addUnsigned("bytes", written)
+      .addString("sha256", hex)
+      .addString("path", path.c_str())
+      .addUnsigned("ms", millis() - startMs)
+      .addString("next", "send CMD:FLASH <sd path>, then CMD:REBOOT");
+  reply(json);
+}
+
 // ---- CMD:WAIT ----
 // Answered later, from waitTick() in the main loop, when the reader is at rest: no made-up input
 // left in the queue, no screen change or frame pending, the frame of the screen in front painted,
@@ -758,6 +983,9 @@ void handle(const devlink::Parsed& parsed, const unsigned long msSinceInput, con
       return;
     case devlink::Command::Flash:
       replyFlash(parsed);
+      return;
+    case devlink::Command::Fetch:
+      replyFetch(parsed);
       return;
     case devlink::Command::Wait:
       replyWait(parsed);

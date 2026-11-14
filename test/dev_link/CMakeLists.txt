@@ -19,11 +19,13 @@ target_link_libraries(DevLinkTest PRIVATE
 gtest_discover_tests(DevLinkTest)
 
 # The developer's own builds (VAULTINK_DEVLINK + VAULTINK_DEVLINK_FULL, env x4pro-dev): KEY, TAP,
-# SWIPE, FLASH, LS, GET and PUT, the input queue and the SD path rule.
+# SWIPE, FLASH, LS, GET, PUT and FETCH, the input queue, the SD path rule and the URL guard.
 add_executable(DevLinkDevTest
   DevLinkDevTest.cpp
+  DevLinkFetchTest.cpp
   ${REPO_ROOT}/lib/DevLink/DevLink.cpp
   ${REPO_ROOT}/lib/DevLink/DevLinkArgs.cpp
+  ${REPO_ROOT}/lib/DevLink/DevLinkFetch.cpp
   ${REPO_ROOT}/lib/DevLink/DevLinkInput.cpp
 )
 

@@ -37,6 +37,7 @@ TEST(UserLink, TheCommandsThatActAreUnknown) {
   EXPECT_EQ(command("CMD:LS /debug"), Command::Unknown);
   EXPECT_EQ(command("CMD:GET /debug/a.txt 0 100"), Command::Unknown);
   EXPECT_EQ(command("CMD:PUT /debug/a.txt 0 YQ=="), Command::Unknown);
+  EXPECT_EQ(command("CMD:FETCH http://192.168.1.2/a.bin /a.bin 00"), Command::Unknown);
 }
 
 TEST(UserLink, HelpListsOnlyWhatIsAnswered) {

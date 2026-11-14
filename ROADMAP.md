@@ -701,6 +701,15 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   is painted; `CMD:SCREENSHOT` sent in pieces that wait for room and `CMD:SHOTCRC` to check it
   against. `devlink.py wait`, `screenshot --verify`. Still to do: all of it on an X4 Pro
   (docs/devlink.md, "What is not checked yet").
+* 🚧 (2026-11-14, computer tests only, not compiled for the device, nothing run on a reader)
+  A build over Wi-Fi: `CMD:FETCH <http url> <sd path> <sha256>` makes the reader download a
+  `.bin` to its card (plain http from a private IPv4 address only, no host names, no redirects, a
+  path `FLASH` could read, 30% battery floor, hashed while written, deleted on a wrong hash, a
+  180 s limit, cancelled by any new command), then the existing `FLASH` and `REBOOT` finish.
+  `devlink.py fetch` and `devlink.py push-update <file.bin> --expect <version>` (serves the file
+  with `python3 -m http.server` on the computer's LAN address, FETCH, FLASH, REBOOT, STATUS until
+  the version matches). `x4pro-dev` and `x4pro-dev-verify` only. Still to do: compile it, and every
+  item of docs/devlink.md, "What is not checked yet".
 * Next slice (not started): settings get/set; a Home key and two-finger gestures for the input
   queue. `x4pro-dev` only (`VAULTINK_DEVLINK_FULL`), never in the build users may install.
 * ✅ (0.75.0, computer tests only, not compiled for the device, not tried in a browser) Debug

@@ -102,7 +102,7 @@ TEST(DevParse, KnowsTheDeveloperCommands) {
 
 TEST(DevParse, EveryListedCommandParses) {
   const std::string list = devlink::commandList();
-  for (const char* name : {"KEY", "TAP", "SWIPE", "FLASH", "LS", "GET", "PUT", "WAIT", "SHOTCRC"}) {
+  for (const char* name : {"KEY", "TAP", "SWIPE", "FLASH", "LS", "GET", "PUT", "FETCH", "WAIT", "SHOTCRC"}) {
     EXPECT_NE((" " + list + " ").find(std::string(" ") + name + " "), std::string::npos) << name;
   }
   size_t start = 0;
