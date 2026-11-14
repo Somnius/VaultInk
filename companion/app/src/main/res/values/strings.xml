@@ -5,7 +5,7 @@
     <string name="tab_device">Device</string>
     <string name="tab_settings">Settings</string>
     <string name="searching">Looking for your VaultInk on this Wi-Fi…</string>
-    <string name="not_found">No VaultInk found. On the device, open File Transfer and join this Wi-Fi network (or connect the phone to the device\'s hotspot), then try again.</string>
+    <string name="not_found">No VaultInk found. On the device, open Transfer &amp; Remotes (File Transfer on older firmware) and join this Wi-Fi network (or connect the phone to the device\'s hotspot), then try again.</string>
     <string name="found">Connected to %1$s (VaultInk %2$s)</string>
     <string name="hotspot_warning">The device is in hotspot mode: anyone who joins its Wi-Fi can read and change the card. Use it only for a short while.</string>
     <string name="address">Device address</string>
@@ -77,7 +77,7 @@
     <string name="intro_what_title">Your VaultInk reader, from the phone</string>
     <string name="intro_what_body">VaultInk is the software on your e-reader that reads your Obsidian Vaults from its SD card. This app is its companion: it talks to the reader over Wi-Fi, so you can send it notes, manage its card and change its settings from the phone.</string>
     <string name="intro_reader_title">Get the reader ready</string>
-    <string name="intro_reader_body">On the reader, open File Transfer and pick Join a Network (the same Wi-Fi as the phone) or Create Hotspot (then join the reader\'s Wi-Fi on the phone). Keep that screen open while you use the app.</string>
+    <string name="intro_reader_body">On the reader, open Transfer &amp; Remotes (File Transfer on older firmware) and pick Join a Network (the same Wi-Fi as the phone) or Create Hotspot (then join the reader\'s Wi-Fi on the phone). Keep that screen open while you use the app.</string>
     <string name="intro_tabs_title">What\'s in the app</string>
     <string name="intro_tab_note">Note: write a quick note or share text and pictures from other apps. It\'s saved on the reader\'s card right away; with LiveSync set up, the reader also sends it to your other devices on its next sync.</string>
     <string name="intro_tab_files">Files: the whole SD card. Upload, download, rename, move and delete.</string>
@@ -120,7 +120,7 @@
     <string name="help_missing">This document isn\'t bundled with the app: %1$s</string>
     <string name="connect_checklist">On the reader, File Transfer must be open, and the phone on the same Wi-Fi or on the reader\'s hotspot.</string>
     <string name="not_found_title">No VaultInk found</string>
-    <string name="not_found_step1">1. On the reader, open File Transfer and leave it open.</string>
+    <string name="not_found_step1">1. On the reader, open Transfer &amp; Remotes (File Transfer on older firmware), join a network and leave that screen open.</string>
     <string name="not_found_step2">2. Put the phone on the same Wi-Fi, or join the reader\'s hotspot.</string>
     <string name="not_found_step3">Still nothing? Type the address the reader shows at the top of its File Transfer screen.</string>
     <string name="hint_note">Saved on the reader\'s card right away. With LiveSync set up, the reader sends it on its next sync.</string>

@@ -6,6 +6,7 @@
 #include <GfxRenderer.h>
 #include <HalGPIO.h>
 #include <I18n.h>
+#include <Memory.h>
 #include <WiFi.h>
 
 #include <cstddef>
@@ -15,6 +16,7 @@
 #include "SilentRestart.h"
 #include "WifiSelectionActivity.h"
 #include "activities/network/CalibreConnectActivity.h"
+#include "activities/remote/RemoteServersActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/PluginEvents.h"
@@ -97,7 +99,11 @@ void CrossPointWebServerActivity::onEnter() {
     return;
   }
 
-  // Launch network mode selection subactivity
+  showModePicker();
+}
+
+void CrossPointWebServerActivity::showModePicker() {
+  state = WebServerActivityState::MODE_SELECTION;
   LOG_DBG("WEBACT", "Launching NetworkModeSelectionActivity...");
   startActivityForResult(std::make_unique<NetworkModeSelectionActivity>(renderer, mappedInput),
                          [this](const ActivityResult& result) {
@@ -107,6 +113,19 @@ void CrossPointWebServerActivity::onEnter() {
                              onNetworkModeSelected(std::get<NetworkModeResult>(result.data).mode);
                            }
                          });
+}
+
+void CrossPointWebServerActivity::showRemoteServers(const bool sshOnly) {
+  auto list = makeUniqueNoThrow<RemoteServerListActivity>(renderer, mappedInput, sshOnly);
+  if (!list) {
+    LOG_ERR("WEBACT", "OOM: RemoteServerListActivity");
+    showModePicker();
+    return;
+  }
+  // Back from the list is the picker again, and Back there is Home. A visit that used Wi-Fi does
+  // not come back here: the file browser and the terminal switch Wi-Fi off and restart the device
+  // on their way out (CatalogActivity::onExit, SshTerminalActivity::onExit).
+  startActivityForResult(std::move(list), [this](const ActivityResult&) { showModePicker(); });
 }
 
 void CrossPointWebServerActivity::onExit() {
@@ -138,6 +157,15 @@ void CrossPointWebServerActivity::onExit() {
 }
 
 void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) {
+  // The server lists first: they are plain lists of saved servers and need neither Wi-Fi nor the
+  // web server (a server's own page brings Wi-Fi up when it connects).
+  if (mode == NetworkMode::REMOTE_SERVERS || mode == NetworkMode::SSH_TERMINAL) {
+    LOG_DBG("WEBACT", "Network mode selected: %s",
+            mode == NetworkMode::SSH_TERMINAL ? "SSH terminal" : "Remote servers");
+    showRemoteServers(mode == NetworkMode::SSH_TERMINAL);
+    return;
+  }
+
   // Join Network brings up WiFi + the web server + TLS relays, whose working set
   // needs a large *contiguous* block. After reading/browsing the heap is
   // fragmented enough that tight boards (X3) abort mid-activation. Reboot once
@@ -170,19 +198,8 @@ void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) 
   isApMode = (mode == NetworkMode::CREATE_HOTSPOT);
 
   if (mode == NetworkMode::CONNECT_CALIBRE) {
-    startActivityForResult(
-        std::make_unique<CalibreConnectActivity>(renderer, mappedInput), [this](const ActivityResult& result) {
-          state = WebServerActivityState::MODE_SELECTION;
-
-          startActivityForResult(std::make_unique<NetworkModeSelectionActivity>(renderer, mappedInput),
-                                 [this](const ActivityResult& result) {
-                                   if (result.isCancelled) {
-                                     onGoHome();
-                                   } else {
-                                     onNetworkModeSelected(std::get<NetworkModeResult>(result.data).mode);
-                                   }
-                                 });
-        });
+    startActivityForResult(std::make_unique<CalibreConnectActivity>(renderer, mappedInput),
+                           [this](const ActivityResult&) { showModePicker(); });
     return;
   }
 
@@ -224,16 +241,7 @@ void CrossPointWebServerActivity::onWifiSelectionComplete(const bool connected) 
     startWebServer();
   } else {
     // User cancelled - go back to mode selection
-    state = WebServerActivityState::MODE_SELECTION;
-
-    startActivityForResult(std::make_unique<NetworkModeSelectionActivity>(renderer, mappedInput),
-                           [this](const ActivityResult& result) {
-                             if (result.isCancelled) {
-                               onGoHome();
-                             } else {
-                               onNetworkModeSelected(std::get<NetworkModeResult>(result.data).mode);
-                             }
-                           });
+    showModePicker();
   }
 }
 
@@ -454,7 +462,7 @@ void CrossPointWebServerActivity::render(RenderLock&&) {
     const auto pageHeight = renderer.getScreenHeight();
 
     GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
-                   isApMode ? tr(STR_HOTSPOT_MODE) : tr(STR_FILE_TRANSFER), nullptr);
+                   isApMode ? tr(STR_HOTSPOT_MODE) : tr(STR_WIFI_TRANSFER), nullptr);
 
     if (state == WebServerActivityState::SERVER_RUNNING) {
       GUI.drawSubHeader(renderer, Rect{0, metrics.topPadding + metrics.headerHeight, pageWidth, metrics.tabBarHeight},
@@ -474,7 +482,7 @@ void CrossPointWebServerActivity::renderServerRunning() const {
   const auto pageWidth = renderer.getScreenWidth();
 
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
-                 isApMode ? tr(STR_HOTSPOT_MODE) : tr(STR_FILE_TRANSFER), nullptr);
+                 isApMode ? tr(STR_HOTSPOT_MODE) : tr(STR_WIFI_TRANSFER), nullptr);
   GUI.drawSubHeader(renderer, Rect{0, metrics.topPadding + metrics.headerHeight, pageWidth, metrics.tabBarHeight},
                     connectedSSID.c_str());
 

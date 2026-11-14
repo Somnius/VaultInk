@@ -45,7 +45,8 @@ At the right of the blue header:
 
 ## Connecting
 
-1. On the device, open **File Transfer** (it announces itself on the network as `vaultink.local`).
+1. On the device, open **Transfer & Remotes** (the Home row that was called File Transfer) and
+   pick **Join a Network** or **Create Hotspot** (it announces itself on the network as `vaultink.local`).
 2. Join the phone to the same Wi-Fi, or to the device's hotspot.
 3. Open the app. It tries the last address that worked, then `vaultink.local`, then looks for the
    device on the network (mDNS, `_http._tcp`, named "vaultink"). If none answers, type the address

@@ -21,7 +21,7 @@ the manual SD card copy method below.
 
 ### Option 2: Upload via web browser
 
-1. Start **File Transfer** and connect through **Join Network** or **Create Hotspot**
+1. Open **Transfer & Remotes** and connect through **Join Network** or **Create Hotspot**
 2. Open the web interface URL shown on the reader
 3. Navigate to the **Fonts** tab
 4. Upload `.cpfont` files using the upload form

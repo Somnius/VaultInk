@@ -15,7 +15,8 @@ device is the client and the files live on your server.
 
 ## Setting up a server
 
-**Settings → Connectivity → WebDAV and FTP servers → Add Server.** Up to 6 servers. Each field is saved as
+**Home → Transfer & Remotes → Remote servers → Add Server.** (Settings → Connectivity → WebDAV and FTP
+servers still opens the same list, as a shortcut.) Up to 6 servers. Each field is saved as
 soon as you leave the keyboard.
 
 | Field | What to enter |
@@ -26,7 +27,8 @@ soon as you leave the keyboard.
 | Username, Password | Typed on the device keyboard. Leave the user name empty for an anonymous FTP sign-in. |
 | Check certificate | WebDAV over https only. On for a new server. |
 
-The same fields are on the web settings page (File Transfer, then Settings in the browser), under
+The same fields are on the web settings page (Transfer & Remotes → Join a Network, then Settings in the
+browser), under
 **WebDAV and FTP servers**. The page never receives a stored password: it shows `(set)`, and leaving the
 field empty keeps the password.
 

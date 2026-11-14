@@ -42,7 +42,7 @@ the reader and a cable can read its status and log and take a screenshot of what
 
 ## 2. Connect
 
-1. Wake the reader and plug the cable in. It must not be in File Transfer → USB Drive.
+1. Wake the reader and plug the cable in. It must not be in Transfer & Remotes → USB Drive.
 2. Open the [debug page](https://somnius.github.io/VaultInk/debug.html) and press **Connect**.
 3. Choose the reader in the browser's list and confirm.
 

@@ -7,11 +7,13 @@
 #include "activities/UiListActivity.h"
 
 /**
- * Settings > Network > WebDAV and FTP servers: the saved servers and "Add Server". A server opens
+ * Home > Transfer & Remotes > Remote servers: the saved servers and "Add Server". A server opens
  * its own page (RemoteServerActivity) to connect, edit or delete it.
  *
- * Settings > Network > SSH servers is the same list showing the SSH servers only (`sshOnly`); a
- * server added there starts as an SSH server. Both lists are views of the one RemoteServerStore.
+ * Home > Transfer & Remotes > SSH terminal is the same list showing the SSH servers only
+ * (`sshOnly`); a server added there starts as an SSH server. Both lists are views of the one
+ * RemoteServerStore. Settings > Connectivity > "WebDAV and FTP servers" and "SSH servers" open the
+ * same two lists.
  */
 class RemoteServerListActivity final : public UiListActivity {
  public:

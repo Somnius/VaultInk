@@ -18,9 +18,11 @@ enum class WebServerActivityState {
 };
 
 /**
- * CrossPointWebServerActivity is the entry point for file transfer functionality.
+ * CrossPointWebServerActivity is the entry point for file transfer functionality (Home > Transfer & Remotes).
  * It:
- * - First presents a choice between "Join a Network" (STA), "Connect to Calibre", and "Create Hotspot" (AP)
+ * - First presents a choice between "Join a Network" (STA), "Connect to Calibre", "Create Hotspot" (AP),
+ *   "USB Drive", "Remote servers" and "SSH terminal" (NetworkModeSelectionActivity)
+ * - For the two server lists: opens RemoteServerListActivity, with no Wi-Fi or web server of its own
  * - For STA mode: Launches WifiSelectionActivity to connect to an existing network
  * - For AP mode: Creates an Access Point that clients can connect to
  * - Starts the CrossPointWebServer when connected
@@ -61,6 +63,10 @@ class CrossPointWebServerActivity final : public Activity {
   void renderServerRunning() const;
   void renderWifiIndicator(int subHeaderTop) const;
 
+  // Opens the Transfer & Remotes picker; Back there is Home.
+  void showModePicker();
+  // Opens the saved servers (all of them, or the SSH servers only); Back there is the picker.
+  void showRemoteServers(bool sshOnly);
   void onNetworkModeSelected(NetworkMode mode);
   void onWifiSelectionComplete(bool connected);
   void startAccessPoint();

@@ -1,6 +1,6 @@
 # Book formats
 
-What VaultInk opens, how well, and what it leaves out. Put books in any folder on the SD card (the `books` folder is the usual one), or send them with File Transfer (Wi-Fi, USB or Calibre) or the [companion app](companion.md). The Library lists the ones ticked in **Settings → Library → Book formats** (or the gear in the Library header).
+What VaultInk opens, how well, and what it leaves out. Put books in any folder on the SD card (the `books` folder is the usual one), or send them with Transfer & Remotes on the Home screen (Wi-Fi, USB or Calibre) or the [companion app](companion.md). The Library lists the ones ticked in **Settings → Library → Book formats** (or the gear in the Library header).
 
 | Format | Opens as | Works | Doesn't work yet |
 | --- | --- | --- | --- |

@@ -7,8 +7,9 @@ version built with PlatformIO for the X4 Pro; the security fixes made after that
 file, key exchange, time limits) are tested on the computer only. What was checked and what was
 not is at the end of this page.
 
-- Where: **Settings → Connectivity → SSH servers**. The same servers also show in **WebDAV and FTP
-  servers**, where SSH is a third protocol.
+- Where: **Home → Transfer & Remotes → SSH terminal**. The same servers also show in **Remote
+  servers** on that screen, where SSH is a third protocol. Settings → Connectivity → SSH servers
+  (and WebDAV and FTP servers) still open the same two lists, as shortcuts.
 - Boards: the X4 Pro builds only (`VAULTINK_SSH=1`). On the other boards the menu entry is not
   there.
 - Wi-Fi comes up when you connect and goes down when you leave the screen. Nothing runs in the
@@ -16,7 +17,8 @@ not is at the end of this page.
 
 ## Set up a server
 
-1. Settings → Connectivity → SSH servers → **Add Server**.
+1. Home → Transfer & Remotes → SSH terminal → **Add Server** (with no server yet, it is the first
+   row of the list).
 2. **Address**: `server`, `server:port` or `server:port/folder` (the folder is where the file
    browser starts; without one it starts in your home folder). An IPv6 address goes in brackets:
    `[2001:db8::1]:22`. Do not put the user name in the address.
@@ -109,8 +111,8 @@ refuse the file.
 There is no "connect anyway" for any of these. In the last two cases the device writes nothing to
 the file, so the pins in it are not lost by an accident; only *Forget all host keys* removes it.
 
-**Forget all host keys** is the last row of Settings → Connectivity → SSH servers (it shows when there
-is a file). It deletes the file after a question; every server then asks again at its next
+**Forget all host keys** is the last row of Home → Transfer & Remotes → SSH terminal (it shows when
+there is a file). It deletes the file after a question; every server then asks again at its next
 connection.
 
 ## The terminal
