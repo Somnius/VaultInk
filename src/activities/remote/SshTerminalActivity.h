@@ -40,9 +40,10 @@
  * - Text: the terminal's own fixed-cell 1-bit font (lib/Ssh/SshTermFont: 6 x 12, 8 x 14, 8 x 16 or
  *   10 x 18 pixel cells, chosen with "Terminal text size" in the SSH servers list and read when
  *   the screen opens). Glyphs are copied pixel for pixel; the columns follow the cell width.
- * - Memory: the screen and 500 lines of scrollback live in one PSRAM block (4 bytes a cell: 80
- *   columns x (rows + 500) lines is about 180 KB); wolfSSH's 32 KB window and 16 KB packet buffers
- *   are single allocations, which this board's malloc also places in PSRAM.
+ * - Memory: the screen and 500 lines of scrollback live in one PSRAM block, 4 bytes a cell: about
+ *   180 KB for 80 columns x (55 rows + 500 lines), the 6 x 12 size on the 480-pixel side, and at
+ *   most about 280 KB at the 132-column cap (the 6 x 12 size on an 800-pixel side); wolfSSH's 32 KB window and 16 KB
+ * packet buffers are single allocations, which this board's malloc also places in PSRAM.
  *
  * In a build without VAULTINK_SSH the screen only says that SSH is not in this build.
  */

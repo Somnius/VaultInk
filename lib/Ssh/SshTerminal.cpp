@@ -166,10 +166,23 @@ void Terminal::moveTo(int row, int col) {
   curCol_ = static_cast<uint16_t>(col);
 }
 
+bool Terminal::isZeroWidth(const uint32_t cp) {
+  return (cp >= 0x0300 && cp <= 0x036F) ||  // combining diacritical marks
+         (cp >= 0x1AB0 && cp <= 0x1AFF) ||  // ... extended
+         (cp >= 0x1DC0 && cp <= 0x1DFF) ||  // ... supplement
+         (cp >= 0x200B && cp <= 0x200F) ||  // zero-width space, joiners, direction marks
+         (cp >= 0x2028 && cp <= 0x202E) ||  // line and paragraph separators, bidi embedding controls
+         (cp >= 0x2060 && cp <= 0x2064) ||  // word joiner, invisible operators
+         (cp >= 0x20D0 && cp <= 0x20FF) ||  // combining marks for symbols
+         (cp >= 0xFE00 && cp <= 0xFE0F) ||  // variation selectors
+         (cp >= 0xFE20 && cp <= 0xFE2F) ||  // combining half marks
+         cp == 0xFEFF;                      // byte order mark
+}
+
 void Terminal::putChar(uint32_t cp) {
+  // Characters with no width would need their own cell handling: dropped, so they take no cell.
+  if (isZeroWidth(cp)) return;
   if (cp > 0xFFFF) cp = '?';
-  // Combining marks and zero-width characters would need their own cell handling: dropped.
-  if ((cp >= 0x300 && cp <= 0x36F) || cp == 0x200B || cp == 0x200D || cp == 0xFEFF) return;
   if (curCol_ >= cols_) {
     if (autoWrap_) {
       curCol_ = 0;

@@ -16,6 +16,7 @@
 #include <Memory.h>
 #include <ResumableFetch.h>
 #include <SecureHttpClient.h>
+#include <SshTermFont.h>
 #include <SunTimes.h>
 #include <TlsPolicyDevice.h>
 #include <Util.h>
@@ -1536,8 +1537,10 @@ void CrossPointWebServer::handlePostSettings() {
         break;
       }
       case SettingType::VALUE: {
-        const int val = doc[s.key].as<int>();
+        int val = doc[s.key].as<int>();
         if (val >= s.valueRange.min && val <= s.valueRange.max) {
+          // The terminal's text size has four values only: one between them is moved to the next.
+          if (s.key && strcmp(s.key, "sshTextSize") == 0) val = sshfont::snapHeight(static_cast<uint8_t>(val));
           if (s.valuePtr) {
             SETTINGS.*(s.valuePtr) = static_cast<uint8_t>(val);
           }

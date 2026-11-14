@@ -178,7 +178,10 @@ the text fields.
   not for box lines).
 - The font has Latin, Greek, Cyrillic, arrows, mathematical signs, box drawing and blocks (1051
   characters). Anything else shows as `?`: CJK, emoji, Braille patterns, Hebrew and Arabic.
-  Combining accents are not joined to their letter. Wide characters take one cell, not two.
+  Wide characters take one cell, not two. Characters with no width are dropped and take no
+  cell: combining accents (so a letter typed as letter + accent shows without it; the usual
+  single-character forms such as `ά` and `é` are fine), zero-width spaces and joiners, direction
+  marks and variation selectors.
 - The text size cannot be changed while a session is open.
 - One session at a time. No port forwarding, no agent, no X11.
 - The session ends when the screen closes: Disconnect, the device going to sleep, or USB Drive
@@ -232,7 +235,8 @@ folder chosen at the top, **Upload a file here**, **New folder**.
 ## Memory
 
 - The screen and its scrollback are one block in PSRAM: 4 bytes a character, about 180 KB for 80
-  columns.
+  columns, and at most about 280 KB at the 132-column limit (size 12 with the 800-pixel side
+  across).
 - The terminal font is 84 KB of the firmware (four sizes, 1051 characters each, one bit a pixel),
   only in the builds with SSH.
 - The SSH library's buffers (a 32 KB receive window, 16 KB packets) are single blocks, which this

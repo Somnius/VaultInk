@@ -25,17 +25,26 @@ constexpr uint8_t MIN_HEIGHT = 12;
 constexpr uint8_t MAX_HEIGHT = 18;
 constexpr uint8_t HEIGHT_STEP = 2;
 
-// The font for a stored height: 12 (6 x 12), 14 (8 x 14), 16 (8 x 16) or 18 (10 x 18). Any other
-// value gives the default.
+// A stored value as one of the four heights: an odd value between them is the next one up (13 is
+// 14), anything outside 12 to 18 is the default. The setting is passed through this wherever it
+// comes in (the settings file, the web settings page), so it only ever holds 12, 14, 16 or 18.
+constexpr uint8_t snapHeight(const uint8_t height) {
+  if (height < MIN_HEIGHT || height > MAX_HEIGHT) return DEFAULT_HEIGHT;
+  return static_cast<uint8_t>(height + (height - MIN_HEIGHT) % HEIGHT_STEP);
+}
+// The font for a height: 12 (6 x 12), 14 (8 x 14), 16 (8 x 16) or 18 (10 x 18); any other value
+// is snapped first.
 const Font& fontForHeight(uint8_t height);
-// The next height in the cycle 12 -> 14 -> 16 -> 18 -> 12; a value outside it gives the default.
+// The next height in the cycle 12 -> 14 -> 16 -> 18 -> 12, counted from the snapped value, so a
+// tap always changes the size.
 uint8_t nextHeight(uint8_t height);
 
 // The glyph number of a code point, or -1 when the font does not have it.
 int glyphIndex(uint32_t cp);
 // What to draw in place of a character the font does not have: a similar character it does have
-// (a dashed box line as the plain one, a rounded corner as the square one, a small triangle as
-// '>'), '+' for any other box-drawing character, '#' for any other block element, else '?'.
+// (a dashed box line as the plain one, an eighth block as the half block, a small triangle as
+// '>'), '+' for any other box-drawing character, '#' for any other block element, a blank for a
+// control character, else '?'.
 uint32_t fallbackFor(uint32_t cp);
 // The glyph number to draw for a code point: its own, or its fallback's. Never negative.
 int resolveGlyph(uint32_t cp);

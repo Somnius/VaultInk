@@ -79,6 +79,10 @@ class Terminal {
   Changes takeChanges();
   bool hasChanges() const { return changes_.any(); }
 
+  // True for characters that take no cell: combining marks, zero-width spaces and joiners, bidi
+  // controls, invisible operators, variation selectors and the byte order mark.
+  static bool isZeroWidth(uint32_t cp);
+
   // How many times the server asked for the alternate screen (a full-screen program started).
   uint32_t alternateScreenRequests() const { return altRequests_; }
 

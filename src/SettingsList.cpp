@@ -311,8 +311,14 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                            "moveFinishedToReadFolder", StrId::STR_CAT_SYSTEM));
 
   // SSH terminal text size: the cell height in pixels (12, 14, 16, 18). Cycled from the SSH servers
-  // list, so category-less (hidden on the device's Settings screen).
+  // list, so category-less (hidden on the device's Settings screen). The web settings page shows it
+  // only in the builds that have the terminal (the same condition as VAULTINK_SSH_TERMINAL).
+#if defined(VAULTINK_SSH) && VAULTINK_SSH && !defined(SIMULATOR)
   emit(SettingInfo::Value(StrId::STR_SSH_TEXT_SIZE, &CrossPointSettings::sshTextSize, {12, 18, 2}, "sshTextSize"));
+#else
+  emit(SettingInfo::Value(StrId::STR_SSH_TEXT_SIZE, &CrossPointSettings::sshTextSize, {12, 18, 2}, "sshTextSize")
+           .withWebHidden());
+#endif
 
   // OPDS download folder: persisted + web-exposed, but category-less so it
   // is hidden from the on-device Settings screen (edited via OPDS UI).

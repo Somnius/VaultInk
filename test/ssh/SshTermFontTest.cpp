@@ -56,11 +56,28 @@ TEST(SshTermFont, SizesAndCells) {
   EXPECT_EQ(sshfont::fontForHeight(16).cellW, 8);
   EXPECT_EQ(sshfont::fontForHeight(18).cellW, 10);
   for (const uint8_t height : HEIGHTS) EXPECT_EQ(sshfont::fontForHeight(height).cellH, height);
-  // Anything else stored in the setting gives the default size.
-  for (const uint8_t bad : {0, 11, 13, 15, 17, 19, 20, 255}) {
+  // A value outside 12 to 18 is the default size; an odd one between is the next size up.
+  for (const uint8_t bad : {0, 1, 11, 19, 20, 255}) {
+    EXPECT_EQ(sshfont::snapHeight(bad), sshfont::DEFAULT_HEIGHT) << int(bad);
     EXPECT_EQ(sshfont::fontForHeight(bad).cellH, sshfont::DEFAULT_HEIGHT) << int(bad);
-    EXPECT_EQ(sshfont::nextHeight(bad), sshfont::DEFAULT_HEIGHT) << int(bad);
   }
+  EXPECT_EQ(sshfont::snapHeight(13), 14);
+  EXPECT_EQ(sshfont::snapHeight(15), 16);
+  EXPECT_EQ(sshfont::snapHeight(17), 18);
+  EXPECT_EQ(sshfont::fontForHeight(13).cellH, 14);
+  for (const uint8_t height : HEIGHTS) EXPECT_EQ(sshfont::snapHeight(height), height);
+  // Whatever is stored, the snapped value is one of the four and a tap always changes the size
+  // that is shown (a stored 13 shows as 14 and goes to 16).
+  for (int value = 0; value <= 255; ++value) {
+    const uint8_t stored = static_cast<uint8_t>(value);
+    const uint8_t shown = sshfont::snapHeight(stored);
+    EXPECT_TRUE(shown == 12 || shown == 14 || shown == 16 || shown == 18) << value;
+    const uint8_t next = sshfont::nextHeight(stored);
+    EXPECT_TRUE(next == 12 || next == 14 || next == 16 || next == 18) << value;
+    EXPECT_NE(next, shown) << value;
+    EXPECT_NE(sshfont::fontForHeight(next).cellH, sshfont::fontForHeight(stored).cellH) << value;
+  }
+  EXPECT_EQ(sshfont::nextHeight(13), 16);
   EXPECT_EQ(sshfont::nextHeight(12), 14);
   EXPECT_EQ(sshfont::nextHeight(14), 16);
   EXPECT_EQ(sshfont::nextHeight(16), 18);
@@ -311,4 +328,41 @@ TEST(SshTermFont, LongLineWrapsByColumns) {
   const sshterm::Cell* cells = term.line(2);
   ASSERT_NE(cells, nullptr);
   EXPECT_EQ(cells[grid.cols - 1].ch, 0x2500);
+}
+
+TEST(SshTermFont, ZeroWidthCharactersTakeNoCell) {
+  using sshterm::Terminal;
+  for (const uint32_t cp :
+       {0x0300, 0x0301, 0x036F, 0x1AB0, 0x1AFF, 0x1DC0, 0x1DFF, 0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0x2028,
+        0x2029, 0x202A, 0x202E, 0x2060, 0x2064, 0x20D0, 0x20FF, 0xFE00, 0xFE0F, 0xFE20, 0xFE2F, 0xFEFF}) {
+    EXPECT_TRUE(Terminal::isZeroWidth(cp)) << std::hex << cp;
+  }
+  for (const uint32_t cp : {0x20,   0x41,   0x02FF, 0x0370, 0x03AC, 0x1AAF, 0x1B00, 0x200A, 0x2010, 0x2027, 0x202F,
+                            0x205F, 0x2065, 0x20CF, 0x2100, 0x2500, 0xFDFF, 0xFE10, 0xFE1F, 0xFE30, 0xFFFD, 0x1F600}) {
+    EXPECT_FALSE(Terminal::isZeroWidth(cp)) << std::hex << cp;
+  }
+
+  Terminal term;
+  ASSERT_TRUE(term.begin(20, 4, 10, sshterm::Memory{malloc, free}));
+  // a + combining acute, a zero-width space, a left-to-right mark, a right-to-left override, a
+  // word joiner, a variation selector, a combining half mark and a byte order mark, between the
+  // letters of "abcdefgh": only the letters take cells.
+  term.feed(
+      "a\xCC\x81"
+      "b\xE2\x80\x8B"
+      "c\xE2\x80\x8E"
+      "d\xE2\x80\xAE"
+      "e\xE2\x81\xA0"
+      "f\xEF\xB8\x8F"
+      "g\xEF\xB8\xA0"
+      "h\xEF\xBB\xBF");
+  EXPECT_EQ(term.rowText(0), "abcdefgh");
+  EXPECT_EQ(term.cursorCol(), 8);
+  // A line of exactly the width followed by zero-width characters does not wrap or spill.
+  term.feed("\r\n" + std::string(20, 'x') + "\xE2\x80\x8B\xCC\x81");
+  EXPECT_EQ(term.rowText(1), std::string(20, 'x'));
+  EXPECT_EQ(term.rowText(2), "");
+  // A precomposed letter keeps its cell, and a character outside the BMP is one '?'.
+  term.feed("\r\n\xCE\xAC\xF0\x9F\x98\x80.");
+  EXPECT_EQ(term.rowText(2), "\xCE\xAC?.");
 }

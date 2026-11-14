@@ -5,6 +5,7 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <ObfuscationUtils.h>
+#include <SshTermFont.h>
 
 #include <algorithm>
 #include <cstring>
@@ -219,6 +220,13 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
     }
   };
   forEachBaseSetting(visit);
+
+  // The terminal's text size is one of four cell heights: a value between them (a file edited by
+  // hand) is moved to one, so the SSH servers list always shows and cycles a real size.
+  if (sshTextSize != sshfont::snapHeight(sshTextSize)) {
+    sshTextSize = sshfont::snapHeight(sshTextSize);
+    needsResave = true;
+  }
 
   // Plugin System did not exist in older settings files. Preserve the behavior
   // of users who already have SD plugins installed, while keeping the new

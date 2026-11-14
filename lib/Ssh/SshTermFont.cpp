@@ -14,10 +14,6 @@ const Font FONTS[SIZE_COUNT] = {
     {10, 18, 2, data::ROWS_18},
 };
 
-bool validHeight(const uint8_t height) {
-  return height >= MIN_HEIGHT && height <= MAX_HEIGHT && (height - MIN_HEIGHT) % HEIGHT_STEP == 0;
-}
-
 struct Substitute {
   uint16_t from;
   uint16_t to;
@@ -43,19 +39,15 @@ constexpr Substitute SUBSTITUTES[] = {
     {0x276F, '>'},    {0x2794, 0x2192},                                   // heavy arrows
     {0x279C, 0x2192}, {0x27A4, '>'},    {0x27F5, 0x2190},                 // long arrows
     {0x27F6, 0x2192}, {0x2B06, 0x2191}, {0x2B07, 0x2193}, {0x3000, ' '},  // ideographic space
-    {0xFEFF, 0x200B},                                                     // byte order mark: nothing
 };
 
 }  // namespace
 
-const Font& fontForHeight(const uint8_t height) {
-  const uint8_t wanted = validHeight(height) ? height : DEFAULT_HEIGHT;
-  return FONTS[(wanted - MIN_HEIGHT) / HEIGHT_STEP];
-}
+const Font& fontForHeight(const uint8_t height) { return FONTS[(snapHeight(height) - MIN_HEIGHT) / HEIGHT_STEP]; }
 
 uint8_t nextHeight(const uint8_t height) {
-  if (!validHeight(height)) return DEFAULT_HEIGHT;
-  return height >= MAX_HEIGHT ? MIN_HEIGHT : static_cast<uint8_t>(height + HEIGHT_STEP);
+  const uint8_t current = snapHeight(height);
+  return current >= MAX_HEIGHT ? MIN_HEIGHT : static_cast<uint8_t>(current + HEIGHT_STEP);
 }
 
 int glyphIndex(const uint32_t cp) {
