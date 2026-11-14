@@ -13,6 +13,7 @@
 #include <HalPowerManager.h>
 #include <HalStorage.h>
 #include <Logging.h>
+#include <TlsPolicy.h>
 #include <TrustedTime.h>
 #include <WiFi.h>
 #include <esp_sleep.h>
@@ -108,6 +109,7 @@ void replyStatus(const unsigned long msSinceInput, const uint32_t droppedLines) 
 #else
       .addString("build", "dev-user")  // the read-only link (x4pro-dev-user)
 #endif
+      .addBool("verify_github", tlspolicy::VERIFY_GITHUB)  // true only in x4pro-dev-verify
       .addUnsigned("uptime_ms", millis())
       .addUnsigned("heap_free", heap.freeBytes)
       .addUnsigned("heap_min_free", heap.minFreeBytes)

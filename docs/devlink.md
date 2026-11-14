@@ -115,7 +115,8 @@ So that a developer build is never taken for a release:
   is the one version text of the firmware, so About, the boot screen, the Settings title, the web server's status, the
   `User-Agent` of its requests and the update screen all show it.
 - `STATUS` has `"version":"0.74.0-x4pro-dev"` and `"build":"dev"` (`"0.74.0-dev"` and
-  `"build":"dev-user"` for `x4pro-dev-user`).
+  `"build":"dev-user"` for `x4pro-dev-user`). `"verify_github":true` means GitHub's certificate is
+  checked (only `x4pro-dev-verify`); every other build says `false`.
 - **The update check.** It compares the three numbers only, as in every build. A release with the
   same numbers is not offered (0.74.0 over 0.74.0-x4pro-dev: "no update"). A release with higher
   numbers is offered, and installing it replaces the developer build with the release build, so the
