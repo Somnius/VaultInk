@@ -1,0 +1,15 @@
+A patch on 0.75.0.
+
+Checked on a real X4 Pro:
+- The SSH terminal connected to a real server, and it has its own crisp fixed-width font (from Terminus): four sizes, box-drawing and block characters, bold, Greek. Set the size in Settings, Connectivity, SSH servers, Terminal text size.
+- File Transfer on Home is now Transfer & Remotes. Its screen holds Join a Network, Calibre Wireless, Create Hotspot, USB Drive, Remote servers (WebDAV, FTP, SFTP) and SSH terminal. Settings, Connectivity keeps both server lists as shortcuts.
+
+Not checked on a device: SFTP, and whether the Greek name fits its row.
+
+Also: the licences screen lists the terminal font (Terminus Font, SIL OFL 1.1).
+
+Known and not fixed:
+- The bottom row of Settings (System) ignores a tap until you scroll the list.
+- The Books list takes about 1.75 s to show.
+- The smallest terminal size (6x12) may be hard to read; I haven't judged it on the panel.
+- Only English and Greek have the new names; the other languages keep File Transfer on Home.

@@ -705,8 +705,34 @@
 
   <section id="release">
     <div class="wrap">
-      <p class="eyebrow sans">New in 0.75.0</p>
-      <h2>Scroll mode, SSH, and the first checks on a real X4 Pro</h2>
+      <p class="eyebrow sans">New in 0.75.1</p>
+      <h2>A terminal font, and Transfer &amp; Remotes</h2>
+      <p class="lead">A patch on 0.75.0. The screenshots are from the simulator, which has no USB Drive and no SSH, so those two rows are missing in the second picture and there is no picture of the terminal itself.</p>
+
+      <div class="features">
+        <figure class="feature">
+          <a href="shot-transfer-home.png" class="shot"><img src="shot-transfer-home.png" width="480" height="800" loading="lazy" alt="The home screen with the Transfer &amp; Remotes row"></a>
+          <figcaption>
+            <h3>Transfer &amp; Remotes</h3>
+            <p>File Transfer on Home is now Transfer &amp; Remotes (Greek: Μεταφορά &amp; Διακομιστές). Checked on a real X4 Pro; whether the Greek name fits its row was not.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-transfer-remotes.png" class="shot"><img src="shot-transfer-remotes.png" width="480" height="800" loading="lazy" alt="Transfer &amp; Remotes: Join a Network, Calibre Wireless, Create Hotspot and Remote servers"></a>
+          <figcaption>
+            <h3>One screen for transfers and servers</h3>
+            <p>Join a Network, Calibre Wireless, Create Hotspot, USB Drive, Remote servers (WebDAV, FTP, SFTP) and SSH terminal. Settings &gt; Connectivity keeps both server lists as shortcuts. Leaving an SSH session started here returns to Home.</p>
+          </figcaption>
+        </figure>
+      </div>
+
+      <ul class="list">
+        <li><strong>The SSH terminal connected to a real server</strong> from a real X4 Pro, and it has <strong>its own font</strong>: fixed-width, 1-bit, made from Terminus and drawn pixel for pixel, so it is crisp. Four sizes (8x16 is the default, 60 columns), with box-drawing and block characters, bold and Greek. Settings &gt; Connectivity &gt; SSH servers &gt; Terminal text size. SFTP has still not been tried from a device.</li>
+        <li>The licences screen now lists the terminal font (Terminus Font 4.49.1, SIL OFL 1.1).</li>
+        <li>Known bugs and limits: the bottom row of Settings (System) ignores a tap until you scroll the list; the Books list still takes about 1.75 s to show; I haven&rsquo;t judged how readable the smallest terminal size (6x12) is on the panel; only English and Greek have the new names, the other 34 languages keep File Transfer on Home and show the new rows in English.</li>
+      </ul>
+
+      <h3 style="margin-top:2.4rem">From 0.75.0: scroll mode, SSH, and the first checks on a real X4 Pro</h3>
       <p class="lead">The first release where I could check part of the work on a real X4 Pro myself, over a USB developer link. Every item says which it is: checked on the device, or tried on a computer only. The screenshots are from the simulator.</p>
 
       <div class="features">
