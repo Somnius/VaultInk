@@ -20,7 +20,8 @@ struct MemFs {
   int stamps = 0, reads = 0;
   std::vector<std::string> written;
   std::set<std::string> unreadable;
-  bool stampedListing = false;  // fs() also offers listStamped, like the SD card does
+  std::set<std::string> unwritable;  // commits to these paths fail, the old file stays
+  bool stampedListing = false;       // fs() also offers listStamped, like the SD card does
 
   vaultindex::IndexFs fs() {
     vaultindex::IndexFs out;
@@ -36,7 +37,7 @@ struct MemFs {
     };
     // Stamp: size plus an edit counter standing in for the modification time.
     out.stamp = [this](const std::string& p) -> uint64_t {
-      ++stamps;
+      if (p.rfind("/V/", 0) == 0) ++stamps;  // the cost counted is notes opened, not the index's own files
       return stampOf(p);
     };
     if (stampedListing) {
@@ -75,8 +76,10 @@ struct MemFs {
       return true;
     };
     out.commit = [this](bool keep) {
-      if (keep) files[pendingPath] = pending;
-      if (keep) written.push_back(pendingPath);
+      if (!keep) return true;
+      if (unwritable.count(pendingPath)) return false;
+      files[pendingPath] = pending;
+      written.push_back(pendingPath);
       return true;
     };
     return out;
@@ -403,7 +406,9 @@ TEST(VaultIndex, OtherFilesRefreshOnlyTheFileList) {
   EXPECT_FALSE(stats.unchanged);
   EXPECT_FALSE(stats.rewritten);
   EXPECT_EQ(m.reads, 0);
-  EXPECT_EQ(m.written, (std::vector<std::string>{vaultindex::fileListPathFor("/V"), vaultindex::statePathFor("/V")}));
+  // The state is marked invalid, the list is written, the state is written.
+  EXPECT_EQ(m.written, (std::vector<std::string>{vaultindex::statePathFor("/V"), vaultindex::fileListPathFor("/V"),
+                                                 vaultindex::statePathFor("/V")}));
   EXPECT_NE(m.files[vaultindex::fileListPathFor("/V")].find("/V/Books/cover.png\n"), std::string::npos);
   ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
   EXPECT_TRUE(stats.unchanged);
@@ -516,4 +521,99 @@ TEST(VaultIndex, TermsAreUniqueInOrderAndCapped) {
   const auto capped = vaultindex::scanNote("/V/Big.md", big);
   EXPECT_EQ(capped.terms.size(), vaultindex::MAX_TERMS_PER_NOTE);
   EXPECT_EQ(std::set<std::string>(capped.terms.begin(), capped.terms.end()).size(), capped.terms.size());
+}
+
+// A rebuild that fails half way (the index is written, the file list is not) must not leave the
+// old fingerprint behind: when the vault then looks like it did before, that fingerprint would
+// call the index, which still holds the note since deleted, up to date.
+TEST(VaultIndex, FailedRebuildLeavesNoOldFingerprint) {
+  auto m = demo();
+  vaultindex::BuildStats stats;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  const std::string good = m.files[vaultindex::statePathFor("/V")];
+
+  m.files["/V/New.md"] = "brand new";
+  m.unwritable.insert(vaultindex::fileListPathFor("/V"));
+  vaultindex::build("/V", INDEX, m.fs(), &stats);
+  EXPECT_TRUE(stats.rewritten);
+  EXPECT_EQ(vaultindex::search(INDEX, "brand", m.fs()).size(), 1u);
+  EXPECT_EQ(m.files[vaultindex::statePathFor("/V")], "invalid\n");
+
+  m.files.erase("/V/New.md");  // the listing is what `good` was written for
+  m.unwritable.clear();
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_FALSE(stats.unchanged);
+  EXPECT_TRUE(vaultindex::search(INDEX, "brand", m.fs()).empty());
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_TRUE(stats.unchanged);
+
+  // Even with the old state line put back by hand, the rewritten index isn't the file it names.
+  m.files["/V/New.md"] = "brand new";
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  m.files.erase("/V/New.md");
+  m.files[vaultindex::statePathFor("/V")] = good;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_FALSE(stats.unchanged);
+  EXPECT_TRUE(vaultindex::search(INDEX, "brand", m.fs()).empty());
+}
+
+// When the state can't be marked invalid, nothing else is written either.
+TEST(VaultIndex, NoRebuildWhenTheStateCannotBeInvalidated) {
+  auto m = demo();
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  const std::string before = m.files[INDEX];
+  m.files["/V/New.md"] = "brand new";
+  m.unwritable.insert(vaultindex::statePathFor("/V"));
+  m.resetCost();
+  EXPECT_FALSE(vaultindex::build("/V", INDEX, m.fs()));
+  EXPECT_TRUE(m.written.empty());
+  EXPECT_EQ(m.files[INDEX], before);
+}
+
+// An index cut down to its header, or cut in the middle, with the state and the vault untouched.
+TEST(VaultIndex, TruncatedIndexIsRebuilt) {
+  auto m = demo();
+  vaultindex::BuildStats stats;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  const std::string whole = m.files[INDEX];
+
+  m.files[INDEX] = whole.substr(0, whole.find('\n') + 1);  // header only
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_FALSE(stats.unchanged);
+  EXPECT_EQ(stats.rescanned, 3u);
+  EXPECT_EQ(m.files[INDEX], whole);
+
+  m.files[INDEX] = whole.substr(0, whole.size() - 10);  // the last line is cut
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_FALSE(stats.unchanged);
+  EXPECT_TRUE(stats.rewritten);
+  EXPECT_EQ(stats.rescanned, 3u);  // the cut line still names its note: no line of that file is kept
+  EXPECT_EQ(m.files[INDEX], whole);
+  EXPECT_EQ(vaultindex::search(INDEX, "milk", m.fs()).size(), 1u);
+  EXPECT_EQ(vaultindex::search(INDEX, "guide", m.fs()).size(), 1u);
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_TRUE(stats.unchanged);
+}
+
+// A file list that was emptied or lost lines is written again.
+TEST(VaultIndex, WipedFileListIsRebuilt) {
+  auto m = demo();
+  vaultindex::BuildStats stats;
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs()));
+  const std::string list = vaultindex::fileListPathFor("/V");
+  const std::string whole = m.files[list];
+  ASSERT_FALSE(whole.empty());
+
+  m.files[list].clear();
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_FALSE(stats.unchanged);
+  EXPECT_FALSE(stats.rewritten);
+  EXPECT_EQ(m.files[list], whole);
+
+  m.files[list] = whole.substr(0, whole.find('\n') + 1);
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_FALSE(stats.unchanged);
+  EXPECT_EQ(m.files[list], whole);
+  ASSERT_TRUE(vaultindex::build("/V", INDEX, m.fs(), &stats));
+  EXPECT_TRUE(stats.unchanged);
 }

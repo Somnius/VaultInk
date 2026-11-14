@@ -79,10 +79,11 @@ std::string join(const std::string& dir, const std::string& name) {
 bool startsWith(std::string_view s, std::string_view p) { return s.substr(0, p.size()) == p; }
 
 // Every file under `root` (dot folders skipped), breadth-first, for vaultlink's `known` lookup.
-bool writeFileList(const std::string& root, const IndexFs& fs, const std::function<void(size_t, size_t)>& progress) {
+bool writeFileList(const std::string& root, const IndexFs& fs, const std::function<void(size_t, size_t)>& progress,
+                   size_t& listed) {
+  listed = 0;
   if (!fs.begin(fileListPathFor(root))) return false;
   bool ok = true;
-  size_t listed = 0;
   std::deque<std::string> dirs{root};
   while (ok && !dirs.empty() && listed < MAX_LISTED_FILES) {
     const std::string dir = dirs.front();
@@ -114,6 +115,7 @@ struct Listing {
   std::string paths;
   std::vector<Entry> notes;                       // in walk order: shortest paths first
   std::vector<uint32_t> order;                    // indexes into `notes`, sorted by path
+  size_t files = 0;                               // every file walked, notes and others
   uint64_t fingerprint = 1469598103934665603ull;  // FNV-1a
   bool stamped = true;                            // false when a note's stamp couldn't be read
 
@@ -135,7 +137,7 @@ struct Listing {
 
 Listing walk(const std::string& root, const IndexFs& fs, const std::function<void(size_t, size_t)>& progress) {
   Listing out;
-  size_t files = 0;
+  size_t& files = out.files;
   std::deque<std::string> dirs{root};
   while (!dirs.empty() && files < MAX_LISTED_FILES) {
     const std::string dir = dirs.front();
@@ -173,10 +175,14 @@ Listing walk(const std::string& root, const IndexFs& fs, const std::function<voi
   return out;
 }
 
-std::string stateLine(const Listing& listing) {
+// The state line: what the vault looked like, and the stamps (size and time) of the index and the
+// file list written for it, so a cut, emptied or replaced file doesn't pass as up to date.
+std::string stateLine(const Listing& listing, const uint64_t indexStamp, const uint64_t listStamp) {
   return std::string(STATE_VERSION) + FIELD + std::to_string(listing.fingerprint) + FIELD +
-         std::to_string(listing.notes.size());
+         std::to_string(listing.notes.size()) + FIELD + std::to_string(listing.files) + FIELD +
+         std::to_string(indexStamp) + FIELD + std::to_string(listStamp);
 }
+constexpr const char* STATE_INVALID = "invalid";
 
 // The first line of a file; false when the file is missing or empty.
 bool firstLine(const std::string& path, const IndexFs& fs, std::string& out) {
@@ -467,24 +473,45 @@ bool build(const std::string& root, const std::string& indexPath, const IndexFs&
   if (stats) *stats = BuildStats{};
   Listing listing = walk(root, fs, progress);
   const size_t total = listing.notes.size();
-  const std::string state = stateLine(listing);
   const std::string statePath = statePathFor(root);
+  const std::string listPath = fileListPathFor(root);
   if (stats) stats->notes = total;
 
-  // Nothing changed since the last complete build: the index and the file list are as they were.
+  // Nothing changed since the last complete build: the same listing, and the index and the file
+  // list are the very files that build wrote (same size and time).
   std::string line;
   const bool indexValid = firstLine(indexPath, fs, line) && line == INDEX_VERSION;
-  if (indexValid && listing.stamped && firstLine(statePath, fs, line) && line == state &&
-      fs.lines(fileListPathFor(root), [](std::string_view) { return false; })) {
-    if (stats) stats->unchanged = true;
-    return true;
+  const bool hasState = firstLine(statePath, fs, line);
+  // An index that isn't the file the state was written for (cut, or put there by something else)
+  // is not trusted line by line: every note is read again. With no state, or an interrupted
+  // build's "invalid", the index is whole (it is replaced in one step) and its lines are checked.
+  bool foreign = false;
+  if (indexValid && hasState && line != STATE_INVALID) {
+    const uint64_t indexStamp = fs.stamp(indexPath);
+    const uint64_t listStamp = fs.stamp(listPath);
+    if (listing.stamped && indexStamp != 0 && listStamp != 0 && line == stateLine(listing, indexStamp, listStamp)) {
+      if (stats) stats->unchanged = true;
+      return true;
+    }
+    std::vector<std::string> fields;
+    splitInto(line, FIELD, fields);
+    foreign = fields.size() == 6 && fields[4] != std::to_string(indexStamp);
+  }
+  // From here the index and the file list may be written. The old state goes first, so a write
+  // that fails or is cut by a power loss can't leave a fingerprint that vouches for other files.
+  if (hasState && line != STATE_INVALID) {
+    if (!fs.begin(statePath)) return false;
+    if (!fs.commit(fs.append(STATE_INVALID) && fs.append("\n")) || !firstLine(statePath, fs, line) ||
+        line != STATE_INVALID) {
+      return false;
+    }
   }
 
   // Which notes the old index has with the same stamp. A line for a note that is gone or changed,
   // or a second line for the same note, means the index must be written again.
   size_t kept = 0;
-  bool stale = !indexValid;
-  if (indexValid) {
+  bool stale = !indexValid || foreign;
+  if (!stale) {
     bool header = true;
     size_t seen = 0;
     fs.lines(indexPath, [&](std::string_view l) {
@@ -550,11 +577,16 @@ bool build(const std::string& root, const std::string& indexPath, const IndexFs&
     }
   }
   // A list that can't be written only costs speed: links fall back to scanning the folders.
-  const bool listed = writeFileList(root, fs, progress);
+  size_t listedFiles = 0;
+  const bool listed = writeFileList(root, fs, progress, listedFiles) && listedFiles == listing.files;
   // The state is written last and only when all of the above is complete: a build that was cut
   // short, or a note that couldn't be read, is tried again next time.
-  if (ok && listed && allRead && listing.stamped && fs.begin(statePath)) {
-    fs.commit(fs.append(state) && fs.append("\n"));
+  if (ok && listed && allRead && listing.stamped) {
+    const uint64_t indexStamp = fs.stamp(indexPath);
+    const uint64_t listStamp = fs.stamp(listPath);
+    if (indexStamp != 0 && listStamp != 0 && fs.begin(statePath)) {
+      fs.commit(fs.append(stateLine(listing, indexStamp, listStamp)) && fs.append("\n"));
+    }
   }
   return ok;
 }

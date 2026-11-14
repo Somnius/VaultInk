@@ -288,10 +288,13 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   path); the SD scan runs only when there is no list yet or the listed file is gone (renamed, or
   added since the list was written). Settings → Vaults → Rebuild Search Index deletes both files.
 - Update cost (after 0.74.0): `state.txt` next to `index.tsv` holds one line: a 64-bit fingerprint
-  (FNV-1a) of every file path in the vault plus each note's stamp, and the note count. An update
+  (FNV-1a) of every file path in the vault plus each note's stamp, the note and file counts, and
+  the stamps (size and time) of `index.tsv` and `files.txt` as written. It is set to `invalid`
+  before either file is written again, so a failed or power-cut update can't leave a fingerprint
+  for other contents, and a cut, emptied or replaced file doesn't match its stamp (such an
+  `index.tsv` is rebuilt from the notes, not kept line by line). An update
   first walks the vault's folders once; stamps come from the folder entries, so no note is opened.
-  Same fingerprint, a current `index.tsv` header and a `files.txt`: nothing else is read or
-  written. Otherwise the old index is checked line by line (path and stamp only); it is written
+  Same state line and a current `index.tsv` header: nothing else is read or written. Otherwise the old index is checked line by line (path and stamp only); it is written
   again only when a note was added, changed or removed, and only those notes are read; then
   `files.txt` and `state.txt` are written. `state.txt` is written last and not at all when a note
   couldn't be read, so a cut-short update is redone. The walk keeps the note paths in one block

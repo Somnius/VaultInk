@@ -61,7 +61,8 @@ struct IndexFs : vaultlink::Fs {
 std::string indexPathFor(const std::string& root);
 std::string fileListPathFor(const std::string& root);
 // state.txt next to them: one line with the fingerprint of the folder listing the index and the
-// file list were last brought up to date with.
+// file list were last brought up to date with, the note and file counts, and the stamps of those
+// two files. It reads "invalid" while they are being written.
 std::string statePathFor(const std::string& root);
 constexpr const char* STATE_VERSION = "vaultink-state 1";
 constexpr size_t MAX_INDEXED_NOTES = 5000;
