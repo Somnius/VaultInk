@@ -4,7 +4,12 @@
 //
 // The loader is esptool-js 0.7.0 (ESPLoader and Transport). Every function here that talks to
 // the reader takes the loader (and the transport) as an argument, so nothing in this file opens
-// a port.
+// a port. The methods used, as lib/esploader.js and lib/webserial.js of 0.7.0 have them:
+//   loader.main(), loader.detectFlashSize(), loader.readFlash(addr, size, onPacket),
+//   loader.flashMd5sum(addr, size) -> hex string, loader.writeFlash(options),
+//   loader.writeReg(addr, value, mask = 0xffffffff, delayUs = 0, delayAfterUs = 0),
+//   loader.readReg(addr), loader.isUsbJtagSerialPort(), loader.secureDownloadMode,
+//   loader.chip.CHIP_NAME, loader.chip.readMac(loader), transport.setDTR(bool), transport.setRTS(bool).
 (function (root, factory) {
   "use strict";
   const lib = factory();
@@ -20,10 +25,34 @@
   // esptool-js's readFlash() copies everything it has so far for each 1 kB packet, so one call
   // for 16 MB gets slower and slower. A window keeps each copy small.
   const READ_WINDOW = 256 * 1024;
-  const IMAGE_MAGIC = 0xe9; // first byte of an ESP image; the bootloader is at offset 0 on the S3
-  // ESP32-S3: bit 0 of this register makes the next reset start the ROM loader again.
+
+  // The ESP image header (ESP-IDF, components/bootloader_support/include/esp_app_format.h,
+  // esp_image_header_t): magic at 0, segment_count at 1, chip_id (16 bits, little endian) at 12.
+  const IMAGE_MAGIC = 0xe9; // ESP_IMAGE_HEADER_MAGIC
+  const IMAGE_MAX_SEGMENTS = 16; // ESP_IMAGE_MAX_SEGMENTS
+  const IMAGE_CHIP_ID_OFFSET = 12;
+  const CHIP_ID_ESP32S3 = 0x0009; // ESP_CHIP_ID_ESP32S3
+  // The partition table (esp_flash_partitions.h, esp_partition_info_t): entries of 32 bytes,
+  // magic 0x50AA (bytes AA 50), type at 2, offset at 4, size at 8; at most 0xC00 bytes. 0x8000 is
+  // ESP-IDF's default place for it (CONFIG_PARTITION_TABLE_OFFSET), and where VaultInk's is.
+  const PARTITION_TABLE_OFFSET = 0x8000;
+  const PARTITION_TABLE_MAX_LEN = 0xc00;
+  const PARTITION_ENTRY_BYTES = 32;
+  const PARTITION_MAGIC = 0x50aa;
+  const PARTITION_TYPE_APP = 0x00;
+
+  // ESP32-S3 registers, from esptool 5.1.2, esptool/targets/esp32s3.py.
+  // Bit 0 of OPTION1 makes the next reset start the ROM loader again (hard_reset() clears it).
   const RTC_CNTL_OPTION1_REG = 0x6000812c;
   const RTC_CNTL_FORCE_DOWNLOAD_BOOT = 0x1;
+  // disable_watchdogs() of the same file:
+  const RTC_CNTL_WDTCONFIG0_REG = 0x60008098;
+  const RTC_CNTL_WDTWPROTECT_REG = 0x600080b0;
+  const RTC_CNTL_WDT_WKEY = 0x50d83aa1;
+  const RTC_CNTL_SWD_CONF_REG = 0x600080b4;
+  const RTC_CNTL_SWD_AUTO_FEED_EN = 0x80000000; // 1 << 31
+  const RTC_CNTL_SWD_WPROTECT_REG = 0x600080b8;
+  const RTC_CNTL_SWD_WKEY = 0x8f1d312a;
   const RESET_PULSE_MS = 100;
 
   // ---- numbers and names ----
@@ -120,7 +149,7 @@
     return { ok: true, reason: "" };
   }
 
-  // Is this file a whole-flash backup? file: {size, firstByte}.
+  // The quick check, before the file is read into memory. file: {size, firstByte}.
   function checkBackupFile(file) {
     const size = file ? file.size : NaN;
     if (size !== FLASH_BYTES) {
@@ -141,6 +170,61 @@
     return { ok: true, reason: "" };
   }
 
+  // What is wrong with the image header at `offset` ("" when nothing is): magic, segment count,
+  // chip id.
+  function imageHeaderProblem(data, offset) {
+    if (offset < 0 || offset + 24 > data.length) return "it is outside the file";
+    if (data[offset] !== IMAGE_MAGIC) return "it does not start with the byte 0xE9";
+    const segments = data[offset + 1];
+    if (segments < 1 || segments > IMAGE_MAX_SEGMENTS) return "its segment count is " + segments + " (1 to 16 expected)";
+    const chipId = data[offset + IMAGE_CHIP_ID_OFFSET] | (data[offset + IMAGE_CHIP_ID_OFFSET + 1] << 8);
+    if (chipId !== CHIP_ID_ESP32S3) {
+      return "its chip id is 0x" + chipId.toString(16).padStart(4, "0") + ", not 0x0009 (ESP32-S3)";
+    }
+    return "";
+  }
+
+  // The entries of the partition table in a flash image: [{type, subtype, offset, size, label}].
+  // Empty when there is no table at 0x8000.
+  function partitionEntries(data) {
+    const out = [];
+    for (let at = PARTITION_TABLE_OFFSET; at + PARTITION_ENTRY_BYTES <= PARTITION_TABLE_OFFSET + PARTITION_TABLE_MAX_LEN; at += PARTITION_ENTRY_BYTES) {
+      if (at + PARTITION_ENTRY_BYTES > data.length) break;
+      if ((data[at] | (data[at + 1] << 8)) !== PARTITION_MAGIC) break;
+      const u32 = (o) => (data[at + o] | (data[at + o + 1] << 8) | (data[at + o + 2] << 16) | (data[at + o + 3] << 24)) >>> 0;
+      let label = "";
+      for (let i = 12; i < 28 && data[at + i] !== 0; ++i) label += String.fromCharCode(data[at + i]);
+      out.push({ type: data[at + 2], subtype: data[at + 3], offset: u32(4), size: u32(8), label: label });
+    }
+    return out;
+  }
+
+  // Does this whole image look like the flash of an ESP32-S3 with a firmware in it?
+  // The size, a bootloader for the ESP32-S3 at 0, a partition table at 0x8000, and an app
+  // partition that starts with an ESP32-S3 image. An erased (all 0xFF) or zero-filled file fails
+  // the first of these. It cannot tell whether the firmware works.
+  function checkBackupImage(data) {
+    if (!(data instanceof Uint8Array)) return { ok: false, reason: "The file was not read." };
+    const quick = checkBackupFile({ size: data.length, firstByte: data[0] });
+    if (!quick.ok) return quick;
+    const no = (reason) => ({ ok: false, reason: reason + " It is not a backup this page can write." });
+    const boot = imageHeaderProblem(data, 0);
+    if (boot) return no("The bootloader at the start of the file is not right: " + boot + ".");
+    const entries = partitionEntries(data);
+    if (entries.length === 0) {
+      return no("There is no partition table at 0x8000 (the bytes AA 50 are not there).");
+    }
+    const apps = entries.filter((e) => e.type === PARTITION_TYPE_APP);
+    if (apps.length === 0) return no("The partition table has no app partition.");
+    const outside = entries.find((e) => e.offset + e.size > FLASH_BYTES);
+    if (outside) return no("The partition \"" + outside.label + "\" ends after 16 MB.");
+    const problems = apps.map((e) => imageHeaderProblem(data, e.offset));
+    if (!problems.includes("")) {
+      return no("No app partition holds a firmware for the ESP32-S3: at 0x" + apps[0].offset.toString(16) + " " + problems[0] + ".");
+    }
+    return { ok: true, reason: "" };
+  }
+
   // ---- hashes ----
 
   // SHA-256 of an ArrayBuffer or typed array as hex, with the browser's (or Node's) Web Crypto.
@@ -151,8 +235,8 @@
   }
 
   // MD5 of a Uint8Array as hex. Web Crypto has no MD5, and the flasher stub answers with the MD5
-  // of what is in the flash: esptool-js compares the two when writeFlash() gets this function.
-  // It only finds transfer errors; it is not a security check.
+  // of what is in the flash (flashMd5sum). It only finds transfer errors; it is not a security
+  // check.
   const MD5_SHIFT = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21];
   const MD5_K = new Int32Array(64);
   for (let i = 0; i < 64; ++i) MD5_K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
@@ -210,15 +294,48 @@
     };
   }
 
-  // Reads `total` bytes from offset 0, one window a call. Returns the windows' bytes in order
-  // (the page makes a Blob of the list, so the 16 MB are never joined in one buffer here).
-  // options: {total, windowSize, onProgress(done, total)}.
+  // Stops the two watchdogs that would otherwise reset an ESP32-S3 in the middle of a long read
+  // or write when it is connected by its own USB-Serial/JTAG port. The sequence is
+  // disable_watchdogs() of esptool 5.1.2 (esptool/targets/esp32s3.py); esptool-js 0.7.0 does not
+  // do it. Returns "done", "skipped" (another chip, or not that kind of port) or "failed" (a
+  // register did not answer: the caller warns and goes on).
+  async function disableWatchdogs(loader) {
+    if (!(loader.chip && loader.chip.CHIP_NAME === CHIP_NAME) || !loader.isUsbJtagSerialPort()) return "skipped";
+    try {
+      // The RTC watchdog: unlock, switch off, lock.
+      await loader.writeReg(RTC_CNTL_WDTWPROTECT_REG, RTC_CNTL_WDT_WKEY);
+      await loader.writeReg(RTC_CNTL_WDTCONFIG0_REG, 0);
+      await loader.writeReg(RTC_CNTL_WDTWPROTECT_REG, 0);
+      // The super watchdog: unlock, let the chip feed it by itself, lock.
+      await loader.writeReg(RTC_CNTL_SWD_WPROTECT_REG, RTC_CNTL_SWD_WKEY);
+      const conf = await loader.readReg(RTC_CNTL_SWD_CONF_REG);
+      await loader.writeReg(RTC_CNTL_SWD_CONF_REG, (conf | RTC_CNTL_SWD_AUTO_FEED_EN) >>> 0);
+      await loader.writeReg(RTC_CNTL_SWD_WPROTECT_REG, 0);
+    } catch (error) {
+      return "failed";
+    }
+    return "done";
+  }
+
+  // Reads `total` bytes from offset 0, one window a call, and checks each window: the reader
+  // computes the MD5 of the same bytes of its flash (flashMd5sum) and it must be the MD5 of what
+  // arrived. Returns the windows' bytes in order, all of them checked; throws on a short window,
+  // on a window that differs, and (an error named "AbortError") when options.shouldAbort() says
+  // so between two windows. The list holds the 16 MB once; the page then needs them a second
+  // time, joined, for the SHA-256.
+  // options: {total, windowSize, onProgress(done, total), shouldAbort()}.
   async function readFlash(loader, options) {
     const total = options && options.total !== undefined ? options.total : FLASH_BYTES;
     const windowSize = (options && options.windowSize) || READ_WINDOW;
     const onProgress = (options && options.onProgress) || function () {};
+    const shouldAbort = (options && options.shouldAbort) || function () { return false; };
     const chunks = [];
     for (const win of readWindows(total, windowSize)) {
+      if (shouldAbort()) {
+        const stop = new Error("The backup was stopped at 0x" + win.offset.toString(16) + ". Nothing was saved.");
+        stop.name = "AbortError";
+        throw stop;
+      }
       const chunk = await loader.readFlash(win.offset, win.size, (packet, inWindow) => {
         onProgress(win.offset + inWindow, total);
       });
@@ -227,6 +344,13 @@
           "The read at 0x" + win.offset.toString(16) + " returned " +
             (chunk && typeof chunk.length === "number" ? chunk.length : 0) + " bytes, not " + win.size +
             ". The backup is not complete; nothing was saved."
+        );
+      }
+      const onDevice = String(await loader.flashMd5sum(win.offset, win.size)).toLowerCase();
+      if (onDevice !== md5Hex(chunk)) {
+        throw new Error(
+          "The block at 0x" + win.offset.toString(16) + " (" + win.size + " bytes) is not what the reader has: " +
+            "the checksums differ. The backup is not right; nothing was saved. Try again, or another cable."
         );
       }
       chunks.push(chunk);
@@ -252,10 +376,11 @@
     };
   }
 
-  // Checks the file again, then writes it. Nothing is sent to the reader when a check fails.
+  // Checks the image again, then writes it. Nothing is sent to the reader when a check fails.
+  // The library compresses the image first, so for a while the tab holds the 16 MB and the
+  // compressed copy.
   async function restore(loader, data, onProgress) {
-    if (!(data instanceof Uint8Array)) throw new Error("The file was not read.");
-    const check = checkBackupFile({ size: data.length, firstByte: data[0] });
+    const check = checkBackupImage(data);
     if (!check.ok) throw new Error(check.reason);
     await loader.writeFlash(writeOptions(data, onProgress));
   }
@@ -267,24 +392,28 @@
   // with every RTS change (lib/webserial.js), so if DTR is still on, an RTS pulse resets the
   // chip with GPIO0 low and it lands in the loader again. This function does not depend on how
   // DTR was left. In this order:
-  //   1. clear the "start the loader again" bit (when the write fails, go on: the pulse matters);
+  //   1. on an ESP32-S3 only (the register is that chip's): clear the "start the loader again"
+  //      bit; when the write fails, go on, the pulse still matters;
   //   2. DTR off, so GPIO0 is high;
   //   3. RTS on, wait, RTS off: one reset pulse.
   // The order is the one explorink.com's open flasher (MIT) describes for the same chip.
-  // Returns {cleared}: false when step 1 failed.
+  // Returns {bit}: "cleared", "failed" (the reader may come back in the loader) or "skipped".
   async function resetToFirmware(loader, transport, sleep) {
     const wait = sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-    let cleared = true;
-    try {
-      await loader.writeReg(RTC_CNTL_OPTION1_REG, 0, RTC_CNTL_FORCE_DOWNLOAD_BOOT);
-    } catch (error) {
-      cleared = false;
+    let bit = "skipped";
+    if (loader.chip && loader.chip.CHIP_NAME === CHIP_NAME) {
+      try {
+        await loader.writeReg(RTC_CNTL_OPTION1_REG, 0, RTC_CNTL_FORCE_DOWNLOAD_BOOT);
+        bit = "cleared";
+      } catch (error) {
+        bit = "failed";
+      }
     }
     await transport.setDTR(false);
     await transport.setRTS(true);
     await wait(RESET_PULSE_MS);
     await transport.setRTS(false);
-    return { cleared: cleared };
+    return { bit: bit };
   }
 
   // ---- the page's state ----
@@ -292,28 +421,47 @@
   function initialState(supported) {
     return {
       supported: Boolean(supported),
+      // Counts connections: it goes up when a connection starts and when one ends. Work that was
+      // started under another number is stale and must not touch the page (isCurrent).
+      session: 0,
       connected: false,
       deviceOk: false,
+      deviceMac: "",
       busy: false,
       fileOk: false,
-      agreed: false,
+      fileName: "",
+      agreed: false, // "This replaces everything on the reader, bootloader included."
+      agreedOther: false, // "The file is from a different reader (MAC differs): write anyway"
     };
   }
 
-  // The state after an event. Events: {type: "connected", deviceOk}, "disconnected", "busy",
-  // "idle", {type: "file", ok}, {type: "agree", value}.
+  // The state after an event. Events: "connecting", {type: "connected", deviceOk, mac},
+  // "disconnected", "busy", "idle", {type: "file", ok, name}, {type: "agree", value},
+  // {type: "agreeOther", value}. Whatever can change which reader or which file a tick was
+  // about clears both ticks.
   function nextState(state, event) {
     const next = Object.assign({}, state);
     switch (event.type) {
+      case "connecting":
+        next.session = state.session + 1;
+        next.busy = true;
+        break;
       case "connected":
         next.connected = true;
         next.deviceOk = Boolean(event.deviceOk);
+        next.deviceMac = String(event.mac || "");
+        next.busy = false;
+        next.agreed = false;
+        next.agreedOther = false;
         break;
       case "disconnected":
+        next.session = state.session + 1;
         next.connected = false;
         next.deviceOk = false;
+        next.deviceMac = "";
         next.busy = false;
-        next.agreed = false; // a new connection can be another reader: tick the box again
+        next.agreed = false;
+        next.agreedOther = false;
         break;
       case "busy":
         next.busy = true;
@@ -323,10 +471,15 @@
         break;
       case "file":
         next.fileOk = Boolean(event.ok);
-        next.agreed = false; // another file: tick the box again
+        next.fileName = event.ok ? String(event.name || "") : "";
+        next.agreed = false;
+        next.agreedOther = false;
         break;
       case "agree":
         next.agreed = Boolean(event.value);
+        break;
+      case "agreeOther":
+        next.agreedOther = Boolean(event.value);
         break;
       default:
         throw new Error("unknown event: " + event.type);
@@ -334,17 +487,30 @@
     return next;
   }
 
+  // Is work that was started under `session` still about the current connection?
+  function isCurrent(state, session) {
+    return state.session === session;
+  }
+
+  // "none" (no good file, or no reader), else compareMac() of the file's name and the reader.
+  function macVerdict(state) {
+    if (!state.fileOk || !state.connected) return "none";
+    return compareMac(state.fileName, state.deviceMac);
+  }
+
   // Which controls can be used in this state (true = enabled).
   function controls(state) {
     const idle = state.supported && !state.busy;
     const ready = idle && state.connected && state.deviceOk;
+    const other = macVerdict(state) === "different";
     return {
       connect: idle && !state.connected,
       restart: idle && state.connected,
       read: ready,
       pickFile: !state.busy,
       agree: !state.busy && state.fileOk,
-      write: ready && state.fileOk && state.agreed,
+      agreeOther: !state.busy && state.fileOk && other,
+      write: ready && state.fileOk && state.agreed && (!other || state.agreedOther),
     };
   }
 
@@ -355,6 +521,7 @@
     FLASH_BYTES: FLASH_BYTES,
     READ_WINDOW: READ_WINDOW,
     IMAGE_MAGIC: IMAGE_MAGIC,
+    PARTITION_TABLE_OFFSET: PARTITION_TABLE_OFFSET,
     RTC_CNTL_OPTION1_REG: RTC_CNTL_OPTION1_REG,
     RTC_CNTL_FORCE_DOWNLOAD_BOOT: RTC_CNTL_FORCE_DOWNLOAD_BOOT,
     RESET_PULSE_MS: RESET_PULSE_MS,
@@ -369,15 +536,20 @@
     compareMac: compareMac,
     checkDevice: checkDevice,
     checkBackupFile: checkBackupFile,
+    partitionEntries: partitionEntries,
+    checkBackupImage: checkBackupImage,
     sha256Hex: sha256Hex,
     md5Hex: md5Hex,
     identify: identify,
+    disableWatchdogs: disableWatchdogs,
     readFlash: readFlash,
     writeOptions: writeOptions,
     restore: restore,
     resetToFirmware: resetToFirmware,
     initialState: initialState,
     nextState: nextState,
+    isCurrent: isCurrent,
+    macVerdict: macVerdict,
     controls: controls,
   };
 });

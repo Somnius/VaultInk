@@ -224,6 +224,12 @@
           <span class="sans state" id="state" role="status" aria-live="polite">Not connected</span>
         </div>
         <div class="notice error" id="error" hidden role="alert"></div>
+        <div class="notice" id="wdtWarning" hidden role="alert">
+          <strong>The page could not switch off the chip's watchdogs.</strong> You can go on, but the
+          reader may restart by itself in the middle of a long read or write. A read then just stops.
+          A write that stops leaves the flash half written: enter download mode again
+          (<a href="#download-mode">step 4</a>) and write the backup again.
+        </div>
         <table class="status sans" id="deviceTable" hidden>
           <tbody>
             <tr><th>Chip</th><td id="devChip"></td></tr>
@@ -242,17 +248,26 @@
           <strong>before</strong> you install VaultInk if you want a way back to the stock firmware.</p>
         <div class="row">
           <button class="btn" id="read" type="button" disabled>Read the flash (backup)</button>
+          <button class="btn ghost" id="abort" type="button" hidden>Abort</button>
         </div>
         <div id="readProgress" hidden>
           <div class="bar" role="progressbar" aria-label="Reading the flash" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="readBarBox"><div id="readBar"></div></div>
           <p class="sans" id="readText" aria-live="off"></p>
-          <p class="sans"><strong>Do not unplug while the bar moves.</strong></p>
+          <p class="sans" id="readHold"><strong>Do not unplug while the bar moves.</strong> Abort stops
+            the read after the block that is on its way and throws away what was read.</p>
         </div>
         <div id="readDone" hidden>
           <p class="sans"><a class="btn" id="download" href="#">Download</a></p>
           <p><strong>Keep this file. A backup of the stock firmware is the only way back to it.</strong></p>
           <p class="sans muted">SHA-256 of the file:</p>
           <p class="hash" id="readHash"></p>
+          <p class="sans muted">Each 256 kB block was checked against the device: the reader computed
+            the MD5 of the same block of its flash, and it was the MD5 of what arrived here.</p>
+          <div class="notice" id="readOdd" hidden role="alert">
+            <strong>This backup does not look the way the restore step expects</strong>, so step 3 would
+            refuse it: <span id="readOddWhy"></span> Keep the file anyway: it is what the reader holds.
+            Please <a href="https://github.com/Somnius/VaultInk/issues">tell us</a> (do not attach the file).
+          </div>
           <p class="sans muted">The file stays in this tab's memory until you close or reload it: download
             it now. Then press <strong>Restart the reader</strong>.</p>
         </div>
@@ -272,6 +287,9 @@
       <div class="grid">
         <div>
           <label class="sans" for="file"><strong>The backup file</strong> (16,777,216 bytes, made by step 2)</label>
+          <p class="sans muted">The page looks at the file before it lets you write it: the size, a
+            bootloader for the ESP32-S3 at the start, a partition table at 0x8000, and a firmware for
+            the ESP32-S3 in an app partition.</p>
           <div class="row"><input type="file" id="file" accept=".bin,application/octet-stream"></div>
           <div class="notice error" id="fileError" hidden role="alert"></div>
           <div id="fileInfo" hidden>
@@ -283,6 +301,7 @@
         </div>
         <div>
           <label class="check sans"><input type="checkbox" id="agree" disabled> <span>This replaces everything on the reader, bootloader included.</span></label>
+          <label class="check sans" id="otherRow" hidden><input type="checkbox" id="agreeOther" disabled> <span>The file is from a different reader (MAC differs): write anyway</span></label>
           <div class="row">
             <button class="btn" id="write" type="button" disabled>Write the backup to the reader</button>
           </div>
@@ -293,7 +312,8 @@
           </div>
           <p class="sans muted">The file is sent compressed, so the byte count is smaller than 16 MB. After
             the last byte the reader computes a checksum (MD5) of its flash and the page compares it with
-            the file's. Then the page restarts the reader.</p>
+            the file's. Then the page restarts the reader. <strong>A write cannot be stopped safely</strong>:
+            there is no Abort for it. The ticks are cleared when you choose another file or connect again.</p>
         </div>
       </div>
     </div>
@@ -350,9 +370,17 @@
         <li><strong>A backup from another reader</strong> carries that reader's settings and secret. The
           page warns when the MAC address in the file's name is not the connected reader's. Writing
           another reader's backup is not tested.</li>
-        <li><strong>The page checks little about the file:</strong> its size, its first byte, and after
-          writing that the flash holds the same bytes. It cannot tell whether the file is a working
-          firmware. The SHA-256 is for you, to see that the file is still the one you saved.</li>
+        <li><strong>What the page checks.</strong> While reading: every 256 kB block against the
+          reader's own MD5 of that block. Before writing: the file's size, a bootloader and a firmware
+          for the ESP32-S3, a partition table. After writing: that the flash holds the same bytes (MD5).
+          It cannot tell whether the file is a working firmware. The SHA-256 is for you, to see that
+          the file is still the one you saved.</li>
+        <li><strong>Watchdogs.</strong> After connecting, the page switches off the chip's two
+          watchdogs the way Espressif's esptool does for this kind of USB port, so that the chip does
+          not restart by itself during a long read or write. If that fails the page says so. A write
+          cut short that way leaves the flash half written; restore again from download mode.</li>
+        <li><strong>Memory.</strong> A backup needs about twice its size (32 MB) in the tab for a
+          moment, and a restore the file plus its compressed copy.</li>
       </ul>
       <h3>Messages from the loader</h3>
       <pre id="log" tabindex="0" aria-label="Messages from esptool-js"></pre>
@@ -385,13 +413,11 @@
   const BAUD = 115200;
 
   let esptool = null;
-  let port = null;
-  let transport = null;
-  let loader = null;
-  let device = null; // what identify() returned
+  // The connection: {port, transport, loader, device} (device is null until the chip answered).
+  let conn = null;
   let fileData = null; // Uint8Array of the chosen file
-  let fileName = "";
   let downloadUrl = null;
+  let abortRead = false;
   let leaving = false; // the page itself is restarting the reader: its port going away is expected
   let state = lib.initialState("serial" in navigator);
 
@@ -418,6 +444,25 @@
     write: function (data) { logLine(data); },
   };
 
+  function showMacWarning() {
+    const box = $("macWarning");
+    const verdict = lib.macVerdict(state);
+    $("otherRow").hidden = verdict !== "different";
+    if (verdict === "different") {
+      box.innerHTML = "<strong>This backup seems to be from another reader.</strong> Its name has the MAC address " +
+        text(lib.macFromFilename(state.fileName)) + ", the connected reader is " + text(lib.normaliseMac(state.deviceMac)) +
+        ". It carries the other reader's settings and secret, and writing it to this reader is not tested. " +
+        "To write it anyway, tick the second box.";
+      box.hidden = false;
+    } else if (verdict === "unknown") {
+      box.innerHTML = "<strong>The file's name has no MAC address in it</strong>, so the page cannot tell " +
+        "which reader it came from. Make sure it is this reader's backup.";
+      box.hidden = false;
+    } else {
+      box.hidden = true;
+    }
+  }
+  // Applies an event to the state and redraws every control from it.
   function apply(event) {
     if (event) state = lib.nextState(state, event);
     const c = lib.controls(state);
@@ -427,7 +472,10 @@
     $("file").disabled = !c.pickFile;
     $("agree").disabled = !c.agree;
     $("agree").checked = state.agreed;
+    $("agreeOther").disabled = !c.agreeOther;
+    $("agreeOther").checked = state.agreedOther;
     $("write").disabled = !c.write;
+    showMacWarning();
   }
   function setBar(name, done, total) {
     const value = lib.percent(done, total);
@@ -452,23 +500,21 @@
     return esptool;
   }
 
-  async function closePort() {
-    const old = transport;
-    transport = null;
-    loader = null;
-    port = null;
-    device = null;
-    if (old) {
-      try { await old.disconnect(); } catch (error) { /* gone already */ }
-    }
-  }
+  // Ends the current connection (if any): a new session number, so whatever was still running
+  // for the old one finds itself stale and touches nothing.
   async function dropConnection(stateText) {
-    await closePort();
+    const old = conn;
+    conn = null;
     leaving = false;
+    abortRead = false;
     $("deviceTable").hidden = true;
+    $("wdtWarning").hidden = true;
+    $("abort").hidden = true;
     apply({ type: "disconnected" });
     setState(stateText || "Not connected");
-    showMacWarning();
+    if (old) {
+      try { await old.transport.disconnect(); } catch (error) { /* gone already */ }
+    }
   }
 
   // ---- 1. connect ----
@@ -489,27 +535,38 @@
       }
       return;
     }
-    apply({ type: "busy" });
+    if (!lib.controls(state).connect) return; // something else started while the list was open
+    apply({ type: "connecting" });
+    const mine = state.session;
+    const live = () => lib.isCurrent(state, mine);
     setState("Loading esptool-js…");
     let mod;
     try {
       mod = await loadEsptool();
     } catch (error) {
+      if (!live()) return;
       apply({ type: "idle" });
       setState("Not connected");
       showError("<strong>esptool-js could not be loaded</strong> from cdn.jsdelivr.net, or the file is not " +
         "the one this page expects. Nothing was sent to the reader. The browser said: " + text(message(error)));
       return;
     }
+    if (!live()) return;
     setState("Connecting…");
+    let c = null;
+    let device;
     try {
-      port = chosen;
-      transport = new mod.Transport(chosen, false);
-      loader = new mod.ESPLoader({ transport: transport, baudrate: BAUD, terminal: terminal });
-      device = await lib.identify(loader);
+      const transport = new mod.Transport(chosen, false);
+      c = { port: chosen, transport: transport, loader: new mod.ESPLoader({ transport: transport, baudrate: BAUD, terminal: terminal }), device: null };
+      conn = c;
+      device = await lib.identify(c.loader);
     } catch (error) {
       pageLine("connect failed: " + message(error));
-      await closePort();
+      if (c) {
+        try { await c.transport.disconnect(); } catch (closeError) { /* not open */ }
+      }
+      if (!live()) return;
+      conn = null;
       apply({ type: "idle" });
       setState("Not connected");
       showError("<strong>The reader did not answer in download mode.</strong> Put it into boot mode by hand " +
@@ -517,13 +574,24 @@
         "that use the port. The loader said: " + text(message(error)));
       return;
     }
+    if (!live() || conn !== c) {
+      try { await c.transport.disconnect(); } catch (closeError) { /* gone already */ }
+      return;
+    }
+    c.device = device;
     $("devChip").textContent = device.chip;
     $("devFlash").textContent = device.flashSize || "unknown";
     $("devMac").textContent = device.mac || "unknown";
     $("deviceTable").hidden = false;
     const check = lib.checkDevice(device);
-    apply({ type: "idle" });
-    apply({ type: "connected", deviceOk: check.ok });
+    if (check.ok) {
+      // The chip's watchdogs would reset it in the middle of a long read or write.
+      const dogs = await lib.disableWatchdogs(c.loader);
+      if (!live()) return;
+      pageLine("watchdogs: " + dogs);
+      $("wdtWarning").hidden = dogs !== "failed";
+    }
+    apply({ type: "connected", deviceOk: check.ok, mac: device.mac });
     if (check.ok) {
       setState("Connected, in download mode");
     } else {
@@ -531,37 +599,60 @@
       showError("<strong>This page will not read or write this device.</strong> " + text(check.reason) +
         " Press <strong>Restart the reader</strong> to leave download mode.");
     }
-    showMacWarning();
   });
 
-  // Leaves download mode and closes the port. The chip goes away from USB while it restarts.
-  async function restartReader() {
+  const MANUAL_START = "the reader may re-enter download mode; unplug it and power it on with the power button";
+
+  // Leaves download mode and closes the port: of the connection `c` it is given, never of a
+  // newer one. Returns "cleared" or "skipped" (restarted), "failed" (the reset was sent but the
+  // download-mode bit is still set), "error" (no reset was sent) or "stale".
+  async function restartReader(c, mine) {
+    const live = () => lib.isCurrent(state, mine) && conn === c;
+    if (!live()) return "stale";
     leaving = true;
-    let cleared = true;
+    let bit;
     try {
-      cleared = (await lib.resetToFirmware(loader, transport)).cleared;
+      bit = (await lib.resetToFirmware(c.loader, c.transport)).bit;
     } catch (error) {
+      if (!live()) return "stale";
       pageLine("restart failed: " + message(error));
       await dropConnection("Not connected");
-      showError("<strong>The page could not restart the reader.</strong> Restart it with Power. " +
-        "The browser said: " + text(message(error)));
-      return false;
+      showError("<strong>The page could not restart the reader.</strong> Unplug it and power it on with the " +
+        "power button. The browser said: " + text(message(error)));
+      return "error";
     }
-    if (!cleared) pageLine("the download-mode bit could not be cleared; the reset pulse was sent anyway");
+    if (!live()) return "stale";
+    if (bit === "failed") {
+      pageLine("the download-mode bit could not be cleared; the reset pulse was sent anyway");
+      await dropConnection("Reset sent. Not connected");
+      showError("<strong>The page could not clear the download-mode flag before the reset</strong>, so " +
+        MANUAL_START + ". To connect again later, use the boot mode of <a href=\"#download-mode\">step 4</a>.");
+      return "failed";
+    }
     await dropConnection("Restarted. Not connected");
-    return true;
+    return bit;
   }
 
   $("restart").addEventListener("click", async () => {
+    if (!lib.controls(state).restart || !conn) return;
     clearError();
+    const c = conn;
+    const mine = state.session;
     apply({ type: "busy" });
-    await restartReader();
+    await restartReader(c, mine);
   });
 
   if ("serial" in navigator) {
     navigator.serial.addEventListener("disconnect", (event) => {
       const gone = event.target && typeof event.target.open === "function" ? event.target : event.port;
-      if (!port || gone !== port || leaving) return;
+      if (!conn || gone !== conn.port || leaving) return;
+      if (!conn.device) {
+        // Still connecting: the chip is being reset into download mode. Whether its port goes
+        // away for a moment then is not known yet, so only write it down; if the port is really
+        // gone, the connect fails by itself.
+        pageLine("the port reported a disconnect while connecting");
+        return;
+      }
       const wasBusy = state.busy;
       dropConnection("Not connected").then(() => {
         if (wasBusy) {
@@ -574,101 +665,120 @@
 
   // ---- 2. read ----
 
+  $("abort").addEventListener("click", () => {
+    abortRead = true;
+    $("abort").disabled = true;
+    $("readText").textContent = "Stopping after this block…";
+  });
+
   $("read").addEventListener("click", async () => {
+    if (!lib.controls(state).read || !conn) return;
     clearError();
+    const c = conn;
+    const mine = state.session;
+    const live = () => lib.isCurrent(state, mine);
     apply({ type: "busy" });
+    abortRead = false;
+    $("abort").disabled = false;
+    $("abort").hidden = false;
     $("readDone").hidden = true;
     $("readProgress").hidden = false;
+    $("readHold").hidden = false;
     setBar("read", 0, 1);
     $("readText").textContent = "Starting…";
     const started = performance.now();
-    const mac = device.mac;
     try {
-      const chunks = await lib.readFlash(loader, {
+      const chunks = await lib.readFlash(c.loader, {
+        shouldAbort: () => abortRead || !live(),
         onProgress: (done, total) => {
+          if (!live() || abortRead) return;
           setBar("read", done, total);
           $("readText").textContent = lib.progressText(done, total, performance.now() - started);
         },
       });
-      $("readText").textContent = "Read. Computing the SHA-256…";
+      if (!live()) return;
+      $("abort").hidden = true;
+      $("readText").textContent = "Read and checked. Computing the SHA-256…";
       const blob = new Blob(chunks, { type: "application/octet-stream" });
       if (blob.size !== lib.FLASH_BYTES) throw new Error("The backup is " + blob.size + " bytes, not " + lib.FLASH_BYTES + ".");
-      const hash = await lib.sha256Hex(await blob.arrayBuffer());
-      const name = lib.backupFilename(mac, new Date());
+      // The 16 MB a second time, in one piece, for the hash and the look at the image.
+      const whole = new Uint8Array(await blob.arrayBuffer());
+      const hash = await lib.sha256Hex(whole);
+      const looks = lib.checkBackupImage(whole);
+      if (!live()) return;
+      const name = lib.backupFilename(c.device.mac, new Date());
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       downloadUrl = URL.createObjectURL(blob);
       $("download").href = downloadUrl;
       $("download").download = name;
       $("download").textContent = "Download " + name;
       $("readHash").textContent = hash;
+      $("readOdd").hidden = looks.ok;
+      if (!looks.ok) $("readOddWhy").textContent = looks.reason;
       $("readDone").hidden = false;
+      $("readHold").hidden = true;
       $("readText").textContent = "Read " + lib.formatBytes(blob.size) + " in " +
         Math.round((performance.now() - started) / 1000) + " s.";
-      pageLine("backup read: " + blob.size + " bytes, sha256 " + hash);
+      pageLine("backup read: " + blob.size + " bytes, every block checked, sha256 " + hash +
+        (looks.ok ? "" : "; the restore check would refuse it: " + looks.reason));
     } catch (error) {
-      pageLine("backup failed: " + message(error));
-      $("readText").textContent = "Stopped.";
-      showError("<strong>The backup was not made.</strong> " + text(message(error)) +
-        " Nothing on the reader was changed. Press Restart the reader, or connect again and retry.");
+      if (!live()) return; // the connection ended: its own message is on the page
+      $("abort").hidden = true;
+      $("readHold").hidden = true;
+      if (error && error.name === "AbortError") {
+        pageLine("backup stopped by the user");
+        $("readText").textContent = "Stopped. What was read was thrown away; nothing on the reader was changed.";
+      } else {
+        pageLine("backup failed: " + message(error));
+        $("readText").textContent = "Stopped.";
+        showError("<strong>The backup was not made.</strong> " + text(message(error)) +
+          " Nothing on the reader was changed. Press Restart the reader, or connect again and retry.");
+      }
     }
-    if (state.connected) apply({ type: "idle" });
+    if (live()) apply({ type: "idle" });
   });
 
   // ---- 3. restore ----
 
-  function showMacWarning() {
-    const box = $("macWarning");
-    const verdict = fileData && device ? lib.compareMac(fileName, device.mac) : "none";
-    if (verdict === "different") {
-      box.innerHTML = "<strong>This backup seems to be from another reader.</strong> Its name has the MAC address " +
-        text(lib.macFromFilename(fileName)) + ", the connected reader is " + text(lib.normaliseMac(device.mac)) +
-        ". You can still write it, but it carries the other reader's settings and secret.";
-      box.hidden = false;
-    } else if (verdict === "unknown") {
-      box.innerHTML = "<strong>The file's name has no MAC address in it</strong>, so the page cannot tell " +
-        "which reader it came from. Make sure it is this reader's backup.";
-      box.hidden = false;
-    } else {
-      box.hidden = true;
-    }
-  }
-
   $("file").addEventListener("change", async () => {
     const file = $("file").files && $("file").files[0];
     fileData = null;
-    fileName = "";
     $("fileError").hidden = true;
     $("fileInfo").hidden = true;
     $("writeProgress").hidden = true;
     apply({ type: "file", ok: false });
-    showMacWarning();
     if (!file) return;
     try {
       const first = new Uint8Array(await file.slice(0, 1).arrayBuffer());
-      const check = lib.checkBackupFile({ size: file.size, firstByte: first[0] });
-      if (!check.ok) throw new Error(check.reason);
+      const quick = lib.checkBackupFile({ size: file.size, firstByte: first[0] });
+      if (!quick.ok) throw new Error(quick.reason);
       const data = new Uint8Array(await file.arrayBuffer());
+      const check = lib.checkBackupImage(data);
+      if (!check.ok) throw new Error(check.reason);
       const hash = await lib.sha256Hex(data);
-      if ($("file").files[0] !== file) return; // another file was chosen meanwhile
+      if ($("file").files[0] !== file || state.busy) return; // another file, or work started meanwhile
       fileData = data;
-      fileName = file.name;
       $("fileName").textContent = file.name + " (" + file.size.toLocaleString("en-US") + " bytes)";
       $("fileHash").textContent = hash;
       $("fileInfo").hidden = false;
-      apply({ type: "file", ok: true });
-      showMacWarning();
+      apply({ type: "file", ok: true, name: file.name });
     } catch (error) {
+      if ($("file").files[0] !== file) return;
       $("fileError").innerHTML = "<strong>This file cannot be written.</strong> " + text(message(error));
       $("fileError").hidden = false;
     }
   });
 
   $("agree").addEventListener("change", () => apply({ type: "agree", value: $("agree").checked }));
+  $("agreeOther").addEventListener("change", () => apply({ type: "agreeOther", value: $("agreeOther").checked }));
 
   $("write").addEventListener("click", async () => {
-    if (!lib.controls(state).write || !fileData) return;
+    if (!lib.controls(state).write || !fileData || !conn) return;
     clearError();
     const data = fileData;
+    const c = conn;
+    const mine = state.session;
+    const live = () => lib.isCurrent(state, mine);
     apply({ type: "busy" });
     $("writeProgress").hidden = false;
     $("writeHold").hidden = false;
@@ -676,9 +786,11 @@
     $("writeText").textContent = "Compressing the file. The page can stop responding for a while…";
     // Let the browser draw that line: the library compresses 16 MB before the first byte goes out.
     await new Promise((resolve) => setTimeout(resolve, 100));
+    if (!live()) return;
     const started = performance.now();
     try {
-      await lib.restore(loader, data, (written, total) => {
+      await lib.restore(c.loader, data, (written, total) => {
+        if (!live()) return;
         setBar("write", written, total);
         $("writeText").textContent = written >= total
           ? "Sent. The reader is checking what was written…"
@@ -686,22 +798,25 @@
       });
     } catch (error) {
       pageLine("restore failed: " + message(error));
+      if (!live()) return; // the connection ended: its own message is on the page
       $("writeText").textContent = "Stopped.";
       $("writeHold").hidden = true;
       showError("<strong>The restore did not finish.</strong> " + text(message(error)) +
         " The reader may not start now. It should still enter download mode (step 4): connect and write " +
         "the backup again.");
-      if (state.connected) apply({ type: "idle" });
+      apply({ type: "idle" });
       $("error").scrollIntoView({ block: "nearest" });
       return;
     }
+    if (!live()) return;
     pageLine("restore written and checked in " + Math.round((performance.now() - started) / 1000) + " s");
     $("writeHold").hidden = true;
     $("writeText").textContent = "Written and checked. Restarting the reader…";
-    const restarted = await restartReader();
-    $("writeText").textContent = restarted
-      ? "Written and checked. The reader was restarted; if its screen does not change, restart it with Power."
-      : "Written and checked. Restart the reader with Power.";
+    const outcome = await restartReader(c, mine);
+    if (outcome === "stale") return;
+    $("writeText").textContent = outcome === "cleared" || outcome === "skipped"
+      ? "Written and checked. A reset was sent; if the reader's screen does not change, restart it with Power."
+      : "Written and checked, but the reader was not restarted cleanly: " + MANUAL_START + ".";
   });
 
   window.addEventListener("beforeunload", (event) => {
