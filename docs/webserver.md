@@ -20,7 +20,8 @@ networks or in hotspot mode when you control who is connected.
 
 ## Starting File Transfer
 
-1. From the Home screen, select **File Transfer**.
+1. From the Home screen, select **Transfer & Remotes** (this Home row was called File Transfer
+   before; the Wi-Fi screen with the address and QR codes still has the title File Transfer).
 2. Choose one of the available modes:
 
 | Mode | Use when |
@@ -29,12 +30,17 @@ networks or in hotspot mode when you control who is connected.
 | **Calibre Wireless** | You want to receive books from the CrossPoint Calibre plugin workflow. |
 | **Create Hotspot** | You want the reader to create its own open Wi-Fi network. |
 | **USB Drive** | You want to copy files over the USB-C cable, with no Wi-Fi. |
+| **Remote servers** | You want to fetch or send files from the reader to your own WebDAV, FTP or SFTP server. No web server runs here: see [webdav-ftp.md](webdav-ftp.md). |
+| **SSH terminal** | X4 Pro builds only: a shell on your own server. See [ssh.md](ssh.md). |
+
+The last two rows open the lists of saved servers; Back from a list returns to this screen.
+Settings → Connectivity → WebDAV and FTP servers and SSH servers open the same lists, as shortcuts.
 
 ## USB Drive
 
-**File Transfer → USB Drive** ("Manage the SD card from your computer") makes the reader show up on your computer as a drive, over the USB-C cable. No Wi-Fi, router or password is involved, so it is a good way to copy large folders, a whole library or a vault. I have not timed it against Wi-Fi.
+**Transfer & Remotes → USB Drive** ("Manage the SD card from your computer") makes the reader show up on your computer as a drive, over the USB-C cable. No Wi-Fi, router or password is involved, so it is a good way to copy large folders, a whole library or a vault. I have not timed it against Wi-Fi.
 
-1. Open **File Transfer → USB Drive**. The reader says it is preparing the drive.
+1. Open **Transfer & Remotes → USB Drive**. The reader says it is preparing the drive.
 2. Plug the reader into your computer with the USB-C cable. The screen asks you to connect it. Connecting can take up to 30 seconds. If no computer connects within 5 minutes, the reader goes back Home.
 3. The SD card appears as a drive. Copy files and folders as with any USB stick.
 4. **Eject the drive on your computer** before you unplug, so nothing is cut off while it is writing. Ejecting, or disconnecting the cable, brings the reader back Home. If something goes wrong the screen says so and tells you to disconnect the cable.

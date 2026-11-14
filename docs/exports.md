@@ -22,7 +22,7 @@ The export to a note in your vault ([Highlights to a vault note](reading-and-fil
 | Memos Access Token | An access token made in your Memos account settings. |
 | Memos: Check Certificate | Off: the connection to your server is encrypted but its certificate is not checked. On: it is checked, against `/.crosspoint/ca.pem` on the card when that file is there, else against the root certificates built into the firmware. The same rule as CrossPoint Sync. |
 
-A token is long and awkward to type on the reader. The web settings page (File Transfer, then Settings in the browser) has the same four fields under **Highlight Exports**, and you can paste there.
+A token is long and awkward to type on the reader. The web settings page (Transfer & Remotes → Join a Network, then Settings in the browser) has the same four fields under **Highlight Exports**, and you can paste there.
 
 A token that is stored is never shown again: the row says **Set** or **Not Set**, the keyboard opens empty, and the web page gets only "a token is set", never the token. Entering a new one replaces it; saving an empty one removes it.
 

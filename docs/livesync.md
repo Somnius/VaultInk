@@ -16,7 +16,7 @@ remote is refused with a message, before anything is written.
 
 ## Set it up
 
-1. On the device, start **File Transfer** and open the device's page in a browser.
+1. On the device, open **Transfer & Remotes**, join a network and open the device's page in a browser.
 2. Go to **Settings**, paste the Setup URI into the **LiveSync** box and press **Save Setup URI**.
    The URI is stored on the SD card still encrypted. The passphrase never goes through the web page.
 3. On the device, open **Settings → Vaults → LiveSync → Finish setup** and type the Setup URI's

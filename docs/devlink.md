@@ -544,7 +544,7 @@ scripts/devlink.py status        # "version" is the new build's
 - **The link dies at sleep.** The firmware closes the USB serial port before deep sleep, and
   `/dev/ttyACM*` goes away. It comes back when the reader wakes. So the link cannot watch sleep, and
   a test longer than the auto-sleep time has gaps unless you set auto-sleep to Never.
-- **USB Drive mode takes the port.** While File Transfer → USB Drive is open there is no serial port
+- **USB Drive mode takes the port.** While Transfer & Remotes → USB Drive is open there is no serial port
   and no JTAG. They return when you leave it (the reader restarts).
 - **The cable feeds the reader.** The link needs USB, so every `battery_mv` and `battery_percent` it
   reads is taken with the cable in. They do not show what the battery loses on its own. The

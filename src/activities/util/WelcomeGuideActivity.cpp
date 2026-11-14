@@ -317,7 +317,10 @@ void WelcomeGuideActivity::drawPicture(UiScreen& screen, const fui::Rect a) {
              small);
       const fui::Rect transfer{static_cast<int16_t>(a.right() - 170), static_cast<int16_t>(a.y + 30), 160, 200};
       iconCard(screen, transfer, icon_download_32, tr(STR_HOME_TRANSFER_DESC));
-      t.text(fui::Rect{transfer.x, static_cast<int16_t>(transfer.bottom() + 8), transfer.width, line},
+      // The Home row's name, which is two lines in some languages ("Μεταφορά & Διακομιστές").
+      small.maxLines = 2;
+      t.text(fui::Rect{transfer.x, static_cast<int16_t>(transfer.bottom() + 8), transfer.width,
+                       static_cast<int16_t>(2 * line)},
              tr(STR_FILE_TRANSFER), small);
       break;
     }

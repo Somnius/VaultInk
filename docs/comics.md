@@ -92,10 +92,10 @@ two pages, its left half then its right, or right then left in a right-to-left b
 
 The converter gives you the file in your browser's downloads. Then, any of these:
 
-- **Companion app** (Android): on the X4 Pro open **File Transfer**, then in the app go to
+- **Companion app** (Android): on the X4 Pro open **Transfer & Remotes** and join a network, then in the app go to
   **Files**, open the folder you want (for example make a **Comics** folder), tap **Upload** and
   pick the file. A progress bar shows how far it got. See [companion.md](companion.md).
-- **Web page**: open File Transfer on the X4 Pro and the address it shows in a browser on the same
+- **Web page**: open Transfer & Remotes → Join a Network on the X4 Pro and the address it shows in a browser on the same
   Wi-Fi, then upload there.
 - **SD card**: copy the file to the card with a computer.
 

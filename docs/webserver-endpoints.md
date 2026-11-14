@@ -388,7 +388,8 @@ curl -X POST \
 
 ## WebDAV and FTP Server API
 
-The servers of Settings > Connectivity > WebDAV and FTP servers
+The servers of Home > Transfer & Remotes > Remote servers (Settings > Connectivity > WebDAV and FTP
+servers is a shortcut to the same list)
 ([webdav-ftp.md](webdav-ftp.md)). Released in 0.74.0.
 
 ### `GET /api/remotes`
