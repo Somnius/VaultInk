@@ -379,10 +379,36 @@ class Lexer {
 
 struct XEntry {
   enum Kind : uint8_t { Free, InFile, InStream } kind = Free;
-  uint64_t offset = 0;  // InFile
-  uint32_t stream = 0;  // InStream: the object stream's number
-  uint32_t index = 0;   // InStream: position inside it
+  uint32_t num = 0;     // the object's number
+  uint64_t offset = 0;  // InFile; InStream: the object stream's number (high half) and the position inside it
+  uint32_t stream() const { return static_cast<uint32_t>(offset >> 32); }
+  uint32_t index() const { return static_cast<uint32_t>(offset); }
 };
+
+// Sorts a table by `key` and leaves one entry per key: the first one written, or the last. Tables that were a hash
+// node per entry (the cross-reference table, a font's ToUnicode map and widths: tens of thousands of 16 to 36 byte
+// blocks, all in the reader's internal memory) are one block this way, which the reader keeps in its PSRAM.
+template <typename E, typename Key>
+void packTable(std::vector<E>& v, const Key& key, const bool keepLast) {
+  std::stable_sort(v.begin(), v.end(), [&key](const E& a, const E& b) { return key(a) < key(b); });
+  size_t n = 0;
+  for (size_t k = 0; k < v.size(); ++k) {
+    if (n > 0 && key(v[n - 1]) == key(v[k])) {
+      if (keepLast) v[n - 1] = v[k];
+    } else {
+      if (n != k) v[n] = v[k];
+      ++n;
+    }
+  }
+  v.resize(n);
+}
+
+template <typename E, typename Key>
+const E* findInTable(const std::vector<E>& v, const size_t sortedCount, const uint32_t wanted, const Key& key) {
+  const auto end = v.begin() + static_cast<std::ptrdiff_t>(sortedCount);
+  const auto it = std::lower_bound(v.begin(), end, wanted, [&key](const E& e, const uint32_t w) { return key(e) < w; });
+  return it != end && key(*it) == wanted ? &*it : nullptr;
+}
 
 class Doc {
  public:
@@ -404,7 +430,15 @@ class Doc {
     while (xrefAt != 0 && !seen.count(xrefAt) && seen.size() < 200) {
       seen.insert(xrefAt);
       Obj trailer;
-      if (!readXref(xrefAt, trailer)) {
+      const bool read = readXref(xrefAt, trailer);
+      // The newest section is read first and its entries win: the first written of a number is the one kept.
+      packTable(xref, xrefNum, false);
+      xrefSorted = xref.size();
+      if (!checkMemory()) {
+        result.outOfMemory = true;
+        return false;
+      }
+      if (!read) {
         result.xrefFailed = first;
         if (first) return false;
         break;
@@ -430,35 +464,50 @@ class Doc {
 
   // Loads object `num`. Streams keep their data position; the data is read with streamData().
   bool load(uint32_t num, Obj& out, int depth = 0) {
-    if (depth > 8) return false;
+    if (depth > 8 || stop) return false;
     const auto cached = cache.find(num);
     if (cached != cache.end()) {
       out = cached->second;
       return true;
     }
-    const auto it = xref.find(num);
-    if (it == xref.end()) return false;
+    const XEntry* entry = findXref(num);
+    if (!entry) return false;
+    // By value: an object read on the way (a stream's /Length) may be looked up in the table too.
+    const XEntry at = *entry;
     bool ok = false;
-    if (it->second.kind == XEntry::InFile) {
-      ok = loadAt(it->second.offset, num, out, depth);
-    } else if (it->second.kind == XEntry::InStream) {
-      ok = loadFromObjStm(it->second.stream, it->second.index, num, out, depth);
+    if (at.kind == XEntry::InFile) {
+      ok = loadAt(at.offset, num, out, depth);
+    } else if (at.kind == XEntry::InStream) {
+      ok = loadFromObjStm(at.stream(), at.index(), num, out, depth);
     }
+    // Every object read from the file passes here: the place to look at the memory left.
+    if (!checkMemory()) return false;
     if (ok && out.type != Obj::Stream) {
       // The cache is bounded by what it holds, not only by how many objects: one object can be an array of
       // thousands (a font's widths, a page's annotations), and 600 of those were megabytes.
       const size_t weight = weigh(out);
-      if (weight <= limits.maxCacheNodes / 4) {
-        if (cache.size() > 600 || cacheWeight + weight > limits.maxCacheNodes) {
-          cache.clear();
-          cacheWeight = 0;
-        }
+      if (weight <= limits.maxCacheBytes / 4) {
+        if (cache.size() > 600 || cacheWeight + weight > limits.maxCacheBytes) dropCache();
         cache[num] = out;
         cacheWeight += weight;
       }
     }
     return ok;
   }
+
+  // The memory guard (Limits::freeMemory). Low: the cached objects go. Still under half of the limit: everything
+  // stops (load() and streamData() fail from here on) until resume(). False when stopped.
+  bool checkMemory() {
+    if (stop) return false;
+    if (!memoryLow()) return true;
+    dropCache();
+    if (limits.freeMemory() < limits.minFreeMemory / 2) stop = true;
+    return !stop;
+  }
+  bool memoryLow() const { return limits.freeMemory && limits.freeMemory() < limits.minFreeMemory; }
+  bool stopped() const { return stop; }
+  void resume() { stop = false; }
+  void halt() { stop = true; }
 
   // Follows references until a direct object (or gives up and returns Null).
   Obj resolve(const Obj& o) {
@@ -479,7 +528,7 @@ class Doc {
   // The decoded bytes of a stream object. False for filters this reader doesn't do.
   bool streamData(const Obj& stream, std::string& out) {
     out.clear();
-    if (stream.type != Obj::Stream) return false;
+    if (stream.type != Obj::Stream || !checkMemory()) return false;
     int64_t len = stream.streamLen;
     if (const Obj* l = stream.get("Length")) {
       const Obj v = resolve(*l);
@@ -645,8 +694,7 @@ class Doc {
     fileKey = key;
     aes = useAes;
     encrypted = true;
-    cache.clear();  // objects read before the key was known
-    cacheWeight = 0;
+    dropCache();  // objects read before the key was known
     return true;
   }
 
@@ -710,8 +758,7 @@ class Doc {
     aes = true;
     aes256 = true;
     encrypted = true;
-    cache.clear();
-    cacheWeight = 0;
+    dropCache();
     return true;
   }
 
@@ -759,12 +806,39 @@ class Doc {
   uint32_t rootNum() const { return root; }
 
  private:
-  // How much of the cache an object takes: itself and everything inside it, a long string as more than one.
+  // The bytes of the cache an object takes, about: itself and everything inside it. On the reader an object is 104
+  // bytes and one in a dictionary 150 (the map's node and the key); a string of 16 bytes or more has its own block.
   static size_t weigh(const Obj& o) {
-    size_t n = 1 + o.s.size() / 64;
+    size_t n = 160 + (o.s.size() > 15 ? o.s.size() + 8 : 0);
     for (const Obj& item : o.a) n += weigh(item);
     for (const auto& entry : o.d) n += weigh(entry.second);
     return n;
+  }
+
+  void dropCache() {
+    cache.clear();
+    cacheWeight = 0;
+  }
+
+  static uint32_t xrefNum(const XEntry& e) { return e.num; }
+
+  // The sections read so far are sorted; the one being read is looked through from its start (an object is only
+  // loaded from there for a cross-reference stream's /Length).
+  const XEntry* findXref(const uint32_t num) const {
+    if (const XEntry* e = findInTable(xref, xrefSorted, num, xrefNum)) return e;
+    const auto it = std::find_if(xref.begin() + static_cast<std::ptrdiff_t>(xrefSorted), xref.end(),
+                                 [num](const XEntry& e) { return e.num == num; });
+    return it == xref.end() ? nullptr : &*it;
+  }
+
+  // An entry of the section being read. More than a million objects is no book the reader can hold.
+  void addXref(const uint32_t num, const XEntry::Kind kind, const uint64_t offset) {
+    if (xref.size() >= 1000000) return;
+    XEntry e;
+    e.kind = kind;
+    e.num = num;
+    e.offset = offset;
+    xref.push_back(e);
   }
 
   bool readRange(uint64_t offset, size_t len, std::string& out) {
@@ -1027,13 +1101,10 @@ class Doc {
         std::string entry;
         if (!readRange(entriesAt + static_cast<uint64_t>(k) * 20, 20, entry)) return false;
         const uint32_t num = static_cast<uint32_t>(startObj.i + k);
-        if (entry[17] == 'n' && !xref.count(num)) {
-          XEntry e;
-          e.kind = XEntry::InFile;
-          e.offset = std::strtoull(entry.substr(0, 10).c_str(), nullptr, 10);
-          xref[num] = e;
-        } else if (entry[17] == 'f' && !xref.count(num)) {
-          xref[num] = XEntry();
+        if (entry[17] == 'n') {
+          addXref(num, XEntry::InFile, std::strtoull(entry.substr(0, 10).c_str(), nullptr, 10));
+        } else if (entry[17] == 'f') {
+          addXref(num, XEntry::Free, 0);
         }
       }
       pos = entriesAt + static_cast<uint64_t>(countObj.i) * 20;
@@ -1077,17 +1148,13 @@ class Doc {
         const uint64_t f2 = field(w1);
         const uint64_t f3 = field(w2);
         const uint32_t num = static_cast<uint32_t>(start + k);
-        if (xref.count(num)) continue;
-        XEntry e;
         if (t == 1) {
-          e.kind = XEntry::InFile;
-          e.offset = f2;
+          addXref(num, XEntry::InFile, f2);
         } else if (t == 2) {
-          e.kind = XEntry::InStream;
-          e.stream = static_cast<uint32_t>(f2);
-          e.index = static_cast<uint32_t>(f3);
+          addXref(num, XEntry::InStream, (f2 << 32) | static_cast<uint32_t>(f3));
+        } else {
+          addXref(num, XEntry::Free, 0);
         }
-        xref[num] = e;
       }
     }
     trailer = stm;
@@ -1097,9 +1164,11 @@ class Doc {
   const Source& src;
   const Inflate& inflate;
   const Limits& limits;
-  std::unordered_map<uint32_t, XEntry> xref;
+  std::vector<XEntry> xref;  // by object number up to `xrefSorted` (see packTable)
+  size_t xrefSorted = 0;
   std::unordered_map<uint32_t, Obj> cache;
   size_t cacheWeight = 0;  // weigh() of everything in `cache`
+  bool stop = false;       // the memory guard: nothing more is read
   uint32_t root = 0;
   Obj firstTrailer;
   bool encrypted = false;
@@ -1117,7 +1186,40 @@ class Doc {
 
 struct Font {
   bool twoByte = false;
-  std::unordered_map<uint32_t, std::string> toUnicode;  // code -> UTF-8
+  // code -> UTF-8, as one sorted table and one string of all the texts (see packTable): a map with a node and a
+  // string per code was the reader's internal memory in 16 to 36 byte blocks, 30000 of them in one book.
+  struct Mapped {
+    uint32_t code;
+    uint32_t at;  // in `mappedText`
+    uint32_t len;
+  };
+  struct CidWidth {
+    uint32_t code;
+    double width;
+  };
+  static uint32_t mappedCode(const Mapped& m) { return m.code; }
+  static uint32_t widthCode(const CidWidth& w) { return w.code; }
+  std::vector<Mapped> toUnicode;
+  std::string mappedText;
+  void map(const uint32_t code, const std::string& utf8) {
+    if (mappedText.size() + utf8.size() > 2 * 1024 * 1024) return;  // no font's map is this long
+    toUnicode.push_back(Mapped{code, static_cast<uint32_t>(mappedText.size()), static_cast<uint32_t>(utf8.size())});
+    mappedText += utf8;
+  }
+  // The text of a code, or false when the map has none.
+  bool mapped(const uint32_t code, std::string_view& text) const {
+    const Mapped* m = findInTable(toUnicode, toUnicode.size(), code, mappedCode);
+    if (m) text = std::string_view(mappedText).substr(m->at, m->len);
+    return m != nullptr;
+  }
+  // After loading: the tables sorted for mapped() and width(); a code written twice keeps its last value.
+  void pack() {
+    packTable(toUnicode, mappedCode, true);
+    packTable(cidWidths, widthCode, true);
+    toUnicode.shrink_to_fit();
+    cidWidths.shrink_to_fit();
+    mappedText.shrink_to_fit();
+  }
   bool hasToUnicode = false;
   bool utf16Codes = false;  // Type0 without ToUnicode and a Uni*-UCS2/UTF16 CMap: the codes are UTF-16
   std::string simple[256];  // simple fonts without a ToUnicode map
@@ -1127,19 +1229,20 @@ struct Font {
   // Glyph widths in 1/1000 em, to know where a string ends and so where a word space is.
   double defaultWidth = 500;
   int firstChar = 0;
-  std::vector<double> widths;                      // simple fonts, from FirstChar
-  std::unordered_map<uint32_t, double> cidWidths;  // CID fonts
+  std::vector<double> widths;       // simple fonts, from FirstChar
+  std::vector<CidWidth> cidWidths;  // CID fonts
   double width(uint32_t code) const {
     if (twoByte) {
-      const auto it = cidWidths.find(code);
-      return it == cidWidths.end() ? defaultWidth : it->second;
+      const CidWidth* w = findInTable(cidWidths, cidWidths.size(), code, widthCode);
+      return w ? w->width : defaultWidth;
     }
     const int k = static_cast<int>(code) - firstChar;
     return k >= 0 && static_cast<size_t>(k) < widths.size() ? widths[static_cast<size_t>(k)] : defaultWidth;
   }
   // Roughly the memory this font holds (Limits::maxFontBytes): the tables' entries with their nodes.
   size_t bytes() const {
-    return sizeof(Font) + toUnicode.size() * 56 + cidWidths.size() * 32 + widths.size() * sizeof(double);
+    return sizeof(Font) + toUnicode.capacity() * sizeof(Mapped) + mappedText.capacity() +
+           cidWidths.capacity() * sizeof(CidWidth) + widths.capacity() * sizeof(double);
   }
 };
 
@@ -1265,7 +1368,7 @@ void parseToUnicode(const std::string& cmap, Font& font) {
         uint32_t code;
         size_t bytes;
         if (hexCode(src, code, bytes) && dst.type == Obj::Str) {
-          font.toUnicode[code] = utf16ToUtf8(dst.s);
+          font.map(code, utf16ToUtf8(dst.s));
           maxBytes = std::max(maxBytes, bytes);
         }
       }
@@ -1285,7 +1388,7 @@ void parseToUnicode(const std::string& cmap, Font& font) {
         if (dst.type == Obj::Str) {
           std::string base = dst.s;
           for (uint32_t c = a; c <= b; ++c) {
-            font.toUnicode[c] = utf16ToUtf8(base);
+            font.map(c, utf16ToUtf8(base));
             // Increment the last UTF-16 unit.
             if (base.size() >= 2) {
               for (size_t p = base.size(); p-- > base.size() - 2;) {
@@ -1294,7 +1397,7 @@ void parseToUnicode(const std::string& cmap, Font& font) {
             }
           }
         } else if (dst.type == Obj::Arr) {
-          for (uint32_t c = a; c <= b && c - a < dst.a.size(); ++c) font.toUnicode[c] = utf16ToUtf8(dst.a[c - a].s);
+          for (uint32_t c = a; c <= b && c - a < dst.a.size(); ++c) font.map(c, utf16ToUtf8(dst.a[c - a].s));
         }
       }
     }
@@ -1318,15 +1421,17 @@ void loadWidths(Doc& doc, const Obj& fontDict, Font& font) {
       if (!first.isNum() || first.num() < 0 || first.num() > 4294967000.0) break;
       if (second.type == Obj::Arr) {
         for (size_t j = 0; j < second.a.size(); ++j) {
-          font.cidWidths[static_cast<uint32_t>(first.num()) + static_cast<uint32_t>(j)] =
-              doc.resolve(second.a[j]).num();
+          font.cidWidths.push_back(Font::CidWidth{static_cast<uint32_t>(first.num()) + static_cast<uint32_t>(j),
+                                                  doc.resolve(second.a[j]).num()});
         }
         k += 2;
       } else if (second.isNum() && second.num() >= first.num() && second.num() <= 4294967000.0 && k + 2 < w.a.size()) {
         const double width = doc.resolve(w.a[k + 2]).num();
         const uint32_t a = static_cast<uint32_t>(first.num());
         const uint32_t b = static_cast<uint32_t>(second.num());
-        for (uint32_t c = a; c <= b && c - a < 70000; ++c) font.cidWidths[c] = width;
+        for (uint32_t c = a; c <= b && c - a < 70000 && font.cidWidths.size() < 140000; ++c) {
+          font.cidWidths.push_back(Font::CidWidth{c, width});
+        }
         k += 3;
       } else {
         break;
@@ -1873,9 +1978,9 @@ class Interpreter {
       if (font->twoByte) {
         for (size_t k = 0; k + 1 < s.size(); k += 2) {
           const uint32_t code = (static_cast<uint8_t>(s[k]) << 8) | static_cast<uint8_t>(s[k + 1]);
-          const auto it = font->toUnicode.find(code);
-          if (it != font->toUnicode.end()) {
-            cur.text += it->second;
+          std::string_view text;
+          if (font->mapped(code, text)) {
+            cur.text += text;
             ++out.keptGlyphs;
           } else if (font->utf16Codes && code >= 0x20 && (code < 0xD800 || code > 0xDFFF)) {
             appendUtf8(cur.text, code);
@@ -1895,9 +2000,9 @@ class Interpreter {
         for (const char ch : s) {
           const uint8_t b = static_cast<uint8_t>(ch);
           if (font->hasToUnicode) {
-            const auto it = font->toUnicode.find(b);
-            if (it != font->toUnicode.end()) {
-              cur.text += it->second;
+            std::string_view text;
+            if (font->mapped(b, text)) {
+              cur.text += text;
             } else if (b >= 32 && b < 127) {
               cur.text += ch;
             }
@@ -1912,7 +2017,10 @@ class Interpreter {
     };
 
     std::string_view kw;
+    unsigned steps = 0;
     while (!lx.atEnd() && !out.full()) {
+      // The memory guard, every 256 objects and operators: a page's own text and fragments are small blocks too.
+      if (doc.stopped() || ((++steps & 255) == 0 && !doc.checkMemory())) return;
       Obj o;
       if (lx.object(o, &kw)) {
         stack.push_back(std::move(o));
@@ -2035,6 +2143,7 @@ class Interpreter {
     if (!slot) {
       slot = std::make_unique<Font>();
       loadFont(doc, doc.resolve(*ref), *slot);
+      slot->pack();
     }
     return slot.get();
   }
@@ -2068,7 +2177,7 @@ void walkPages(Doc& doc, const Obj& node, const Obj& inheritedResources,
                int depth, size_t maxPages) {
   // A page tree that loops back on itself would be walked for ever: count every node.
   // The depth is bounded by the task stack too: each level is a frame of this function (see STACK_NOINLINE).
-  if (depth > MAX_PAGE_TREE_DEPTH || pages >= maxPages || ++visits > 50000) return;
+  if (depth > MAX_PAGE_TREE_DEPTH || pages >= maxPages || ++visits > 50000 || doc.stopped()) return;
   const Obj own = doc.resolveKey(node, "Resources");
   const Obj& resources = own.isDict() ? own : inheritedResources;
   const bool isPage = doc.resolveKey(node, "Type").s == "Page";
@@ -2116,15 +2225,9 @@ bool extractText(const Source& source, const Inflate& inflate,
   size_t index = 0;
   std::unordered_map<uint32_t, std::unique_ptr<Font>> fonts;
   std::map<int, size_t> sizeBytes;  // text per line height (in half points) so far: the body size is the commonest
-  const auto handlePage = [&](const Obj& node, const Obj& pageResources) {
-    const size_t p = index++;
-    // The fonts are kept from page to page (a book uses the same few), but a book with hundreds of them, each with
-    // its own tables, must not keep them all: past the limit they go, and the next pages load theirs again. Only
-    // between pages, where nothing points at a font.
-    const size_t fontBytes = std::accumulate(fonts.begin(), fonts.end(), size_t{0},
-                                             [](const size_t sum, const auto& f) { return sum + f.second->bytes(); });
-    if (fontBytes > limits.maxFontBytes) fonts.clear();
-    PageText pageText;
+  // One page's content run into `pageText`. False when the memory guard stopped it.
+  const auto readPage = [&](const Obj& node, const Obj& pageResources, PageText& pageText) {
+    pageText = PageText();
     pageText.maxBytes = limits.maxPageText;
     const Obj contents = doc.resolveKey(node, "Contents");
     std::string content;
@@ -2149,6 +2252,30 @@ bool extractText(const Source& source, const Inflate& inflate,
     if (!content.empty()) {
       Interpreter interp(doc, fonts, pageText);
       interp.run(content, pageResources, 0);
+    }
+    return !doc.stopped();
+  };
+  const auto handlePage = [&](const Obj& node, const Obj& pageResources) {
+    const size_t p = index++;
+    // The fonts are kept from page to page (a book uses the same few), but a book with hundreds of them, each with
+    // its own tables, must not keep them all: past the limit they go, and the next pages load theirs again. Only
+    // between pages, where nothing points at a font.
+    const size_t fontBytes = std::accumulate(fonts.begin(), fonts.end(), size_t{0},
+                                             [](const size_t sum, const auto& f) { return sum + f.second->bytes(); });
+    if (fontBytes > limits.maxFontBytes) fonts.clear();
+    PageText pageText;
+    // The memory guard: low on memory between pages, the fonts go as well (the cache goes in checkMemory()). A page
+    // stopped half way is read once more from its start after that, with only its own fonts; stopped again, or
+    // nothing won back, the extraction ends there (Result::outOfMemory).
+    for (int attempt = 0;; ++attempt) {
+      if (doc.stopped() || doc.memoryLow()) fonts.clear();  // a font loaded while stopped is not whole
+      doc.resume();
+      if (attempt == 2 || !doc.checkMemory()) {
+        doc.halt();
+        result.outOfMemory = true;
+        return;
+      }
+      if (readPage(node, pageResources, pageText)) break;
     }
     TextOut out;
     // A page where most glyphs had no way to text (a CID font without a ToUnicode map) is not text.
@@ -2209,6 +2336,10 @@ bool extractText(const Source& source, const Inflate& inflate,
       }
     }
     while (!out.text.empty() && (out.text.back() == ' ' || out.text.back() == '\n')) out.text.pop_back();
+    if (doc.stopped()) {  // while the form fields were read: the page is not whole
+      result.outOfMemory = true;
+      return;
+    }
     if (!out.text.empty()) ++result.textPages;
     page(p, std::max(declaredPages, index), out.text);
   };
@@ -2216,7 +2347,7 @@ bool extractText(const Source& source, const Inflate& inflate,
   walkPages(doc, pagesRoot, Obj(), handlePage, visits, pagesFound, 0, limits.maxPages);
   result.pages = index;
   if (resultOut) *resultOut = result;
-  return true;
+  return !result.outOfMemory;
 }
 
 }  // namespace pdf

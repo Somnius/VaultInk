@@ -9,7 +9,8 @@ class GfxRenderer;
 // No layout, pictures or scans (see lib/Pdf).
 namespace pdfconvert {
 
-enum class Status { Ok, NoText, Encrypted, Unreadable, UnreadableFont, SdError };
+// OutOfMemory: the book needs more memory than the reader has free (the memory guard of lib/Pdf stopped it).
+enum class Status { Ok, NoText, Encrypted, Unreadable, UnreadableFont, SdError, OutOfMemory };
 
 // Where the text of a PDF lives: /.vaultink/pdf/<hash of the path>/<name>.txt.
 std::string textPathFor(const std::string& pdfPath);

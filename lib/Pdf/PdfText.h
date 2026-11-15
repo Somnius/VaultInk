@@ -26,9 +26,16 @@ struct Limits {
   size_t maxPageText = 256 * 1024;
   // Memory kept between pages, so a long book does not grow until the reader runs out (0.76.x): the loaded fonts'
   // tables in bytes (past it they are dropped between pages and loaded again when used), and the cached objects
-  // counted in parts (an object and every object inside it; about 200 bytes each on the reader).
+  // in bytes (an estimate: an object and every object inside it, as small blocks of the reader's internal memory).
+  // The cache saves few reads (a 166-page book: 1762 reads with 4000 parts kept, 1763 with 400), so it is small.
   size_t maxFontBytes = 1024 * 1024;
-  size_t maxCacheNodes = 4000;
+  size_t maxCacheBytes = 48 * 1024;
+  // The memory guard (the reader): `freeMemory` gives the bytes free right now in the memory small blocks come from
+  // (the internal heap; empty: no guard). Below `minFreeMemory` the cached objects and the fonts are dropped (both
+  // are read again when needed); still below half of it after that, the extraction stops (Result::outOfMemory)
+  // before an allocation fails, which on the reader is a reset.
+  std::function<size_t()> freeMemory;
+  size_t minFreeMemory = 40960;
   // Bold, italic and headings as control bytes in the text (kos25k #29, 0.73.0); off for plain text.
   bool styleMarks = false;
 };
@@ -39,6 +46,7 @@ struct Result {
   size_t droppedGlyphs = 0;  // CID glyphs that could not be turned into text (no ToUnicode map)
   bool encrypted = false;    // the file is encrypted: nothing was read
   bool xrefFailed = false;
+  bool outOfMemory = false;  // stopped by the memory guard (Limits::freeMemory): the text is not whole
 };
 
 // Calls `page` with each page's text, in page order (and how many pages there are). Returns false when the file isn't a

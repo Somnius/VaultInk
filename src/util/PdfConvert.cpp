@@ -8,6 +8,8 @@
 #include <InflateStream.h>
 #include <Logging.h>
 #include <PdfText.h>
+#include <esp_heap_caps.h>
+#include <sdkconfig.h>
 
 #include <functional>
 #include <memory>
@@ -52,6 +54,32 @@ bool inflateZlib(const uint8_t* in, size_t len, std::string& out, size_t maxOut)
     if (status == InflateStream::Status::Error) return false;
   }
 }
+
+// While a PDF is read, blocks over 64 bytes come from the PSRAM where the board has it. The PDF library holds a book
+// in tens of thousands of blocks of 100 to 4000 bytes (objects, fonts' tables, a page's text), and malloc() takes
+// blocks up to CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL (4096) from the internal heap while it has room: a 166-page book
+// left 140 bytes of it free (measured on an X4 Pro), which is nothing for what can only live there.
+// The setting is malloc()'s own (Arduino sets it once at boot) and is put back when the PDF is done. A block that does
+// not fit in the PSRAM still falls back to the internal heap.
+class SmallBlocksInPsram {
+ public:
+  SmallBlocksInPsram() {
+#if defined(CONFIG_SPIRAM_USE_MALLOC) && defined(CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL)
+    active = psramFound();
+    if (active) heap_caps_malloc_extmem_enable(64);
+#endif
+  }
+  ~SmallBlocksInPsram() {
+#if defined(CONFIG_SPIRAM_USE_MALLOC) && defined(CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL)
+    if (active) heap_caps_malloc_extmem_enable(CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL);
+#endif
+  }
+  SmallBlocksInPsram(const SmallBlocksInPsram&) = delete;
+  SmallBlocksInPsram& operator=(const SmallBlocksInPsram&) = delete;
+
+ private:
+  bool active = false;
+};
 
 bool readStamp(const std::string& path, uint64_t& stamp) {
   HalFile file;
@@ -112,6 +140,11 @@ Status ensureText(const GfxRenderer& renderer, const std::string& pdfPath, std::
   pdf::Result result;
   pdf::Limits limits;
   limits.styleMarks = true;  // headings, bold and italic: the reader's Style setting decides if they show
+  // The memory guard: the library drops what it can read again when the internal heap is nearly used up, and stops
+  // (Status::OutOfMemory) before an allocation fails, which in this build is a reset.
+  limits.freeMemory = [] { return heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); };
+  const size_t heapBefore = limits.freeMemory();
+  const SmallBlocksInPsram smallBlocks;
   const bool opened = pdf::extractText(
       src, inflateZlib,
       [&](size_t page, size_t pages, const std::string& text) {
@@ -135,8 +168,14 @@ Status ensureText(const GfxRenderer& renderer, const std::string& pdfPath, std::
   out.flush();
   out.close();
   source.close();
+  LOG_INF("PDF", "internal heap: %u free before, %u at the lowest since boot", static_cast<unsigned>(heapBefore),
+          static_cast<unsigned>(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
   if (!opened) {
     Storage.remove(tmp.c_str());
+    if (result.outOfMemory) {
+      LOG_ERR("PDF", "%s: out of memory at page %u", pdfPath.c_str(), static_cast<unsigned>(result.pages));
+      return Status::OutOfMemory;
+    }
     return result.encrypted ? Status::Encrypted : Status::Unreadable;
   }
   if (!writeOk) {
@@ -167,6 +206,7 @@ void showFailure(const GfxRenderer& renderer, const Status status) {
   if (status == Status::NoText) message = tr(STR_PDF_NO_TEXT);
   if (status == Status::Encrypted) message = tr(STR_PDF_ENCRYPTED);
   if (status == Status::UnreadableFont) message = tr(STR_PDF_UNREADABLE_FONT);
+  if (status == Status::OutOfMemory) message = tr(STR_PDF_OUT_OF_MEMORY);
   RenderLock lock;
   GUI.drawPopup(renderer, message);
   delay(2500);
