@@ -17,6 +17,7 @@
 #include "ChapterPosition.h"
 #include "ClipSelectionActivity.h"
 #include "EpubReaderMenuActivity.h"
+#include "FormatFeatures.h"
 #include "LinkNoteTitle.h"
 #include "ProgressMapper.h"
 #include "ReaderActivity.h"
@@ -255,6 +256,11 @@ class EpubReaderActivity final : public ReaderActivity {
   void handleOverlayInput();
   void renderOverlay();
   std::string currentChapterTitle() const;
+  // What the open book's format can use (FormatFeatures.h): the menus leave out the rest.
+  formatfeatures::BookKind bookKind() const { return formatfeatures::bookKind(bookPath); }
+  bool contentsShown() const { return epub && formatfeatures::showContents(epub->getTocItemsCount()); }
+  int firstTool() const { return contentsShown() ? 0 : 1; }
+  int stepTool(int tool, int step) const;
   // Text panel rows (font, size, line spacing, alignment, focus reading).
   void buildTextRows();
   int textRowAt(int index) const;

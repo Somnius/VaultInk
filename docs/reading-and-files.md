@@ -15,6 +15,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Screenshots](#screenshots)
 - [Reading presets](#reading-presets-0700)
 - [Book menu options](#book-menu-options-0730)
+- [Options by book format](#options-by-book-format)
 - [Continuous scrolling](#continuous-scrolling-0750)
 - [The More menu in a book](#the-more-menu-in-a-book-0700)
 - [Go to page](#go-to-page-0680)
@@ -213,7 +214,40 @@ In the file each such preset has a `"gestures"` block with two lists, `slots` (n
 
 ## Book menu options (0.73.0)
 
-**Settings → Reader → Book menu options** (the last row) arranges the reader's toolbar panels (kos25k #15). The first row picks the panel, **More** or **Text**. The second says what a tap on an entry does: **moves it** (tap an entry to pick it up, then tap where it goes) or **shows or hides it** (the switch on each row). The last row puts the panel back to the default. In More, **Back** (in a note) and **Go home** can't be hidden, and a panel is never left empty. An entry that only exists sometimes (Footnotes, Bookmarks, a note's Edit) keeps the place you gave it for when it shows up. **Contents** is the chapter list of the book, so there is nothing to arrange there. The classic list menu is not changed.
+**Settings → Reader → Book menu options** (the last row) arranges the reader's toolbar panels (kos25k #15). The first row picks the panel, **More** or **Text**. The second says what a tap on an entry does: **moves it** (tap an entry to pick it up, then tap where it goes) or **shows or hides it** (the switch on each row). The last row puts the panel back to the default. In More, **Back** (in a note) and **Go home** can't be hidden, and a panel is never left empty. An entry that only exists sometimes (Footnotes, Bookmarks, a note's Edit) keeps the place you gave it for when it shows up. **Contents** is the chapter list of the book, so there is nothing to arrange there. The classic list menu is not changed. Every row is listed here, also one the open book's format does not show (see [Options by book format](#options-by-book-format)).
+
+## Options by book format
+
+Not released yet; computer tests only, not seen on a reader or in the simulator. The book menu shows only what the open book's format can use (asked for by kos25k). An option that would change nothing in that kind of book is left out.
+
+| Format | Contents (chapter list) | Embedded Style row | Alignment: Book's Style | Hidden chapters, Book map |
+| --- | --- | --- | --- | --- |
+| EPUB | shown when the book lists two or more chapters | shown | offered | yes |
+| MOBI, PRC, AZW, AZW3 | not shown | shown | offered | no |
+| FB2, RTF | not shown | shown | offered | no |
+| HTML, CHM | not shown | shown | offered | no |
+| PDF (read as text) | not shown | shown | not offered | no |
+| TXT | not shown | not shown | not offered | no |
+| Markdown note | not shown | not shown | not offered | no |
+| DOC | not shown | not shown | not offered | no |
+
+Why:
+
+- **Contents.** The tool in the toolbar menu, and **Select Chapter** in the classic list menu, show only when the table of contents has two or more entries. The reader opens every format except EPUB as one long chapter with one entry (the title), so a list would have a single row. An EPUB with one entry or none gets no Contents either. With Contents left out, the toolbar has two tools, **Text** and **More**.
+- **Embedded Style** (Text panel). An EPUB has style sheets. MOBI, HTML and CHM keep a paragraph's alignment (the `align` attribute), FB2 and RTF write an alignment for the paragraphs that have one, and a PDF's text has heading, bold and italic marks: the row switches those. TXT, Markdown notes and DOC are converted to plain paragraphs with nothing to switch, so the row is not there.
+- **Alignment: Book's Style** (Text panel, the last choice of Alignment). It follows the alignment the book gives each paragraph. TXT, Markdown notes, DOC and a PDF's text give none, and the choice would lay the text out exactly as **Justify** does, so the list ends at **Right** there. If Book's Style is what you have set, such a book is justified and the list marks Justify.
+- **Hidden chapters and Book map** were EPUB only already.
+
+What does not change:
+
+- The setting itself. Embedded Style and Alignment are one setting for all books; a row that is not shown keeps its value for the next EPUB.
+- **Settings → Reader → Book menu options** lists every row, so a row can be moved or hidden even while the open book does not show it. A saved order stays as it is.
+- **Reading presets** store every layout field and apply to every format.
+- The settings screens outside a book (Settings → Reader, and **Text Settings** of the classic list menu) show everything.
+- Everything else in the Text panel and in More works the same in every format: font, size, spacing, hyphenation, Typography Engine, continuous scrolling, bookmarks, clippings, dictionary, KOReader sync.
+- Comics (CBZ) and XTC books have their own screens without this menu.
+
+One thing to know: a TXT, a Markdown note and a PDF's text carry no language, so the reader takes them as English. In the Typography Engine, **Hyphenation language: Book language** means English for them (Greek words still get the Greek patterns, as in any book). For another language, pick it in that setting.
 
 ## Continuous scrolling (0.75.0)
 

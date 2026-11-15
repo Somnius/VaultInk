@@ -416,7 +416,7 @@ void EpubReaderActivity::openReaderMenu() {
     // that screen, not the page: re-render the page and let renderBook() put
     // the toolbar on top. The in-reader fast path is openOverlay().
     overlay = Overlay::Toolbar;
-    focusedTool = 0;
+    focusedTool = firstTool();
     panelHoldJumped = false;
     panelCursorShown = !mappedInput.hasTouch();
     if (!toolbarUi) toolbarUi = std::make_unique<ReaderToolbarUi>(renderer);
@@ -434,7 +434,7 @@ void EpubReaderActivity::openReaderMenu() {
       std::make_unique<EpubReaderMenuActivity>(
           renderer, mappedInput, epub->getTitle(), position.displayPage(), position.totalPages, bookProgressPercent,
           SETTINGS.orientation, !currentPageFootnotes.empty(), !cachedBookmarks.empty(), CLIPPINGS.hasClippings(),
-          isVaultNote(), FAVOURITES.contains(epub->getPath()), hasBookMap()),
+          isVaultNote(), FAVOURITES.contains(epub->getPath()), hasBookMap(), contentsShown()),
       [this](const ActivityResult& result) {
         const auto& menu = std::get<MenuResult>(result.data);
 
@@ -3635,6 +3635,9 @@ constexpr StrId kAlignIds[] = {StrId::STR_JUSTIFY, StrId::STR_ALIGN_LEFT, StrId:
 constexpr int kTextRowCount = textpanel::COUNT;
 static_assert(std::size(kSpacingIds) == CrossPointSettings::LINE_COMPRESSION_COUNT, "line spacing labels");
 static_assert(std::size(kAlignIds) == CrossPointSettings::PARAGRAPH_ALIGNMENT_COUNT, "alignment labels");
+static_assert(formatfeatures::ALIGNMENT_CHOICES == CrossPointSettings::PARAGRAPH_ALIGNMENT_COUNT &&
+                  CrossPointSettings::BOOK_STYLE == CrossPointSettings::PARAGRAPH_ALIGNMENT_COUNT - 1,
+              "Book's style is the last alignment choice");
 }  // namespace
 
 bool EpubReaderActivity::usesToolbarMenu() const {
@@ -3655,9 +3658,22 @@ std::string EpubReaderActivity::currentChapterTitle() const {
 // The Text panel's rows as the reader arranged them in Settings > Reader > Book menu options (kos25k #15): the
 // rows' own numbers, in order, without the hidden ones.
 void EpubReaderActivity::buildTextRows() {
-  std::vector<int> defaults(static_cast<size_t>(kTextRowCount));
-  for (int i = 0; i < kTextRowCount; ++i) defaults[static_cast<size_t>(i)] = i;
+  // Only the rows the open book's format can use (FormatFeatures.h); the rows keep their numbers, and a stored
+  // order that names a row left out here just skips it.
+  const formatfeatures::BookKind kind = bookKind();
+  std::vector<int> defaults;
+  defaults.reserve(static_cast<size_t>(kTextRowCount));
+  for (int i = 0; i < kTextRowCount; ++i) {
+    if (formatfeatures::showsTextRow(kind, i)) defaults.push_back(i);
+  }
   textRows = menulayout::arrange(defaults, SETTINGS.textMenuOrder, SETTINGS.textMenuHidden, 0);
+}
+
+// The next tool to the left (-1) or right (+1), past Contents when the book has no chapter list to show.
+int EpubReaderActivity::stepTool(const int tool, const int step) const {
+  int next = (tool + 3 + step) % 3;
+  if (next == 0 && !contentsShown()) next = (next + 3 + step) % 3;
+  return next;
 }
 
 int EpubReaderActivity::textRowAt(const int index) const {
@@ -3735,8 +3751,11 @@ void EpubReaderActivity::showTextRowPopup(const int row) {
                         });
       break;
     case 3:
-      overlayPopup.show(StrId::STR_PARA_ALIGNMENT, kAlignIds, static_cast<int>(std::size(kAlignIds)),
-                        SETTINGS.paragraphAlignment % CrossPointSettings::PARAGRAPH_ALIGNMENT_COUNT, [this](int idx) {
+      // "Book's style" is left out for a format with no alignment of its own to follow (FormatFeatures.h).
+      overlayPopup.show(StrId::STR_PARA_ALIGNMENT, kAlignIds, formatfeatures::alignmentChoiceCount(bookKind()),
+                        formatfeatures::alignmentChoiceShown(
+                            bookKind(), SETTINGS.paragraphAlignment % CrossPointSettings::PARAGRAPH_ALIGNMENT_COUNT),
+                        [this](int idx) {
                           SETTINGS.paragraphAlignment = static_cast<uint8_t>(idx);
                           applyTextSettingLive();
                         });
@@ -3882,7 +3901,7 @@ void EpubReaderActivity::openOverlay(Overlay target) {
   panelCursorShown = !mappedInput.hasTouch();
   switch (target) {
     case Overlay::Toolbar:
-      focusedTool = 0;
+      focusedTool = firstTool();
       break;
     case Overlay::Contents: {
       RenderLock lock;
@@ -3976,6 +3995,7 @@ void EpubReaderActivity::renderOverlay() {
   // convention as the panel lists), it only shows once a button has moved it.
   // Panels override below: there the pill marks the open panel on every board.
   model.activeTool = (overlay == Overlay::Toolbar && !panelCursorShown) ? -1 : focusedTool;
+  model.contentsTool = contentsShown();
   // Strings the model points at live here until render() returns.
   std::string chapterTitle, pageInfo;
 
@@ -4147,13 +4167,13 @@ void EpubReaderActivity::handleOverlayInput() {
       return;
     }
     if (mappedInput.wasReleased(MappedInputManager::Button::Left)) {
-      focusedTool = (focusedTool + 2) % 3;
+      focusedTool = stepTool(focusedTool, -1);
       panelCursorShown = true;
       fastRedraw();
       return;
     }
     if (mappedInput.wasReleased(MappedInputManager::Button::Right)) {
-      focusedTool = (focusedTool + 1) % 3;
+      focusedTool = stepTool(focusedTool, 1);
       panelCursorShown = true;
       fastRedraw();
       return;
@@ -4422,7 +4442,7 @@ void EpubReaderActivity::buildMoreActions() {
   using MA = EpubReaderMenuActivity::MenuAction;
   EpubReaderMenuActivity::buildMenuItems(moreItems, !currentPageFootnotes.empty(), !cachedBookmarks.empty(),
                                          CLIPPINGS.hasClippings(), isVaultNote(), FAVOURITES.contains(epub->getPath()),
-                                         hasBookMap());
+                                         hasBookMap(), contentsShown());
   EpubReaderMenuActivity::arrangeMoreItems(moreItems);
 
   // The reader's own arrangement (kos25k #15): the stored order, without what they hid. Back and Go home stay.

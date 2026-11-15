@@ -20,14 +20,15 @@ EpubReaderMenuActivity::EpubReaderMenuActivity(GfxRenderer& renderer, MappedInpu
                                                const int bookProgressPercent, const uint8_t currentOrientation,
                                                const bool hasFootnotes, const bool hasBookmarks,
                                                const bool hasClippings, const bool isVaultNote, const bool isFavourite,
-                                               const bool hasBookMap)
+                                               const bool hasBookMap, const bool hasContents)
     : UiListActivity("EpubReaderMenu", renderer, mappedInput),
       title(title),
       pendingOrientation(currentOrientation),
       currentPage(currentPage),
       totalPages(totalPages),
       bookProgressPercent(bookProgressPercent) {
-  buildMenuItems(menuItems, hasFootnotes, hasBookmarks, hasClippings, isVaultNote, isFavourite, hasBookMap);
+  buildMenuItems(menuItems, hasFootnotes, hasBookmarks, hasClippings, isVaultNote, isFavourite, hasBookMap,
+                 hasContents);
   buildMenuRowItems();
 }
 
@@ -45,13 +46,14 @@ void EpubReaderMenuActivity::buildMenuRowItems() {
 
 void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, const bool hasFootnotes,
                                             const bool hasBookmarks, const bool hasClippings, const bool isVaultNote,
-                                            const bool isFavourite, const bool hasBookMap) {
+                                            const bool isFavourite, const bool hasBookMap, const bool hasContents) {
   items.clear();
   items.reserve(MAX_MENU_ITEMS);
   // A note gets Back first: on boards without a Back key (X4 Pro) the left-edge swipe is easy to
   // miss, and Home would leave the vault.
   if (isVaultNote) items.push_back({MenuAction::BACK, StrId::STR_BACK});
-  items.push_back({MenuAction::SELECT_CHAPTER, StrId::STR_SELECT_CHAPTER});
+  // A table of contents of one entry (a TXT, a PDF, a MOBI, a note...) has nowhere to go: no chapter list.
+  if (hasContents) items.push_back({MenuAction::SELECT_CHAPTER, StrId::STR_SELECT_CHAPTER});
   if (isVaultNote) {
     items.push_back({MenuAction::BACKLINKS, StrId::STR_BACKLINKS});
     items.push_back({MenuAction::FLASHCARDS, StrId::STR_FLASHCARDS});

@@ -43,6 +43,9 @@ class ReaderToolbarUi : public UiAppHost {
     void* rowCheckboxContext = nullptr;
     // Tile row: the tool in focus (toolbar) / the open panel (panel). 0..2.
     int activeTool = 0;
+    // The Contents tile is left out for a book whose table of contents has one entry or none; Text and More keep
+    // their numbers (1 and 2) and share the row.
+    bool contentsTool = true;
     // Button boards keep the theme's denser list row height (as every other
     // list does there); touch boards use FreeInkUI's finger-sized rows.
     bool denseRows = false;
