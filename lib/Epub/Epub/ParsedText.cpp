@@ -1624,6 +1624,10 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   const uint16_t* lineWidths = wordWidths.data() + lastBreakAt;
   int8_t lineSpacing = blockStyle.characterSpacing;
   int maxGapShrink = 0;  // the most one ordinary gap of this line may give up when condensed
+  // What each ordinary gap can give up, in line order, when this line may be condensed: the shrink is shared out so
+  // that no gap gives up more than its own share (a narrow gap next to a wide one must never go below its limit).
+  std::vector<int> gapAllowances;
+  if (condensePercent < 100 && plainLtr) gapAllowances.reserve(lineWordCount);
 
   for (size_t wordIdx = 0; wordIdx < lineWordCount; wordIdx++) {
     lineWordWidthSum += lineWidths[wordIdx];
@@ -1651,7 +1655,11 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
                                               firstCodepoint(lineWords[wordIdx]), lineWordStyles[wordIdx - 1]),
                      wordSpacingPercent);
       totalNaturalGaps += gap;
-      if (!isLockedGap(wordIdx)) maxGapShrink = std::max(maxGapShrink, typoengine::gapShrink(gap, condensePercent));
+      if (!isLockedGap(wordIdx)) {
+        const int allowance = typoengine::gapShrink(gap, condensePercent);
+        maxGapShrink = std::max(maxGapShrink, allowance);
+        if (condensePercent < 100 && plainLtr) gapAllowances.push_back(allowance);
+      }
     }
   }
 
@@ -1753,11 +1761,26 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
                          : 0;
   if (justifyExtra > maxJustifyExtra) justifyExtra = 0;
   // Typography Engine, space condensing: the line breaker let this line run over by no more than its gaps can give
-  // up, so take the overrun back out of them. shrinkPerGap rounds up: the line ends at or just before the edge.
+  // up, so take the overrun back out of them. Every ordinary gap gives up the same number of pixels, but never more
+  // than its own allowance: condenseLevel is the smallest such number that takes the whole overrun out.
+  int condenseLevel = 0;
   if (condensePercent < 100 && effectiveAlignment == CssTextAlign::Justify && !isLastLine && spareSpace < 0 &&
       actualGapCount > 0) {
-    justifyExtra = -std::min(typoengine::shrinkPerGap(-spareSpace, actualGapCount), maxGapShrink);
+    const int deficit = -spareSpace;
+    condenseLevel = 1;
+    while (condenseLevel < maxGapShrink) {
+      int taken = 0;
+      for (const int allowance : gapAllowances) taken += std::min(condenseLevel, allowance);
+      if (taken >= deficit) break;
+      ++condenseLevel;
+    }
+    justifyExtra = 0;
   }
+  // The extra (negative when condensing) one gap of natural width `gap` gets. Gaps that are not ordinary spaces
+  // (a no-break space token, a locked gap) keep their width in a condensed line.
+  const auto condensedExtra = [&](const int gap) {
+    return -std::min(condenseLevel, typoengine::gapShrink(gap, condensePercent));
+  };
 
   // BiDi processing: reorder words with UAX#9 in full-line context.
   visualOrderScratch.clear();
@@ -1969,7 +1992,8 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
           // no-break space must not receive justifyExtra, or the line over-stretches by one
           // gap and the last word is pushed past the right margin (issue #2185).
           if (wordIdx > 0 && lineWords[wordIdx] == " " && continuesVec[lastBreakAt + wordIdx] &&
-              effectiveAlignment == CssTextAlign::Justify && !isLastLine && !isLockedGap(wordIdx)) {
+              effectiveAlignment == CssTextAlign::Justify && !isLastLine && !isLockedGap(wordIdx) &&
+              condenseLevel == 0) {
             advance += justifyExtra;
           }
           xpos += advance;
@@ -1986,7 +2010,7 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
           }
           if (wordIdx + 1 < lineWordCount && effectiveAlignment == CssTextAlign::Justify && !isLastLine &&
               !isLockedGap(wordIdx + 1)) {
-            gap += justifyExtra;
+            gap += condenseLevel > 0 ? (nextNoSpace ? 0 : condensedExtra(gap)) : justifyExtra;
           }
           xpos += lineWidths[wordIdx] + gap;
         }
