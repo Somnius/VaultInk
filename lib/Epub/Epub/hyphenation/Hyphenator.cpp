@@ -6,6 +6,7 @@
 #include <cassert>
 #include <vector>
 
+#include "../TypographyEngine.h"
 #include "HyphenationCommon.h"
 #include "LanguageHyphenator.h"
 #include "LanguageRegistry.h"
@@ -76,6 +77,37 @@ const LanguageHyphenator* hyphenatorForWord(const std::vector<CodepointInfo>& cp
   return greekBook ? preferred : greek;
 }
 
+// Typography Engine, Hyphenation language: the chosen pattern set for every word, or nullptr for "Book language".
+const LanguageHyphenator* overrideHyphenator(const uint8_t language) {
+  if (language == 0 || language > typoengine::LANGUAGE_COUNT) return nullptr;
+  static const LanguageHyphenator* table[typoengine::LANGUAGE_COUNT] = {};
+  static bool filled = false;
+  if (!filled) {
+    for (size_t i = 0; i < typoengine::LANGUAGE_COUNT; ++i) {
+      table[i] = getLanguageHyphenatorForPrimaryTag(typoengine::LANGUAGE_TAGS[i]);
+    }
+    filled = true;
+  }
+  return table[language - 1];
+}
+
+// Typography Engine, minimum letters: 0 keeps the language's own minimum.
+size_t minPrefixFor(const LanguageHyphenator* hyphenator, const typoengine::Config& typo) {
+  if (typo.minLeft != 0) return typo.minLeft;
+  return hyphenator ? hyphenator->minPrefix() : LiangWordConfig::kDefaultMinPrefix;
+}
+
+size_t minSuffixFor(const LanguageHyphenator* hyphenator, const typoengine::Config& typo) {
+  if (typo.minRight != 0) return typo.minRight;
+  return hyphenator ? hyphenator->minSuffix() : LiangWordConfig::kDefaultMinSuffix;
+}
+
+std::vector<size_t> patternIndexes(const LanguageHyphenator& hyphenator, const std::vector<CodepointInfo>& cps,
+                                   const typoengine::Config& typo) {
+  if (typo.minLeft == 0 && typo.minRight == 0) return hyphenator.breakIndexes(cps);
+  return hyphenator.breakIndexes(cps, minPrefixFor(&hyphenator, typo), minSuffixFor(&hyphenator, typo));
+}
+
 // Maps a codepoint index back to its byte offset inside the source word.
 size_t byteOffsetForIndex(const std::vector<CodepointInfo>& cps, const size_t index) {
   return (index < cps.size()) ? cps[index].byteOffset : (cps.empty() ? 0 : cps.back().byteOffset);
@@ -110,7 +142,8 @@ std::vector<Hyphenator::BreakInfo> buildExplicitBreakInfos(const std::vector<Cod
 bool isSegmentSeparator(const uint32_t cp) { return isExplicitHyphen(cp) || isApostrophe(cp); }
 
 void appendSegmentPatternBreaks(const std::vector<CodepointInfo>& cps, const LanguageHyphenator& hyphenator,
-                                const bool includeFallback, std::vector<Hyphenator::BreakInfo>& outBreaks) {
+                                const typoengine::Config& typo, const bool includeFallback,
+                                std::vector<Hyphenator::BreakInfo>& outBreaks) {
   size_t segStart = 0;
 
   for (size_t i = 0; i <= cps.size(); ++i) {
@@ -122,11 +155,11 @@ void appendSegmentPatternBreaks(const std::vector<CodepointInfo>& cps, const Lan
 
     if (i > segStart) {
       std::vector<CodepointInfo> segment(cps.begin() + segStart, cps.begin() + i);
-      auto segIndexes = hyphenator.breakIndexes(segment);
+      auto segIndexes = patternIndexes(hyphenator, segment, typo);
 
       if (includeFallback && segIndexes.empty()) {
-        const size_t minPrefix = hyphenator.minPrefix();
-        const size_t minSuffix = hyphenator.minSuffix();
+        const size_t minPrefix = minPrefixFor(&hyphenator, typo);
+        const size_t minSuffix = minSuffixFor(&hyphenator, typo);
         for (size_t idx = minPrefix; idx + minSuffix <= segment.size(); ++idx) {
           segIndexes.push_back(idx);
         }
@@ -205,7 +238,13 @@ std::vector<Hyphenator::BreakInfo> Hyphenator::breakOffsets(const std::string& w
   // Convert to codepoints and normalize word boundaries.
   auto cps = collectCodepoints(word);
   trimSurroundingPunctuationAndFootnote(cps);
-  const auto* hyphenator = hyphenatorForWord(cps, cachedHyphenator_);
+  // Typography Engine: a chosen language is used for every word, so the Greek-word rule applies to "Book language"
+  // only. "Soft hyphens only" drops the pattern and apostrophe breaks; the every-N-letters fallback for a word wider
+  // than the line stays, or that word would run off the page.
+  const typoengine::Config typo = typoengine::current();
+  const LanguageHyphenator* const chosen = overrideHyphenator(typo.language);
+  const auto* hyphenator = chosen ? chosen : hyphenatorForWord(cps, cachedHyphenator_);
+  const bool softOnly = typo.hyphenMode == typoengine::HYPHEN_SOFT_ONLY;
 
   // Detect apostrophe-like separators early; used by both branches below.
   bool hasApostropheLikeSeparator = false;
@@ -233,12 +272,12 @@ std::vector<Hyphenator::BreakInfo> Hyphenator::breakOffsets(const std::string& w
     //                                            @13 Satelliten|sys  (+hyphen)
     //                                            @16 Satellitensys|tems  (+hyphen)
     //   Result: 6 sorted break points; the line-breaker picks the widest prefix that fits.
-    if (hyphenator) {
-      appendSegmentPatternBreaks(cps, *hyphenator, /*includeFallback=*/false, explicitBreakInfos);
+    if (hyphenator && !softOnly) {
+      appendSegmentPatternBreaks(cps, *hyphenator, typo, /*includeFallback=*/false, explicitBreakInfos);
     }
     // Also add apostrophe contraction breaks when present (e.g. "l'état-major"
     // has both an explicit hyphen and an apostrophe that can independently break).
-    if (hasApostropheLikeSeparator) {
+    if (hasApostropheLikeSeparator && !softOnly) {
       appendApostropheContractionBreaks(cps, explicitBreakInfos);
     }
     // Merge all break points into ascending byte-offset order.
@@ -250,10 +289,10 @@ std::vector<Hyphenator::BreakInfo> Hyphenator::breakOffsets(const std::string& w
   // This allows words like "all'improvviso" to hyphenate within "improvviso" instead of becoming
   // completely unsplittable due to the apostrophe punctuation. Apostrophe contraction breaks are
   // applied regardless of whether a language hyphenator is available.
-  if (hasApostropheLikeSeparator) {
+  if (hasApostropheLikeSeparator && !softOnly) {
     std::vector<BreakInfo> segmentedBreaks;
     if (hyphenator) {
-      appendSegmentPatternBreaks(cps, *hyphenator, includeFallback, segmentedBreaks);
+      appendSegmentPatternBreaks(cps, *hyphenator, typo, includeFallback, segmentedBreaks);
     }
     appendApostropheContractionBreaks(cps, segmentedBreaks);
     sortAndDedupeBreakInfos(segmentedBreaks);
@@ -262,14 +301,14 @@ std::vector<Hyphenator::BreakInfo> Hyphenator::breakOffsets(const std::string& w
 
   // Ask language hyphenator for legal break points.
   std::vector<size_t> indexes;
-  if (hyphenator) {
-    indexes = hyphenator->breakIndexes(cps);
+  if (hyphenator && !softOnly) {
+    indexes = patternIndexes(*hyphenator, cps, typo);
   }
 
   // Only add fallback breaks if needed
   if (includeFallback && indexes.empty()) {
-    const size_t minPrefix = hyphenator ? hyphenator->minPrefix() : LiangWordConfig::kDefaultMinPrefix;
-    const size_t minSuffix = hyphenator ? hyphenator->minSuffix() : LiangWordConfig::kDefaultMinSuffix;
+    const size_t minPrefix = minPrefixFor(hyphenator, typo);
+    const size_t minSuffix = minSuffixFor(hyphenator, typo);
     for (size_t idx = minPrefix; idx + minSuffix <= cps.size(); ++idx) {
       indexes.push_back(idx);
     }

@@ -515,6 +515,23 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                            StrId::STR_EXPERIMENTAL));
   emit(SettingInfo::Toggle(StrId::STR_TEXT_HANGING, &CrossPointSettings::textHanging, "textHanging",
                            StrId::STR_EXPERIMENTAL));
+  // --- Typography Engine (kos25k #30; on the device: TypographyEngineSettingsActivity) ---
+  emit(SettingInfo::Value(StrId::STR_TYPO_CONDENSE, &CrossPointSettings::typoCondense, {50, 100, 10}, "typoCondense",
+                          StrId::STR_TYPOGRAPHY_ENGINE));
+  emit(SettingInfo::Enum(StrId::STR_TYPO_LETTER_SPACING, &CrossPointSettings::typoLetterSpacing,
+                         {StrId::STR_STATE_OFF, StrId::STR_TYPO_SMALL, StrId::STR_TYPO_MEDIUM}, "typoLetterSpacing",
+                         StrId::STR_TYPOGRAPHY_ENGINE));
+  emit(SettingInfo::Toggle(StrId::STR_TYPO_LOCKED_SPACE, &CrossPointSettings::typoLockedSpace, "typoLockedSpace",
+                           StrId::STR_TYPOGRAPHY_ENGINE));
+  emit(SettingInfo::Enum(StrId::STR_TYPO_HYPHEN_MODE, &CrossPointSettings::typoHyphenMode,
+                         {StrId::STR_TYPO_HYPHEN_PATTERNS, StrId::STR_TYPO_HYPHEN_SOFT, StrId::STR_STATE_OFF},
+                         "typoHyphenMode", StrId::STR_TYPOGRAPHY_ENGINE));
+  emit(SettingInfo::Value(StrId::STR_TYPO_MIN_LEFT, &CrossPointSettings::typoMinLeft, {0, 5, 1}, "typoMinLeft",
+                          StrId::STR_TYPOGRAPHY_ENGINE));
+  emit(SettingInfo::Value(StrId::STR_TYPO_MIN_RIGHT, &CrossPointSettings::typoMinRight, {0, 5, 1}, "typoMinRight",
+                          StrId::STR_TYPOGRAPHY_ENGINE));
+  emit(SettingInfo::Value(StrId::STR_TYPO_HYPHEN_LANG, &CrossPointSettings::typoHyphenLang, {0, 13, 1},
+                          "typoHyphenLang", StrId::STR_TYPOGRAPHY_ENGINE));
   emit(SettingInfo::Toggle(StrId::STR_HIDE_STATUS_BAR, &CrossPointSettings::statusBarHidden, "statusBarHidden",
                            StrId::STR_CUSTOMISE_STATUS_BAR));
   emit(SettingInfo::Toggle(StrId::STR_BOOK_PAGE_NUMBER, &CrossPointSettings::statusBarBookPage, "statusBarBookPage",

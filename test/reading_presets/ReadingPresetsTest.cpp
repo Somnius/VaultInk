@@ -368,3 +368,66 @@ TEST(ReadingPresetsGestures, APresetWithTheCurrentGesturesBeatsALayoutOnlyOne) {
   EXPECT_EQ(1, list.find(sampleLayout(), sampleGestures()));     // the closer match wins
   EXPECT_EQ(0, list.find(sampleLayout(), other));                // other gestures: the layout-only slot
 }
+
+// Typography Engine (kos25k #30): seven more layout fields.
+TEST(ReadingPresetsTypographyEngine, RoundTripKeepsTheEngineSettings) {
+  Layout l = sampleLayout();
+  l.typoCondense = 70;
+  l.typoLetterSpacing = 2;
+  l.typoLockedSpace = 1;
+  l.typoHyphenMode = 1;
+  l.typoMinLeft = 3;
+  l.typoMinRight = 4;
+  l.typoHyphenLang = 12;
+  PresetList list;
+  ASSERT_TRUE(save(list, 4, l));
+  const std::string json = toJson(list);
+  EXPECT_NE(json.find("\"tcondense\":70"), std::string::npos);
+  EXPECT_NE(json.find("\"tlang\":12"), std::string::npos);
+  PresetList back;
+  ASSERT_TRUE(parse(json.c_str(), json.size(), back));
+  EXPECT_EQ(l, back.slots[4].layout);
+  EXPECT_EQ(json, toJson(back));
+  // The engine settings are part of what makes two layouts the same.
+  EXPECT_NE(l, sampleLayout());
+}
+
+TEST(ReadingPresetsTypographyEngine, APresetWithTheEngineOffIsWrittenAsBefore) {
+  PresetList list;
+  ASSERT_TRUE(save(list, 0, sampleLayout()));
+  const std::string json = toJson(list);
+  for (const char* key : {"tcondense", "tletters", "tlocked", "thyphen", "tleft", "tright", "tlang"}) {
+    EXPECT_EQ(json.find(key), std::string::npos) << key;
+  }
+  // A file from before the engine has none of the keys and reads as all off (condensing 100 %).
+  PresetList back;
+  ASSERT_TRUE(parse(json.c_str(), json.size(), back));
+  EXPECT_EQ(100, back.slots[0].layout.typoCondense);
+  EXPECT_EQ(0, back.slots[0].layout.typoHyphenMode);
+  EXPECT_EQ(sampleLayout(), back.slots[0].layout);
+}
+
+TEST(ReadingPresetsTypographyEngine, TenFullPresetsFitTheSaveBuffer) {
+  PresetList list;
+  Layout l;
+  std::memset(l.sdFontFamilyName, 'W', sizeof(l.sdFontFamilyName) - 1);
+  for (uint8_t Layout::* m : {&Layout::fontFamily,         &Layout::fontPointSize,         &Layout::lineSpacing,
+                              &Layout::paragraphAlignment, &Layout::hyphenationEnabled,    &Layout::focusReadingEnabled,
+                              &Layout::evenWordGaps,       &Layout::wordSpacing,           &Layout::characterSpacing,
+                              &Layout::screenMargin,       &Layout::paragraphIndentSpaces, &Layout::textLigatures,
+                              &Layout::textKerning,        &Layout::textWidowOrphan,       &Layout::textKeepHeadings,
+                              &Layout::textHanging,        &Layout::typoCondense,          &Layout::typoLetterSpacing,
+                              &Layout::typoLockedSpace,    &Layout::typoHyphenMode,        &Layout::typoMinLeft,
+                              &Layout::typoMinRight,       &Layout::typoHyphenLang}) {
+    l.*m = 255;
+  }
+  Gestures g;
+  std::memset(g.slots, 255, sizeof(g.slots));
+  std::memset(g.quickMenu, 255, sizeof(g.quickMenu));
+  for (int i = 0; i < kSlots; ++i) {
+    ASSERT_TRUE(save(list, i, l, g));
+    std::memset(list.slots[i].name, 1, kNameCapacity - 1);
+  }
+  const size_t need = serialize(list, nullptr, 0);
+  EXPECT_LT(need, 8448u) << need;  // ReadingPresetsStore::save's CAP
+}

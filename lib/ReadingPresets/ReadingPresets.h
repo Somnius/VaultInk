@@ -35,6 +35,14 @@ struct Layout {
   uint8_t textWidowOrphan = 0;
   uint8_t textKeepHeadings = 0;
   uint8_t textHanging = 0;
+  // Typography Engine (kos25k #30). A preset saved before it has none of these keys and reads as all off.
+  uint8_t typoCondense = 100;
+  uint8_t typoLetterSpacing = 0;
+  uint8_t typoLockedSpace = 0;
+  uint8_t typoHyphenMode = 0;
+  uint8_t typoMinLeft = 0;
+  uint8_t typoMinRight = 0;
+  uint8_t typoHyphenLang = 0;
 
   bool operator==(const Layout& other) const;
   bool operator!=(const Layout& other) const { return !(*this == other); }

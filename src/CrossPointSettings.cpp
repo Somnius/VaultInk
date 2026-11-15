@@ -428,6 +428,17 @@ ReaderRenderSpec CrossPointSettings::readerRenderSpec(const uint16_t viewportWid
   spec.embeddedStyle = embeddedStyle != 0;
   spec.imageRendering = imageRendering;
   spec.focusReadingEnabled = focusReadingEnabled != 0;
+  typoengine::Config typo;
+  typo.condensePercent = typoCondense;
+  typo.letterSpacing = typoLetterSpacing;
+  typo.lockedSpace = typoLockedSpace != 0;
+  typo.hyphenMode = typoHyphenMode;
+  typo.minLeft = typoMinLeft;
+  typo.minRight = typoMinRight;
+  typo.language = typoHyphenLang;
+  spec.typographyEngine = typoengine::pack(typo);
+  // Hyphenation mode Off is the Hyphenation switch off.
+  if (typoengine::sanitized(typo).hyphenMode == typoengine::HYPHEN_OFF) spec.hyphenationEnabled = false;
   return spec;
 }
 

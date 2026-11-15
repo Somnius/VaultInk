@@ -49,6 +49,7 @@
 #include "StatusBarSettingsActivity.h"
 #include "TextSettingsActivity.h"
 #include "TranslateSettingsActivity.h"
+#include "TypographyEngineSettingsActivity.h"
 #include "activities/ActivityManager.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/reader/QrDisplayActivity.h"
@@ -163,6 +164,7 @@ void SettingsActivity::buildList(const SettingsSection section, std::vector<Sett
   addAction(SettingsSection::Reader, StrId::STR_PAPER_CYCLE, SettingAction::PaperCycle);
   addAction(SettingsSection::Reader, StrId::STR_SEARCH_WORD, SettingAction::SearchWord);
   addAction(SettingsSection::Reader, StrId::STR_EXPERIMENTAL, SettingAction::Experimental);
+  addAction(SettingsSection::Reader, StrId::STR_TYPOGRAPHY_ENGINE, SettingAction::TypographyEngine);
   addAction(SettingsSection::Reader, StrId::STR_READING_PRESETS, SettingAction::ReadingPresets);
   addAction(SettingsSection::Display, StrId::STR_HOME_ROWS, SettingAction::HomeRows);
   addAction(SettingsSection::Display, StrId::STR_HOME_ITEMS, SettingAction::HomeItems);
@@ -423,6 +425,10 @@ void SettingsActivity::toggleSelectedSetting() {
         break;
       case SettingAction::Experimental:
         startActivityForResult(std::make_unique<ExperimentalSettingsActivity>(renderer, mappedInput), resultHandler);
+        break;
+      case SettingAction::TypographyEngine:
+        startActivityForResult(std::make_unique<TypographyEngineSettingsActivity>(renderer, mappedInput),
+                               resultHandler);
         break;
       case SettingAction::ReadingPresets:
         // Applies and saves settings itself; the rows of this list show the new values on return.

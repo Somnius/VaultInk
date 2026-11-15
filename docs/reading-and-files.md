@@ -11,6 +11,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Paper contrast (0.60.0)](#paper-contrast-0600)
 - [Line spacing, 0 to 10](#line-spacing-0-to-10)
 - [Advanced Typography (0.66.0, renamed from Experimental in 0.66.1)](#advanced-typography-0660-renamed-from-experimental-in-0661)
+- [Typography Engine (unreleased)](#typography-engine-unreleased)
 - [Screenshots](#screenshots)
 - [Reading presets](#reading-presets-0700)
 - [Book menu options](#book-menu-options-0730)
@@ -174,9 +175,24 @@ some fonts, accents on capitals can touch the line above at levels 0 and 1.
 
 While a book is open the kerning and ligature switches also apply to the menus drawn over it; when you leave the book the menus are back to normal. Greek hyphenation, including polytonic, and the Greek letters in the built-in fonts are not switches, they are always on. Advanced Typography has been confirmed on a real X4 Pro.
 
+## Typography Engine (unreleased)
+
+**Settings → Reader → Typography Engine** (right after Advanced Typography), and in a book **Text → Typography Engine** (the last row), have seven settings for how justified lines are filled and how words are hyphenated (kos25k #30). All of them are off by default, so a book looks as it did until you change one; changing one lays the book out again once. In Settings a row opens the list of its choices. In the book the row opens the seven settings with their values, and picking one steps it to its next choice. The row can be moved or hidden in Book menu options like the others, and Reading presets keep the seven settings.
+
+**Computer-tested only**: the layout arithmetic and the hyphenation rules are checked by tests on a computer, and the firmware compiles for the X4 Pro. None of it has been looked at on a reader yet.
+
+- **Space condensing**: Off, 90%, 80%, 70%, 60% or 50%. On a justified line the word gaps may shrink down to this share of a normal space when that lets one more word, or one more syllable of a hyphenated word, fit on the line. The line is then justified as usual, so it still ends at the right edge. A gap never closes: it stays at least one pixel. With a small font the space is only a few pixels wide and 90% may round to no change at all.
+- **Letter spacing on loose lines**: Off, Small or Medium. When the gaps of a justified line would each grow by more than half a space, part of the spare room goes between the letters instead, at most 1 px (Small) or 2 px (Medium) between two letters, and the gaps take the rest. Never on the last line of a paragraph. With Even Word Gaps on, a line that would still be too loose stays ragged with its letters as they are.
+- **Locked space after quote or dash**: a switch. The space after a word that is only an opening quote or a dash (`—`, `–`, `-`, `«`, `“`, `„`, `‘`, `‹`), as in a line of dialogue that starts with a dash, keeps its normal width: it is not stretched when the line is justified and not shrunk by Space condensing. A no-break space there counts too.
+- **Hyphenation mode**: Patterns (as before), Soft hyphens only, or Off. Soft hyphens only breaks a word only where the book itself put a soft hyphen or where the word has a visible hyphen. A single word wider than the whole line is still cut, or it would run off the page. Off is the same as the Hyphenation switch off. The mode only matters while Hyphenation is on.
+- **Letters before a hyphen** and **Letters after a hyphen**: Default, or 1 to 5. The fewest letters left at the end of the line and carried to the next one. Default is the language's own minimum, as before. They apply to the pattern breaks, not to soft hyphens.
+- **Hyphenation language**: Book language (as before), or one of the 13 pattern sets: en, fr, de, ru, es, it, pl, sv, uk, fi, pt, el, grc. A chosen language is used for every word of the book. With Book language, Greek words keep using the Greek patterns whatever the book says, as before; with a chosen language they do not.
+
+Space condensing, letter spacing and the locked space apply to left-to-right text only. A paragraph with right-to-left words, with Chinese, Japanese or Korean text (which breaks without spaces) or with ruby is laid out as before. Pictures are their own blocks, never part of a text line.
+
 ## Reading presets (0.70.0)
 
-**Settings → Reader → Reading presets**, and the last row of the book menu → **More**, keep ten sets of your Text settings (kos25k #12). **Save preset** asks which slot and then for a name (it starts as the slot's own name, "Preset 1" and so on). A preset holds font, size, line spacing, alignment, hyphenation, Focus Reading, Even Word Gaps, word and character spacing, screen margin, paragraph indent and the five Advanced Typography switches. In a book, press a slot and its settings apply at once and the page is laid out again; the slot that matches your current settings shows "In use". They are kept in `/.crosspoint/reading-presets.json`.
+**Settings → Reader → Reading presets**, and the last row of the book menu → **More**, keep ten sets of your Text settings (kos25k #12). **Save preset** asks which slot and then for a name (it starts as the slot's own name, "Preset 1" and so on). A preset holds font, size, line spacing, alignment, hyphenation, Focus Reading, Even Word Gaps, word and character spacing, screen margin, paragraph indent, the five Advanced Typography switches and (unreleased) the seven [Typography Engine](#typography-engine-unreleased) settings. In a book, press a slot and its settings apply at once and the page is laid out again; the slot that matches your current settings shows "In use". They are kept in `/.crosspoint/reading-presets.json`.
 
 ### Gestures in a preset
 
