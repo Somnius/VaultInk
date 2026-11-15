@@ -132,6 +132,17 @@ class WaitGate {
 // on with more data; start with 0.
 uint32_t crc32(const uint8_t* data, size_t length, uint32_t crc = 0);
 
+// ---- CMD:CLOCK and the clock fields of STATUS ----
+
+enum class ClockAction : uint8_t { Unset, Unknown };
+// "UNSET" and nothing else (case-sensitive, like the command names).
+ClockAction parseClockArgs(const char* args, size_t length);
+
+class JsonLine;
+// Adds `clock_valid` and `epoch`. `trustedNow` is trustedtime::trustedNow(): 0 while the firmware does not trust
+// the date, which is what a checked connection (TlsPolicy's Clock) reads too. `systemEpoch` is time(nullptr).
+void addClockFields(JsonLine& json, int64_t trustedNow, int64_t systemEpoch);
+
 }  // namespace devlink
 
 #endif  // VAULTINK_DEVLINK_FULL

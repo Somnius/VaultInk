@@ -135,6 +135,18 @@ bool syncNow(const uint32_t timeoutMs) {
   return synced;
 }
 
+#ifdef VAULTINK_DEVLINK_FULL
+void unsetForDev() {
+  timeval tv = {0, 0};
+  settimeofday(&tv, nullptr);
+  portENTER_CRITICAL(&ramFloorLock);
+  ramFloor = 0;
+  portEXIT_CRITICAL(&ramFloorLock);
+  // An earlier sync must not count as the next one: syncNow() waits on this status.
+  sntp_set_sync_status(SNTP_SYNC_STATUS_RESET);
+}
+#endif
+
 int64_t trustedNow() {
   const int64_t now = static_cast<int64_t>(time(nullptr));
   // Never earlier than a time already seen; 0 while neither is trustworthy.

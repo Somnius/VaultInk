@@ -11,7 +11,7 @@
 //                           link of the user-installable developer build (x4pro-dev-user): PING HELP
 //                           STATUS LOG BENCH REBOOT SCREENSHOT and nothing else.
 //   + VAULTINK_DEVLINK_FULL the developer's own builds (x4pro-dev, x4pro-dev-verify): also
-//                           BOOTLOADER, KEY, TAP, SWIPE, FLASH, LS, GET, PUT, FETCH, WAIT and SHOTCRC.
+//                           BOOTLOADER, KEY, TAP, SWIPE, FLASH, LS, GET, PUT, FETCH, WAIT, SHOTCRC and CLOCK.
 #if defined(VAULTINK_DEVLINK_FULL) && !defined(VAULTINK_DEVLINK)
 #error "VAULTINK_DEVLINK_FULL needs VAULTINK_DEVLINK"
 #endif
@@ -76,6 +76,7 @@ enum class Command : uint8_t {
   Wait,     // CMD:WAIT [activity] [timeout_ms]
   ShotCrc,  // CMD:SHOTCRC
   Fetch,    // CMD:FETCH <http url> <sd path> <sha256>
+  Clock,    // CMD:CLOCK UNSET
 };
 
 struct Parsed {
@@ -102,7 +103,7 @@ bool parseUnsigned(const char* text, size_t length, uint32_t& value);
 // reader never sees a cut line.
 class JsonLine {
  public:
-  static constexpr size_t CAPACITY = 768;  // with the closing brace and the terminator
+  static constexpr size_t CAPACITY = 832;  // with the closing brace and the terminator
 
   JsonLine();
 

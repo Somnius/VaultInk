@@ -1,5 +1,6 @@
 #pragma once
 #include <HalStorage.h>
+#include <TlsPolicy.h>
 
 #include <cstdint>
 #include <functional>
@@ -51,6 +52,15 @@ class HttpDownloader {
    * from such a hop, so a 401 there is not a wrong password.
    */
   static bool lastAnswerRedirected();
+
+  /**
+   * Why the last simple fetchUrl() (the ones without FetchOptions) or
+   * downloadToFile() got no answer at all: no Wi-Fi, no date for the
+   * certificate check, the host not reached, or the certificate not accepted.
+   * None after a success, an abort or a stopped sink; Other for an HTTP status.
+   * The other requests of this class leave it alone.
+   */
+  static tlspolicy::Failure lastFailure();
 
   /**
    * Fetch text content from a URL with optional credentials. `headers` are

@@ -2,6 +2,7 @@
 // input queue and the SD path rule. DevLinkTest.cpp covers the table every other build has.
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -102,7 +103,7 @@ TEST(DevParse, KnowsTheDeveloperCommands) {
 
 TEST(DevParse, EveryListedCommandParses) {
   const std::string list = devlink::commandList();
-  for (const char* name : {"KEY", "TAP", "SWIPE", "FLASH", "LS", "GET", "PUT", "FETCH", "WAIT", "SHOTCRC"}) {
+  for (const char* name : {"KEY", "TAP", "SWIPE", "FLASH", "LS", "GET", "PUT", "FETCH", "WAIT", "SHOTCRC", "CLOCK"}) {
     EXPECT_NE((" " + list + " ").find(std::string(" ") + name + " "), std::string::npos) << name;
   }
   size_t start = 0;
@@ -1023,9 +1024,9 @@ TEST(DevShotCrc, MatchesZlib) {
 // The fields of CMD:STATUS in the developer's own builds, in the order replyStatus() of
 // src/util/DevLinkDevice.cpp adds them, each with the longest value its type can hold (bench
 // minutes: the 1440 the command takes; the version: 32 bytes, twice "0.74.0-x4pro-dev"; the screen
-// name: 31 bytes, the longest today is 26). The reply must fit a JsonLine (767 bytes), or the
-// reader would answer "reply too long". It does with two bytes to spare, so a field added there
-// must be added here, and will need the line made longer or a name made shorter.
+// name: 31 bytes, the longest today is 26). The reply must fit a JsonLine (831 bytes), or the
+// reader would answer "reply too long". It does with 17 bytes to spare, so a field added there
+// must be added here, and may need the line made longer or a name made shorter.
 TEST(DevStatus, TheLongestReplyFitsOneLine) {
   const unsigned long long u32 = 0xFFFFFFFFull;
   const std::string version(32, 'v');
@@ -1066,7 +1067,48 @@ TEST(DevStatus, TheLongestReplyFitsOneLine) {
       .addUnsigned("orientation", 3)
       .addUnsigned("screen_w", 65535)
       .addUnsigned("screen_h", 65535);
+  devlink::addClockFields(json, 0, INT64_MIN);
   EXPECT_FALSE(json.tooLong());
   json.finish();
-  EXPECT_EQ(json.length(), 765u);
+  EXPECT_EQ(json.length(), 814u);
+}
+
+// ---- CMD:CLOCK and the clock fields of STATUS ----
+
+devlink::ClockAction clockAction(const std::string& text) { return devlink::parseClockArgs(text.data(), text.size()); }
+
+TEST(DevClock, TheNameParsesAndCarriesItsArgument) {
+  const std::string line = "CMD:CLOCK  UNSET ";  // the arguments point into it
+  const devlink::Parsed parsed = parse(line);
+  EXPECT_EQ(parsed.command, Command::Clock);
+  EXPECT_EQ(std::string(parsed.args, parsed.argsLength), "UNSET");
+  EXPECT_EQ(devlink::parseClockArgs(parsed.args, parsed.argsLength), devlink::ClockAction::Unset);
+  EXPECT_EQ(parse("CMD:clock UNSET").command, Command::Unknown);
+  EXPECT_EQ(parse("CMD:CLOCKS").command, Command::Unknown);
+}
+
+TEST(DevClock, OnlyUnsetIsAnAction) {
+  EXPECT_EQ(clockAction("UNSET"), devlink::ClockAction::Unset);
+  for (const char* wrong : {"", "unset", "UNSET 0", "UNSE", "UNSETS", "SET", "SET 1700000000", "0"}) {
+    EXPECT_EQ(clockAction(wrong), devlink::ClockAction::Unknown) << wrong;
+  }
+  EXPECT_EQ(devlink::parseClockArgs(nullptr, 5), devlink::ClockAction::Unknown);
+}
+
+TEST(DevClock, StatusSaysWhetherTheDateIsTrusted) {
+  // After CLOCK UNSET: the firmware's trusted time is 0 and the system clock counts up from 0.
+  devlink::JsonLine unset;
+  unset.addBool("ok", true);
+  devlink::addClockFields(unset, 0, 3);
+  EXPECT_STREQ(unset.finish(), "{\"ok\":true,\"clock_valid\":false,\"epoch\":3}");
+
+  devlink::JsonLine set;
+  set.addBool("ok", true);
+  devlink::addClockFields(set, 1794787200, 1794787200);
+  EXPECT_STREQ(set.finish(), "{\"ok\":true,\"clock_valid\":true,\"epoch\":1794787200}");
+
+  // The system clock was stepped back, but the firmware still trusts the later time it has seen: valid.
+  devlink::JsonLine steppedBack;
+  devlink::addClockFields(steppedBack, 1794787200, 100);
+  EXPECT_STREQ(steppedBack.finish(), "{\"clock_valid\":true,\"epoch\":100}");
 }

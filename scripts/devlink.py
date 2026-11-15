@@ -21,6 +21,9 @@
                                            serve the file, FETCH, FLASH, REBOOT, wait for that version
     devlink.py wait --activity Home        wait until the reader is at rest (and that screen is in front)
     devlink.py screenshot out.png --verify check the bytes against CMD:SHOTCRC, ask again when they differ
+    devlink.py clock-unset                 make the reader forget the date (CMD:CLOCK UNSET, x4pro-dev builds
+                                           only), to test a checked connection without a date; `status` then
+                                           shows clock_valid False until the next time sync or restart
 
 scripts/devtest.py plays a JSON scenario of these over one open port.
 
@@ -877,6 +880,21 @@ def screenshot_checked(port, tries: int = SCREENSHOT_TRIES, timeout: float = SCR
     raise LinkError(f"no good screenshot in {tries} tries: {problem}")
 
 
+CLOCK_UNSET_COMMAND = "CLOCK UNSET"
+
+
+def clock_unset(port) -> dict:
+    """CMD:CLOCK UNSET: the reader's date becomes unknown (epoch 0) until its next time sync or
+    restart. Only the developer's own builds know it. The reply must say that the date is not
+    trusted any more; anything else is an error, so a test never goes on with a date still set."""
+    reply = command(port, CLOCK_UNSET_COMMAND)
+    if not reply.get("ok"):
+        raise LinkError(f"CLOCK UNSET refused: {reply.get('error', reply)} (is this an x4pro-dev build?)")
+    if reply.get("clock_valid") is not False:
+        raise LinkError(f"CLOCK UNSET answered, but the date is still trusted: {reply}")
+    return reply
+
+
 def status_once(path: str | None):
     """One STATUS on a fresh connection, or None when the device is not there or does not answer."""
     try:
@@ -1135,6 +1153,7 @@ def main(argv=None) -> int:
     waiting = sub.add_parser("wait", help="wait until the reader is at rest (x4pro-dev)")
     waiting.add_argument("--activity", default="", help="also wait for this screen, named as STATUS names it")
     waiting.add_argument("--timeout", type=int, default=DEFAULT_WAIT_MS, help="milliseconds, 100 to 60000 (5000)")
+    sub.add_parser("clock-unset", help="make the reader forget the date, until its next sync or restart (x4pro-dev)")
     run = sub.add_parser("bench", help="poll STATUS into a CSV file")
     run.add_argument("--every", type=float, default=60, help="seconds between polls (60)")
     run.add_argument("--minutes", type=float, default=30, help="how long to run (30)")
@@ -1262,6 +1281,8 @@ def main(argv=None) -> int:
                 return 0
             if args.action == "wait":
                 reply = wait(port, args.activity, args.timeout)
+            elif args.action == "clock-unset":
+                reply = clock_unset(port)
             elif args.action == "ls":
                 reply, entries = command_lines(port, text)
                 for entry in entries:

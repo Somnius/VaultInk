@@ -712,6 +712,19 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   file from a server inside the script on the computer's LAN address, FETCH, FLASH with the hash,
   REBOOT, STATUS until the version matches). `x4pro-dev` and `x4pro-dev-verify` only. Still to do: compile it, and every
   item of docs/devlink.md, "What is not checked yet".
+* 🚧 (2026-11-15, unreleased, computer tests and builds only (x4pro-dev-verify flash 87.0 %, x4pro-dev-user 86.8 %, x4pro 86.6 %), nothing run on a reader)
+  Testing a checked connection without a date: `CMD:CLOCK UNSET` (`devlink.py clock-unset`) sets
+  the system clock to 0 and forgets the latest time this run has seen, so the next checked
+  connection has to sync first; `STATUS` has `clock_valid` (the firmware's own rule,
+  `trustedtime::trustedNow()` not 0) and `epoch`. `x4pro-dev` and `x4pro-dev-verify` only; the
+  read-only build's command list is as it was. The update check, the firmware download, the font
+  list and the font downloads now say why a request got no answer, one line each under their
+  "failed" heading: "Wi-Fi not connected", "Date not set: can't check the server", "Can't reach
+  server", "Server certificate not accepted" (English and Greek). The last is worked out (port 443
+  takes a connection, the checked handshake did not), because the TLS client gives no code. No
+  path sends an unchecked request after a clock failure, and a failed firmware download leaves the
+  running image as the one that boots (both were so before; read from the source). Still to do:
+  the two runs of docs/devlink.md, "Testing without a date", on an X4 Pro.
 * Next slice (not started): settings get/set; a Home key and two-finger gestures for the input
   queue. `x4pro-dev` only (`VAULTINK_DEVLINK_FULL`), never in the build users may install.
 * ✅ (0.75.0, computer tests only, not compiled for the device, not tried in a browser) Debug

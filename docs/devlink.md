@@ -31,7 +31,7 @@ pio run -e x4pro-dev -t upload
 
 - The version text ends in `-dev` (`0.74.0-x4pro-dev`), see [The developer label](#the-developer-label).
 - `-DVAULTINK_DEVLINK=1` compiles the link in, and `-DVAULTINK_DEVLINK_FULL=1` the commands that act
-  on the reader (`BOOTLOADER`, `KEY`, `TAP`, `SWIPE`, `FLASH`, `LS`, `GET`, `PUT`, `FETCH`). Only this build
+  on the reader (`BOOTLOADER`, `KEY`, `TAP`, `SWIPE`, `FLASH`, `LS`, `GET`, `PUT`, `FETCH`, `CLOCK`). Only this build
   and `x4pro-dev-verify` define `VAULTINK_DEVLINK_FULL`.
 - `-DLOG_DBG_RUNTIME=1` makes debug log lines switchable, so `CMD:LOG` has something to switch. They
   start off, unless Settings → System → Debug Logs is on.
@@ -64,7 +64,7 @@ What it answers, and what it does not:
 | --- | --- |
 | **Answers** | `PING`, `HELP`, `STATUS` (with `"build":"dev-user"`), `LOG <0-3>`, `BENCH [minutes]`, `REBOOT`, `SCREENSHOT` |
 | **Refuses** | `BOOTLOADER`: `{"ok":false,"error":"BOOTLOADER is not in this build (read-only developer link)"}` |
-| **Does not know** | `KEY`, `TAP`, `SWIPE`, `FLASH`, `LS`, `GET`, `PUT`, `FETCH`: `{"ok":false,"error":"unknown"}`. Their names are not in its command table and their code is not in the image |
+| **Does not know** | `KEY`, `TAP`, `SWIPE`, `FLASH`, `LS`, `GET`, `PUT`, `FETCH`, `CLOCK`: `{"ok":false,"error":"unknown"}`. Their names are not in its command table and their code is not in the image |
 
 "Read-only" is the short name, and it is not the whole truth, so exactly: over this link
 it can reboot the reader, change the log level, take a screenshot and write a small bench log to the SD card; it cannot read or write your files or settings. Nothing the cable sends can press a key, touch the screen or install firmware
@@ -140,7 +140,7 @@ answers `unknown` to the rest ([The build users may install](#the-build-users-ma
 | Command | Reply |
 | --- | --- |
 | `PING` | `{"ok":true,"pong":true,"uptime_ms":...}` |
-| `HELP` | `{"ok":true,"commands":"PING HELP STATUS LOG BENCH KEY TAP SWIPE FLASH LS GET PUT FETCH WAIT SHOTCRC REBOOT BOOTLOADER SCREENSHOT"}` |
+| `HELP` | `{"ok":true,"commands":"PING HELP STATUS LOG BENCH KEY TAP SWIPE FLASH LS GET PUT FETCH WAIT SHOTCRC CLOCK REBOOT BOOTLOADER SCREENSHOT"}` |
 | `STATUS` | the fields below |
 | `STATUS LITE` | the same without `battery_mv`, `battery_percent` and `charging`. It reads no battery gauge, so it does not wait for a screen that is being drawn (`STATUS` does). `x4pro-dev` only; `x4pro-dev-user` ignores the word |
 | `LOG <0-3>` | 2 and 3 turn debug lines on, 0 and 1 turn them off. Errors and info lines always print: the levels are fixed when the firmware is compiled, and the reply's `note` says so |
@@ -156,6 +156,7 @@ answers `unknown` to the rest ([The build users may install](#the-build-users-ma
 | `SHOTCRC` | the CRC-32 of the framebuffer, to check a screenshot against: `{"ok":true,"crc32":1234567890,"bytes":48000,"visit":4,"renders":9}` |
 | `FLASH <sd path> [sha256]` | checks a `.bin` on the card and writes it to the slot that is not running (with the 64 hex digits: only when the file has that SHA-256); progress lines, then `{"ok":true,"action":"flash","slot":"app1",...}`. It does not restart. See [Flashing from the SD card](#flashing-from-the-sd-card) |
 | `FETCH <http url> <sd path> <sha256>` | the reader downloads a `.bin` from a computer on the same network to its card and checks its SHA-256; progress lines, then `{"ok":true,"bytes":...,"sha256":"...",...}`. It flashes nothing. See [Sending a build over Wi-Fi](#sending-a-build-over-wi-fi) |
+| `CLOCK UNSET` | the reader forgets the date: `{"ok":true,"action":"clock unset","clock_valid":false,"epoch":0}`. `x4pro-dev` and `x4pro-dev-verify` only. See [Testing without a date](#testing-without-a-date) |
 | `REBOOT` | `{"ok":true,"action":"reboot"}`, then a restart 100 ms later. Like the reset button: nothing is saved first |
 | `BOOTLOADER` | `{"ok":true,"action":"bootloader"}`, then a restart into the chip's download mode, where `esptool` and `pio run -t upload` can flash it. Leaving it without flashing needs a reset of the chip; how to do that on an X4 Pro is not checked |
 | `SCREENSHOT` | not JSON: `SCREENSHOT_START:<n>`, n raw bytes, `SCREENSHOT_END` (every build). `x4pro-dev` sends the bytes in pieces of 512 that wait for room in the transmit queue; the other builds send them in one write, as before |
@@ -195,10 +196,12 @@ still holds: read until a line has `ok`.
 | `wifi`, `ble` | the Wi-Fi mode is not off / the Bluetooth stack is running. Read only: neither starts a radio |
 | `orientation` | 0 portrait, 1 landscape clockwise, 2 portrait inverted, 3 landscape counter-clockwise |
 | `screen_w`, `screen_h` | the screen in pixels as `TAP` and a screenshot see it, in this orientation |
+| `clock_valid` | the firmware trusts its date: `trustedtime::trustedNow()` is not 0, the same reading a checked connection takes (`TlsPolicyDevice.cpp`). That is a date of 2025-01-01 or later, set by a time sync, the RTC or the date kept from the last run |
+| `epoch` | the system clock in seconds since 1970 (`time()`), whatever it holds. Near 0 after `CLOCK UNSET` |
 
 With every field at the longest value its type can hold, a 32-byte version and a 31-byte screen
-name, the reply is 765 of the 767 bytes a line may have (`test/dev_link`, `DevStatus`). A usual
-one is near 600. The next field needs a longer line or a shorter name.
+name, the reply is 814 of the 831 bytes a line may have (`test/dev_link`, `DevStatus`). A usual
+one is near 650. A field longer than 17 bytes needs a longer line or a shorter name.
 
 ## The host script
 
@@ -669,7 +672,7 @@ Limits of `FETCH` and `push-update`:
   [SD bench log](#the-sd-bench-log) is for that.
 - **A command needs its newline.** Before, `CMD:SCREENSHOT` without one still ran after a second's
   wait, during which the reader did nothing else. Now nothing waits and a line counts when it ends.
-- One reply is 767 bytes at most; a longer one comes back as `{"ok":false,"error":"reply too long"}`.
+- One reply is 831 bytes at most; a longer one comes back as `{"ok":false,"error":"reply too long"}`.
   `GET` is the exception: its line is up to 4 KB and leaves in several writes, so a log line from
   another task can land inside it. The line then does not parse, or its data is not `len` bytes
   long: ask again.
@@ -680,6 +683,8 @@ Limits of `FETCH` and `push-update`:
 - **`FETCH` and `push-update` ran once on a real X4 Pro** (2026-11-14, a full developer build sent
   from a computer on the same network); nothing else about them was tried there
   ([Sending a build over Wi-Fi](#sending-a-build-over-wi-fi)).
+- **`CLOCK UNSET` and the `clock_valid` and `epoch` fields have not run on a reader**
+  ([Testing without a date](#testing-without-a-date)).
 - **`WAIT`, `SHOTCRC`, `STATUS LITE`, the new `STATUS` fields, the screenshot in pieces and
   `scripts/devtest.py` have not run on a reader.** What `WAIT` cannot see is listed under
   [Waiting and checked screenshots](#waiting-and-checked-screenshots).
@@ -691,7 +696,7 @@ a cable. So:
 
 - **None of this is in a release.** Every command but `SCREENSHOT` is compiled into the developer
   builds only, and it must stay that way: never add `VAULTINK_DEVLINK` to a release build. In the
-  release, the code for `KEY`, `TAP`, `SWIPE`, `LS`, `GET`, `PUT`, `FETCH` and `FLASH` does not exist: their
+  release, the code for `KEY`, `TAP`, `SWIPE`, `LS`, `GET`, `PUT`, `FETCH`, `FLASH` and `CLOCK` does not exist: their
   names are not even in the command table, and a line with one of them is ignored like any other
   unknown line.
 - **The build users may install is read-only.** `x4pro-dev-user` has the state commands and
@@ -811,7 +816,8 @@ What to look for (tags: `OTA`, `HTTP`, `TLS`, `FONT`):
 | `[DBG] [OTA] Parser results: tag=yes firmware=yes` | **pass**: the answer arrived over the checked connection |
 | `[INF] [OTA] Developer build ..., latest release ...` | the result of the check |
 | `[ERR] [TLS] The date could not be set, so the server's certificate cannot be checked. (api.github.com)` | **fail before the handshake**: the clock is not set and the time sync failed |
-| `[ERR] [HTTP] wolfSSL request failed: status -1: https://...` then `[ERR] [OTA] Release check fetch failed` | **fail**: no answer. The source gives -1 for a bad URL, DNS, connect and TLS alike, so repeat the step on `x4pro-dev` (same build, check off): if it works there, the certificate check is what failed |
+| `[ERR] [HTTP] no answer (reason N): https://...`, then `[ERR] [HTTP] wolfSSL request failed: status -1: https://...` and `[ERR] [OTA] Release check fetch failed` | **fail**: no answer. `N` is what the screen says under "Update failed": 1 Wi-Fi not connected, 2 no date, 3 the server did not take a connection, 4 the certificate was not accepted, 5 something else. 4 is worked out, not read: the TLS client gives no handshake code, so it means "port 443 takes a connection and the checked handshake still failed". To be sure, repeat the step on `x4pro-dev` (same build, check off): if it works there, the certificate check is what failed |
+| `[SecureClient] wolfSSL_connect failed (...): <code>` | the TLS library's own code for a failed handshake, printed by the SDK when it prints at all (not seen on a reader) |
 | `[ERR] [FONT] Failed to fetch manifest from ...` | the font list failed, read the `HTTP` line above it |
 | a restart during the request | not seen yet, so not known what it prints; ROADMAP names too little heap for the P-384 handshake as the risk. Note the heap numbers of the `wolfSSL GET` line before it |
 
@@ -819,6 +825,50 @@ There is no log line that says "certificate checked". The proof is the pair: the
 `x4pro-dev-verify`, and `STATUS` there shows the version of this build. Which line a failed
 handshake prints on a real reader is not known yet; the table is read from the source. Write the
 result, the heap numbers and the log in `notes/`.
+
+### Testing without a date
+
+A certificate has a first and a last day, so a checked connection needs the date. A reader that has
+none (a first start, an empty battery) syncs it before the request and stops when that fails
+(`tlspolicy::Error::NoClock`). `CLOCK UNSET` puts a reader in that state without emptying it:
+
+```sh
+scripts/devlink.py clock-unset     # {"ok": true, "action": "clock unset", "clock_valid": false, "epoch": 0}
+scripts/devlink.py status          # clock_valid: False, epoch: a few seconds
+```
+
+It sets the system clock to 0 and forgets the latest time this run has seen, so `clock_valid` is
+false and the next checked connection has to sync. The date kept in flash is not touched: a restart
+(`cmd REBOOT`, or leaving a Wi-Fi screen, which restarts the reader) brings the last known date
+back, and so does any time sync. `devlink.py clock-unset` fails (exit code 2) when the build does
+not know the command or the reply still says the date is trusted.
+
+Two runs, both on `x4pro-dev-verify`, each for the update check, the font list and a font download
+(and the firmware download, when a newer release exists):
+
+1. **The sync works.** Join Wi-Fi, run `clock-unset` while the screen that asks is not open yet,
+   then open it. Expected: a wait of up to 8 seconds for the sync, then the screen works as usual
+   and `status` shows `clock_valid: True`. Wi-Fi coming up starts a sync of its own, so unset the
+   clock after the reader has joined, not before.
+2. **The sync cannot work.** Block NTP (UDP port 123, `pool.ntp.org`) for the reader on the router
+   or the access point, then the same steps. Expected: after about 8 seconds the screen says
+   "Update failed" / "Font install failed" with "Date not set: can't check the server" under it, the
+   log has `[ERR] [TLS] The date could not be set...` and `no answer (reason 2)`, nothing is sent
+   unchecked, nothing restarts by itself, and the firmware is the one that was running.
+
+What each screen says when a request gets no answer (the line under its own "failed" heading):
+
+| Cause | Line | How it is known |
+| --- | --- | --- |
+| Wi-Fi not connected | "Wi-Fi not connected" | `WiFi.status()` |
+| No date and the sync failed | "Date not set: can't check the server" | `Error::NoClock` from `tlspolicy::apply` |
+| The server takes no connection | "Can't reach server" | a plain TCP connection to port 443 of the same host fails too |
+| The certificate was not accepted | "Server certificate not accepted" | that TCP connection works, the checked handshake did not. Worked out, see the log table above |
+| An HTTP error, a failed redirect target, anything else | no extra line (the font screen: "Failed to fetch font list", "Download failed: <file>") | |
+
+With the check off (every build but `x4pro-dev-verify`) GitHub needs no date, so only the first
+line and the generic one can appear there. None of this has run on a reader: the texts, the 8
+seconds and the TCP probe are read from the source and covered by `test/tls_policy` only.
 
 ## Recipe: what costs power while awake
 

@@ -302,3 +302,60 @@ TEST(TlsPolicy, GithubIsAlwaysCheckedOnlyWithTheSwitchOn) {
   EXPECT_FALSE(VERIFY_GITHUB);  // the default, which every shipped build gets
 #endif
 }
+
+// ---- why a request got no answer ----
+
+namespace {
+// A checked host, Wi-Fi up, the date known, nothing came back from the starting origin.
+FailureFacts noAnswer() {
+  FailureFacts facts;
+  facts.wifiUp = true;
+  facts.checked = true;
+  return facts;
+}
+}  // namespace
+
+TEST(TlsFailure, NoWifiComesFirst) {
+  FailureFacts facts = noAnswer();
+  facts.wifiUp = false;
+  EXPECT_EQ(classifyFailure(facts), Failure::NoNetwork);
+  facts.policy = Error::NoClock;  // the sync failed because there is no network: say the network
+  EXPECT_EQ(classifyFailure(facts), Failure::NoNetwork);
+}
+
+TEST(TlsFailure, AMissingDateIsItsOwnAnswer) {
+  FailureFacts facts = noAnswer();
+  facts.policy = Error::NoClock;
+  EXPECT_EQ(classifyFailure(facts), Failure::NoClock);
+  facts.hostReachable = true;  // never mistaken for a certificate that was not accepted
+  EXPECT_EQ(classifyFailure(facts), Failure::NoClock);
+}
+
+TEST(TlsFailure, ACheckedHostThatTakesTcpButNotTheHandshakeIsTheCertificate) {
+  FailureFacts facts = noAnswer();
+  EXPECT_EQ(classifyFailure(facts), Failure::Unreachable);
+  facts.hostReachable = true;
+  EXPECT_EQ(classifyFailure(facts), Failure::Certificate);
+}
+
+TEST(TlsFailure, TheCertificateIsNeverBlamedWithoutACheck) {
+  FailureFacts facts = noAnswer();
+  facts.hostReachable = true;
+  facts.checked = false;  // the user's own server, check not asked for
+  EXPECT_EQ(classifyFailure(facts), Failure::Other);
+
+  facts = noAnswer();
+  facts.hostReachable = true;
+  facts.sameOrigin = false;  // a redirect target failed: the probe says nothing about that host
+  EXPECT_EQ(classifyFailure(facts), Failure::Other);
+
+  facts = noAnswer();
+  facts.hostReachable = true;
+  facts.policy = Error::CaUnreadable;
+  EXPECT_EQ(classifyFailure(facts), Failure::Other);
+
+  facts = noAnswer();
+  facts.hostReachable = true;
+  facts.gotResponse = true;  // an HTTP status (a 403 rate limit, a 404): the connection itself worked
+  EXPECT_EQ(classifyFailure(facts), Failure::Other);
+}
