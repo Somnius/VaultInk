@@ -1,6 +1,7 @@
 #pragma once
 
 #include <LiveSyncEngine.h>
+#include <LiveSyncHttp.h>
 #include <LiveSyncProfiles.h>
 
 #include <string>
@@ -74,9 +75,11 @@ livesync::SyncOptions options(const Profile& profile);
 // True when /.vaultink/livesync/ca.pem replaces the built-in roots for checking the server.
 bool hasOwnCaCert();
 
-// True when the last request failed before any HTTP answer while the certificate was being
-// checked (a certificate the roots don't vouch for, a wrong name, or no network).
-bool lastFailedUnverified();
+// Why the last request got no usable answer (None after one that did): the TLS handshake failed
+// while the certificate is checked and nothing had been answered in this session yet (a
+// certificate the roots don't vouch for, a wrong name), the server could not be reached, or it was
+// connected and did not answer in time.
+livesync::FailureCause lastFailureCause();
 // Forgets the last request's failure: called before each profile's sync or setup, so one
 // profile's failure is never reported for the next.
 void clearLastFailure();

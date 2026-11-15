@@ -226,6 +226,43 @@ reader then went to sleep by its 10-minute timer with the result unread.
   computer tests (a fake socket that takes 512 bytes a time, one that is busy now and then, one
   that stalls). Whether it is what the reader hit is not known: these request bodies are under
   1 KB. The next sync on the reader will say which of the lines above it is.
+- **A connection is used again only after an answer that was read to its end.** When the device
+  stops reading an answer (over the 2 MB, no memory for it, a body that stops, a timeout), the
+  server may still be sending the rest, and a request written behind it would wait for all of
+  that. The connection is closed (TLS session and socket) and the next request opens a new one;
+  the log says `POST: connection closed after an unfinished answer` once for each. The shared
+  HTTP code already closed such a connection; the sync now also closes it itself, and computer
+  tests count every connection opened and closed over a whole sync with cut answers (fake
+  sockets; none is left open, none is used after a cut answer, and a batch asked again in halves
+  goes out on a new connection).
+- **The end of a chunked answer has to be read, not only its JSON.** A chunked body ends with a
+  "0" line and a blank line. The shared HTTP code called the body whole when the "0" line had
+  come and the blank line after it had not (it waited the 30 seconds, then went on): the
+  connection was kept, and the late bytes were then read as the start of the next answer. Now
+  the body is whole only when that blank line was read; otherwise the connection is closed like
+  any other cut answer. The same for an answer whose headers stop before their blank line. A
+  change list that was not read to its end is not applied even if its JSON parses ("The change
+  list was cut short."). Computer tests hold back the last 1 to 7 bytes of an answer: when they
+  come late the device waits and the same connection goes on; when they never come the next
+  request goes out on a new one. Whether a reader ever met this is **not known**: it needs the
+  last two bytes to be 30 seconds late.
+- **The message after a failed sync follows the cause.** "If your server uses its own
+  certificate..." is shown only when the TLS handshake failed while the certificate is checked
+  and nothing had been answered yet in that sync. A server that could not be reached says "The
+  server could not be reached."; one that was connected and went silent says "The server did not
+  answer (the connection timed out)." (before, both got the certificate hint, and the text said
+  "Server answered -1"; it now says "No answer to a document request."). English and Greek.
+- **What a reader's log showed on 2026-11-15, and what is not known.** Two pictures were skipped
+  with "the server's answer was too big", each with no "asking again" line: the request was for
+  one piece already, and that one piece's answer was over 2 MB. Halving cannot help there; such a
+  picture stays skipped until answers are read in a streaming way (the 2 MB cap is not raised:
+  the answer and its JSON copy are both in memory). Later in the same sync, requests got no
+  answer for 30 seconds and then connections could not be made, each try taking 60 seconds. The
+  code does not reuse a connection after a cut answer (see above), so that is not the cause.
+  The memory report after the sync showed the internal memory had been down to 536 bytes free at
+  some point (PSRAM: 4.9 MB free at its lowest); the Wi-Fi needs internal memory. Whether that
+  low point is when the requests failed is **not known**. A failed request now logs
+  `POST failed with N bytes of internal memory free (lowest so far M)`, which will say.
 - **A sync keeps the reader awake.** The sync runs in one go, and the sleep timer was not fed
   while it ran, so it fired the moment a sync longer than the timeout ended. The end of any job
   that held the reader for 5 seconds or more (a sync, a PDF conversion, a download) now counts as

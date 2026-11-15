@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <CaBundle.h>
 #include <HalStorage.h>
+#include <LiveSyncHttp.h>
 #include <LiveSyncIds.h>
 #include <LiveSyncPush.h>
 #include <LiveSyncSetup.h>
@@ -90,7 +91,8 @@ Writer writer;
 
 // One TLS session for the whole sync: repeated handshakes fragment the heap.
 std::unique_ptr<freeink::SecureHttpClient> session;
-bool failedUnverified = false;
+livesync::FailureCause failureCause = livesync::FailureCause::None;
+bool sessionWorked = false;  // a request of this session was answered
 std::string caPem;
 livesync::ResponseInfo lastInfo;  // of the last answer, for the engine's error log
 
@@ -348,7 +350,7 @@ livesync::Transport transport(const Profile& p) {
           (!Storage.readFileToString("LSY", CA_CERT, 16 * 1024, caPem) || caPem.empty())) {
         LOG_ERR("LSY", "%s could not be read", CA_CERT);
         caPem.clear();
-        failedUnverified = true;
+        failureCause = livesync::FailureCause::Certificate;
         return -1;
       }
       http.setCACert(caPem.empty() ? ca_bundle::PEM : caPem.c_str());
@@ -362,45 +364,15 @@ livesync::Transport transport(const Profile& p) {
     if (!body.empty()) http.addHeader("Content-Type", "application/json");
     // Streamed into `response` (capped); every piece and every wait feeds the watchdog, since a
     // slow server can take up to the timeout.
-    response.clear();
-    bool tooBig = false;
-    bool noMemory = false;
-    const auto onData = [&response, &tooBig, &noMemory, &http](const uint8_t* data, size_t len) {
-      resetTaskWatchdogIfSubscribed();
-      lastInfo.received += len;
-      const size_t need = response.size() + len;
-      const size_t announced = http.hasContentLength() ? http.getContentLength() : 0;
-      if (need > MAX_RESPONSE || announced > MAX_RESPONSE) {
-        tooBig = true;
-        return false;
-      }
-      if (need > response.capacity()) {
-        // The buffer grows here, checked first: an allocation that fails inside std::string resets
-        // the device. With a Content-Length it is taken once, else it doubles.
-        const size_t want = std::min(MAX_RESPONSE, std::max({need, announced, response.capacity() * 2}));
-        if (want > 64 * 1024 && heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT) < want + want / 4) {
-          noMemory = true;
-          return false;
-        }
-        response.reserve(want);
-      }
-      response.append(reinterpret_cast<const char*>(data), len);
-      return true;
-    };
-    const auto keepAlive = [] {
-      resetTaskWatchdogIfSubscribed();
-      return false;
-    };
-    const int status =
-        http.sendRequest(method, reinterpret_cast<const uint8_t*>(body.data()), body.size(), onData, keepAlive);
-    lastInfo.contentType = http.getHeader("content-type");
-    lastInfo.contentLength = http.hasContentLength() ? static_cast<int64_t>(http.getContentLength()) : -1;
-    lastInfo.chunked = http.getHeader("transfer-encoding").find("chunked") != std::string::npos;
-    // A body that stops early (the socket closed, a read waited out the timeout) still comes back
-    // with its status: the engine must not parse it as if it were whole.
-    lastInfo.complete = status >= 0 && http.responseComplete();
+    livesync::CappedRequest limits;
+    limits.cap = MAX_RESPONSE;
+    limits.largestFreeBlock = [] { return heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT); };
+    limits.tick = [] { resetTaskWatchdogIfSubscribed(); };
+    livesync::CappedResult result;
+    const int status = livesync::requestCapped(http, method, body, response, limits, lastInfo, result);
+    if (result.closedUnfinished) LOG_ERR("LSY", "%s: connection closed after an unfinished answer", method);
 #ifndef SIMULATOR  // the simulator's own HTTP client does not report this
-    if (status < 0) {
+    if (status < 0 && !result.tooBig && !result.noMemory) {
       // Where a request with no answer stopped. A body that was not sent whole never reaches a
       // server behind a proxy that waits for all of it; one sent whole and not answered is the
       // server's (or the network's) side.
@@ -410,6 +382,9 @@ livesync::Transport transport(const Profile& p) {
       switch (http.failure()) {
         case Failure::Connect:
           LOG_ERR("LSY", "%s: could not connect", method);
+          break;
+        case Failure::Handshake:
+          LOG_ERR("LSY", "%s: connected, the TLS handshake failed", method);
           break;
         case Failure::WriteHeaders:
           LOG_ERR("LSY", "%s: the request headers could not be sent; request body: sent 0 of %u bytes", method, total);
@@ -423,19 +398,34 @@ livesync::Transport transport(const Profile& p) {
         case Failure::None:
           break;
       }
+      // The Wi-Fi and TLS need the internal memory: how much of it was left when the request failed.
+      LOG_ERR("LSY", "%s failed with %u bytes of internal memory free (lowest so far %u)", method,
+              static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
+              static_cast<unsigned>(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)));
     }
 #endif
-    if (tooBig) {
+    if (result.tooBig) {
       LOG_ERR("LSY", "Response over %u bytes", static_cast<unsigned>(MAX_RESPONSE));
-      return livesync::STATUS_TOO_BIG;
+      failureCause = livesync::FailureCause::None;
+      return status;
     }
-    if (noMemory) {
+    if (result.noMemory) {
       LOG_ERR("LSY", "No memory for a response (%u bytes read, largest free block %u)",
               static_cast<unsigned>(lastInfo.received),
               static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
-      return livesync::STATUS_NO_MEMORY;
+      failureCause = livesync::FailureCause::None;
+      return status;
     }
-    failedUnverified = check && status < 0;
+#ifndef SIMULATOR
+    const bool connectFailed = http.failure() == freeink::SecureHttpClient::Failure::Connect;
+    const bool handshakeFailed = http.failure() == freeink::SecureHttpClient::Failure::Handshake;
+#else
+    const bool connectFailed = false;
+    const bool handshakeFailed = status < 0;  // as before: the hint whenever the certificate is checked
+#endif
+    failureCause =
+        livesync::failureCause(status, lastInfo.complete, connectFailed, handshakeFailed, check, sessionWorked);
+    if (status >= 0 && lastInfo.complete) sessionWorked = true;
     return status;
   };
   t.info = [] { return lastInfo; };
@@ -601,9 +591,9 @@ uint8_t autoSyncDue() {
 
 bool hasOwnCaCert() { return Storage.exists(CA_CERT); }
 
-bool lastFailedUnverified() { return failedUnverified; }
+livesync::FailureCause lastFailureCause() { return failureCause; }
 
-void clearLastFailure() { failedUnverified = false; }
+void clearLastFailure() { failureCause = livesync::FailureCause::None; }
 
 void resetSyncState(const Profile& profile) {
   const auto o = options(profile);
@@ -617,6 +607,7 @@ std::string skippedListPath(const Profile& profile) { return options(profile).st
 void endSession() {
   if (session) session->end();
   session.reset();  // drops the Authorization header and the TLS state with it
+  sessionWorked = false;
   caPem.clear();
 }
 

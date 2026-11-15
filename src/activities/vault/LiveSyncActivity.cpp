@@ -530,8 +530,21 @@ bool LiveSyncActivity::syncProfile(const int profileSlot, livesyncdev::Profile& 
     }
   } else {
     profile.lastResult = error;
-    // A certificate the device can't vouch for looks like a dead connection: say what to try.
-    if (livesyncdev::lastFailedUnverified()) profile.lastResult += std::string(" ") + tr(STR_LIVESYNC_CERT_HINT);
+    // What to try depends on where the last request stopped: the certificate hint only when the
+    // TLS handshake itself failed, not for a server that went silent after it had answered.
+    switch (livesyncdev::lastFailureCause()) {
+      case livesync::FailureCause::Certificate:
+        profile.lastResult += std::string(" ") + tr(STR_LIVESYNC_CERT_HINT);
+        break;
+      case livesync::FailureCause::Unreachable:
+        profile.lastResult += std::string(" ") + tr(STR_LIVESYNC_UNREACHABLE);
+        break;
+      case livesync::FailureCause::NoAnswer:
+        profile.lastResult += std::string(" ") + tr(STR_LIVESYNC_NO_ANSWER);
+        break;
+      case livesync::FailureCause::None:
+        break;
+    }
   }
   livesyncdev::save(profileSlot, profile);
   return ok;

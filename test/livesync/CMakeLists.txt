@@ -96,3 +96,21 @@ add_executable(LiveSyncProfilesTest
 target_include_directories(LiveSyncProfilesTest PRIVATE ${REPO_ROOT}/lib/LiveSync ${REPO_ROOT}/lib/Utf8)
 target_link_libraries(LiveSyncProfilesTest PRIVATE livesync_mbedtls ArduinoJson GTest::gtest_main)
 gtest_discover_tests(LiveSyncProfilesTest)
+
+# A sync over the SDK's HTTP client and fake sockets: connections after an answer that was cut.
+add_executable(LiveSyncConnectionTest
+  LiveSyncConnectionTest.cpp
+  ${REPO_ROOT}/lib/LiveSync/LiveSyncCrypto.cpp
+  ${REPO_ROOT}/lib/LiveSync/LiveSyncPull.cpp
+  ${REPO_ROOT}/lib/LiveSync/LiveSyncEngine.cpp
+)
+target_include_directories(LiveSyncConnectionTest PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/netstubs
+  ${REPO_ROOT}/test/secure_http/stubs
+  ${REPO_ROOT}/freeink-sdk/libs/network/SecureNet/include
+  ${REPO_ROOT}/lib/LiveSync
+)
+target_compile_definitions(LiveSyncConnectionTest PRIVATE LIVESYNC_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixture"
+                           DEMO_VAULT_DIR="${REPO_ROOT}/demo-vault/VaultInk Demo")
+target_link_libraries(LiveSyncConnectionTest PRIVATE livesync_mbedtls ArduinoJson GTest::gtest_main)
+gtest_discover_tests(LiveSyncConnectionTest)
