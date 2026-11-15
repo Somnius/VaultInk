@@ -21,7 +21,36 @@ void wipeSecrets(Profile& p) {
   mbedtls_platform_zeroize(p.master, sizeof(p.master));
 }
 
-char lower(const char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; }
+// The lower-case form of a letter below U+0800 (simple one-to-one folding).
+uint32_t foldLetter(const uint32_t c) {
+  if (c < 0x80) return c >= 'A' && c <= 'Z' ? c + 0x20 : c;
+  if (c >= 0xC0 && c <= 0xDE) return c == 0xD7 ? c : c + 0x20;  // Latin-1 (not the times sign)
+  if (c >= 0x100 && c <= 0x17F) {                               // Latin Extended-A: pairs
+    if (c == 0x130 || c == 0x131 || c == 0x138 || c == 0x149 || c == 0x17F) return c;
+    if (c == 0x178) return 0xFF;
+    const bool upperIsOdd = (c >= 0x139 && c <= 0x148) || (c >= 0x179 && c <= 0x17E);
+    return ((c & 1) != 0) == upperIsOdd ? c + 1 : c;
+  }
+  if (c == 0x386) return 0x3AC;  // Greek capitals with tonos
+  if (c >= 0x388 && c <= 0x38A) return c + 0x25;
+  if (c == 0x38C) return 0x3CC;
+  if (c == 0x38E || c == 0x38F) return c + 0x3F;
+  if (c >= 0x391 && c <= 0x3AB && c != 0x3A2) return c + 0x20;
+  if (c == 0x3C2) return 0x3C3;                   // final sigma: both are capital sigma on the card
+  if (c >= 0x400 && c <= 0x40F) return c + 0x50;  // Cyrillic
+  if (c >= 0x410 && c <= 0x42F) return c + 0x20;
+  if ((c >= 0x460 && c <= 0x481) || (c >= 0x48A && c <= 0x4BF) || (c >= 0x4D0 && c <= 0x52F)) {
+    return (c & 1) != 0 ? c : c + 1;
+  }
+  if (c == 0x4C0) return 0x4CF;
+  if (c >= 0x4C1 && c <= 0x4CE) return (c & 1) != 0 ? c + 1 : c;
+  return c;
+}
+
+std::string trimmed(std::string text) {
+  while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ')) text.pop_back();
+  return text;
+}
 
 bool looksLikeSetupUri(const std::string& uri) {
   return uri.size() <= MAX_SETUP_URI &&
@@ -111,26 +140,48 @@ std::string defaultVaultFolder(const std::string& database) {
   return safeVaultPath(database) && database.find('/') == std::string::npos ? database : std::string("LiveSync");
 }
 
-bool sameFolder(std::string_view a, std::string_view b) {
-  if (a.size() != b.size()) return false;
-  for (size_t i = 0; i < a.size(); ++i) {
-    if (lower(a[i]) != lower(b[i])) return false;
+std::string foldFolderName(std::string_view name) {
+  std::string out;
+  out.reserve(name.size());
+  for (size_t i = 0; i < name.size(); ++i) {
+    const auto b = static_cast<unsigned char>(name[i]);
+    const unsigned char next = i + 1 < name.size() ? static_cast<unsigned char>(name[i + 1]) : 0;
+    if (b >= 0xC2 && b <= 0xDF && (next & 0xC0) == 0x80) {  // a two-byte letter: U+0080..U+07FF
+      const uint32_t folded = foldLetter((static_cast<uint32_t>(b & 0x1F) << 6) | (next & 0x3F));
+      out += static_cast<char>(0xC0 | (folded >> 6));
+      out += static_cast<char>(0x80 | (folded & 0x3F));
+      ++i;
+    } else {
+      out += static_cast<char>(b < 0x80 ? foldLetter(b) : b);
+    }
   }
-  return true;
+  return out;
 }
 
-void migrateLegacy(const ProfileFs& fs) {
+bool sameFolder(std::string_view a, std::string_view b) {
+  return a.size() == b.size() && foldFolderName(a) == foldFolderName(b);
+}
+
+bool migrateLegacy(const ProfileFs& fs) {
+  bool done = true;
   if (fs.exists(LEGACY_PROFILE) && !fs.exists(profileFile(1))) {
     // One rename: the profile is in one place or the other, never in neither.
-    fs.rename(LEGACY_PROFILE, profileFile(1));
+    if (!fs.rename(LEGACY_PROFILE, profileFile(1))) done = false;
   }
   if (fs.exists(LEGACY_PENDING) && !fs.exists(pendingFile(1))) {
     PendingSetup pending;
-    if (fs.readAll(LEGACY_PENDING, pending.uri)) {
+    if (!fs.readAll(LEGACY_PENDING, pending.uri)) {
+      done = false;
+    } else {
       while (!pending.uri.empty() && (pending.uri.back() == '\n' || pending.uri.back() == '\r')) pending.uri.pop_back();
-      if (writePending(fs, 1, pending)) fs.remove(LEGACY_PENDING);
+      if (!writePending(fs, 1, pending)) {
+        done = false;
+      } else {
+        fs.remove(LEGACY_PENDING);
+      }
     }
   }
+  return done;
 }
 
 bool readPending(const ProfileFs& fs, const int slot, PendingSetup& out) {
@@ -154,7 +205,11 @@ bool writePending(const ProfileFs& fs, const int slot, const PendingSetup& pendi
   return fs.writeAll(pendingFile(slot), text);
 }
 
-SlotInfo slotInfo(const ProfileFs& fs, const int slot) {
+std::string identityOf(const std::string& serverUrl, const std::string& database, const std::string& user) {
+  return serverUrl + "\n" + database + "\n" + user;
+}
+
+SlotInfo slotInfo(const ProfileFs& fs, const int slot, const Obfuscator* secrets) {
   SlotInfo info;
   if (!validSlot(slot)) return info;
   std::string text;
@@ -165,16 +220,33 @@ SlotInfo slotInfo(const ProfileFs& fs, const int slot) {
       info.lastResult = doc["last"] | "";
       info.lastAttempt = doc["lastAttempt"] | static_cast<int64_t>(0);
       info.autoHours = doc["autoHours"] | 0;
-      info.configured = !info.vault.empty() && !std::string(doc["server"] | "").empty();
+      const std::string server = doc["server"] | "";
+      info.configured = !info.vault.empty() && !server.empty();
+      if (info.configured) info.identity = identityOf(server, doc["database"] | "", doc["user"] | "");
+    }
+    if (secrets && info.configured) {
+      Profile profile;
+      info.canPush = profileFromJson(text, *secrets, profile) && profile.canPush();
+      wipeSecrets(profile);
     }
     wipe(text);  // held the obfuscated password and key
   }
   PendingSetup pending;
   if (readPending(fs, slot, pending)) {
     info.pending = true;
+    info.pendingVault = pending.vault;
     if (!info.configured) info.vault = pending.vault;
   }
   return info;
+}
+
+int slotWithIdentity(const ProfileFs& fs, const std::string& identity, const int exceptSlot) {
+  for (int slot = 1; slot <= MAX_PROFILES; ++slot) {
+    if (slot == exceptSlot) continue;
+    const SlotInfo info = slotInfo(fs, slot);
+    if (info.configured && info.identity == identity) return slot;
+  }
+  return 0;
 }
 
 int nextFreeSlot(const ProfileFs& fs) {
@@ -184,16 +256,13 @@ int nextFreeSlot(const ProfileFs& fs) {
   return 0;
 }
 
-bool folderTaken(const ProfileFs& fs, std::string_view folder, const int exceptSlot) {
+bool folderTaken(const ProfileFs& fs, std::string_view folder, const int exceptSlot, const int alsoExcept) {
   for (int slot = 1; slot <= MAX_PROFILES; ++slot) {
-    if (slot == exceptSlot) continue;
-    const SlotInfo info = slotInfo(fs, slot);
+    if (slot == exceptSlot || slot == alsoExcept) continue;
+    const SlotInfo info = slotInfo(fs, slot);  // each file is read once
     if (info.configured && sameFolder(info.vault, folder)) return true;
     // A setup still waiting has reserved the folder it asked for.
-    PendingSetup pending;
-    if (info.pending && readPending(fs, slot, pending) && !pending.vault.empty() && sameFolder(pending.vault, folder)) {
-      return true;
-    }
+    if (info.pending && !info.pendingVault.empty() && sameFolder(info.pendingVault, folder)) return true;
   }
   return false;
 }
@@ -263,25 +332,98 @@ SetupError acceptSetup(const ProfileFs& fs, const SetupRequest& request, int& sl
 }
 
 SetupError resolveVaultFolder(const ProfileFs& fs, const int slot, const std::string& asked,
-                              const std::string& database, std::string& folder) {
+                              const std::string& database, std::string& folder, const int alsoExcept) {
   folder.clear();
   if (!validSlot(slot)) return SetupError::BadProfile;
   std::string name = asked;
   if (!name.empty() && !validVaultFolder(name)) return SetupError::BadVault;
-  if (name.empty()) {
-    // Setting the same database up again keeps its folder (a custom name isn't lost).
+  std::string savedFolder, savedDatabase;
+  {
     std::string text;
     JsonDocument doc;
     if (fs.exists(profileFile(slot)) && fs.readAll(profileFile(slot), text) &&
-        deserializeJson(doc, text) == DeserializationError::Ok && database == (doc["database"] | "")) {
-      name = doc["vault"] | "";
+        deserializeJson(doc, text) == DeserializationError::Ok) {
+      savedFolder = doc["vault"] | "";
+      savedDatabase = doc["database"] | "";
     }
     wipe(text);
   }
+  // Setting the same database up again keeps its folder (a custom name isn't lost).
+  if (name.empty() && database == savedDatabase) name = savedFolder;
   if (name.empty()) name = defaultVaultFolder(database);
-  if (folderTaken(fs, name, slot)) return SetupError::DuplicateVault;
+  // The same folder typed with other capitals: the saved spelling, so its sync state (filed under
+  // the exact name) and the notes not sent yet stay with it.
+  if (!savedFolder.empty() && sameFolder(savedFolder, name)) name = savedFolder;
+  if (folderTaken(fs, name, slot, alsoExcept)) return SetupError::DuplicateVault;
   folder = name;
   return SetupError::Ok;
+}
+
+SetupError planFinish(const ProfileFs& fs, const int pendingSlot, const std::string& asked, const std::string& identity,
+                      const std::string& database, FinishPlan& plan) {
+  plan = FinishPlan{};
+  if (!validSlot(pendingSlot)) return SetupError::BadProfile;
+  int target = pendingSlot;
+  if (!slotInfo(fs, pendingSlot).configured) {
+    const int same = slotWithIdentity(fs, identity, pendingSlot);
+    if (same != 0) target = same;
+  }
+  std::string folder;
+  const SetupError error =
+      resolveVaultFolder(fs, target, asked, database, folder, target == pendingSlot ? 0 : pendingSlot);
+  if (error != SetupError::Ok) return error;
+  const SlotInfo saved = slotInfo(fs, target);
+  plan.slot = target;
+  plan.folder = folder;
+  if (saved.configured && saved.vault == folder) plan.previousIdentity = saved.identity;
+  return SetupError::Ok;
+}
+
+StateCheck prepareSyncState(const ProfileFs& fs, const std::string& stateBase, const std::string& identity,
+                            const std::string& previousIdentity) {
+  const std::string live = stateBase + "/livesync";
+  const std::string marker = live + "/identity";
+  std::string known;
+  const bool hasMarker = fs.exists(marker) && fs.readAll(marker, known);
+  known = hasMarker ? trimmed(known) : previousIdentity;
+  const bool hasState =
+      fs.exists(live + "/checkpoint") || fs.exists(live + "/files.tsv") || fs.exists(live + "/revs.tsv");
+  if (!identity.empty() && known == identity) {
+    // The same vault set up again: the notes not sent yet and their revisions stay. Only the
+    // pull starts from the beginning (the checkpoint and the id->path map).
+    if (!fs.remove(live + "/checkpoint") || !fs.remove(live + "/files.tsv")) return StateCheck::Failed;
+    if (!hasMarker && !fs.writeAll(marker, identity)) return StateCheck::Failed;
+    return StateCheck::Kept;
+  }
+  if (known.empty() && !hasState) {
+    return fs.writeAll(marker, identity) ? StateCheck::Fresh : StateCheck::Failed;
+  }
+  // Another vault's state. The list of notes not sent goes first and the identity last: after a
+  // power cut in between, the next try still finds the old identity and finishes the job.
+  std::string aside;
+  for (int n = 1; n <= 999 && aside.empty(); ++n) {
+    std::string candidate = stateBase + "/livesync-old-" + std::to_string(n);
+    if (!fs.exists(candidate)) aside = std::move(candidate);
+  }
+  if (aside.empty()) return StateCheck::Failed;
+  const auto setAside = [&fs, &aside](const std::string& from, const char* name) {
+    if (!fs.exists(from)) return true;
+    if (fs.rename(from, aside + "/" + name)) return true;
+    return fs.remove(from) && !fs.exists(from);
+  };
+  if (!setAside(stateBase + "/changed.txt", "changed.txt") || !setAside(live + "/revs.tsv", "revs.tsv") ||
+      !setAside(live + "/files.tsv", "files.tsv") || !setAside(live + "/checkpoint", "checkpoint")) {
+    return StateCheck::Failed;
+  }
+  // The trash holds whole notes: moved, never deleted (left where it is when the move fails).
+  if (fs.exists(live + "/trash")) fs.rename(live + "/trash", aside + "/trash");
+  if (!setAside(marker, "identity")) return StateCheck::Failed;
+  return fs.writeAll(marker, identity) ? StateCheck::SetAside : StateCheck::Failed;
+}
+
+void rememberIdentity(const ProfileFs& fs, const std::string& stateBase, const std::string& identity) {
+  const std::string marker = stateBase + "/livesync/identity";
+  if (!identity.empty() && !fs.exists(marker)) fs.writeAll(marker, identity);
 }
 
 }  // namespace livesync

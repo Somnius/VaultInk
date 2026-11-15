@@ -500,8 +500,16 @@ curl -X POST -H "Content-Type: application/json" \
   with this same URI, else the next free one. A profile that is already set up keeps working
   until the new setup is finished on the device.
 
-Answers `200` with `{"ok":true,"profile":2,"vault":"Constantinople By Night"}` (before profiles the
-body was the text `OK`; clients that only look at the status keep working). `400` with a line of
+Answers `200` with `{"ok":true,"profile":2,"vault":"Constantinople By Night","folderExists":false}`
+(before profiles the body was the text `OK`; clients that only look at the status keep working).
+`folderExists` (not released yet) is `true` when that folder is already on the card with files in
+it: the first sync replaces notes at the same path with the server's version, and files only on
+the card stay. It is a notice, never a refusal; the device asks the same before it finishes the
+setup. Without `vault` the folder isn't known yet (it is the database's name, inside the encrypted
+URI), so the field is `false` unless `profile` is a profile that is set up (then it is about that
+profile's folder). A URI for a database that another profile already syncs, posted without
+`profile`, is answered with a new profile number; when it is finished on the device it updates
+the existing profile and the new one goes away (docs/livesync.md). `400` with a line of
 text for a body that isn't JSON, isn't a Setup URI, a folder name the card can't hold or a
 profile outside 1 to 4; `409` when all four profiles are in use or another profile already uses
 that folder; `500` when the card can't be written.
@@ -527,6 +535,7 @@ curl http://vaultink.local/api/livesync/status
   "lastAttempt": 1762000000,
   "autoHours": 6,
   "canPush": true,
+  "profile": 1,
   "maxProfiles": 4,
   "profiles": [
     {"index": 1, "vault": "Constantinople By Night", "configured": true, "pendingSetup": false,
@@ -543,8 +552,12 @@ curl http://vaultink.local/api/livesync/status
   `lastResult`, `lastAttempt`, `autoHours` and `canPush` are there only when `configured`.
   `maxProfiles` is how many the reader keeps.
 - The top-level `configured`, `pendingSetup`, `unlocked`, `vault`, `lastResult`, `lastAttempt`,
-  `autoHours` and `canPush` describe **profile 1**, as they did when there was one profile, so
-  older clients keep working. They say nothing about profiles 2 to 4.
+  `autoHours` and `canPush` describe **the first profile that is set up** (the lowest `index` with
+  `configured`), and `profile` says which one that is. With one profile that is profile 1, as
+  before profiles, so older clients (the companion app) keep working; with profile 1 forgotten and
+  profile 2 in use they describe profile 2 instead of saying "not configured". With no profile set
+  up, `configured` is `false`, `profile` is left out and `pendingSetup` is `true` when any profile
+  has a Setup URI waiting. They say nothing about the other profiles: use `profiles`.
 - `configured`: the profile is saved. `unlocked` is the same value: the passphrase is typed
   once on the device and the derived key is kept on the card, so a saved profile is usable.
 - `pendingSetup`: a Setup URI was posted (above) and the device hasn't unlocked it yet.

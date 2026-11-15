@@ -108,6 +108,85 @@ class SetupUriTests(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertFalse(os.path.exists(paths["out"]))
 
+    def test_out_file_is_new_private_and_never_through_a_link(self):
+        settings = b'{"couchDB_DBNAME":"dummy-vault"}'
+        env = {"LIVESYNC_SETUP_URI": lsu.encode_setup_uri(settings, "dummy-a"),
+               "LIVESYNC_SETUP_PASSPHRASE": "dummy-a", "LIVESYNC_NEW_PASSPHRASE": "dummy-b"}
+
+        def run(*options):
+            err = io.StringIO()
+            with mock.patch.dict(os.environ, env), contextlib.redirect_stderr(err), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                return lsu.main(list(options)), err.getvalue()
+
+        with tempfile.TemporaryDirectory() as folder:
+            out = os.path.join(folder, "out")
+            # A file that is already there (readable by others) is not written into.
+            with open(out, "w") as handle:
+                handle.write("someone else's file\n")
+            os.chmod(out, 0o644)
+            code, err = run("--out", out)
+            self.assertEqual(code, 1)
+            self.assertIn("already exists", err)
+            self.assertNotIn("Traceback", err)
+            with open(out) as handle:
+                self.assertEqual(handle.read(), "someone else's file\n")
+            # --force replaces it with a private file.
+            code, err = run("--out", out, "--force")
+            self.assertEqual(code, 0)
+            self.assertEqual(stat.S_IMODE(os.stat(out).st_mode), 0o600)
+            with open(out) as handle:
+                self.assertEqual(lsu.decode_setup_uri(handle.read().strip(), "dummy-b"), settings)
+            # A symbolic link is never followed: refused, and with --force the link is replaced
+            # while the file it pointed at stays as it was.
+            target = os.path.join(folder, "target")
+            with open(target, "w") as handle:
+                handle.write("untouched\n")
+            link = os.path.join(folder, "link")
+            os.symlink(target, link)
+            code, err = run("--out", link)
+            self.assertEqual(code, 1)
+            self.assertTrue(os.path.islink(link))
+            dangling = os.path.join(folder, "dangling")
+            os.symlink(os.path.join(folder, "nowhere"), dangling)
+            self.assertEqual(run("--out", dangling)[0], 1)
+            self.assertFalse(os.path.exists(os.path.join(folder, "nowhere")))
+            code, err = run("--out", link, "--force")
+            self.assertEqual(code, 0)
+            self.assertFalse(os.path.islink(link))
+            self.assertEqual(stat.S_IMODE(os.stat(link).st_mode), 0o600)
+            with open(target) as handle:
+                self.assertEqual(handle.read(), "untouched\n")
+            # A restrictive or loose umask makes no difference to the mode.
+            old_umask = os.umask(0)
+            try:
+                loose = os.path.join(folder, "loose")
+                self.assertEqual(run("--out", loose)[0], 0)
+                self.assertEqual(stat.S_IMODE(os.stat(loose).st_mode), 0o600)
+            finally:
+                os.umask(old_umask)
+
+    def test_input_that_is_not_utf8(self):
+        with tempfile.TemporaryDirectory() as folder:
+            bad = os.path.join(folder, "uri")
+            with open(bad, "wb") as handle:
+                handle.write(b"obsidian://setuplivesync?settings=\xff\xfe dummy-secret\n")
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                code = lsu.main(["--uri-file", bad, "--passphrase-file", bad, "--new-passphrase-file", bad])
+            self.assertEqual(code, 1)
+            self.assertIn("not UTF-8", err.getvalue())
+            self.assertNotIn("Traceback", err.getvalue())
+            self.assertNotIn("dummy-secret", out.getvalue() + err.getvalue())
+        # The environment: bytes that aren't UTF-8 arrive as lone surrogates.
+        env = {"LIVESYNC_SETUP_URI": "obsidian://setuplivesync?settings=\udcff",
+               "LIVESYNC_SETUP_PASSPHRASE": "dummy-a", "LIVESYNC_NEW_PASSPHRASE": "dummy-b"}
+        err = io.StringIO()
+        with mock.patch.dict(os.environ, env), contextlib.redirect_stderr(err), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(lsu.main([]), 1)
+        self.assertIn("not UTF-8", err.getvalue())
+
     def test_reads_the_environment_and_writes_to_stdout(self):
         settings = b'{"couchDB_DBNAME":"dummy-vault"}'
         env = {"LIVESYNC_SETUP_URI": lsu.encode_setup_uri(settings, "dummy-a"),

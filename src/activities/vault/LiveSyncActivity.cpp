@@ -13,6 +13,7 @@
 #include "activities/ActivityManager.h"
 #include "activities/RenderLock.h"
 #include "activities/network/WifiSelectionActivity.h"
+#include "activities/util/ConfirmationActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
@@ -85,6 +86,7 @@ void LiveSyncActivity::onExit() {
   livesync::setDefaultYield(nullptr, nullptr);
   mbedtls_platform_zeroize(passphrase.data(), passphrase.size());
   passphrase.clear();
+  dropStaged();
   livesyncdev::wipeProfile(profile);
   livesyncdev::endSession();
   UiListActivity::onExit();
@@ -272,8 +274,16 @@ void LiveSyncActivity::askPassphrase() {
   startActivityForResult(std::move(keyboard), [this](const ActivityResult& result) {
     if (result.isCancelled) return;
     passphrase = std::get<KeyboardResult>(result.data).text;
-    withWifi(&LiveSyncActivity::finishSetup);
+    unlockSetup();
   });
+}
+
+void LiveSyncActivity::dropStaged() {
+  livesyncdev::wipeProfile(staged);
+  staged = livesyncdev::Profile{};
+  mbedtls_platform_zeroize(stagedE2ee.data(), stagedE2ee.size());
+  stagedE2ee.clear();
+  stagedPlan = livesync::FinishPlan{};
 }
 
 void LiveSyncActivity::withWifi(void (LiveSyncActivity::*then)()) {
@@ -289,6 +299,7 @@ void LiveSyncActivity::withWifi(void (LiveSyncActivity::*then)()) {
     if (result.isCancelled) {
       mbedtls_platform_zeroize(passphrase.data(), passphrase.size());
       passphrase.clear();
+      dropStaged();
       return;
     }
     WiFi.setSleep(false);
@@ -301,29 +312,30 @@ void LiveSyncActivity::showMessage(const std::string& text) {
   rebuildRows();
 }
 
-void LiveSyncActivity::finishSetup() {
-  std::string e2ee, why;
+void LiveSyncActivity::unlockSetup() {
+  std::string why;
   livesync::PendingSetup waiting;
-  livesyncdev::Profile fresh;
   const auto& fs = livesyncdev::profileFs();
+  dropStaged();
   progress.begin(renderer, tr(STR_LIVESYNC_UNLOCKING));
   bool ok = livesync::readPending(fs, slot, waiting) &&
-            livesyncdev::profileFromSetup(waiting.uri, passphrase, fresh, e2ee, why);
+            livesyncdev::profileFromSetup(waiting.uri, passphrase, staged, stagedE2ee, why);
   mbedtls_platform_zeroize(passphrase.data(), passphrase.size());
   passphrase.clear();
   mbedtls_platform_zeroize(waiting.uri.data(), waiting.uri.size());
-  // The folder: the name given with the Setup URI, else the database's name. Never another
-  // profile's folder: two databases in one folder would overwrite each other's notes.
+  // The profile: this one, or the one that already syncs this vault (a Setup URI posted again
+  // without a profile number), which keeps its folder and its sync state. The folder: the name
+  // given with the Setup URI, else the one that profile has, else the database's name. Never
+  // another profile's folder: two databases in one folder would overwrite each other's notes.
+  const std::string identity = livesync::identityOf(staged);
   if (ok) {
-    std::string folder;
-    switch (livesync::resolveVaultFolder(fs, slot, waiting.vault, fresh.database, folder)) {
+    switch (livesync::planFinish(fs, slot, waiting.vault, identity, staged.database, stagedPlan)) {
       case livesync::SetupError::Ok:
-        fresh.vaultName = folder;
         break;
       case livesync::SetupError::DuplicateVault: {
         char text[400];
         snprintf(text, sizeof(text), tr(STR_LIVESYNC_FOLDER_TAKEN),
-                 (waiting.vault.empty() ? livesync::defaultVaultFolder(fresh.database) : waiting.vault).c_str());
+                 (waiting.vault.empty() ? livesync::defaultVaultFolder(staged.database) : waiting.vault).c_str());
         why = text;
         ok = false;
         break;
@@ -333,22 +345,82 @@ void LiveSyncActivity::finishSetup() {
         break;
     }
   }
-  ok = ok && livesyncdev::finishSetup(fresh, e2ee, why);
-  mbedtls_platform_zeroize(e2ee.data(), e2ee.size());
-  livesyncdev::endSession();
   if (!ok) {
-    livesyncdev::wipeProfile(fresh);
+    dropStaged();
     showMessage(why.empty() ? std::string(tr(STR_LIVESYNC_SETUP_FAILED)) : why);
     return;
   }
-  const bool saved = livesyncdev::save(slot, fresh);
-  livesyncdev::wipeProfile(fresh);
-  if (!saved) {
+  // A folder this profile didn't sync until now: the spelling the card already has for it, so
+  // the notes, their index and the sync state are all filed under one name.
+  if (stagedPlan.previousIdentity.empty()) stagedPlan.folder = livesyncdev::cardSpelling(stagedPlan.folder);
+  staged.vaultName = stagedPlan.folder;
+  // The same vault set up again keeps the settings made on this screen.
+  livesyncdev::Profile old;
+  if (livesyncdev::load(stagedPlan.slot, old) && livesync::identityOf(old) == identity) {
+    staged.checkCert = old.checkCert;
+    staged.autoHours = old.autoHours;
+    staged.lastAttempt = old.lastAttempt;
+  }
+  livesyncdev::wipeProfile(old);
+  // A folder that already holds files and wasn't synced with this vault by this profile: say what
+  // the first sync does to them, before anything is fetched. Never a refusal.
+  const bool sameVault = stagedPlan.previousIdentity == identity;
+  if (!sameVault && livesyncdev::vaultFolderHasFiles(stagedPlan.folder)) {
+    auto dialog = makeUniqueNoThrow<ConfirmationActivity>(
+        renderer, mappedInput, std::string(vaultfiles::VAULTS_ROOT) + "/" + stagedPlan.folder,
+        tr(STR_LIVESYNC_FOLDER_HAS_FILES));
+    if (!dialog) {
+      dropStaged();
+      showMessage(tr(STR_LIVESYNC_SETUP_FAILED));
+      return;
+    }
+    startActivityForResult(std::move(dialog), [this](const ActivityResult& result) {
+      if (result.isCancelled) {  // the Setup URI keeps waiting
+        dropStaged();
+        message.clear();
+        rebuildRows();
+        return;
+      }
+      withWifi(&LiveSyncActivity::finishSetup);
+    });
+    return;
+  }
+  withWifi(&LiveSyncActivity::finishSetup);
+}
+
+void LiveSyncActivity::finishSetup() {
+  std::string why;
+  const auto& fs = livesyncdev::profileFs();
+  if (stagedPlan.slot == 0) {  // nothing was unlocked
     showMessage(tr(STR_LIVESYNC_SETUP_FAILED));
     return;
   }
+  progress.begin(renderer, tr(STR_LIVESYNC_UNLOCKING));
+  livesyncdev::clearLastFailure();
+  bool ok = livesyncdev::finishSetup(staged, stagedE2ee, why);
+  livesyncdev::endSession();
+  // The folder's sync state, before the profile is saved: kept when it is this same vault's (the
+  // notes not sent yet stay), moved aside when it is another database's, whose unsent notes and
+  // revisions must never reach this one.
+  if (ok && livesyncdev::prepareSyncState(staged, stagedPlan.previousIdentity) == livesync::StateCheck::Failed) {
+    why = tr(STR_LIVESYNC_STATE_STUCK);
+    ok = false;
+  }
+  const int target = stagedPlan.slot;
+  const bool saved = ok && livesyncdev::save(target, staged);
+  dropStaged();
+  if (!saved) {
+    showMessage(why.empty() ? std::string(tr(STR_LIVESYNC_SETUP_FAILED)) : why);
+    return;
+  }
   fs.remove(livesync::pendingFile(slot));
-  livesyncdev::resetSyncState(fresh);  // a new setup pulls everything again
+  if (target != slot) {  // the waiting slot was only a second copy of the profile just updated
+    slot = target;
+    int used = 0;
+    for (int s = 1; s <= livesyncdev::MAX_PROFILES; ++s) used += livesync::slotInfo(fs, s).inUse() ? 1 : 0;
+    direct = used == 1;
+    activeNav().requestSelection(0);
+  }
   showMessage(tr(STR_LIVESYNC_READY));
 }
 
@@ -364,8 +436,16 @@ void LiveSyncActivity::syncAll() {
   for (int s = 1; s <= livesyncdev::MAX_PROFILES; ++s) {
     if (!(syncMask & (1u << (s - 1))) || !livesyncdev::hasProfile(s)) continue;
     livesyncdev::Profile p;
-    if (!livesyncdev::load(s, p)) continue;
     ++total;
+    if (!livesyncdev::load(s, p)) {
+      // A profile file that can't be read (a damaged file, a card from another reader): a
+      // failure with its own line, not a vault quietly left out. The file is left as it is.
+      LOG_ERR("LSY", "Profile %d could not be read", s);
+      char text[160];
+      snprintf(text, sizeof(text), tr(STR_LIVESYNC_PROFILE_UNREADABLE), s);
+      onlyResult = text;
+      continue;
+    }
     progress.begin(renderer, (std::string(tr(STR_LIVESYNC_SYNCING)) + " " + p.vaultName).c_str());
     // The sync before this one closed its HTTPS session, but it may have left the heap in pieces:
     // a new TLS session needs one free block of this size (the limit the downloads use too).
@@ -379,7 +459,7 @@ void LiveSyncActivity::syncAll() {
     onlyResult = p.lastResult;
     livesyncdev::wipeProfile(p);
   }
-  lastSyncOk = good == total;
+  lastSyncOk = total > 0 && good == total;
   if (total == 1) {
     showMessage(onlyResult);
     return;
@@ -395,6 +475,7 @@ bool LiveSyncActivity::syncProfile(const int profileSlot, livesyncdev::Profile& 
   livesync::SyncStats stats;
   livesyncdev::PushStats sent;
   std::string error;
+  livesyncdev::clearLastFailure();  // the profile before this one may have failed
   // Notes edited here go up first, then the server's changes come down.
   bool ok = livesyncdev::pushChanges(profile, sent, error);
   const auto options = livesyncdev::options(profile);

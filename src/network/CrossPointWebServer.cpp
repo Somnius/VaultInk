@@ -2004,6 +2004,16 @@ void CrossPointWebServer::handleLiveSyncSetup() {
   doc["ok"] = true;
   doc["profile"] = slot;
   doc["vault"] = request.vault;  // "" = the database's name, known once the passphrase is typed
+  // The folder is already on the card with files in it: the first sync replaces notes that have
+  // the same path with the server's version (the device asks before it goes on). Without a folder
+  // name this is known only for a profile that is set up (its folder); else false, and the device
+  // still checks once the passphrase is typed.
+  std::string folder = request.vault;
+  if (folder.empty()) {
+    const livesync::SlotInfo info = livesyncdev::slotInfo(slot);
+    if (info.configured) folder = info.vault;
+  }
+  doc["folderExists"] = livesyncdev::vaultFolderHasFiles(folder);
   String response;
   serializeJson(doc, response);
   server->send(200, "application/json", response);
@@ -2016,14 +2026,12 @@ void CrossPointWebServer::handleLiveSyncSetup() {
 void CrossPointWebServer::handleLiveSyncStatus() const {
   JsonDocument doc;
   const auto& fs = livesyncdev::profileFs();
-  // The top-level keys describe profile 1, as they did when there was one profile.
-  const livesync::SlotInfo first = livesync::slotInfo(fs, 1);
-  doc["configured"] = first.configured;
-  // A Setup URI pasted on the web page that the device hasn't unlocked with its passphrase yet.
-  doc["pendingSetup"] = first.pending;
-  // The passphrase is typed once, on the device; the derived key stays on the card, so a saved
-  // profile is an unlocked one.
-  doc["unlocked"] = first.configured;
+  // Each profile's files are read once (the profile file whole: it is 1 KB; a waiting Setup URI
+  // can be 32 KB).
+  bool described = false, anyPending = false;
+  doc["configured"] = false;
+  doc["pendingSetup"] = false;
+  doc["unlocked"] = false;
   doc["running"] = false;
   doc["canSync"] = false;
   // A sync can be asked for with a file: upload /.vaultink/sync-request while File Transfer is open; leaving File
@@ -2032,32 +2040,41 @@ void CrossPointWebServer::handleLiveSyncStatus() const {
   doc["maxProfiles"] = livesync::MAX_PROFILES;
   JsonArray profiles = doc["profiles"].to<JsonArray>();
   for (int slot = 1; slot <= livesync::MAX_PROFILES; ++slot) {
-    const livesync::SlotInfo info = slot == 1 ? first : livesync::slotInfo(fs, slot);
+    const livesync::SlotInfo info = livesyncdev::slotInfo(slot, true);
     if (!info.inUse()) continue;
+    anyPending = anyPending || info.pending;
     JsonObject o = profiles.add<JsonObject>();
     o["index"] = slot;
     o["vault"] = info.vault;  // "" while a pending setup has no folder name yet
     o["configured"] = info.configured;
+    // A Setup URI pasted on the web page that the device hasn't unlocked with its passphrase yet.
     o["pendingSetup"] = info.pending;
+    // The passphrase is typed once, on the device; the derived key stays on the card, so a saved
+    // profile is an unlocked one.
     o["unlocked"] = info.configured;
-    bool canPush = false;
     if (info.configured) {
-      livesyncdev::Profile profile;
-      canPush = livesyncdev::load(slot, profile) && profile.canPush();
-      livesyncdev::wipeProfile(profile);
       o["lastResult"] = info.lastResult;    // the LiveSync screen's own summary or error text
       o["lastAttempt"] = info.lastAttempt;  // epoch seconds of the last automatic try; 0 = none
       o["autoHours"] = info.autoHours;
-      o["canPush"] = canPush;
+      o["canPush"] = info.canPush;
     }
-    if (slot == 1 && info.configured) {
+    // The top-level keys (all there was before profiles) describe the first profile that is set
+    // up: with profile 1 forgotten and profile 2 in use, an older client still sees a vault.
+    if (info.configured && !described) {
+      described = true;
+      doc["configured"] = true;
+      doc["unlocked"] = true;
+      doc["pendingSetup"] = info.pending;
+      doc["profile"] = slot;
       doc["vault"] = info.vault;
       doc["lastResult"] = info.lastResult;
       doc["lastAttempt"] = info.lastAttempt;
       doc["autoHours"] = info.autoHours;
-      doc["canPush"] = canPush;
+      doc["canPush"] = info.canPush;
     }
   }
+  // No profile set up yet: a Setup URI waiting in any of them.
+  if (!described) doc["pendingSetup"] = anyPending;
   String response;
   serializeJson(doc, response);
   server->send(200, "application/json", response);

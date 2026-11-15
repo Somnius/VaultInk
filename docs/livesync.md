@@ -44,14 +44,51 @@ folder `/Vaults/Lefteris-RPG`.
   `-`, `_` and `.`; no `/`, and no dot or space at either end. With no name, the folder is the
   database's name, as before. Setting the same database up again in the same profile keeps the
   folder it had.
+- **Capitals don't make a new folder.** To the SD card `Notes` and `NOTES` are one folder, and so
+  are `Σημειώσεις` and `ΣΗΜΕΙΏΣΕΙΣ`, or `Заметки` and `ЗАМЕТКИ`. The reader compares folder names
+  the same way for English letters, Latin letters with accents (Latin-1 and Latin Extended-A:
+  Western and Central European), Greek and Cyrillic. When you set a profile up again and type its
+  folder with other capitals, the profile keeps the spelling it had, so its sync state and the
+  notes not sent yet stay with it. A new profile's folder that is already on the card with other
+  capitals takes the card's spelling. **Limit:** letters of other scripts with capitals (Armenian,
+  Georgian, the rarer Latin letters after U+017F) are compared as typed, and so is a letter typed
+  as one character against the same letter typed as a letter plus an accent: such names are not
+  seen as the same folder. Use one spelling for those.
 - **Two profiles never share a folder.** The web page refuses a folder another profile uses (also
-  when only the case of A-Z differs: to the SD card those are one folder), and so does Finish
-  setup, with a message, when the database's name is already another profile's folder. Give that
-  one a folder name.
-- **A folder that already has files.** Nothing changed here: the sync writes the server's files
-  into it, and a file at the same path that you didn't change on the device is replaced by the
-  server's. Files only on the card stay. Notes changed on the device are kept and sent (see
-  "Sending your changes").
+  when only the capitals differ, see above), and so does Finish setup, with a message, when the
+  database's name is already another profile's folder. Give that one a folder name.
+- **The same vault posted twice.** A Setup URI for a database a profile already syncs (same
+  server, database and user name), pasted again without picking that profile, first waits as a new
+  profile. At Finish setup, once the passphrase has opened it, the reader sees it is the same
+  vault and updates the existing profile instead: that profile keeps its folder (unless you typed
+  another valid folder name), its sync state, Check certificate and Sync on wake, and the waiting
+  profile is removed. A waiting setup in a profile you picked yourself replaces that profile, as
+  before.
+- **A folder that already has files.** The sync writes the server's files into it, and a file at
+  the same path that you didn't change on the device is replaced by the server's. Files only on the
+  card stay. So before the first sync into such a folder the reader asks: after the passphrase,
+  Finish setup shows the folder and "This folder already has files. Notes with the same path are
+  replaced by the server's version; files only on the card stay." with Cancel and Confirm. Cancel
+  changes nothing and the Setup URI keeps waiting. The web page says the same when you save the
+  Setup URI with a folder name that is already there (`folderExists` in the answer). It is never a
+  refusal. The question is skipped when the same vault is set up again in the folder it already
+  syncs.
+- **Another database into a folder that was synced before.** Each folder's sync state carries the
+  name of the vault it belongs to (server, database, user name; `livesync/identity`). When a setup
+  is finished for a **different** vault than the one the folder was synced with (another database,
+  the same database name on another server, another user, also after **Forget this setup**), the
+  old state is moved aside to `/.vaultink/<id>/livesync-old-<n>/` before anything is synced: the
+  list of notes changed on the device and not sent, the revisions, the checkpoint, the id map and
+  the trash. So the first vault's unsent notes are never sent into the second database. The notes
+  themselves are not touched by this step, but they are then ordinary files of the folder: the
+  first sync replaces the ones the new database also has at the same path, **including notes you
+  changed on the device and had not sent to the first database** (the old list of them is in
+  `livesync-old-<n>/changed.txt`). Sync before you point a folder at another database. Sync state
+  whose vault is not known (a profile forgotten on firmware before this) counts as another
+  vault's. When it is the **same** vault, everything stays: setting it up again, or forgetting it
+  and setting it up again, loses no unsent notes; only the next pull starts from the beginning.
+  If the old state can't be moved or removed (a card error), the setup stops with a message and
+  the Setup URI keeps waiting.
 - **On the device.** With two or more profiles, **Settings → Vaults → LiveSync** lists them by
   folder name with their last result (or "Enter the Setup URI passphrase"), and **Sync all** under
   them. Tap one for its page: Finish setup, Sync now, Vault, Server, Check certificate, Sync on
@@ -63,21 +100,28 @@ folder `/Vaults/Lefteris-RPG`.
   whose own interval has passed are synced; the Sync tile and a sync request take all of them.
   If the memory left after one vault is too broken up for another connection (under 20,000 bytes
   in one piece, the limit the downloads use), the next profile is not tried and its result line
-  says to sync it on its own.
+  says to sync it on its own. A profile whose file can't be read counts as one that failed
+  ("Profile 2 could not be read from the SD card"), and the automatic sync does not report
+  success when no profile could be read.
 - **Each vault's state is separate.** The checkpoint, the id map, the trash and the list of notes
   changed on the device live in `/.vaultink/<id>/`, where `<id>` comes from the folder's path, so
-  two folders never share them. Removing a profile leaves its folder and that state on the card.
+  two folders never share them. Removing a profile leaves its folder and that state on the card,
+  marked with the vault it belongs to.
 - **Coming from one profile.** The first time the new firmware reads the profiles it moves
   `/.vaultink/livesync/profile.json` to `profiles/1.json` (one rename, nothing rewritten) and a
   waiting `setup-uri.txt` to `profiles/1.setup.json`. Your vault, folder and settings stay as they
-  were. Going back to an older firmware afterwards, that firmware won't find the profile: set it
+  were. A move that fails (a card error) is tried again the next time the profiles are read, and
+  written to the log once. Going back to an older firmware afterwards, that firmware won't find the profile: set it
   up again there.
 
-How it was checked: computer tests of the profile files (the move from one profile, adding and
-removing, folder names, the shared-folder refusals, four at most, old files) and of the web
-page's request, and builds for the X4 Pro and the simulator. **Not run on a reader or in the
-simulator yet**: the list and profile pages, Sync all with two real databases, and how much memory
-is left for the second vault after the first.
+How it was checked: computer tests of the profile files (the move from one profile and its retry,
+adding and removing, folder names and their capitals in Latin, Greek and Cyrillic, the
+shared-folder refusals, four at most, old files, the same vault posted twice, and the sync state
+kept for the same vault and moved aside for another one) and of the web page's request, and
+builds for the X4 Pro and the simulator. **Not run on a reader or in the simulator yet**: the list
+and profile pages, the question about a folder that has files, Sync all with two real databases,
+how much memory is left for the second vault after the first, and whether a real FAT or exFAT
+card agrees with the reader's comparison of capitals for every letter above.
 
 ### A Setup URI with a passphrase you can type
 
@@ -88,6 +132,11 @@ for the reader's keyboard:
 ```bash
 python3 scripts/livesync_setup_uri.py --uri-file old-uri.txt --out new-uri.txt
 ```
+
+`--out` makes a **new** file that only you can read (mode 600). A file or a symbolic link that is
+already there is refused, so the URI is never written into a file others can read or through a
+link; `--force` replaces it (the link itself, not what it points at). Input that isn't UTF-8 text
+ends with a one-line error.
 
 It asks for the two passphrases without showing them (or reads them from files or the
 environment: `--help`); they are never taken from the command line or printed. The new URI is in
@@ -120,7 +169,8 @@ only stops a copy of the SD card from working on another device. **It is not enc
 SD card like the key to that vault.
 
 The passphrase itself is never stored. **Forget this setup** removes that profile (and a Setup URI
-waiting for it), and the vault files stay on the card. A Setup URI that waits for its passphrase is
+waiting for it), and the vault files stay on the card, with the folder's sync state (see "Another
+database into a folder that was synced before"). A Setup URI that waits for its passphrase is
 in `profiles/<n>.setup.json`, still encrypted, with the folder name you gave.
 
 ## Sending your changes (0.28.0)

@@ -436,6 +436,15 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
   Sync all; the tile, sync on wake and the sync request go through them one after the other. The
   old single profile moves to profile 1 by itself. Two profiles can't share a folder.
   `scripts/livesync_setup_uri.py` re-encrypts a Setup URI with a passphrase that is easier to type.
+  After review: a folder's sync state carries the vault it belongs to (server, database, user),
+  and a setup for another vault moves the old state aside (unsent notes list, revisions,
+  checkpoint, trash) so one database's unsent notes never go into another, while the same vault
+  set up again keeps everything; folder names compare without case in Latin with accents, Greek
+  and Cyrillic too, and a profile keeps its saved spelling; Finish setup asks before the first
+  sync into a folder that has files (`folderExists` on the web); a Setup URI for a vault already
+  synced updates that profile; the status' top-level keys describe the first profile set up; a
+  profile that can't be read counts as a failed sync; the move from one profile is retried; the
+  script's `--out` makes a new private file (`--force` to replace).
   Computer tests (profile files, the web request, the script against the firmware's decryption)
   and builds only: **not run on a reader or in the simulator**, so Sync all with two real
   databases and the memory left for the second vault are still to be seen (docs/livesync.md).

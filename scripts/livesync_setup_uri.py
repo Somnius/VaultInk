@@ -337,10 +337,19 @@ def fixture_header():
 
 def _read_secret(path, env_name, prompt, hidden=True, confirm=False):
     if path:
-        with open(path, "r", encoding="utf-8") as handle:
-            return handle.read().rstrip("\r\n")
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                return handle.read().rstrip("\r\n")
+        except UnicodeDecodeError:
+            # Without the bytes themselves: the file may hold a passphrase.
+            raise SetupUriError("%s is not UTF-8 text." % path) from None
     if os.environ.get(env_name):
-        return os.environ[env_name]
+        value = os.environ[env_name]
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError:
+            raise SetupUriError("$%s is not UTF-8 text." % env_name) from None
+        return value
     if not sys.stdin.isatty():
         raise SetupUriError("%s: give a file, set $%s, or run in a terminal to be asked." % (prompt, env_name))
     ask = getpass.getpass if hidden else input
@@ -348,6 +357,29 @@ def _read_secret(path, env_name, prompt, hidden=True, confirm=False):
     if confirm and ask(prompt + " (again): ") != value:
         raise SetupUriError("The two entries differ.")
     return value
+
+
+def write_private(path, text, force=False):
+    """Writes `text` to a new file only its owner can read (mode 600).
+
+    The file is created with O_EXCL, which never follows a symbolic link and never opens a file
+    that is already there (one that others may read, or a link placed by someone else). With
+    `force` an existing entry is removed first: the link itself, never the file it points at.
+    """
+    if force:
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags, 0o600)
+    except FileExistsError:
+        raise SetupUriError("%s already exists: choose another name, or pass --force to replace it." % path) from None
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        if hasattr(os, "fchmod"):
+            os.fchmod(descriptor, 0o600)  # whatever the umask says
+        handle.write(text)
 
 
 def main(argv=None):
@@ -359,7 +391,8 @@ def main(argv=None):
     parser.add_argument("--uri-file", help="file holding the Setup URI (else $LIVESYNC_SETUP_URI, else a prompt)")
     parser.add_argument("--passphrase-file", help="file holding the URI's passphrase (else $LIVESYNC_SETUP_PASSPHRASE)")
     parser.add_argument("--new-passphrase-file", help="file holding the new passphrase (else $LIVESYNC_NEW_PASSPHRASE)")
-    parser.add_argument("--out", help="write the new Setup URI to this file (mode 600) instead of standard output")
+    parser.add_argument("--out", help="write the new Setup URI to this new file (mode 600) instead of standard output")
+    parser.add_argument("--force", action="store_true", help="with --out: replace the file when it already exists")
     parser.add_argument("--self-test", action="store_true", help="check the cipher and a dummy URI round trip, then exit")
     parser.add_argument("--write-fixture", metavar="HEADER", help="write the C++ test fixture (dummy values), then exit")
     args = parser.parse_args(argv)
@@ -382,13 +415,16 @@ def main(argv=None):
         # Never hand out a URI that doesn't open with the new passphrase.
         if decode_setup_uri(fresh, new) != decode_setup_uri(uri, old):
             raise SetupUriError("The new URI did not read back; nothing was written.")
+        if args.out:
+            write_private(args.out, fresh + "\n", force=args.force)
     except (SetupUriError, OSError) as error:
         print("error: %s" % error, file=sys.stderr)
         return 1
+    except UnicodeError:
+        # A typed or piped value that isn't UTF-8. The error's own text quotes the input: not shown.
+        print("error: the input is not UTF-8 text.", file=sys.stderr)
+        return 1
     if args.out:
-        descriptor = os.open(args.out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            handle.write(fresh + "\n")
         print("New Setup URI written to %s" % args.out, file=sys.stderr)
     else:
         print(fresh)
