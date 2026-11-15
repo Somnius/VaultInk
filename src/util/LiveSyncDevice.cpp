@@ -115,12 +115,72 @@ const livesync::ProfileFs& profileFs() {
     };
     return f;
   }();
+  // Until it is done: a move that failed (a card error) is tried again on the next call, not
+  // only after the next boot.
   static bool migrated = false;
+  static bool failureLogged = false;
   if (!migrated) {
-    migrated = true;
-    livesync::migrateLegacy(fs);
+    migrated = livesync::migrateLegacy(fs);
+    if (!migrated && !failureLogged) {
+      failureLogged = true;
+      LOG_ERR("LSY", "Could not move the old LiveSync profile to profiles/1 (tried again on the next use)");
+    }
   }
   return fs;
+}
+
+namespace {
+std::string stateBaseOf(const std::string& folder) {
+  const std::string index = vaultfiles::indexPathFor(std::string(vaultfiles::VAULTS_ROOT) + "/" + folder);
+  return index.substr(0, index.find_last_of('/'));
+}
+}  // namespace
+
+livesync::SlotInfo slotInfo(const int slot, const bool withCanPush) {
+  if (!withCanPush) return livesync::slotInfo(profileFs(), slot);
+  const livesync::Obfuscator secrets = obfuscator();
+  return livesync::slotInfo(profileFs(), slot, &secrets);
+}
+
+bool vaultFolderHasFiles(const std::string& folder) {
+  if (folder.empty()) return false;
+  HalFile dir = Storage.open((std::string(vaultfiles::VAULTS_ROOT) + "/" + folder).c_str());
+  if (!dir || !dir.isDirectory()) return false;
+  HalFile first = dir.openNextFile();
+  const bool any = static_cast<bool>(first);
+  if (first) first.close();
+  dir.close();
+  return any;
+}
+
+std::string cardSpelling(const std::string& folder) {
+  HalFile root = Storage.open(vaultfiles::VAULTS_ROOT);
+  if (!root || !root.isDirectory()) return folder;
+  std::string found = folder;
+  char name[256];
+  for (HalFile entry = root.openNextFile(); entry; entry = root.openNextFile()) {
+    if (!entry.isDirectory()) continue;
+    name[0] = '\0';
+    entry.getName(name, sizeof(name));
+    if (name == folder) {  // the exact name is there: nothing to choose
+      found = folder;
+      break;
+    }
+    if (livesync::sameFolder(name, folder)) found = name;
+  }
+  root.close();
+  return found;
+}
+
+livesync::StateCheck prepareSyncState(const Profile& profile, const std::string& previousIdentity) {
+  const livesync::StateCheck check = livesync::prepareSyncState(profileFs(), stateBaseOf(profile.vaultName),
+                                                                livesync::identityOf(profile), previousIdentity);
+  if (check == livesync::StateCheck::SetAside) {
+    LOG_INF("LSY", "The sync state of another vault in %s was moved aside", profile.vaultName.c_str());
+  } else if (check == livesync::StateCheck::Failed) {
+    LOG_ERR("LSY", "The sync state in %s could not be prepared", profile.vaultName.c_str());
+  }
+  return check;
 }
 
 bool hasProfile(const int slot) {
@@ -153,7 +213,14 @@ bool save(const int slot, const Profile& p) {
   return ok;
 }
 
-void forget(const int slot) { livesync::removeSlot(profileFs(), slot); }
+void forget(const int slot) {
+  const auto& fs = profileFs();
+  // The folder's sync state stays: it keeps the name of the vault it belongs to, so that another
+  // database set up into this folder later never takes over its unsent notes and revisions.
+  const livesync::SlotInfo info = livesync::slotInfo(fs, slot);
+  if (info.configured) livesync::rememberIdentity(fs, stateBaseOf(info.vault), info.identity);
+  livesync::removeSlot(fs, slot);
+}
 
 bool profileFromSetup(const std::string& uri, const std::string& passphrase, Profile& out, std::string& e2ee,
                       std::string& why) {
@@ -471,6 +538,8 @@ uint8_t autoSyncDue() {
 bool hasOwnCaCert() { return Storage.exists(CA_CERT); }
 
 bool lastFailedUnverified() { return failedUnverified; }
+
+void clearLastFailure() { failedUnverified = false; }
 
 void resetSyncState(const Profile& profile) {
   const auto o = options(profile);

@@ -12,17 +12,23 @@ using namespace livesync;
 
 namespace {
 
-// An SD card in memory.
+// An SD card in memory. A folder is there when a file is under it.
 struct FakeCard {
   std::map<std::string, std::string> files;
+  std::map<std::string, int> reads;  // how often each file was read whole
   bool failWrites = false;
   bool failRenames = false;
+  bool isFolder(const std::string& p) const {
+    const auto it = files.lower_bound(p + "/");
+    return it != files.end() && it->first.rfind(p + "/", 0) == 0;
+  }
   ProfileFs fs() {
     ProfileFs f;
-    f.exists = [this](const std::string& p) { return files.count(p) > 0; };
+    f.exists = [this](const std::string& p) { return files.count(p) > 0 || isFolder(p); };
     f.readAll = [this](const std::string& p, std::string& out) {
       const auto it = files.find(p);
       if (it == files.end()) return false;
+      ++reads[p];
       out = it->second;
       return true;
     };
@@ -36,7 +42,17 @@ struct FakeCard {
       return true;
     };
     f.rename = [this](const std::string& from, const std::string& to) {
-      if (failRenames || !files.count(from) || files.count(to)) return false;
+      if (failRenames || files.count(to) || isFolder(to)) return false;
+      if (isFolder(from)) {  // a folder moves with everything in it
+        std::map<std::string, std::string> moved;
+        for (auto it = files.lower_bound(from + "/"); it != files.end() && it->first.rfind(from + "/", 0) == 0;) {
+          moved[to + it->first.substr(from.size())] = it->second;
+          it = files.erase(it);
+        }
+        files.insert(moved.begin(), moved.end());
+        return true;
+      }
+      if (!files.count(from)) return false;
       files[to] = files[from];
       files.erase(from);
       return true;
@@ -202,6 +218,313 @@ TEST(LiveSyncProfiles, SameFolderIgnoresAsciiCase) {
   EXPECT_TRUE(sameFolder("Lefteris-RPG", "lefteris-rpg"));
   EXPECT_FALSE(sameFolder("Lefteris-RPG", "Lefteris RPG"));
   EXPECT_FALSE(sameFolder("vtm", "vtm2"));
+}
+
+TEST(LiveSyncProfiles, SameFolderIgnoresCaseBeyondAscii) {
+  // What a FAT or exFAT card treats as one folder: Latin with accents, Greek, Cyrillic.
+  EXPECT_TRUE(sameFolder("Élan Ünïted Þ", "élan ünïted þ"));
+  EXPECT_TRUE(sameFolder("ŽLUŤOUČKÝ KŮŇ", "žluťoučký kůň"));
+  EXPECT_TRUE(sameFolder("Ÿ", "ÿ"));
+  EXPECT_TRUE(sameFolder("ΣΗΜΕΙΏΣΕΙΣ", "σημειώσεις"));  // tonos kept, final sigma as sigma
+  EXPECT_TRUE(sameFolder("Άλφα Έψιλον Ήτα Ίδιο Όλα Ύστερα Ώρα Ϊ", "άλφα έψιλον ήτα ίδιο όλα ύστερα ώρα ϊ"));
+  EXPECT_TRUE(sameFolder("ЗАМЕТКИ Ёж Ђ Џ Ӂ Ӑ Ҋ", "заметки ёж ђ џ ӂ ӑ ҋ"));
+  EXPECT_EQ(foldFolderName("Σημειώσεις-RPG Ж"), "σημειώσεισ-rpg ж");
+  // Not the same letter: an accent, the signs between the Latin-1 letters.
+  EXPECT_FALSE(sameFolder("αλφα", "άλφα"));
+  EXPECT_FALSE(sameFolder("×", "÷"));
+  EXPECT_FALSE(sameFolder("е", "e"));  // Cyrillic and Latin look-alikes
+  // The documented limit: other scripts are compared as typed.
+  EXPECT_FALSE(sameFolder("Ա", "ա"));  // Armenian
+  // Bytes that aren't UTF-8 pass through and never read past the end.
+  EXPECT_EQ(foldFolderName(std::string("A\xC3")), std::string("a\xC3"));
+  EXPECT_EQ(foldFolderName(std::string("\xFF\xC3\x41")), std::string("\xFF\xC3\x61"));
+  // Three-byte letters (here Greek Extended and CJK) are untouched.
+  EXPECT_EQ(foldFolderName("Ἀ日本"), "Ἀ日本");
+}
+
+TEST(LiveSyncProfiles, AFolderInOtherCapitalsIsTheSameFolder) {
+  FakeCard card;
+  const ProfileFs fs = card.fs();
+  saveSample(card, 1, "vtm", "Σημειώσεις");
+  EXPECT_TRUE(folderTaken(fs, "ΣΗΜΕΙΏΣΕΙΣ", 2));
+  SetupRequest request{URI_A, "σημειώσεισ", 0};
+  int slot = 0;
+  EXPECT_EQ(acceptSetup(fs, request, slot), SetupError::DuplicateVault);
+  // The slot's own folder typed with other capitals: the saved spelling stays, so the sync state
+  // (filed under the exact name) and the notes not sent yet stay with the profile.
+  std::string folder;
+  ASSERT_EQ(resolveVaultFolder(fs, 1, "ΣΗΜΕΙΏΣΕΙΣ", "vtm", folder), SetupError::Ok);
+  EXPECT_EQ(folder, "Σημειώσεις");
+  ASSERT_EQ(resolveVaultFolder(fs, 1, "σημειώσεις", "another-db", folder), SetupError::Ok);
+  EXPECT_EQ(folder, "Σημειώσεις");
+  saveSample(card, 2, "notes", "Lefteris-RPG");
+  ASSERT_EQ(resolveVaultFolder(fs, 2, "LEFTERIS-rpg", "notes", folder), SetupError::Ok);
+  EXPECT_EQ(folder, "Lefteris-RPG");
+  // The default name (the database's) in other capitals than the saved folder.
+  saveSample(card, 3, "Campaign", "campaign");
+  ASSERT_EQ(resolveVaultFolder(fs, 3, "Campaign", "Campaign", folder), SetupError::Ok);
+  EXPECT_EQ(folder, "campaign");
+}
+
+TEST(LiveSyncProfiles, FolderChecksReadEachFileOnce) {
+  FakeCard card;
+  const ProfileFs fs = card.fs();
+  saveSample(card, 1, "vtm", "Constantinople By Night");
+  ASSERT_TRUE(writePending(fs, 1, PendingSetup{URI_A, ""}));
+  ASSERT_TRUE(writePending(fs, 2, PendingSetup{URI_B, "Lefteris-RPG"}));
+  ASSERT_TRUE(writePending(fs, 3, PendingSetup{URI_B, "Third"}));
+  card.reads.clear();
+  EXPECT_FALSE(folderTaken(fs, "Nothing Like It", 0));
+  for (const auto& [path, count] : card.reads) EXPECT_EQ(count, 1) << path;
+  EXPECT_EQ(card.reads.size(), 4u);
+  card.reads.clear();
+  const SlotInfo info = slotInfo(fs, 2);
+  EXPECT_EQ(info.pendingVault, "Lefteris-RPG");
+  EXPECT_EQ(card.reads[pendingFile(2)], 1);
+}
+
+TEST(LiveSyncProfiles, SlotInfoSaysWhetherChangesCanBeSent) {
+  FakeCard card;
+  const ProfileFs fs = card.fs();
+  const Obfuscator secrets = testObfuscator();
+  saveSample(card, 1, "vtm", "Constantinople By Night");
+  Profile readOnly = sample("notes", "Notes");
+  readOnly.hashedPass.clear();
+  readOnly.passDigest.clear();
+  card.files[profileFile(2)] = profileToJson(readOnly, secrets);
+  card.reads.clear();
+  const SlotInfo one = slotInfo(fs, 1, &secrets);
+  EXPECT_TRUE(one.configured);
+  EXPECT_TRUE(one.canPush);
+  EXPECT_EQ(one.identity, identityOf(sample("vtm", "x")));
+  EXPECT_EQ(card.reads[profileFile(1)], 1);  // one read for the list and the push ids together
+  EXPECT_FALSE(slotInfo(fs, 2, &secrets).canPush);
+  EXPECT_FALSE(slotInfo(fs, 1).canPush);  // not asked for
+  // A key that can't be read back: listed, but nothing can be sent.
+  JsonDocument doc;
+  ASSERT_EQ(deserializeJson(doc, card.files[profileFile(1)]), DeserializationError::Ok);
+  doc["key"] = "not-obfuscated";
+  std::string broken;
+  serializeJson(doc, broken);
+  card.files[profileFile(1)] = broken;
+  EXPECT_TRUE(slotInfo(fs, 1, &secrets).configured);
+  EXPECT_FALSE(slotInfo(fs, 1, &secrets).canPush);
+}
+
+TEST(LiveSyncProfiles, ASetupForAVaultAlreadySyncedUpdatesThatProfile) {
+  FakeCard card;
+  const ProfileFs fs = card.fs();
+  saveSample(card, 1, "vtm", "Constantinople By Night");
+  saveSample(card, 2, "notes", "Lefteris-RPG");
+  const std::string vtm = identityOf(sample("vtm", "x"));
+  // Posted again without a profile number: it went to the free slot 3.
+  SetupRequest request{URI_A, "", 0};
+  int slot = 0;
+  ASSERT_EQ(acceptSetup(fs, request, slot), SetupError::Ok);
+  ASSERT_EQ(slot, 3);
+  FinishPlan plan;
+  ASSERT_EQ(planFinish(fs, 3, "", vtm, "vtm", plan), SetupError::Ok);
+  EXPECT_EQ(plan.slot, 1);  // not a second profile, and not "folder taken"
+  EXPECT_EQ(plan.folder, "Constantinople By Night");
+  EXPECT_EQ(plan.previousIdentity, vtm);  // its state is kept
+  // With the folder it has, typed in other capitals: the saved spelling. Reserved by the waiting
+  // slot itself, which doesn't count as another profile.
+  ASSERT_TRUE(writePending(fs, 3, PendingSetup{URI_A, "constantinople by night"}));
+  ASSERT_EQ(planFinish(fs, 3, "constantinople by night", vtm, "vtm", plan), SetupError::Ok);
+  EXPECT_EQ(plan.slot, 1);
+  EXPECT_EQ(plan.folder, "Constantinople By Night");
+  // Another valid folder was asked for: the profile moves to it; nothing known about that folder.
+  ASSERT_EQ(planFinish(fs, 3, "Vampire", vtm, "vtm", plan), SetupError::Ok);
+  EXPECT_EQ(plan.slot, 1);
+  EXPECT_EQ(plan.folder, "Vampire");
+  EXPECT_TRUE(plan.previousIdentity.empty());
+  // A folder of a third profile is still refused.
+  EXPECT_EQ(planFinish(fs, 3, "Lefteris-RPG", vtm, "vtm", plan), SetupError::DuplicateVault);
+  // The same database name on another server, or as another user, is another vault: its own slot.
+  ASSERT_EQ(planFinish(fs, 3, "Elsewhere", identityOf("https://other.example.org", "vtm", "dummy-user"), "vtm", plan),
+            SetupError::Ok);
+  EXPECT_EQ(plan.slot, 3);
+  EXPECT_TRUE(plan.previousIdentity.empty());
+  ASSERT_EQ(planFinish(fs, 3, "Elsewhere", identityOf("https://couch.example.org", "vtm", "someone-else"), "vtm", plan),
+            SetupError::Ok);
+  EXPECT_EQ(plan.slot, 3);
+  // Without a folder name that other vault would land in /Vaults/vtm... which is free here.
+  ASSERT_EQ(planFinish(fs, 3, "", identityOf("https://other.example.org", "vtm", "dummy-user"), "vtm", plan),
+            SetupError::Ok);
+  EXPECT_EQ(plan.folder, "vtm");
+  // A slot that has its own profile is the one the user chose: it is replaced, as before.
+  ASSERT_TRUE(writePending(fs, 2, PendingSetup{URI_A, "Mine"}));
+  ASSERT_EQ(planFinish(fs, 2, "Mine", vtm, "vtm", plan), SetupError::Ok);
+  EXPECT_EQ(plan.slot, 2);
+  EXPECT_TRUE(plan.previousIdentity.empty());  // another folder than the one it synced
+  // Setting a profile up again in place: the identity it had with that folder.
+  ASSERT_EQ(planFinish(fs, 2, "", identityOf(sample("notes", "x")), "notes", plan), SetupError::Ok);
+  EXPECT_EQ(plan.folder, "Lefteris-RPG");
+  EXPECT_EQ(plan.previousIdentity, identityOf(sample("notes", "x")));
+  EXPECT_EQ(planFinish(fs, 0, "", vtm, "vtm", plan), SetupError::BadProfile);
+}
+
+namespace {
+const char* const BASE = "/.vaultink/12345";
+void fillState(FakeCard& card) {
+  card.files[std::string(BASE) + "/changed.txt"] = "Notes/Edited here.md\n";
+  card.files[std::string(BASE) + "/index.tsv"] = "search index\n";
+  card.files[std::string(BASE) + "/livesync/checkpoint"] = "42-abc";
+  card.files[std::string(BASE) + "/livesync/files.tsv"] = "id1\tNotes/Edited here.md\n";
+  card.files[std::string(BASE) + "/livesync/revs.tsv"] = "id1\t3-aaa\n";
+  card.files[std::string(BASE) + "/livesync/trash/Old/Deleted.md"] = "a whole note";
+}
+}  // namespace
+
+TEST(LiveSyncProfiles, TheSameVaultSetUpAgainKeepsItsUnsentNotes) {
+  FakeCard card;
+  const ProfileFs fs = card.fs();
+  const std::string a = identityOf("https://couch.example.org", "vtm", "dummy-user");
+  fillState(card);
+  // State written by firmware without the identity file: the profile that used the folder says whose it is.
+  ASSERT_EQ(prepareSyncState(fs, BASE, a, a), StateCheck::Kept);
+  EXPECT_EQ(card.files[std::string(BASE) + "/changed.txt"], "Notes/Edited here.md\n");
+  EXPECT_EQ(card.files[std::string(BASE) + "/livesync/revs.tsv"], "id1\t3-aaa\n");
+  EXPECT_EQ(card.files[std::string(BASE) + "/livesync/trash/Old/Deleted.md"], "a whole note");
+  EXPECT_EQ(card.files[std::string(BASE) + "/livesync/identity"], a);
+  // The pull starts over, as a new setup always did.
+  EXPECT_EQ(card.files.count(std::string(BASE) + "/livesync/checkpoint"), 0u);
+  EXPECT_EQ(card.files.count(std::string(BASE) + "/livesync/files.tsv"), 0u);
+  // Again, now by the identity file alone (the profile was forgotten in between).
+  card.files[std::string(BASE) + "/livesync/checkpoint"] = "43-abc";
+  ASSERT_EQ(prepareSyncState(fs, BASE, a, ""), StateCheck::Kept);
+  EXPECT_EQ(card.files[std::string(BASE) + "/changed.txt"], "Notes/Edited here.md\n");
+  EXPECT_EQ(card.files[std::string(BASE) + "/livesync/revs.tsv"], "id1\t3-aaa\n");
+  EXPECT_FALSE(fs.exists(std::string(BASE) + "/livesync-old-1"));
+}
+
+TEST(LiveSyncProfiles, AnotherVaultNeverInheritsUnsentNotesOrRevisions) {
+  const std::string a = identityOf("https://couch.example.org", "vtm", "dummy-user");
+  const std::string others[] = {
+      identityOf("https://couch.example.org", "notes", "dummy-user"),  // another database
+      identityOf("https://other.example.org", "vtm", "dummy-user"),    // the same name on another server
+      identityOf("https://couch.example.org", "vtm", "someone-else"),  // another user
+  };
+  for (const std::string& b : others) {
+    for (const bool byMarker : {true, false}) {
+      FakeCard card;
+      const ProfileFs fs = card.fs();
+      fillState(card);
+      if (byMarker) card.files[std::string(BASE) + "/livesync/identity"] = a + "\n";
+      ASSERT_EQ(prepareSyncState(fs, BASE, b, byMarker ? "" : a), StateCheck::SetAside);
+      // Nothing of A is left where a sync of B would read it.
+      EXPECT_EQ(card.files.count(std::string(BASE) + "/changed.txt"), 0u);
+      EXPECT_EQ(card.files.count(std::string(BASE) + "/livesync/revs.tsv"), 0u);
+      EXPECT_EQ(card.files.count(std::string(BASE) + "/livesync/files.tsv"), 0u);
+      EXPECT_EQ(card.files.count(std::string(BASE) + "/livesync/checkpoint"), 0u);
+      EXPECT_FALSE(fs.exists(std::string(BASE) + "/livesync/trash"));
+      EXPECT_EQ(card.files[std::string(BASE) + "/livesync/identity"], b);
+      // Moved, not deleted: the list of unsent notes and the trashed notes are still on the card.
+      const std::string aside = std::string(BASE) + "/livesync-old-1";
+      EXPECT_EQ(card.files[aside + "/changed.txt"], "Notes/Edited here.md\n");
+      EXPECT_EQ(card.files[aside + "/revs.tsv"], "id1\t3-aaa\n");
+      EXPECT_EQ(card.files[aside + "/trash/Old/Deleted.md"], "a whole note");
+      EXPECT_EQ(card.files[std::string(BASE) + "/index.tsv"], "search index\n");  // not LiveSync's
+      // B syncs, then A comes back: B's state is set aside in turn, beside the first.
+      card.files[std::string(BASE) + "/livesync/revs.tsv"] = "id9\t1-bbb\n";
+      card.files[std::string(BASE) + "/changed.txt"] = "B.md\n";
+      ASSERT_EQ(prepareSyncState(fs, BASE, a, ""), StateCheck::SetAside);
+      EXPECT_EQ(card.files[std::string(BASE) + "/livesync-old-2/changed.txt"], "B.md\n");
+      EXPECT_EQ(card.files[aside + "/changed.txt"], "Notes/Edited here.md\n");
+      EXPECT_EQ(card.files.count(std::string(BASE) + "/changed.txt"), 0u);
+    }
+  }
+}
+
+TEST(LiveSyncProfiles, SyncStateOfAnUnknownVaultIsSetAside) {
+  // Forgotten on firmware that wrote no identity file, then another setup into the folder.
+  FakeCard card;
+  const ProfileFs fs = card.fs();
+  fillState(card);
+  const std::string b = identityOf("https://couch.example.org", "notes", "dummy-user");
+  ASSERT_EQ(prepareSyncState(fs, BASE, b, ""), StateCheck::SetAside);
+  EXPECT_EQ(card.files.count(std::string(BASE) + "/changed.txt"), 0u);
+  EXPECT_EQ(card.files.count(std::string(BASE) + "/livesync/revs.tsv"), 0u);
+
+  // A folder never synced: notes edited there on the device are this user's own and go up with
+  // the first sync, as before.
+  FakeCard fresh;
+  fresh.files[std::string(BASE) + "/changed.txt"] = "Mine.md\n";
+  ASSERT_EQ(prepareSyncState(fresh.fs(), BASE, b, ""), StateCheck::Fresh);
+  EXPECT_EQ(fresh.files[std::string(BASE) + "/changed.txt"], "Mine.md\n");
+  EXPECT_EQ(fresh.files[std::string(BASE) + "/livesync/identity"], b);
+  FakeCard empty;
+  ASSERT_EQ(prepareSyncState(empty.fs(), BASE, b, ""), StateCheck::Fresh);
+}
+
+TEST(LiveSyncProfiles, AForgottenProfileLeavesItsNameOnTheState) {
+  FakeCard card;
+  const ProfileFs fs = card.fs();
+  const std::string a = identityOf("https://couch.example.org", "vtm", "dummy-user");
+  const std::string b = identityOf("https://couch.example.org", "notes", "dummy-user");
+  fillState(card);
+  rememberIdentity(fs, BASE, a);
+  EXPECT_EQ(card.files[std::string(BASE) + "/livesync/identity"], a);
+  rememberIdentity(fs, BASE, b);  // never replaces the name that is there
+  EXPECT_EQ(card.files[std::string(BASE) + "/livesync/identity"], a);
+  ASSERT_EQ(prepareSyncState(fs, BASE, b, ""), StateCheck::SetAside);
+  EXPECT_EQ(card.files.count(std::string(BASE) + "/livesync/revs.tsv"), 0u);
+  EXPECT_EQ(card.files[std::string(BASE) + "/livesync-old-1/trash/Old/Deleted.md"], "a whole note");
+}
+
+TEST(LiveSyncProfiles, StateThatCannotBeClearedStopsTheSetup) {
+  // The card refuses to move: the files are removed instead (nothing of the other vault stays).
+  FakeCard card;
+  const ProfileFs fs = card.fs();
+  const std::string b = identityOf("https://couch.example.org", "notes", "dummy-user");
+  fillState(card);
+  card.failRenames = true;
+  ASSERT_EQ(prepareSyncState(fs, BASE, b, ""), StateCheck::SetAside);
+  EXPECT_EQ(card.files.count(std::string(BASE) + "/changed.txt"), 0u);
+  EXPECT_EQ(card.files.count(std::string(BASE) + "/livesync/revs.tsv"), 0u);
+  EXPECT_EQ(card.files[std::string(BASE) + "/livesync/trash/Old/Deleted.md"], "a whole note");  // never deleted
+  // The card refuses to remove too: no setup, and the old identity is still there for the next try.
+  FakeCard stuck;
+  fillState(stuck);
+  const std::string a = identityOf("https://couch.example.org", "vtm", "dummy-user");
+  stuck.files[std::string(BASE) + "/livesync/identity"] = a;
+  stuck.failRenames = true;
+  ProfileFs refusing = stuck.fs();
+  refusing.remove = [](const std::string&) { return false; };
+  EXPECT_EQ(prepareSyncState(refusing, BASE, b, ""), StateCheck::Failed);
+  EXPECT_EQ(stuck.files[std::string(BASE) + "/livesync/identity"], a);
+  // The identity file can't be written: no setup either.
+  FakeCard readOnly;
+  readOnly.failWrites = true;
+  EXPECT_EQ(prepareSyncState(readOnly.fs(), BASE, b, ""), StateCheck::Failed);
+}
+
+TEST(LiveSyncProfiles, AFailedMigrationIsTriedAgain) {
+  FakeCard card;
+  card.files[LEGACY_PROFILE] = OLD_PROFILE_JSON;
+  card.files[LEGACY_PENDING] = URI_A;
+  const ProfileFs fs = card.fs();
+  card.failRenames = true;
+  card.failWrites = true;
+  EXPECT_FALSE(migrateLegacy(fs));  // not done: the caller calls again
+  card.failRenames = false;
+  EXPECT_FALSE(migrateLegacy(fs));  // the profile moved, the pending setup still couldn't be written
+  EXPECT_EQ(card.files.count(profileFile(1)), 1u);
+  EXPECT_EQ(card.files[LEGACY_PENDING], URI_A);
+  card.failWrites = false;
+  EXPECT_TRUE(migrateLegacy(fs));
+  EXPECT_EQ(card.files.count(LEGACY_PENDING), 0u);
+  PendingSetup pending;
+  ASSERT_TRUE(readPending(fs, 1, pending));
+  EXPECT_EQ(pending.uri, URI_A);
+  EXPECT_TRUE(migrateLegacy(fs));  // nothing left to do
+  FakeCard none;
+  EXPECT_TRUE(migrateLegacy(none.fs()));
+  // Both the old file and profile 1: left alone, and not something to retry.
+  FakeCard both;
+  saveSample(both, 1, "vtm", "Constantinople By Night");
+  both.files[LEGACY_PROFILE] = OLD_PROFILE_JSON;
+  EXPECT_TRUE(migrateLegacy(both.fs()));
 }
 
 TEST(LiveSyncProfiles, MigratesTheSingleProfileToProfileOne) {

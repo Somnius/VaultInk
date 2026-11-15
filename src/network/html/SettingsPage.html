@@ -570,7 +570,9 @@
       body: JSON.stringify(body) }).catch(() => null);
     const saved = r && r.ok ? await r.json().catch(() => null) : null;
     status.textContent = r && r.ok
-      ? 'Saved as profile ' + (saved ? saved.profile : '') + '. Finish on the device: Settings → Vaults → LiveSync.'
+      ? 'Saved as profile ' + (saved ? saved.profile : '') + '. Finish on the device: Settings → Vaults → LiveSync.' +
+        (saved && saved.folderExists ? ' This folder already has files: notes with the same path are replaced by' +
+          ' the server\'s version at the first sync; files only on the card stay.' : '')
       : 'Could not save: ' + (r ? await r.text() : 'network error');
     if (r && r.ok) {
       document.getElementById('livesync-uri').value = '';

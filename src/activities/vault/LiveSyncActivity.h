@@ -44,7 +44,12 @@ class LiveSyncActivity final : public UiListActivity {
   void askPassphrase();
   // Connects to Wi-Fi first when needed, then runs `then`.
   void withWifi(void (LiveSyncActivity::*then)());
+  // Opens the waiting Setup URI with the passphrase (no network), picks the profile and the
+  // folder it goes to and, when that folder already holds files, asks before going on.
+  void unlockSetup();
+  // Fetches the salt, derives the key and saves the profile opened by unlockSetup().
   void finishSetup();
+  void dropStaged();
   void syncNow();
   // Pushes and pulls one profile and saves its result line. Never two at once: the HTTPS session
   // of one sync is closed before the next starts.
@@ -67,7 +72,11 @@ class LiveSyncActivity final : public UiListActivity {
   bool leaveOnError = false;
   ReturnTo returnTo = ReturnTo::Settings;
   std::string passphrase;  // only between the keyboard and the setup; wiped right after
-  std::string message;     // shown above the rows (last result, errors)
+  // The setup between unlockSetup() and finishSetup(); wiped by dropStaged().
+  livesyncdev::Profile staged;
+  std::string stagedE2ee;
+  livesync::FinishPlan stagedPlan;
+  std::string message;  // shown above the rows (last result, errors)
   std::vector<RowEntry> rows;
   std::vector<freeink::ui::ListItem> rowItems;
 };

@@ -80,12 +80,20 @@ bool validVaultFolder(std::string_view name);
 // The folder when none was asked for: the database name, as before profiles ("LiveSync" when the
 // card can't hold that name).
 std::string defaultVaultFolder(const std::string& database);
-// Folder names that are one folder on the card (FAT ignores the case of A-Z).
+// A folder name with its letters in lower case, for comparing: a FAT or exFAT card treats names
+// that differ only in case as one folder. Covers A-Z, Latin-1, Latin Extended-A (U+0100..U+017F),
+// Greek (U+0386..U+03CB, final sigma as sigma) and Cyrillic (U+0400..U+052F). Letters of other
+// scripts (Armenian, Georgian, Latin Extended-B and later, full-width forms) are compared as
+// typed, and so are composed and decomposed forms of one letter (NFC/NFD): two such names are
+// not seen as the same folder.
+std::string foldFolderName(std::string_view name);
+// Folder names that are one folder on the card (foldFolderName of both is equal).
 bool sameFolder(std::string_view a, std::string_view b);
 
 // Moves the files of firmware before profiles to profile 1. Nothing is deleted before its copy
-// exists; when profile 1 is already there the old files are left alone. Safe to call every time.
-void migrateLegacy(const ProfileFs& fs);
+// exists; when profile 1 is already there the old files are left alone. Safe to call every time. False when a move
+// failed and is worth trying again (the old files are still where they were).
+bool migrateLegacy(const ProfileFs& fs);
 
 struct PendingSetup {
   std::string uri;    // still encrypted
@@ -96,20 +104,32 @@ bool writePending(const ProfileFs& fs, int slot, const PendingSetup& pending);
 
 // What a list of profiles shows; no secret is decoded for it.
 struct SlotInfo {
-  bool configured = false;  // a saved profile
-  bool pending = false;     // a Setup URI waiting for its passphrase
-  std::string vault;        // the saved profile's folder, else the folder asked for
+  bool configured = false;   // a saved profile
+  bool pending = false;      // a Setup URI waiting for its passphrase
+  std::string vault;         // the saved profile's folder, else the folder asked for
+  std::string pendingVault;  // the folder the waiting setup asked for; empty = the default
+  std::string identity;      // identityOf() of the saved profile; empty when not configured
+  bool canPush = false;      // only filled when slotInfo() was given the obfuscator
   std::string lastResult;
   int64_t lastAttempt = 0;
   uint8_t autoHours = 0;
   bool inUse() const { return configured || pending; }
 };
-SlotInfo slotInfo(const ProfileFs& fs, int slot);
+// Reads the profile file and the pending file once each. With `secrets` the push ids are decoded
+// too, for `canPush` (false when the profile can't be loaded).
+SlotInfo slotInfo(const ProfileFs& fs, int slot, const Obfuscator* secrets = nullptr);
+
+// What makes two setups the same remote vault: the server, the database and the user name.
+std::string identityOf(const std::string& serverUrl, const std::string& database, const std::string& user);
+inline std::string identityOf(const Profile& p) { return identityOf(p.serverUrl, p.database, p.user); }
+// The saved profile (not `exceptSlot`) with this identity; 0 when there is none.
+int slotWithIdentity(const ProfileFs& fs, const std::string& identity, int exceptSlot);
 
 // The first slot with neither a profile nor a pending setup; 0 when all four are taken.
 int nextFreeSlot(const ProfileFs& fs);
-// Another slot (not `exceptSlot`) already syncs into, or waits to sync into, this folder.
-bool folderTaken(const ProfileFs& fs, std::string_view folder, int exceptSlot);
+// Another slot (not `exceptSlot`, not `alsoExcept`) already syncs into, or waits to sync into,
+// this folder.
+bool folderTaken(const ProfileFs& fs, std::string_view folder, int exceptSlot, int alsoExcept = 0);
 void removeSlot(const ProfileFs& fs, int slot);
 
 enum class SetupError : uint8_t {
@@ -138,9 +158,44 @@ SetupError parseSetupBody(const std::string& body, SetupRequest& out);
 SetupError acceptSetup(const ProfileFs& fs, const SetupRequest& request, int& slot);
 
 // The folder a setup being finished syncs into: the one asked for; else, when the slot already
-// syncs this database, the folder it has; else the database name. DuplicateVault when another
-// profile has that folder.
+// syncs this database, the folder it has; else the database name. A name that is the slot's saved
+// folder but for the case of its letters becomes the saved spelling (the folder's sync state is
+// filed under the exact spelling). DuplicateVault when another profile (not `alsoExcept`) has
+// that folder.
 SetupError resolveVaultFolder(const ProfileFs& fs, int slot, const std::string& asked, const std::string& database,
-                              std::string& folder);
+                              std::string& folder, int alsoExcept = 0);
+
+// Where a setup being finished goes, once its Setup URI is open and the server, database and
+// user are known.
+struct FinishPlan {
+  int slot = 0;                  // the profile to save: the pending one, or the one that already syncs this vault
+  std::string folder;            // under /Vaults
+  std::string previousIdentity;  // of the profile that synced `folder` from this slot until now; empty = none
+};
+// A Setup URI for a vault that another profile already syncs, waiting in a slot with no profile
+// of its own (posted without a profile number), updates that profile: it keeps its folder unless
+// another was asked for, and the waiting slot is given up by the caller. Otherwise the pending
+// slot itself.
+SetupError planFinish(const ProfileFs& fs, int pendingSlot, const std::string& asked, const std::string& identity,
+                      const std::string& database, FinishPlan& plan);
+
+// The sync state of one vault folder, under `stateBase` ("/.vaultink/<id>"): changed.txt (notes
+// edited here and not sent yet) and livesync/{checkpoint, files.tsv, revs.tsv, trash/, identity}.
+// `identity` (the file) names the remote vault the state belongs to.
+enum class StateCheck : uint8_t {
+  Fresh,     // no sync state there (a list of notes changed in a folder never synced is kept)
+  Kept,      // the same remote vault as before: everything stays, only the next pull starts over
+  SetAside,  // another remote vault's (or an unknown one's) state: moved to livesync-old-<n>
+  Failed,    // the old state could not be moved or removed: don't sync into this folder
+};
+// Called before a finished setup is saved. `previousIdentity`: the profile that used the folder
+// until now, used when the folder has no identity file yet (state written by older firmware).
+// State without any known owner counts as another vault's. Nothing is deleted when it can be
+// moved: the old changed.txt, revs.tsv, files.tsv, checkpoint, trash and identity go to
+// "<stateBase>/livesync-old-<n>"; notes in the vault folder are never touched.
+StateCheck prepareSyncState(const ProfileFs& fs, const std::string& stateBase, const std::string& identity,
+                            const std::string& previousIdentity);
+// Writes the identity file when the folder has none (before a profile is forgotten).
+void rememberIdentity(const ProfileFs& fs, const std::string& stateBase, const std::string& identity);
 
 }  // namespace livesync
