@@ -4,6 +4,9 @@
 #include <Logging.h>
 #include <ResumableFetch.h>
 #include <TlsPolicyDevice.h>
+#ifndef SIMULATOR
+#include <WiFi.h>
+#endif
 
 #include <algorithm>
 #include <functional>
@@ -29,9 +32,15 @@ constexpr size_t MAX_RESPONSE_BYTES = 4096;
 // starting host's, so a redirect cannot lower it. GitHub (updates, fonts) is always checked; a
 // server the user added (OPDS, a catalog) is encrypted but not checked, as before. When a checked
 // request cannot be set up (no date) the client is left without roots and the request fails.
+// What tlspolicy::apply said for the request that is running; the simple GETs read it after a failure.
+tlspolicy::Error g_policyError = tlspolicy::Error::None;
+tlspolicy::Failure g_lastFailure = tlspolicy::Failure::None;
+
 void applyCommonClientSetup(freeink::SecureHttpClient& http, const std::string& startUrl) {
   http.setTimeout(HTTP_TIMEOUT_MS);
-  tlspolicy::apply(http, startUrl, /*userVerify=*/false);
+  tlspolicy::Error error = tlspolicy::Error::None;
+  // On an error the client has no roots: the request is still attempted and stops at the handshake.
+  if (!tlspolicy::apply(http, startUrl, /*userVerify=*/false, &error)) g_policyError = error;
   // setUserAgent replaces SecureHttpClient's built-in UA; addHeader would
   // append a second User-Agent header, which strict servers reject (aiohttp
   // answers 400 "Duplicate 'User-Agent' header found").
@@ -43,6 +52,28 @@ int g_lastStatus = 0;
 // Whether the last answer came from another origin than the request started at.
 bool g_lastRedirected = false;
 
+// Why a GET that started at `url` got no answer. The TCP probe runs only when it can change the answer: Wi-Fi up,
+// the date known, a checked host, and the hop that failed was the starting origin.
+tlspolicy::Failure whyNoAnswer(const std::string& url, const bool sameOrigin) {
+  tlspolicy::FailureFacts facts;
+  facts.policy = g_policyError;
+  facts.sameOrigin = sameOrigin;
+  const std::string host = tlspolicy::hostOf(url);
+  facts.checked = tlspolicy::choose(url, /*userVerify=*/false, /*caFileExists=*/false) == tlspolicy::Mode::Verify;
+#ifndef SIMULATOR
+  facts.wifiUp = WiFi.status() == WL_CONNECTED;
+  if (facts.wifiUp && facts.policy == tlspolicy::Error::None && facts.checked && sameOrigin && !host.empty()) {
+    constexpr int32_t PROBE_TIMEOUT_MS = 5000;
+    WiFiClient probe;
+    facts.hostReachable = probe.connect(host.c_str(), 443, PROBE_TIMEOUT_MS) == 1;
+    probe.stop();
+  }
+#else
+  facts.wifiUp = true;
+#endif
+  return tlspolicy::classifyFailure(facts);
+}
+
 // All HTTP(S) fetches go through wolfSSL (the firmware's only TLS stack: it
 // speaks TLS 1.3 and reads large bodies reliably). Plain-http URLs still use a
 // WiFiClient here, so this is safe for non-TLS targets too. A body cut short
@@ -53,6 +84,8 @@ HttpDownloader::DownloadError runGetSecure(const std::string& url, const std::st
                                            const freeink::FetchSink& sink, const bool* cancelFlag = nullptr,
                                            size_t* bytesOut = nullptr, const bool downgradeRedirectsToHttp = false) {
   WifiPowerSaveGuard psGuard;
+  g_policyError = tlspolicy::Error::None;
+  g_lastFailure = tlspolicy::Failure::None;
   freeink::FetchOptions options;
   options.redirectToHttp = downgradeRedirectsToHttp;
   bool answeredBySameOrigin = true;
@@ -78,6 +111,10 @@ HttpDownloader::DownloadError runGetSecure(const std::string& url, const std::st
 
   if (result.aborted) return HttpDownloader::ABORTED;
   if (result.stopped) return HttpDownloader::FILE_ERROR;
+  if (result.status < 0) {
+    g_lastFailure = whyNoAnswer(url, answeredBySameOrigin);
+    LOG_ERR("HTTP", "no answer (reason %d): %s", static_cast<int>(g_lastFailure), url.c_str());
+  }
   if (result.status == 401 || result.status == 403) {
     LOG_ERR("HTTP", "wolfSSL request unauthorized: status %d: %s", result.status, url.c_str());
     return HttpDownloader::UNAUTHORIZED;
@@ -98,6 +135,8 @@ HttpDownloader::DownloadError runGetSecure(const std::string& url, const std::st
 int HttpDownloader::lastStatus() { return g_lastStatus; }
 
 bool HttpDownloader::lastAnswerRedirected() { return g_lastRedirected; }
+
+tlspolicy::Failure HttpDownloader::lastFailure() { return g_lastFailure; }
 
 bool HttpDownloader::fetchUrl(const std::string& url, Stream& outContent, const std::string& username,
                               const std::string& password, const std::vector<Header>& headers) {

@@ -88,6 +88,14 @@ Decision decide(const std::string_view url, const bool userVerify, const Clock& 
   return d;
 }
 
+Failure classifyFailure(const FailureFacts& facts) {
+  if (facts.gotResponse) return Failure::Other;
+  if (!facts.wifiUp) return Failure::NoNetwork;
+  if (facts.policy == Error::NoClock) return Failure::NoClock;
+  if (facts.policy != Error::None || !facts.checked || !facts.sameOrigin) return Failure::Other;
+  return facts.hostReachable ? Failure::Certificate : Failure::Unreachable;
+}
+
 const char* errorText(const Error error) {
   switch (error) {
     case Error::NoClock:

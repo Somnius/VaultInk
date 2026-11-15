@@ -11,6 +11,8 @@
 #include "activities/network/WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "network/HttpDownloader.h"
+#include "network/NetFailureText.h"
 #include "network/OtaUpdater.h"
 
 void OtaUpdateActivity::onWifiSelectionComplete(const bool success) {
@@ -43,6 +45,8 @@ void OtaUpdateActivity::onWifiSelectionComplete(const bool success) {
     LOG_DBG("OTA", "Update check failed: %d", res);
     {
       RenderLock lock(*this);
+      // No date, no network, or a certificate that was not accepted: each has its own line.
+      failedDetail = res == OtaUpdater::HTTP_ERROR ? netFailureText(HttpDownloader::lastFailure()) : nullptr;
       state = FAILED;
     }
     return;
@@ -264,7 +268,9 @@ void OtaUpdateActivity::runUpdateInstall() {
     LOG_DBG("OTA", "Update failed: %d", res);
     {
       RenderLock lock(*this);
-      failedDetail = res == OtaUpdater::WRONG_DEVICE_ERROR ? tr(STR_FIRMWARE_WRONG_DEVICE) : nullptr;
+      failedDetail = res == OtaUpdater::WRONG_DEVICE_ERROR ? tr(STR_FIRMWARE_WRONG_DEVICE)
+                     : res == OtaUpdater::HTTP_ERROR       ? netFailureText(HttpDownloader::lastFailure())
+                                                           : nullptr;
       state = FAILED;
     }
     requestUpdate();

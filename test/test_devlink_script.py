@@ -59,11 +59,15 @@ class FakeDevice:
         status=None,
         web=None,
         new_version=None,
+        clock=None,
     ):
         self.master, slave = pty.openpty()
         self.path = os.ttyname(slave)
         self.slave = slave  # kept open so the master never sees a hang-up between two opens
         self.framebuffer = framebuffer
+        # CMD:CLOCK: None for a build without it, "unset" for one that forgets the date, "stuck" for one that
+        # answers but still trusts its date.
+        self.clock = clock
         self.dev_build = dev_build
         self.lose_bytes = lose_bytes
         self.end_marker = end_marker
@@ -124,6 +128,13 @@ class FakeDevice:
                 self.status = dict(self.status, version=self.new_version, uptime_ms=900)
         elif line == "CMD:PING":
             reply = {"ok": True, "pong": True}
+        elif line.startswith("CMD:CLOCK") and self.clock is not None:
+            if line == "CMD:CLOCK UNSET":
+                if self.clock == "unset":
+                    self.status = dict(self.status, clock_valid=False, epoch=0)
+                reply = {"ok": True, "action": "clock unset", "clock_valid": self.clock != "unset", "epoch": 0}
+            else:
+                reply = {"ok": False, "error": "usage: CLOCK UNSET"}
         elif line.startswith("CMD:LOG "):
             reply = {"ok": True, "level": int(line.split()[1])}
         elif line.startswith(("CMD:KEY ", "CMD:TAP ", "CMD:SWIPE ")):
@@ -462,6 +473,57 @@ BENCH_FILE = """epoch,uptime_ms,battery_mv,battery_percent,usb,light_on,light_br
 0,602000,3967,77,1,0,0,128,80,150000,90000,6000000,Home,0,0,0
 0,1202000,3999,78,1,0,0,128,80,150000,90000,6000000,Home,0,0,0
 """
+
+
+class ClockUnset(unittest.TestCase):
+    """devlink.py clock-unset against the fake device."""
+
+    def setUp(self):
+        devlink.REPLY_TIMEOUT_S = 0.6
+        self.devices = []
+
+    def tearDown(self):
+        for device in self.devices:
+            device.close()
+
+    def device(self, **options):
+        device = FakeDevice(**options)
+        self.devices.append(device)
+        return device
+
+    def run_main(self, device, *words):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = devlink.main(["--port", device.path, *words])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_the_date_is_forgotten_and_status_says_so(self):
+        device = self.device(clock="unset", status=dict(STATUS, clock_valid=True, epoch=1794787200))
+        code, out, _ = self.run_main(device, "clock-unset")
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out), {"ok": True, "action": "clock unset", "clock_valid": False, "epoch": 0})
+        self.assertEqual(device.seen, ["CMD:CLOCK UNSET"])
+        code, out, _ = self.run_main(device, "status")
+        self.assertEqual(code, 0)
+        self.assertIn("clock_valid: False", out.splitlines())
+        self.assertIn("epoch: 0", out.splitlines())
+
+    def test_a_build_without_the_command_is_an_error(self):
+        device = self.device()  # the read-only link and the release answer "unknown"
+        code, out, err = self.run_main(device, "clock-unset")
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertIn("CLOCK UNSET refused: unknown", err)
+
+    def test_a_date_that_is_still_trusted_is_an_error(self):
+        device = self.device(clock="stuck")
+        code, _, err = self.run_main(device, "clock-unset")
+        self.assertEqual(code, 2)
+        self.assertIn("still trusted", err)
+
+    def test_the_command_text(self):
+        self.assertEqual(devlink.CLOCK_UNSET_COMMAND, "CLOCK UNSET")
+        self.assertLessEqual(len(f"CMD:{devlink.CLOCK_UNSET_COMMAND}".encode()), devlink.MAX_COMMAND_BYTES)
 
 
 class CommandTexts(unittest.TestCase):

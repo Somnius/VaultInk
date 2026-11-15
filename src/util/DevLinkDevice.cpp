@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <string>
 
 #include "CrossPointSettings.h"
@@ -154,6 +155,8 @@ void replyStatus(const unsigned long msSinceInput, const uint32_t droppedLines) 
       .addUnsigned("orientation", static_cast<unsigned>(renderer.getOrientation()))
       .addUnsigned("screen_w", static_cast<unsigned>(std::max(renderer.getScreenWidth(), 0)))
       .addUnsigned("screen_h", static_cast<unsigned>(std::max(renderer.getScreenHeight(), 0)));
+  // clock_valid is the firmware's own rule (trustedtime::trustedNow() is not 0), the one a checked connection uses.
+  devlink::addClockFields(json, trustedtime::trustedNow(), static_cast<int64_t>(time(nullptr)));
 #endif
   reply(json);
 }
@@ -997,6 +1000,21 @@ bool sendAll(const uint8_t* data, const size_t length) {
   return true;
 }
 
+// CMD:CLOCK UNSET: the date becomes unknown, as after a cold boot of a reader that never had one. A checked
+// connection then has to sync first (TlsPolicy). A restart brings the last known date back from NVS.
+void replyClock(const devlink::Parsed& parsed) {
+  if (devlink::parseClockArgs(parsed.args, parsed.argsLength) != devlink::ClockAction::Unset) {
+    replyError("usage: CLOCK UNSET");
+    return;
+  }
+  trustedtime::unsetForDev();
+  LOG_INF("DEVLINK", "Clock unset: the date is unknown until the next sync or restart");
+  devlink::JsonLine json;
+  json.addBool("ok", true).addString("action", "clock unset");
+  devlink::addClockFields(json, trustedtime::trustedNow(), static_cast<int64_t>(time(nullptr)));
+  reply(json);
+}
+
 void replyShotCrc() {
   const uint8_t* frame = renderer.getFrameBuffer();
   const size_t size = renderer.getBufferSize();
@@ -1082,6 +1100,9 @@ void handle(const devlink::Parsed& parsed, const unsigned long msSinceInput, con
       return;
     case devlink::Command::ShotCrc:
       replyShotCrc();
+      return;
+    case devlink::Command::Clock:
+      replyClock(parsed);
       return;
 #endif
     case devlink::Command::Reboot: {

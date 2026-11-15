@@ -50,4 +50,11 @@ bool syncNow(uint32_t timeoutMs);
 // an expiry. Callers enforcing a date fail closed on 0.
 int64_t trustedNow();
 
+#ifdef VAULTINK_DEVLINK_FULL
+// The developer's own builds only (CMD:CLOCK UNSET, docs/devlink.md): sets the system clock to epoch 0 and
+// forgets the floor this boot has seen, so trustedNow() reads 0 until the next sync. The floor kept in NVS is
+// left alone: a restart brings the last known date back.
+void unsetForDev();
+#endif
+
 }  // namespace trustedtime

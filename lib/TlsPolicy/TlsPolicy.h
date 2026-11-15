@@ -86,4 +86,27 @@ Decision decide(std::string_view url, bool userVerify, const Clock& clock, const
 // One plain sentence for the log or the screen.
 const char* errorText(Error error);
 
+// Why a request got no answer, for the screens that show it (update check, firmware and font downloads).
+enum class Failure : uint8_t {
+  None,
+  NoNetwork,    // Wi-Fi is not connected
+  NoClock,      // Error::NoClock: the request was not sent
+  Unreachable,  // a checked host that did not take a TCP connection
+  Certificate,  // a checked host that takes a TCP connection, but the checked handshake failed
+  Other,        // anything else: an HTTP status, a redirect target that failed, a host that is not checked
+};
+
+struct FailureFacts {
+  Error policy = Error::None;  // what decide() said before the request
+  bool wifiUp = false;
+  bool checked = false;        // the starting URL is one whose certificate is checked
+  bool gotResponse = false;    // an HTTP status line arrived
+  bool sameOrigin = true;      // the hop that failed was the starting origin (not a redirect target)
+  bool hostReachable = false;  // a plain TCP connection to the starting host and port worked after the failure
+};
+
+// Certificate is said only when everything else is ruled out: the SDK's TLS client reports no handshake code
+// (it only prints it), so "TCP works, the checked handshake does not" is as close as this can get.
+Failure classifyFailure(const FailureFacts& facts);
+
 }  // namespace tlspolicy

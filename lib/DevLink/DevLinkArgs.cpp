@@ -304,6 +304,14 @@ uint32_t crc32(const uint8_t* data, const size_t length, const uint32_t crc) {
   return ~value;
 }
 
+ClockAction parseClockArgs(const char* args, const size_t length) {
+  return args && length == 5 && memcmp(args, "UNSET", 5) == 0 ? ClockAction::Unset : ClockAction::Unknown;
+}
+
+void addClockFields(JsonLine& json, const int64_t trustedNow, const int64_t systemEpoch) {
+  json.addBool("clock_valid", trustedNow > 0).addInt("epoch", systemEpoch);
+}
+
 }  // namespace devlink
 
 #endif  // VAULTINK_DEVLINK_FULL
