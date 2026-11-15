@@ -3481,7 +3481,7 @@ void EpubReaderActivity::drawSearchBar() const {
   const SearchBar bar = searchBarLayout();
   const int width = renderer.getScreenWidth();
   renderer.fillRect(0, bar.top, width, bar.height, false);
-  renderer.drawLine(0, bar.top, width, bar.top, 2, true);
+  renderer.drawLine(0, bar.top, width - 1, bar.top, 2, true);
 
   char label[64];
   snprintf(label, sizeof(label), "%d / %d  %s", search.current + 1, static_cast<int>(search.hits.size()),
