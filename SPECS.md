@@ -248,7 +248,9 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
   caps the justify extra at half a space, else the line stays ragged). `src/util/ZipExtract`
   (`safeEntryPath`), `src/util/WhatsNew` (`APP_STATE.lastVersionRun`; CHANGELOG.md embedded as
   `src/util/ChangelogData.generated.h`), `src/activities/home/GalleryActivity` (thumbs as pixel
-  caches `/.crosspoint/thumbs/<hash>_<size>_<w>x<h>.pxc`; after 0.74.0 render() draws the cached
+  caches `/.crosspoint/thumbs/<hash>_<size>_<w>x<h>_bw.pxc`, two levels only: `RenderConfig::oneBit`,
+  `applyBayerDither1Bit` in DitherUtils.h, because the grid is one black-and-white pass where every
+  level below white is drawn black; the older caches without `_bw` are not read and not removed; after 0.74.0 render() draws the cached
   thumbs and frames, shows the page, then decodes the missing ones with a refresh every 2 s at most;
   `PngToFramebufferConverter` falls back to `PngSlowDecoder` (Adam7 and 16-bit, a gray canvas of the
   output size in PSRAM or heap; the two scanlines in PSRAM up to 64 KB each, on the heap up to 16 KB each; a failed thumbnail is kept in `src/util/FailedKeys.h` until the next scan and not decoded again) when PNGdec's open() returns 5), `src/util/FileOps` (copy, shared).

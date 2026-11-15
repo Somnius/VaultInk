@@ -173,6 +173,9 @@ bool GalleryActivity::drawThumb(const std::string& path, const int x, const int 
     config.y = y + (h - config.maxHeight) / 2;
     config.useExactDimensions = true;
     config.useGrayscale = false;  // the grid is one black-and-white pass
+    // In that pass every gray level but white is drawn black, so the usual 4-level dither showed
+    // a picture darker than gray 157 as a black box: two levels over the whole range instead.
+    config.oneBit = true;
     // Keyed by path, size and box: a replaced picture (or a hash clash) gets its own thumbnail.
     HalFile probe;
     size_t bytes = 0;
@@ -182,7 +185,7 @@ bool GalleryActivity::drawThumb(const std::string& path, const int x, const int 
     }
     config.cachePath = std::string(THUMBS) + "/" + std::to_string(std::hash<std::string>{}(path)) + "_" +
                        std::to_string(bytes) + "_" + std::to_string(config.maxWidth) + "x" +
-                       std::to_string(config.maxHeight) + ".pxc";
+                       std::to_string(config.maxHeight) + "_bw.pxc";  // _bw: not a 4-level cache from before
     if (renderImagePixelCache(renderer, config.cachePath, config.x, config.y, config.maxWidth, config.maxHeight)) {
       return true;
     }
@@ -234,7 +237,7 @@ void GalleryActivity::render(RenderLock&&) {
     snprintf(pages, sizeof(pages), "%d/%d", page + 1, pageCount());
     renderer.drawText(SMALL_FONT_ID, refreshX() - 12 - renderer.getTextWidth(SMALL_FONT_ID, pages), 20, pages);
   }
-  renderer.drawLine(0, HEADER - 6, width, HEADER - 6);
+  renderer.drawLine(0, HEADER - 6, width - 1, HEADER - 6);  // inclusive ends: x = width is off the screen
   if (pictures.empty()) {
     const bool noneChosen = SETTINGS.galleryFilter == FILTER_CHOSEN && root == "/" && readChosen().empty();
     renderer.drawCenteredText(UI_10_FONT_ID, renderer.getScreenHeight() / 2,

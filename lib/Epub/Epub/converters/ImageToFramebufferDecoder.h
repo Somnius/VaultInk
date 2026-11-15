@@ -17,6 +17,7 @@ struct RenderConfig {
   int maxWidth, maxHeight;
   bool useGrayscale = true;
   bool useDithering = true;
+  bool oneBit = false;  // Black and white only (applyBayerDither1Bit): for a screen with no gray passes
   bool performanceMode = false;
   bool useExactDimensions = false;  // If true, use maxWidth/maxHeight as exact output size (no recalculation)
   float sourceCropX = 0.0f;         // Fraction cropped equally from the left and right edges

@@ -144,6 +144,7 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
   if (stride <= 0 || blockH <= 0 || validW <= 0) return 1;
 
   const bool useDithering = ctx->config->useDithering;
+  const bool oneBit = ctx->config->oneBit;
   bool caching = ctx->caching;
   const int32_t fineScaleFPX = ctx->fineScaleFPX;
   const int32_t invScaleFPX = ctx->invScaleFPX;
@@ -211,7 +212,9 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
         const int outX = cfgX + dstX;
         uint8_t gray = row[dstX - blockX];
         uint8_t dithered;
-        if (useDithering) {
+        if (oneBit) {
+          dithered = applyBayerDither1Bit(gray, outX, outY);
+        } else if (useDithering) {
           dithered = applyBayerDither4Level(gray, outX, outY);
         } else {
           dithered = gray / 85;
@@ -270,7 +273,9 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
         uint8_t gray = (uint8_t)((top * fyInv + bot * fy) >> FP_SHIFT);
 
         uint8_t dithered;
-        if (useDithering) {
+        if (oneBit) {
+          dithered = applyBayerDither1Bit(gray, outX, outY);
+        } else if (useDithering) {
           dithered = applyBayerDither4Level(gray, outX, outY);
         } else {
           dithered = gray / 85;
@@ -293,7 +298,9 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
         uint8_t gray = (uint8_t)((top * fyInv + bot * fy) >> FP_SHIFT);
 
         uint8_t dithered;
-        if (useDithering) {
+        if (oneBit) {
+          dithered = applyBayerDither1Bit(gray, outX, outY);
+        } else if (useDithering) {
           dithered = applyBayerDither4Level(gray, outX, outY);
         } else {
           dithered = gray / 85;
@@ -319,7 +326,9 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
         uint8_t gray = (uint8_t)((top * fyInv + bot * fy) >> FP_SHIFT);
 
         uint8_t dithered;
-        if (useDithering) {
+        if (oneBit) {
+          dithered = applyBayerDither1Bit(gray, outX, outY);
+        } else if (useDithering) {
           dithered = applyBayerDither4Level(gray, outX, outY);
         } else {
           dithered = gray / 85;
@@ -352,7 +361,9 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
       uint8_t gray = row[lx];
 
       uint8_t dithered;
-      if (useDithering) {
+      if (oneBit) {
+        dithered = applyBayerDither1Bit(gray, outX, outY);
+      } else if (useDithering) {
         dithered = applyBayerDither4Level(gray, outX, outY);
       } else {
         dithered = gray / 85;
