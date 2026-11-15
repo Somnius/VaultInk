@@ -42,6 +42,8 @@ constexpr Field kFields[] = {
     {"tleft", &Layout::typoMinLeft, 0},
     {"tright", &Layout::typoMinRight, 0},
     {"tlang", &Layout::typoHyphenLang, 0},
+    {"tpunct", &Layout::typoPunctSpace, 0},
+    {"toptical", &Layout::typoOptical, 0},
 };
 
 bool isSpace(const char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }

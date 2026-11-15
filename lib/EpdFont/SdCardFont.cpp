@@ -1639,6 +1639,19 @@ uint16_t SdCardFont::getAdvance(uint32_t codepoint, uint8_t style) const {
   return 0;
 }
 
+bool SdCardFont::getSideBearings(const uint32_t codepoint, uint8_t style, int& left, int& right) const {
+  style &= (MAX_STYLES - 1);
+  const AdvanceEntry* table = advanceTable_[style];
+  if (!table) return false;
+  const AdvanceEntry* end = table + advanceTableSize_[style];
+  const AdvanceEntry* found = std::lower_bound(
+      table, end, codepoint, [](const AdvanceEntry& entry, const uint32_t cp) { return entry.codepoint < cp; });
+  if (found == end || found->codepoint != codepoint || found->leftBearing == INT8_MIN) return false;
+  left = found->leftBearing;
+  right = found->rightBearing;
+  return true;
+}
+
 // Given a sorted array of unique codepoints, resolve glyph indices per style,
 // batch-read advanceX from SD, and merge into the persistent advance table.
 // Caller owns the codepoints buffer.
@@ -1730,6 +1743,15 @@ int SdCardFont::fetchAdvancesForCodepoints(uint32_t* codepoints, uint32_t cpCoun
       lastReadIndex = gIdx;
       staged[fetched].codepoint = mappings[i].codepoint;
       staged[fetched].advanceX = glyphEntryValid(s, tempGlyph, mappings[i].codepoint) ? tempGlyph.advanceX : 0;
+      // INT8_MIN in leftBearing marks a glyph with no ink box (a space, an invalid entry): no bearings to use.
+      staged[fetched].leftBearing = INT8_MIN;
+      staged[fetched].rightBearing = 0;
+      if (staged[fetched].advanceX != 0 && tempGlyph.width > 0) {
+        const int left = tempGlyph.left;
+        const int right = fp4::toPixel(tempGlyph.advanceX) - left - tempGlyph.width;
+        staged[fetched].leftBearing = static_cast<int8_t>(std::clamp(left, -127, 127));
+        staged[fetched].rightBearing = static_cast<int8_t>(std::clamp(right, -127, 127));
+      }
       fetched++;
     }
     file.close();

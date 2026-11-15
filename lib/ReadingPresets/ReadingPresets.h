@@ -43,6 +43,8 @@ struct Layout {
   uint8_t typoMinLeft = 0;
   uint8_t typoMinRight = 0;
   uint8_t typoHyphenLang = 0;
+  uint8_t typoPunctSpace = 0;
+  uint8_t typoOptical = 0;
 
   bool operator==(const Layout& other) const;
   bool operator!=(const Layout& other) const { return !(*this == other); }

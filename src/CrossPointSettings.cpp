@@ -440,6 +440,8 @@ ReaderRenderSpec CrossPointSettings::readerRenderSpec(const uint16_t viewportWid
   typo.minLeft = typoMinLeft;
   typo.minRight = typoMinRight;
   typo.language = typoHyphenLang;
+  typo.punctSpace = typoPunctSpace;
+  typo.opticalSpacing = typoOptical != 0;
   spec.typographyEngine = typoengine::pack(typo);
   return spec;
 }

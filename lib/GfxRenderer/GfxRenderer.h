@@ -366,6 +366,10 @@ class GfxRenderer {
   /// Using a single snap avoids the +/-1 px rounding error that arises when space advance and kern are
   /// snapped separately and then added as integers.
   int getSpaceAdvance(int fontId, uint32_t leftCp, uint32_t rightCp, EpdFontFamily::Style style) const;
+  /// The side bearings of a glyph in pixels: the empty room left of its ink box and right of it, up to its
+  /// advance (negative when the ink overhangs). False when the glyph has no ink box or its metrics are not in
+  /// memory (an SD card font's glyph outside the advance table): the card is never read for this.
+  bool getGlyphSideBearings(int fontId, uint32_t cp, EpdFontFamily::Style style, int& left, int& right) const;
   /// Returns kerning plus optional tracking between two adjacent codepoints.
   int getKerning(int fontId, uint32_t leftCp, uint32_t rightCp, EpdFontFamily::Style style, int8_t tracking = 0) const;
   int getTextAdvanceX(int fontId, const char* text, EpdFontFamily::Style style, int8_t tracking = 0,

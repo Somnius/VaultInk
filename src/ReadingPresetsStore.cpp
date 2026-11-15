@@ -73,6 +73,8 @@ readingpresets::Layout ReadingPresetsStore::capture() {
   l.typoMinLeft = SETTINGS.typoMinLeft;
   l.typoMinRight = SETTINGS.typoMinRight;
   l.typoHyphenLang = SETTINGS.typoHyphenLang;
+  l.typoPunctSpace = SETTINGS.typoPunctSpace;
+  l.typoOptical = SETTINGS.typoOptical;
   return l;
 }
 
@@ -130,6 +132,8 @@ bool ReadingPresetsStore::apply(const int index, bool* gesturesSet) {
   typo.minLeft = l.typoMinLeft;
   typo.minRight = l.typoMinRight;
   typo.language = l.typoHyphenLang;
+  typo.punctSpace = l.typoPunctSpace;
+  typo.opticalSpacing = l.typoOptical != 0;
   typo = typoengine::sanitized(typo);  // a hand-edited file cannot ask for a value outside the choices
   SETTINGS.typoCondense = typo.condensePercent;
   SETTINGS.typoLetterSpacing = typo.letterSpacing;
@@ -138,6 +142,8 @@ bool ReadingPresetsStore::apply(const int index, bool* gesturesSet) {
   SETTINGS.typoMinLeft = typo.minLeft;
   SETTINGS.typoMinRight = typo.minRight;
   SETTINGS.typoHyphenLang = typo.language;
+  SETTINGS.typoPunctSpace = typo.punctSpace;
+  SETTINGS.typoOptical = typo.opticalSpacing ? 1 : 0;
   if (list.slots[index].hasGestures) {
     // An action this firmware does not know (a file from a newer one) becomes Default, as on load.
     const readingpresets::Gestures& g = list.slots[index].gestures;
