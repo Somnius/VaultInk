@@ -238,6 +238,7 @@ bool CanvasActivity::drawImage(const canvas::Node& node, const std::string& imag
     }
     config.useExactDimensions = true;
     config.useGrayscale = false;  // the canvas is drawn in one black-and-white pass
+    config.oneBit = true;         // two dither levels over the whole range: a dark picture is not a black box
     return decoder.decodeToFramebuffer(imagePath, renderer, config);
   };
   // Only the decoder this picture needs is built.
