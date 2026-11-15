@@ -2,6 +2,24 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.76.1 (2026-11-15)
+
+A fix for PDFs that crashed the reader, and a book menu that shows only what the book's format supports. I found the crash with PDFs of my own: opening two big ones gave "System Crash".
+
+Checked on a real X4 Pro:
+
+- **Big PDFs open again.** Three PDFs of my own (24, 58 and 74 MB; the 58 MB one has 2472 pages) were converted from scratch and opened; two of them crashed before. The crash dump decodes to the PDF text extractor: it calls itself once per form inside a form and each call took 8.4 KB of stack, so by my estimate a page with three nested forms needs about 32 KB on a 24 KB task stack. A calculation, not something I could measure before the fix. After it, on the first run, the least free stack was 10,272 bytes (about 14 KB used). The extractor also uses far less memory: its tables are sorted lists instead of hash maps, the object cache is capped at 48 KB, and the free internal memory never fell below 99 KB in my three runs (it fell to between 112 and 140 bytes before). A conversion took 1.5 to 6 minutes. During one, small allocations (64 bytes and up) are placed in PSRAM; that is a global setting while a PDF converts, and it is switched back after.
+- **A guard against running out of memory:** if free memory gets low, the extractor drops what it can reload, and if that is not enough it stops with a message and removes the half-written text. It never fired in my three runs; the test is on a computer.
+- **The book menu shows only what the format supports** (kos25k #30). A book with one chapter (every PDF, TXT, MD note, MOBI, FB2, HTML, RTF, DOC and CHM, and an EPUB with one entry) has no Contents tile: the menu has Text and More. Seen on the reader with a PDF and a one-chapter EPUB. On a computer only: Embedded Style is hidden for TXT, notes and DOC, and "Book's style" is not offered for TXT, notes, DOC and PDF text, where the page is laid out as Justify. Settings > Reader still lists everything, and Book menu options still lists every row. The table of what each format shows is in docs/reading-and-files.md.
+
+Tested on a computer only:
+
+- The update check, the firmware download and the font list now say why they failed: the date is not set, the certificate was not accepted, there is no Wi-Fi, or the server cannot be reached. Where the certificate check is on (my developer build; it is still off in release builds) they never fall back to an unchecked connection, and a failed download leaves the old firmware in place.
+- The developer link has `CLOCK UNSET` (full developer builds only, never in a release) to test that.
+- The 34 languages other than English and Greek now have the texts added since 0.75.0 (Typography Engine, Transfer & Remotes and the others). They are machine-written and not checked by a native speaker; corrections are welcome (docs/translating.md).
+
+Known: the GitHub certificate check is still off in release builds, and the backup and restore page is not published. A PDF this size needs a few minutes to convert the first time.
+
 ## 0.76.0 (2026-11-15)
 
 The Typography Engine you asked for in #30, a Settings fix and two Gallery fixes. Each item says whether I checked it on my X4 Pro.

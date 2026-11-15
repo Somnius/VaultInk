@@ -40,7 +40,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (my code is MIT; the firmware binaries are GPL-3.0-or-later, see [License](#license)). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Still early.** VaultInk is at 0.76.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
+> **Still early.** VaultInk is at 0.76.1. Releases from 0.8.2 on have been tested on a real X4 Pro by one
 > tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Much of the
 > newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
 > the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
@@ -90,6 +90,20 @@ Page background contrast with a preview, Random page!, the Library's format filt
 MOBI and AZW books, the status bar options with the book page number, and Advanced Typography.
 
 More screenshots are in the sections below and in [docs/](docs/).
+
+## New in 0.76.1: PDFs that open, and a menu for the format
+
+Two big PDFs of mine crashed the reader on open ("System Crash"). The crash dump pointed at the PDF text extractor: it ran out of stack on forms inside forms. It now uses about 14 KB of its 24 KB (measured on one run), and far less memory. I converted three PDFs of 24, 58 and 74 MB (the 58 MB one has 2472 pages) from scratch on my X4 Pro and all three opened; the first conversion takes 1.5 to 6 minutes. If memory ever runs low the extractor now stops with a message and removes the half-written text (tested on a computer only).
+
+<p>
+  <img src="docs/images/vaultink/book-menu-one-chapter-0.76.1.png" width="190" alt="The book menu of a one-chapter book: only Text and More, no Contents">
+</p>
+
+kos25k also asked (#30) that the reader show only the options a book's format supports. A book with one chapter (every PDF, TXT, note, MOBI, FB2, HTML, RTF, DOC and CHM, and an EPUB with one entry) has no Contents tile now: the menu is Text and More. I saw that on the reader with a PDF and a one-chapter EPUB. Embedded Style is hidden for TXT, notes and DOC, and "Book's style" is not offered for TXT, notes, DOC and PDF text (computer tests only). Settings > Reader and Book menu options still list everything. Which format shows what: [docs/reading-and-files.md](docs/reading-and-files.md#options-by-book-format).
+
+Also: the update check, the firmware download and the font list say why they failed (no date, certificate not accepted, no Wi-Fi, server unreachable), computer tests only. The 34 other languages have the newer texts, machine-written and not yet checked by a native speaker (corrections welcome).
+
+Known: the GitHub certificate check is still off in release builds, and the backup and restore page is not published yet.
 
 ## New in 0.76.0: the Typography Engine, and two fixes
 

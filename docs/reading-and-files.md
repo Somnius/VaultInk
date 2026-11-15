@@ -218,7 +218,7 @@ In the file each such preset has a `"gestures"` block with two lists, `slots` (n
 
 ## Options by book format
 
-Not released yet; computer tests only, not seen on a reader or in the simulator. The book menu shows only what the open book's format can use (asked for by kos25k). An option that would change nothing in that kind of book is left out.
+0.76.1. Contents being left out was seen on a real X4 Pro with a PDF and a one-chapter EPUB; the rest (Embedded Style, Book's style) is computer tests only. The book menu shows only what the open book's format can use (asked for by kos25k). An option that would change nothing in that kind of book is left out.
 
 | Format | Contents (chapter list) | Embedded Style row | Alignment: Book's Style | Hidden chapters, Book map |
 | --- | --- | --- | --- | --- |

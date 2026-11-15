@@ -1,0 +1,9 @@
+A fix for PDFs that crashed the reader, and a book menu that shows only what the format supports.
+
+Checked on my X4 Pro:
+- Three big PDFs from my own library (24, 58 and 74 MB; one of them has 2472 pages) opened. Two of them crashed the reader before with "System Crash". The text extractor ran out of stack on nested forms. It now uses about 14 KB of the 24 KB, and much less memory overall (free internal memory never went below 99 KB, it was 112 bytes before). Conversions took 1.5 to 6 minutes.
+- A book with one chapter (every PDF, TXT, MOBI, FB2, HTML, RTF, DOC, CHM and note, and an EPUB with one entry) no longer shows a Contents tile in the book menu (kos25k #30).
+
+Tests on a computer only: Embedded Style is hidden where it does nothing (TXT, notes, DOC), and "Book's style" is not offered for those and for PDF. The update and font screens say why a download failed (no date, certificate not accepted, no Wi-Fi, server unreachable). New texts for the 34 other languages, machine-written and not checked by a native speaker; corrections welcome.
+
+Known: the GitHub certificate check is still off in release builds, and the backup page is not published.

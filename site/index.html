@@ -708,8 +708,26 @@
 
   <section id="release">
     <div class="wrap">
-      <p class="eyebrow sans">New in 0.76.0</p>
-      <h2>The Typography Engine</h2>
+      <p class="eyebrow sans">New in 0.76.1</p>
+      <h2>PDFs that open, and a menu for the format</h2>
+      <p class="lead">Two big PDFs of mine crashed the reader on open (&ldquo;System Crash&rdquo;). The crash dump pointed at the PDF text extractor, which ran out of stack on forms inside forms. It now uses about 14 KB of its 24 KB (measured on one run) and far less memory. I converted three PDFs of 24, 58 and 74 MB from scratch on my X4 Pro and all three opened; the first conversion takes 1.5 to 6 minutes.</p>
+
+      <div class="features">
+        <figure class="feature">
+          <a href="shot-menu-one-chapter.png" class="shot"><img src="shot-menu-one-chapter.png" width="480" height="800" loading="lazy" alt="The book menu of a one-chapter book: only Text and More"></a>
+          <figcaption>
+            <h3>Only what the format supports</h3>
+            <p>kos25k asked for it (#30). A book with one chapter (every PDF, TXT, note, MOBI, FB2, HTML, RTF, DOC and CHM, and an EPUB with one entry) has no Contents tile now; I saw that on the reader with a PDF and a one-chapter EPUB. Embedded Style and &ldquo;Book&rsquo;s style&rdquo; are hidden where they do nothing (computer tests only). Settings and Book menu options still list everything.</p>
+          </figcaption>
+        </figure>
+      </div>
+
+      <ul class="list">
+        <li>If memory ever runs low, the extractor stops with a message and removes the half-written text (tested on a computer only). The update check, the firmware download and the font list say why they failed (computer tests only). The 34 other languages have the newer texts, machine-written and not yet checked by a native speaker.</li>
+        <li>Known: the GitHub certificate check is still off in release builds, and the backup and restore page is not published.</li>
+      </ul>
+
+      <h3 style="margin-top:2.4rem">From 0.76.0: the Typography Engine</h3>
       <p class="lead">kos25k asked for typography like KOReader&rsquo;s. I wrote it from the published ideas, with no KOReader code. It is one group of settings, off by default, so a book looks the same until you turn something on: <strong>Settings &gt; Reader &gt; Typography Engine</strong>, and the last row of a book&rsquo;s Text menu. I tried every setting on my X4 Pro, on an English page, a Greek page and a dialogue page. These screenshots come from the reader itself, except the Gallery one.</p>
 
       <div class="features">
