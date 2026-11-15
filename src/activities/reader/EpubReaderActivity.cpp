@@ -3814,11 +3814,13 @@ void EpubReaderActivity::showTextRowPopup(const int row) {
     case 14: {
       // The rows of Settings > Reader > Typography Engine with their values. Picking a switch flips it; picking
       // one of the others opens the list of its choices, as in Settings. Either way the book is laid out again.
+      // A name with its value is wider than the popup (seen on the X4 Pro: "Hyphenation mode: Patt…"), so a row
+      // wraps to as many as three lines and both are always whole.
       std::vector<std::string> options;
       for (int i = 0; i < typooptions::COUNT; ++i) {
         options.push_back(std::string(I18N.get(typooptions::NAMES[i])) + ": " + typooptions::valueText(i));
       }
-      overlayPopup.show(StrId::STR_TYPOGRAPHY_ENGINE, options, 0, [this](int idx) {
+      overlayPopup.showWrapped(StrId::STR_TYPOGRAPHY_ENGINE, options, 3, 0, [this](int idx) {
         if (idx < 0 || idx >= typooptions::COUNT) return;
         if (typooptions::isSwitch(idx)) {
           typooptions::step(idx);

@@ -1413,6 +1413,8 @@ void CrossPointWebServer::handleGetSettings() const {
         doc["type"] = "toggle";
         if (s.valuePtr) {
           doc["value"] = static_cast<int>(SETTINGS.*(s.valuePtr));
+        } else if (s.valueGetter) {
+          doc["value"] = static_cast<int>(s.valueGetter());
         }
         break;
       }
@@ -1518,6 +1520,8 @@ void CrossPointWebServer::handlePostSettings() {
         const int val = doc[s.key].as<int>() ? 1 : 0;
         if (s.valuePtr) {
           SETTINGS.*(s.valuePtr) = val;
+        } else if (s.valueSetter) {
+          s.valueSetter(static_cast<uint8_t>(val));
         }
         applied++;
         break;

@@ -104,15 +104,17 @@ constexpr bool hyphenationOn(const uint8_t hyphenationSwitch, const uint8_t hyph
   return hyphenationSwitch != 0 && hyphenMode != HYPHEN_OFF;
 }
 
-// What a press on the Hyphenation checkbox does. On goes off by the switch. Off goes on, and a mode of Off goes back
-// to Patterns, or the press would change nothing the reader can see.
+// Sets hyphenation on or off, for everything that shows it as one switch (the Text settings, the book's Text panel,
+// the web settings page). Off clears the switch only and keeps the mode. On sets the switch, and a mode of Off goes
+// back to Patterns, or hyphenationOn() would still say off.
+constexpr void setHyphenation(uint8_t& hyphenationSwitch, uint8_t& hyphenMode, const bool on) {
+  hyphenationSwitch = on ? 1 : 0;
+  if (on && hyphenMode == HYPHEN_OFF) hyphenMode = HYPHEN_PATTERNS;
+}
+
+// What a press on the Hyphenation checkbox does: the opposite of what hyphenationOn() says now.
 constexpr void toggleHyphenation(uint8_t& hyphenationSwitch, uint8_t& hyphenMode) {
-  if (hyphenationOn(hyphenationSwitch, hyphenMode)) {
-    hyphenationSwitch = 0;
-    return;
-  }
-  hyphenationSwitch = 1;
-  if (hyphenMode == HYPHEN_OFF) hyphenMode = HYPHEN_PATTERNS;
+  setHyphenation(hyphenationSwitch, hyphenMode, !hyphenationOn(hyphenationSwitch, hyphenMode));
 }
 
 inline std::atomic<uint32_t>& storage() {
