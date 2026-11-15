@@ -509,6 +509,10 @@
         originalValues[key] = changes[key];
       }
 
+      // Some settings change another one on the reader (turning Hyphenation on puts the Hyphenation mode back to
+      // Patterns): read them all again, so the page shows what the reader now has.
+      await loadSettings();
+
       showWebToast('Settings saved successfully!', false);
     } catch (e) {
       console.error(e);
