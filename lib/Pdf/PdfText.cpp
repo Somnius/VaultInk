@@ -445,8 +445,17 @@ class Doc {
       ok = loadFromObjStm(it->second.stream, it->second.index, num, out, depth);
     }
     if (ok && out.type != Obj::Stream) {
-      if (cache.size() > 600) cache.clear();
-      cache[num] = out;
+      // The cache is bounded by what it holds, not only by how many objects: one object can be an array of
+      // thousands (a font's widths, a page's annotations), and 600 of those were megabytes.
+      const size_t weight = weigh(out);
+      if (weight <= limits.maxCacheNodes / 4) {
+        if (cache.size() > 600 || cacheWeight + weight > limits.maxCacheNodes) {
+          cache.clear();
+          cacheWeight = 0;
+        }
+        cache[num] = out;
+        cacheWeight += weight;
+      }
     }
     return ok;
   }
@@ -637,6 +646,7 @@ class Doc {
     aes = useAes;
     encrypted = true;
     cache.clear();  // objects read before the key was known
+    cacheWeight = 0;
     return true;
   }
 
@@ -701,6 +711,7 @@ class Doc {
     aes256 = true;
     encrypted = true;
     cache.clear();
+    cacheWeight = 0;
     return true;
   }
 
@@ -748,6 +759,14 @@ class Doc {
   uint32_t rootNum() const { return root; }
 
  private:
+  // How much of the cache an object takes: itself and everything inside it, a long string as more than one.
+  static size_t weigh(const Obj& o) {
+    size_t n = 1 + o.s.size() / 64;
+    for (const Obj& item : o.a) n += weigh(item);
+    for (const auto& entry : o.d) n += weigh(entry.second);
+    return n;
+  }
+
   bool readRange(uint64_t offset, size_t len, std::string& out) {
     if (offset > src.size || len > src.size - offset) return false;
     out.resize(len);
@@ -1080,6 +1099,7 @@ class Doc {
   const Limits& limits;
   std::unordered_map<uint32_t, XEntry> xref;
   std::unordered_map<uint32_t, Obj> cache;
+  size_t cacheWeight = 0;  // weigh() of everything in `cache`
   uint32_t root = 0;
   Obj firstTrailer;
   bool encrypted = false;
@@ -1116,6 +1136,10 @@ struct Font {
     }
     const int k = static_cast<int>(code) - firstChar;
     return k >= 0 && static_cast<size_t>(k) < widths.size() ? widths[static_cast<size_t>(k)] : defaultWidth;
+  }
+  // Roughly the memory this font holds (Limits::maxFontBytes): the tables' entries with their nodes.
+  size_t bytes() const {
+    return sizeof(Font) + toUnicode.size() * 56 + cidWidths.size() * 32 + widths.size() * sizeof(double);
   }
 };
 
@@ -1199,6 +1223,11 @@ uint32_t glyphNameToUnicode(const std::string& n) {
   if (it != names.end()) return it->second;
   return 0;
 }
+
+// Keeps a function out of its caller's stack frame. Interpreter::run() calls itself for every form XObject inside a
+// form, on a 24 KB task stack: with the font loader inlined its frame was 8.4 KB on the ESP32-S3, and a page drawn as
+// a form in a form overflowed the stack into the heap (a PANIC reset while opening the book).
+#define STACK_NOINLINE __attribute__((noinline))
 
 void parseToUnicode(const std::string& cmap, Font& font) {
   Lexer lx(cmap);
@@ -1341,8 +1370,9 @@ void loadFontStyle(Doc& doc, const Obj& fontDict, Font& font) {
   }
 }
 
-Font loadFont(Doc& doc, const Obj& fontDict) {
-  Font font;
+// Fills `font` in place: a Font is 6 KB (the 256 strings of a simple font), which must never sit on the stack of the
+// content-stream interpreter (see STACK_NOINLINE).
+void loadFont(Doc& doc, const Obj& fontDict, Font& font) {
   loadFontStyle(doc, fontDict, font);
   const Obj subtype = doc.resolveKey(fontDict, "Subtype");
   if (subtype.s == "Type0") font.twoByte = true;
@@ -1357,7 +1387,7 @@ Font loadFont(Doc& doc, const Obj& fontDict) {
       (enc.s.find("-UCS2-") != std::string::npos || enc.s.find("-UTF16-") != std::string::npos)) {
     font.utf16Codes = true;  // the predefined Unicode CMaps map UTF-16 code units to CIDs
   }
-  if (font.twoByte || font.hasToUnicode) return font;
+  if (font.twoByte || font.hasToUnicode) return;
   // A simple font by its encoding.
   for (int c = 0; c < 256; ++c) {
     if (c < 32 && c != '\t') continue;  // control codes show nothing unless a Differences entry says so
@@ -1386,7 +1416,6 @@ Font loadFont(Doc& doc, const Obj& fontDict) {
     }
   }
   font.simpleReady = true;
-  return font;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1461,7 +1490,9 @@ struct PageText {
   size_t maxBytes = 0;
   size_t keptGlyphs = 0;     // glyphs shown (the share that droppedGlyphs is weighed against)
   size_t droppedGlyphs = 0;  // two-byte codes with no way to text (a CID font without a ToUnicode map)
-  bool full() const { return bytes >= maxBytes; }
+  // Also by count: a page drawn one glyph at a time is one Fragment (72 bytes and its text) for every glyph.
+  static constexpr size_t MAX_FRAGS = 20000;
+  bool full() const { return bytes >= maxBytes || frags.size() >= MAX_FRAGS; }
 };
 
 // Reads `frags` band by band: lines first (fragments by row, a new line when the row moves more than a part
@@ -1796,10 +1827,11 @@ class Interpreter {
       : doc(doc), fonts(fonts), out(out) {}
 
   void run(const std::string& content, const Obj& resources, int depth, const Matrix& base = Matrix()) {
-    if (depth > 3) return;
+    if (depth > MAX_FORM_DEPTH) return;
     Lexer lx(content);
     std::vector<Obj> stack;
     Font* font = nullptr;
+    std::map<std::string, std::unique_ptr<Font>> localFonts;  // fonts with no object number
     double size = 10;
     Matrix tm, line;
     Matrix ctm = base;
@@ -1932,22 +1964,7 @@ class Interpreter {
         ctm = multiply(Matrix{num(0), num(1), num(2), num(3), num(4), num(5)}, ctm);
       } else if (op == "Tf" && stack.size() >= 2) {
         size = num(stack.size() - 1);
-        const Obj nameObj = stack[stack.size() - 2];
-        font = nullptr;
-        if (const Obj* ref = fontDict.get(nameObj.s)) {
-          const uint32_t key = ref->type == Obj::Ref ? static_cast<uint32_t>(ref->i) : 0;
-          auto it = fonts.find(key);  // key 0 is never stored
-          if (it == fonts.end()) {
-            auto loaded = std::make_unique<Font>(loadFont(doc, doc.resolve(*ref)));
-            font = loaded.get();
-            if (key)
-              fonts[key] = std::move(loaded);
-            else
-              inlineFonts.push_back(std::move(loaded));
-          } else {
-            font = it->second.get();
-          }
-        }
+        font = fontFor(fontDict, stack[stack.size() - 2].s, localFonts);
       } else if (op == "Td" && stack.size() >= 2) {
         line.e += num(0) * line.a + num(1) * line.c;
         line.f += num(0) * line.b + num(1) * line.d;
@@ -1991,19 +2008,11 @@ class Interpreter {
         closeFragment();
       } else if (op == "Do" && !stack.empty() && stack.back().type == Obj::Name) {
         if (const Obj* ref = xobjects.get(stack.back().s)) {
-          const Obj form = doc.resolve(*ref);
-          if (form.type == Obj::Stream && doc.resolveKey(form, "Subtype").s == "Form") {
-            std::string data;
-            if (doc.streamData(form, data)) {
-              const Obj res = doc.resolveKey(form, "Resources");
-              Matrix formMatrix;
-              const Obj fm = doc.resolveKey(form, "Matrix");
-              if (fm.type == Obj::Arr && fm.a.size() == 6) {
-                formMatrix =
-                    Matrix{fm.a[0].num(), fm.a[1].num(), fm.a[2].num(), fm.a[3].num(), fm.a[4].num(), fm.a[5].num()};
-              }
-              run(data, res.isDict() ? res : resources, depth + 1, multiply(formMatrix, ctm));
-            }
+          std::string data;
+          Obj res;
+          Matrix formMatrix;
+          if (depth < MAX_FORM_DEPTH && loadForm(*ref, data, res, formMatrix)) {
+            run(data, res.isDict() ? res : resources, depth + 1, multiply(formMatrix, ctm));
           }
         }
       }
@@ -2012,26 +2021,59 @@ class Interpreter {
   }
 
  private:
+  static constexpr int MAX_FORM_DEPTH = 3;  // the page, and three forms inside each other
+
+  // The font a Tf operator names, loaded the first time it is used. Out of run()'s frame: see STACK_NOINLINE.
+  // A font written inside the resources (no object number) is kept by its name in `local`, the fonts of the content
+  // stream being run, so it is loaded once there and not at every Tf.
+  STACK_NOINLINE Font* fontFor(const Obj& fontDict, const std::string& name,
+                               std::map<std::string, std::unique_ptr<Font>>& local) {
+    const Obj* ref = fontDict.get(name);
+    if (!ref) return nullptr;
+    const uint32_t key = ref->type == Obj::Ref ? static_cast<uint32_t>(ref->i) : 0;
+    std::unique_ptr<Font>& slot = key ? fonts[key] : local[name];
+    if (!slot) {
+      slot = std::make_unique<Font>();
+      loadFont(doc, doc.resolve(*ref), *slot);
+    }
+    return slot.get();
+  }
+
+  // A form XObject's content, resources and matrix. Out of run()'s frame, so the objects read on the way are gone
+  // before the form's content runs.
+  STACK_NOINLINE bool loadForm(const Obj& ref, std::string& data, Obj& res, Matrix& matrix) {
+    const Obj form = doc.resolve(ref);
+    if (form.type != Obj::Stream || doc.resolveKey(form, "Subtype").s != "Form") return false;
+    if (!doc.streamData(form, data)) return false;
+    res = doc.resolveKey(form, "Resources");
+    const Obj fm = doc.resolveKey(form, "Matrix");
+    if (fm.type == Obj::Arr && fm.a.size() == 6) {
+      matrix = Matrix{fm.a[0].num(), fm.a[1].num(), fm.a[2].num(), fm.a[3].num(), fm.a[4].num(), fm.a[5].num()};
+    }
+    return true;
+  }
+
   Doc& doc;
   std::unordered_map<uint32_t, std::unique_ptr<Font>>& fonts;
-  std::vector<std::unique_ptr<Font>> inlineFonts;
   PageText& out;
 };
 
 // ---------------------------------------------------------------------------------------------
 // Pages
 
+constexpr int MAX_PAGE_TREE_DEPTH = 16;  // real page trees are 2 to 5 deep
+
 void walkPages(Doc& doc, const Obj& node, const Obj& inheritedResources,
                const std::function<void(const Obj& page, const Obj& resources)>& visit, size_t& visits, size_t& pages,
                int depth, size_t maxPages) {
   // A page tree that loops back on itself would be walked for ever: count every node.
-  if (depth > 32 || pages >= maxPages || ++visits > 50000) return;
-  Obj resources = inheritedResources;
+  // The depth is bounded by the task stack too: each level is a frame of this function (see STACK_NOINLINE).
+  if (depth > MAX_PAGE_TREE_DEPTH || pages >= maxPages || ++visits > 50000) return;
   const Obj own = doc.resolveKey(node, "Resources");
-  if (own.isDict()) resources = own;
-  const Obj type = doc.resolveKey(node, "Type");
+  const Obj& resources = own.isDict() ? own : inheritedResources;
+  const bool isPage = doc.resolveKey(node, "Type").s == "Page";
   const Obj kids = doc.resolveKey(node, "Kids");
-  if (kids.type == Obj::Arr && type.s != "Page") {
+  if (kids.type == Obj::Arr && !isPage) {
     for (const Obj& kid : kids.a) {
       const Obj child = doc.resolve(kid);
       if (child.isDict()) walkPages(doc, child, resources, visit, visits, pages, depth + 1, maxPages);
@@ -2076,6 +2118,12 @@ bool extractText(const Source& source, const Inflate& inflate,
   std::map<int, size_t> sizeBytes;  // text per line height (in half points) so far: the body size is the commonest
   const auto handlePage = [&](const Obj& node, const Obj& pageResources) {
     const size_t p = index++;
+    // The fonts are kept from page to page (a book uses the same few), but a book with hundreds of them, each with
+    // its own tables, must not keep them all: past the limit they go, and the next pages load theirs again. Only
+    // between pages, where nothing points at a font.
+    const size_t fontBytes = std::accumulate(fonts.begin(), fonts.end(), size_t{0},
+                                             [](const size_t sum, const auto& f) { return sum + f.second->bytes(); });
+    if (fontBytes > limits.maxFontBytes) fonts.clear();
     PageText pageText;
     pageText.maxBytes = limits.maxPageText;
     const Obj contents = doc.resolveKey(node, "Contents");
@@ -2083,7 +2131,9 @@ bool extractText(const Source& source, const Inflate& inflate,
     const auto addStream = [&](const Obj& s) {
       const Obj stream = doc.resolve(s);
       std::string data;
-      if (stream.type == Obj::Stream && doc.streamData(stream, data)) {
+      // A page's streams together stay under the limit of one stream.
+      if (stream.type == Obj::Stream && doc.streamData(stream, data) &&
+          content.size() + data.size() <= limits.maxStreamBytes) {
         content += data;
         content += '\n';
       }
