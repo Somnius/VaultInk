@@ -5,8 +5,12 @@ VaultInk's menus come from one file per language in
 Any text a language doesn't have yet shows up in English, so a half-finished translation still
 works.
 
-English and Greek are complete. The other languages came with CrossPoint Reader and miss the texts
-VaultInk added. To see where each one stands:
+English and Greek are complete. The other languages came with CrossPoint Reader and miss most of
+the texts VaultInk added. The texts added after 0.75.0 (Transfer & Remotes and its rows, the
+terminal text size, the Typography Engine settings) are in all of them, but outside English and
+Greek they are machine-written, not yet reviewed by a native speaker. If one reads wrong in your
+language, a correction is welcome: an issue with the better wording is enough. To see where each
+language stands:
 
 ```sh
 python3 scripts/i18n_status.py

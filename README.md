@@ -124,7 +124,7 @@ Two fixes, both checked on my X4 Pro:
 
 Also (computer tests only): the Hyphenation switch agrees in Settings, on the web settings page and in the book. Every book is laid out again the first time you open it.
 
-Known limits: it only works on left-to-right text (right-to-left, mixed-direction, CJK and ruby paragraphs are laid out as before); only English and Greek have the new names; the GitHub certificate check is still off in release builds; the backup and restore page is not published yet.
+Known limits: it only works on left-to-right text (right-to-left, mixed-direction, CJK and ruby paragraphs are laid out as before); the new names in the 34 languages other than English and Greek are machine-written (after 0.76.0), see docs/translating.md; the GitHub certificate check is still off in release builds; the backup and restore page is not published yet.
 
 ## New in 0.75.1: a terminal font, and Transfer & Remotes
 
@@ -144,7 +144,7 @@ Not checked on a device: whether the Greek name fits its row. The licences scree
 
 For developers: `scripts/devlink.py push-update` sends your own developer build to the reader over Wi-Fi (developer builds only, never in a release image; tried on a real X4 Pro). [docs/devlink.md](docs/devlink.md)
 
-Known bugs and limits: the bottom row of Settings (System) ignores a tap until you scroll the list (fixed in 0.76.0); the Books list still takes about 1.75 s to show; I haven't judged how readable the smallest terminal size (6x12) is on the panel; only English and Greek have the new names, the other 34 languages keep File Transfer on Home and show the new rows in English.
+Known bugs and limits: the bottom row of Settings (System) ignores a tap until you scroll the list (fixed in 0.76.0); the Books list still takes about 1.75 s to show; I haven't judged how readable the smallest terminal size (6x12) is on the panel; the other 34 languages have the new Home name and rows after 0.76.0, machine-written (see docs/translating.md).
 
 ## New in 0.75.0: scroll mode, SSH, and the first checks on a real X4 Pro
 
@@ -453,7 +453,7 @@ The [roadmap](ROADMAP.md) has the details and the order. Open items right now:
 - Real-device testing of most of 0.74.0 (book map, hidden flows, gestures, FB2/HTML/RTF, auto warmth, Wikipedia, WebDAV and FTP).
 - Scroll mode works on the device but refreshes the whole screen on every step (about 1.4 seconds); a partial refresh would make it usable for long reading. See [Continuous scrolling](docs/reading-and-files.md#continuous-scrolling-0750).
 - Typography Engine: right-to-left, mixed-direction, CJK and ruby text are laid out as before; the language of a single passage inside a book is not read; more hyphenation languages would have to load from the SD card, as the firmware has no room for them.
-- The 34 languages other than English and Greek show the newest rows in English.
+- The 34 languages other than English and Greek have the texts added after 0.75.0 (Transfer & Remotes and its rows, the terminal text size, the Typography Engine settings), but those are machine-written and not yet reviewed by a native speaker; corrections are welcome ([docs/translating.md](docs/translating.md)). The older VaultInk texts and the three longer help texts that name Transfer & Remotes still show in English there.
 - Real-device testing of older features: MOBI and AZW books, Advanced Typography, Dice, VaultEUC with a real wheel and the Bluetooth client and keyboard.
 - Chapters and the cover for MOBI books, and pictures and links for AZW3.
 - The XTCH refresh choice and a few share-to-reader edge cases wait for device tests.
