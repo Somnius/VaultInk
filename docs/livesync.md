@@ -172,9 +172,17 @@ decide how much memory the sync needs.
   file's average piece (its size divided by the number of pieces), adds the base64 and encryption
   overhead (about 1.8 times), doubles it because pieces are uneven, and asks for as many as fit
   in 1.5 MB.
-- **One answer from the server** can be 2 MB at most. A bigger one is dropped while it arrives
-  ("Response over ... bytes" in the log). In practice that means one piece of about 1 MB of file
-  data is the most the device can take.
+- **One answer from the server** can be 2 MB at most when it holds several pieces. A bigger one
+  is dropped while it arrives ("Response over ... bytes" in the log) and asked again in halves.
+- **A request for one piece alone** may get a longer answer (written 2026-11-16, unreleased,
+  **computer tests only, not run on a reader**): up to half of the largest free PSRAM block, 6 MB
+  at most and never less than the 2 MB above. A picture that LiveSync stored as one piece is over
+  2 MB of JSON and was skipped before. Such an answer is not parsed into a JSON document (a second
+  copy of it): the buffer is taken once at the size the file's record gives, the piece is found in
+  it, and it is decrypted and decoded inside that same buffer, so the answer is in memory once.
+  With a free PSRAM block of 6.5 MB that is an answer of about 3.2 MB, a piece of about 1.8 MB of file
+  data. A piece still bigger than that is skipped as before. Answers up to 2 MB are read the old
+  way.
 - **One file** can be 32 MB at most.
 - **A file that can't be fetched or decoded is skipped, and the sync goes on.** That covers: over
   32 MB, a name the SD card can't store (`?`, `*`, `:` and the like), an answer that is too big,
@@ -230,7 +238,10 @@ reader then went to sleep by its 10-minute timer with the result unread.
   stops reading an answer (over the 2 MB, no memory for it, a body that stops, a timeout), the
   server may still be sending the rest, and a request written behind it would wait for all of
   that. The connection is closed (TLS session and socket) and the next request opens a new one;
-  the log says `POST: connection closed after an unfinished answer` once for each. The shared
+  the log says `POST: closed after an unfinished answer (N bytes of it read)` once for each
+  (`POST: closed after a request with no answer` when nothing came back at all), and every
+  connection made is one line, `LSY connect #N (new TLS session)`, so a log shows which requests
+  shared a connection and that a closed one was replaced (since 2026-11-16). The shared
   HTTP code already closed such a connection; the sync now also closes it itself, and computer
   tests count every connection opened and closed over a whole sync with cut answers (fake
   sockets; none is left open, none is used after a cut answer, and a batch asked again in halves
@@ -263,6 +274,25 @@ reader then went to sleep by its 10-minute timer with the result unread.
   some point (PSRAM: 4.9 MB free at its lowest); the Wi-Fi needs internal memory. Whether that
   low point is when the requests failed is **not known**. A failed request now logs
   `POST failed with N bytes of internal memory free (lowest so far M)`, which will say.
+- **A reader's log on 2026-11-16 (internal memory fine, about 149 KB free at the failures), and
+  what was changed.** Three pictures of one piece each were skipped as too big; each "skipped"
+  line came about 6 seconds after its "Response over" line. The engine writes "skipped" only after
+  a small GET was answered (200 or 404), so after each of the three cut answers a request did get
+  its answer, which it could not have on the old connection. After the third, every request was
+  sent whole and got no answer for 30 seconds. **Why is not known.** The line "connection closed
+  after an unfinished answer" was not in that log; in the code of that day it is written whenever
+  a status line had come and the body was not read to its end, and the computer tests take the
+  same path (the HTTP client's body callback saying stop), so no path that skips the close was
+  found. What changed, for the next run to show more: the HTTP client now stops both of its
+  sockets on every close whatever it believes about them and counts the connections it makes; the
+  sync logs each one and each close (lines above); and a request that only reads (GET, `_all_docs`)
+  and ends without a whole answer is sent **once more on a new connection** before it counts as
+  failed (`POST: asking again on a new connection`). Not after an answer over the cap, not when
+  no connection could be made, and never for a note going up (the first try may have reached the
+  database). A silent server now takes longer to be given up on: up to three waits of 30 seconds
+  for one request instead of two. Computer tests: a new connection that takes a request and never
+  answers, and a kept connection that goes silent; in both the next try is answered on another
+  connection. **Not run on a reader.**
 - **A sync keeps the reader awake.** The sync runs in one go, and the sleep timer was not fed
   while it ran, so it fired the moment a sync longer than the timeout ended. The end of any job
   that held the reader for 5 seconds or more (a sync, a PDF conversion, a download) now counts as

@@ -61,4 +61,12 @@ std::string base64Encode(const uint8_t* data, size_t len);
 // Standard base64 (with padding) to bytes; false on bad input.
 bool base64Decode(std::string_view in, std::string& out);
 
+// The same, into the buffer the text is in (the bytes are shorter than the text): `outLen` bytes at
+// `data`. For a chunk too big to hold twice.
+bool base64DecodeInPlace(char* data, size_t len, size_t& outLen);
+
+// A "%=" string decrypted where it stands, with no second buffer: on Ok the plaintext is the
+// `plainLen` bytes at `data` (the rest of the buffer is no longer the string).
+Result decryptInPlace(const Key master, char* data, size_t len, size_t& plainLen);
+
 }  // namespace livesync

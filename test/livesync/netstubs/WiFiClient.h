@@ -7,18 +7,19 @@
 
 #include <algorithm>
 #include <functional>
+#include <set>
 #include <string>
 #include <vector>
 
 struct FakeNet {
   struct Conn {
-    std::string in;      // written by the device, not yet a whole request
-    std::string out;     // the server's bytes
-    size_t outPos = 0;   // read by the device so far
+    std::string in;     // written by the device, not yet a whole request
+    std::string out;    // the server's bytes
+    size_t outPos = 0;  // read by the device so far
     bool open = true;
     std::string late;  // the end of the answer, still on its way (see holdBack)
     unsigned long lateAt = 0;
-    int requests = 0;    // answered here
+    int requests = 0;  // answered here
     size_t unreadAtClose = 0;
   };
   std::vector<Conn> conns;
@@ -31,6 +32,7 @@ struct FakeNet {
   // The last `holdBack` bytes of each answer reach the device only `holdMs` later.
   bool refuseTcp = false;  // no connection can be made
   bool failTls = false;    // the connection is made, the TLS handshake fails
+  std::set<int> silent;    // connections (by number) on which the server takes requests and never answers
   size_t holdBack = 0;
   unsigned long holdMs = 0;
   // The whole request (head and body) in, the whole HTTP answer out.
@@ -73,6 +75,7 @@ class WiFiClient : public Client {
     if (c.in.size() < headEnd + 4 + bodyLen) return size;
     const std::string request = c.in.substr(0, headEnd + 4 + bodyLen);
     c.in.erase(0, request.size());
+    if (net.silent.count(id_)) return size;
     if (c.outPos < c.out.size() || !c.late.empty()) {
       ++net.requestsBehindUnreadAnswer;  // never answered: the old body is still on its way
       return size;

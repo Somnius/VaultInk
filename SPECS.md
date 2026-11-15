@@ -518,6 +518,32 @@ Big files and skipped files (2026-11-15, unreleased; computer tests and builds o
   `netstubs/WiFiClient.h` (a connection per connect, a server that does not answer behind an
   unread body, open/close counts). A request below zero logs
   `heap_caps_get_free_size`/`heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)`.
+- 2026-11-16 (unreleased, host tests and builds only). `Transport::requestOne(method, path, body,
+  response, expected)`: used by the engine for a chunk request with ONE key; `expected` is
+  size / chunk count * 16/9 (4/3 for a text file) + 2048. Device: cap
+  `max(MAX_RESPONSE, min(MAX_ONE_CHUNK_RESPONSE 6 MB, heap_caps_get_largest_free_block(
+  MALLOC_CAP_SPIRAM) / 2))`, 2 MB for `request`. `CappedRequest::expected` makes the first
+  `reserve` that size (no doubling; the existing check that the block and a quarter more is free
+  still applies). `SyncOptions::maxParsedBytes` (2 MB): a longer answer is never given to
+  ArduinoJson. For a one-key request the engine's `sliceChunk` finds `"data":"` and its closing
+  quote (no backslash inside, else no slice), parses the answer without that text (under 16 KB)
+  and needs one row whose doc has this `_id` and an empty `data`; then
+  `appendChunkInPlace(binary, master, data, len, e_, sink)`: `decryptInPlace` (base64 decoded
+  over itself, AES-GCM with the output at the start of the box, 44 bytes behind the ciphertext,
+  the IV copied first), `base64DecodeInPlace` for a binary file, the sink reads from the answer's
+  buffer. Not sliced: `the server's answer was too big`, as for an answer over the cap. Answers
+  up to 2 MB take the old path (JSON document, `appendChunk`). The JSON documents of a sync use
+  the default allocator: malloc, which during a sync gives blocks over 64 bytes from the PSRAM
+  (`SmallBlocksInPsram`), so no allocator of their own was added.
+  `requestCapped`: `CappedRequest::closed(answerStarted)` after every `http.end()` it does,
+  `CappedRequest::again(status)` asked once after such a close (not after too big / no memory):
+  true = the client was prepared again (`begin()`, headers) and the request is sent a second time;
+  `CappedResult::closes`, `retried`. Device: again only for GET and `_all_docs`, not after
+  `Failure::Connect` / `Failure::Handshake`. Log: `LSY connect #N (new TLS session)` (INF, from
+  `SecureHttpClient::connectionsOpened()`), `closed after an unfinished answer (N bytes of it
+  read)`, `closed after a request with no answer`, `asking again on a new connection`.
+  freeink-sdk (on 5df1faa): `closeConnection()` stops `_secure` and `_plain` both, whatever
+  `_conn` says; `connectionsOpened()`, `reusedConnection()`.
 - freeink-sdk (on 131bebd): `SecureHttpClient::readChunked` returns true only after the empty
   line that ends the trailers (was: `!_aborted` after a failed `readLine`); headers without their
   blank line close the connection with `responseComplete()` false; `Failure::Handshake` (TCP

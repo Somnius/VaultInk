@@ -47,6 +47,10 @@ using ByteSink = std::function<bool(const char* bytes, size_t len)>;
 // when the file is `binary`. Unsupported for compressed data; BadFormat also when the sink stops.
 Result appendChunk(bool binary, const Key master, std::string_view stored, bool encrypted, const ByteSink& sink);
 
+// The same for a chunk too big to copy: decrypted and decoded inside `data` itself (its `len`
+// bytes are overwritten), so no second buffer of the chunk's size is needed.
+Result appendChunkInPlace(bool binary, const Key master, char* data, size_t len, bool encrypted, const ByteSink& sink);
+
 // Writes the file's content to `sink`, chunk by chunk (nothing is held for the whole file).
 // BadFormat for a missing chunk or compressed data (VaultInk reads compression off only).
 Result assemble(const FileEntry& file, const Key master, const ChunkGetter& chunk, const ByteSink& sink);

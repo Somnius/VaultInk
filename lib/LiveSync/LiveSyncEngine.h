@@ -43,6 +43,12 @@ struct Transport {
   // transport error) and fills `response` with the body.
   std::function<int(const char* method, const std::string& path, const std::string& body, std::string& response)>
       request;
+  // The same for a request that asks for exactly ONE chunk, with about how long the answer will be
+  // (`expected` bytes, from the file's size): the transport may allow a longer answer than for a
+  // batch, and can take its buffer once. Empty: `request` is used.
+  std::function<int(const char* method, const std::string& path, const std::string& body, std::string& response,
+                    size_t expected)>
+      requestOne;
   // The last answer's details; may be empty (tests, other adapters).
   std::function<ResponseInfo()> info;
 };
@@ -71,6 +77,10 @@ struct SyncOptions {
   // A chunk batch is sized so its answer should stay under this: the file's average chunk
   // (size / chunk count) with the base64 and encryption overhead, doubled for uneven chunks.
   size_t maxResponseBytes = 1536 * 1024;
+  // An answer longer than this is not parsed into a JSON document (the document is a second copy
+  // of it, and more while it is built). The answer to a request for one chunk can be longer: the
+  // chunk is then decrypted and decoded inside the answer's own buffer (see Transport::requestOne).
+  size_t maxParsedBytes = 2 * 1024 * 1024;
   // Files kept in skipped.txt. One more than this stops the sync with a message, before the
   // checkpoint moves past a file that could not be listed (it would never be asked for again).
   size_t maxSkipList = 2000;
