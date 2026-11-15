@@ -1,43 +1,21 @@
 #pragma once
 
 #include <LiveSyncEngine.h>
+#include <LiveSyncProfiles.h>
 
 #include <string>
 
-// LiveSync on the device: the saved profile (one LiveSync database pulled into one vault), the
-// pending Setup URI from the web page, and the SD card and HTTPS adapters for the pull engine.
+// LiveSync on the device: the saved profiles (each one LiveSync database pulled into one vault), the
+// pending Setup URIs from the web page, and the SD card and HTTPS adapters for the pull engine.
 namespace livesyncdev {
 
 constexpr const char* DIR = "/.vaultink/livesync";
-constexpr const char* PROFILE = "/.vaultink/livesync/profile.json";
-constexpr const char* PENDING_SETUP = "/.vaultink/livesync/setup-uri.txt";  // still encrypted
-constexpr const char* CA_CERT = "/.vaultink/livesync/ca.pem";               // optional trust anchor
+constexpr const char* CA_CERT = "/.vaultink/livesync/ca.pem";  // optional trust anchor, shared by all profiles
+constexpr int MAX_PROFILES = livesync::MAX_PROFILES;           // slots 1..4
+constexpr uint8_t ALL_PROFILES = 0x0F;                         // slot n is bit n-1
 
-struct Profile {
-  std::string serverUrl;  // couchDB_URI, no trailing slash
-  std::string user;
-  std::string password;
-  std::string database;
-  std::string saltB64;  // pbkdf2salt the master key belongs to
-  livesync::Key master{};
-  std::string vaultName;    // folder under /Vaults
-  std::string lastResult;   // shown on the LiveSync screen
-  bool checkCert = true;    // verify the server certificate (ca.pem if present, else the built-in roots)
-  uint8_t autoHours = 0;    // sync on wake when this many hours passed since the last try; 0 = off
-  int64_t lastAttempt = 0;  // epoch seconds of the last automatic try
-  // Sending changes back (Phase 4c): ids come from the E2EE passphrase, which isn't kept; these
-  // two values derived from it are (obfuscated like the password). Empty: set up before 0.28.0,
-  // or a vault whose settings the device can't write for (no path obfuscation, new id scheme).
-  std::string hashedPass;
-  std::string passDigest;
-  // Id scheme 1 (idDerivationVersion 1): the 64-hex id key from the Setup URI, obfuscated when
-  // saved, instead of the two values above; nfcPaths = pathNormalizationVersion 1.
-  std::string idKey;
-  bool nfcPaths = false;
-  bool pushAllowed = false;  // set by profileFromSetup from the vault's settings (not saved)
-  bool idsV1() const { return !idKey.empty(); }
-  bool canPush() const { return idsV1() || (!hashedPass.empty() && !passDigest.empty()); }
-};
+// One LiveSync database pulled into one folder under /Vaults (lib/LiveSync/LiveSyncProfiles.h).
+using Profile = livesync::Profile;
 
 struct PushStats {
   int pushed = 0;
@@ -49,22 +27,25 @@ struct PushStats {
 // Notes sent leave the list; a conflict stays until the pull has saved the server's version.
 bool pushChanges(Profile& profile, PushStats& stats, std::string& error);
 
-// Automatic sync is on and due (a trusted clock, the interval passed since the last try). Records
-// this try first, so a sync that hangs or fails waits for the next interval.
-bool autoSyncDue();
+// The profiles to sync on this wake, as a bit mask (slot n is bit n-1; 0 = none): every saved
+// profile when the companion asked with the sync-request file, else those with automatic sync on
+// and due (a trusted clock, the interval passed since the last try). Records the try first, so a
+// sync that hangs or fails waits for the next interval.
+uint8_t autoSyncDue();
 
-// The saved profile; secrets (password, master key) are obfuscated with the device key on the SD
+// The profile files on the SD card. The first call moves a profile.json from before profiles to
+// profile 1 (lib/LiveSync/LiveSyncProfiles.h).
+const livesync::ProfileFs& profileFs();
+
+// A saved profile; secrets (password, master key) are obfuscated with the device key on the SD
 // card. That only stops a copy of the card working elsewhere; it isn't encryption.
-bool load(Profile& out);
-// A saved profile exists (cheap: no secrets read).
+bool load(int slot, Profile& out);
+// A saved profile exists (cheap: no secrets read); without a slot, in any of them.
+bool hasProfile(int slot);
 bool hasProfile();
-bool save(const Profile& profile);
-void forget();
-
-bool hasPendingSetup();
-bool readPendingSetup(std::string& uri);
-bool savePendingSetup(const std::string& uri);
-void clearPendingSetup();
+bool save(int slot, const Profile& profile);
+// Removes the profile and its pending setup. The vault's files and sync state stay on the card.
+void forget(int slot);
 
 // Decodes the Setup URI with its passphrase into a profile (no network). `why` is shown on failure.
 bool profileFromSetup(const std::string& uri, const std::string& passphrase, Profile& out, std::string& e2eePassphrase,

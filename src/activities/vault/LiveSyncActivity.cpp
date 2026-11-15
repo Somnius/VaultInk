@@ -16,6 +16,7 @@
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
+#include "network/HttpDownloader.h"
 #include "util/TaskWatchdog.h"
 #include "util/VaultEdit.h"
 #include "util/VaultFiles.h"
@@ -50,17 +51,33 @@ void keyRounds(const int done, void*) { progress.set(done * 100 / livesync::PBKD
 }  // namespace
 
 LiveSyncActivity::LiveSyncActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const bool autoSync,
-                                   const ReturnTo returnTo, const bool leaveOnError)
+                                   const ReturnTo returnTo, const bool leaveOnError, const uint8_t syncMask)
     : UiListActivity("LiveSync", renderer, mappedInput),
+      syncMask(syncMask),
       autoSyncPending(autoSync),
-      returnTo(returnTo),
-      leaveOnError(leaveOnError) {}
+      leaveOnError(leaveOnError),
+      returnTo(returnTo) {}
 
 const char* LiveSyncActivity::headerTitle() const { return tr(STR_LIVESYNC); }
 
 void LiveSyncActivity::onEnter() {
   UiListActivity::onEnter();
   livesync::setDefaultYield(keyRounds, nullptr);
+  openList();
+}
+
+// The list of profiles, or straight to the page of the only one.
+void LiveSyncActivity::openList() {
+  int used = 0, only = 0;
+  for (int s = 1; s <= livesyncdev::MAX_PROFILES; ++s) {
+    if (livesync::slotInfo(livesyncdev::profileFs(), s).inUse()) {
+      ++used;
+      only = s;
+    }
+  }
+  direct = used == 1;
+  slot = direct ? only : 0;
+  activeNav().requestSelection(0);
   rebuildRows();
 }
 
@@ -93,8 +110,8 @@ void LiveSyncActivity::loop() {
   // The tile's sync starts from the first loop, once the screen is up (not from onEnter).
   if (autoSyncPending) {
     autoSyncPending = false;
-    if (configured) {
-      withWifi(&LiveSyncActivity::syncNowFromTile);
+    if (livesyncdev::hasProfile()) {
+      withWifi(&LiveSyncActivity::syncAllFromTile);
       return;
     }
     if (leaveOnError) {  // woke with Wi-Fi up but no usable profile: restart turns the radio off
@@ -106,55 +123,71 @@ void LiveSyncActivity::loop() {
   UiListActivity::loop();
 }
 
-void LiveSyncActivity::syncNowFromTile() {
-  syncNow();
+void LiveSyncActivity::syncAllFromTile() {
+  syncAll();
   // Synced: straight back to where the tile was tapped. A failure stays on screen to be read.
   if (lastSyncOk || leaveOnError) finish();
 }
 
-void LiveSyncActivity::onBackButton() { finish(); }
+void LiveSyncActivity::onBackButton() {
+  if (slot != 0 && !direct) {
+    message.clear();
+    openList();
+    return;
+  }
+  finish();
+}
 
 void LiveSyncActivity::rebuildRows() {
   livesyncdev::wipeProfile(profile);
-  configured = livesyncdev::load(profile);
-  pending = livesyncdev::hasPendingSetup();
   rows.clear();
-  subtitles.clear();
-  if (pending) {
-    rows.push_back(Row::FinishSetup);
-    subtitles.emplace_back(tr(STR_LIVESYNC_FINISH_DESC));
-  }
-  if (configured) {
-    rows.push_back(Row::SyncNow);
-    subtitles.push_back(profile.lastResult.empty() ? std::string(tr(STR_LIVESYNC_NEVER)) : profile.lastResult);
-    rows.push_back(Row::Vault);
-    subtitles.push_back(std::string(vaultfiles::VAULTS_ROOT) + "/" + profile.vaultName);
-    rows.push_back(Row::Server);
-    subtitles.push_back(profile.serverUrl + " · " + profile.database +
-                        (profile.checkCert ? "" : std::string(" · ") + tr(STR_LIVESYNC_CERT_UNCHECKED)));
-    rows.push_back(Row::CertCheck);
-    subtitles.emplace_back(!profile.checkCert            ? tr(STR_LIVESYNC_CERT_OFF)
-                           : livesyncdev::hasOwnCaCert() ? tr(STR_LIVESYNC_CERT_OWN)
-                                                         : tr(STR_LIVESYNC_CERT_BUILTIN));
-    rows.push_back(Row::AutoSync);
-    if (profile.autoHours == 0) {
-      subtitles.emplace_back(tr(STR_LIVESYNC_AUTO_OFF));
-    } else {
+  const auto& fs = livesyncdev::profileFs();
+  if (slot == 0) {
+    configured = false;
+    pending = false;
+    bool anyConfigured = false;
+    for (int s = 1; s <= livesyncdev::MAX_PROFILES; ++s) {
+      const livesync::SlotInfo info = livesync::slotInfo(fs, s);
+      if (!info.inUse()) continue;
+      anyConfigured = anyConfigured || info.configured;
+      char name[48];
+      snprintf(name, sizeof(name), tr(STR_LIVESYNC_PROFILE_N), s);
+      rows.push_back({Row::OpenProfile, s, info.vault.empty() ? std::string(name) : info.vault,
+                      info.pending              ? std::string(tr(STR_LIVESYNC_FINISH_DESC))
+                      : info.lastResult.empty() ? std::string(tr(STR_LIVESYNC_NEVER))
+                                                : info.lastResult});
+    }
+    if (anyConfigured) rows.push_back({Row::SyncAll, 0, tr(STR_LIVESYNC_SYNC_ALL), tr(STR_LIVESYNC_SYNC_ALL_DESC)});
+  } else {
+    configured = livesyncdev::load(slot, profile);
+    livesync::PendingSetup waiting;
+    pending = livesync::readPending(fs, slot, waiting);
+    mbedtls_platform_zeroize(waiting.uri.data(), waiting.uri.size());
+    const auto add = [this](const Row kind, const StrId label, std::string subtitle) {
+      rows.push_back({kind, slot, I18N.get(label), std::move(subtitle)});
+    };
+    if (pending) add(Row::FinishSetup, StrId::STR_LIVESYNC_FINISH, tr(STR_LIVESYNC_FINISH_DESC));
+    if (configured) {
+      add(Row::SyncNow, StrId::STR_LIVESYNC_SYNC_NOW,
+          profile.lastResult.empty() ? std::string(tr(STR_LIVESYNC_NEVER)) : profile.lastResult);
+      add(Row::Vault, StrId::STR_LIVESYNC_VAULT, std::string(vaultfiles::VAULTS_ROOT) + "/" + profile.vaultName);
+      add(Row::Server, StrId::STR_LIVESYNC_SERVER,
+          profile.serverUrl + " · " + profile.database +
+              (profile.checkCert ? "" : std::string(" · ") + tr(STR_LIVESYNC_CERT_UNCHECKED)));
+      add(Row::CertCheck, StrId::STR_LIVESYNC_CERT_CHECK,
+          !profile.checkCert            ? tr(STR_LIVESYNC_CERT_OFF)
+          : livesyncdev::hasOwnCaCert() ? tr(STR_LIVESYNC_CERT_OWN)
+                                        : tr(STR_LIVESYNC_CERT_BUILTIN));
       char text[96];
       snprintf(text, sizeof(text), tr(STR_LIVESYNC_AUTO_EVERY), profile.autoHours);
-      subtitles.emplace_back(text);
+      add(Row::AutoSync, StrId::STR_LIVESYNC_AUTO, profile.autoHours == 0 ? tr(STR_LIVESYNC_AUTO_OFF) : text);
     }
-    rows.push_back(Row::Forget);
-    subtitles.emplace_back(tr(STR_LIVESYNC_FORGET_DESC));
+    if (pending || configured) add(Row::Forget, StrId::STR_LIVESYNC_FORGET, tr(STR_LIVESYNC_FORGET_DESC));
   }
   rowItems.assign(rows.size(), fui::ListItem{});
   for (size_t i = 0; i < rows.size(); ++i) {
-    static constexpr StrId LABELS[] = {StrId::STR_LIVESYNC_FINISH,     StrId::STR_LIVESYNC_SYNC_NOW,
-                                       StrId::STR_LIVESYNC_VAULT,      StrId::STR_LIVESYNC_SERVER,
-                                       StrId::STR_LIVESYNC_CERT_CHECK, StrId::STR_LIVESYNC_AUTO,
-                                       StrId::STR_LIVESYNC_FORGET};
-    rowItems[i].label = I18N.get(LABELS[static_cast<int>(rows[i])]);
-    rowItems[i].subtitle = subtitles[i].c_str();
+    rowItems[i].label = rows[i].label.c_str();
+    rowItems[i].subtitle = rows[i].subtitle.c_str();
     rowItems[i].actionValue = static_cast<int16_t>(i);
   }
   requestUpdate();
@@ -190,7 +223,17 @@ void LiveSyncActivity::buildScreen(UiScreen& screen) {
 
 void LiveSyncActivity::activateIndex(const int index) {
   if (index < 0 || index >= static_cast<int>(rows.size())) return;
-  switch (rows[index]) {
+  switch (rows[index].kind) {
+    case Row::OpenProfile:
+      slot = rows[index].slot;
+      message.clear();
+      activeNav().requestSelection(0);
+      rebuildRows();
+      break;
+    case Row::SyncAll:
+      syncMask = livesyncdev::ALL_PROFILES;
+      withWifi(&LiveSyncActivity::syncAll);
+      break;
     case Row::FinishSetup:
       askPassphrase();
       break;
@@ -198,20 +241,20 @@ void LiveSyncActivity::activateIndex(const int index) {
       withWifi(&LiveSyncActivity::syncNow);
       break;
     case Row::Forget:
-      livesyncdev::forget();
+      livesyncdev::forget(slot);
       message = tr(STR_LIVESYNC_FORGOTTEN);
-      rebuildRows();
+      openList();
       break;
     case Row::CertCheck:
       profile.checkCert = !profile.checkCert;
-      livesyncdev::save(profile);
+      livesyncdev::save(slot, profile);
       message.clear();
       rebuildRows();
       break;
     case Row::AutoSync: {
       // Off -> every 6 hours -> every 24 hours -> off.
       profile.autoHours = profile.autoHours == 0 ? 6 : profile.autoHours == 6 ? 24 : 0;
-      livesyncdev::save(profile);
+      livesyncdev::save(slot, profile);
       message.clear();
       rebuildRows();
       break;
@@ -259,39 +302,94 @@ void LiveSyncActivity::showMessage(const std::string& text) {
 }
 
 void LiveSyncActivity::finishSetup() {
-  std::string uri, e2ee, why;
+  std::string e2ee, why;
+  livesync::PendingSetup waiting;
   livesyncdev::Profile fresh;
+  const auto& fs = livesyncdev::profileFs();
   progress.begin(renderer, tr(STR_LIVESYNC_UNLOCKING));
-  const bool ok = livesyncdev::readPendingSetup(uri) &&
-                  livesyncdev::profileFromSetup(uri, passphrase, fresh, e2ee, why) &&
-                  livesyncdev::finishSetup(fresh, e2ee, why);
+  bool ok = livesync::readPending(fs, slot, waiting) &&
+            livesyncdev::profileFromSetup(waiting.uri, passphrase, fresh, e2ee, why);
   mbedtls_platform_zeroize(passphrase.data(), passphrase.size());
   passphrase.clear();
+  mbedtls_platform_zeroize(waiting.uri.data(), waiting.uri.size());
+  // The folder: the name given with the Setup URI, else the database's name. Never another
+  // profile's folder: two databases in one folder would overwrite each other's notes.
+  if (ok) {
+    std::string folder;
+    switch (livesync::resolveVaultFolder(fs, slot, waiting.vault, fresh.database, folder)) {
+      case livesync::SetupError::Ok:
+        fresh.vaultName = folder;
+        break;
+      case livesync::SetupError::DuplicateVault: {
+        char text[400];
+        snprintf(text, sizeof(text), tr(STR_LIVESYNC_FOLDER_TAKEN),
+                 (waiting.vault.empty() ? livesync::defaultVaultFolder(fresh.database) : waiting.vault).c_str());
+        why = text;
+        ok = false;
+        break;
+      }
+      default:
+        ok = false;
+        break;
+    }
+  }
+  ok = ok && livesyncdev::finishSetup(fresh, e2ee, why);
   mbedtls_platform_zeroize(e2ee.data(), e2ee.size());
-  mbedtls_platform_zeroize(uri.data(), uri.size());
   livesyncdev::endSession();
   if (!ok) {
     livesyncdev::wipeProfile(fresh);
     showMessage(why.empty() ? std::string(tr(STR_LIVESYNC_SETUP_FAILED)) : why);
     return;
   }
-  // The vault folder is named after the database; a name the SD card can't hold gets a plain one.
-  if (!livesync::safeVaultPath(fresh.vaultName) || fresh.vaultName.find('/') != std::string::npos) {
-    fresh.vaultName = "LiveSync";
-  }
-  const bool saved = livesyncdev::save(fresh);
+  const bool saved = livesyncdev::save(slot, fresh);
   livesyncdev::wipeProfile(fresh);
   if (!saved) {
     showMessage(tr(STR_LIVESYNC_SETUP_FAILED));
     return;
   }
-  livesyncdev::clearPendingSetup();
+  fs.remove(livesync::pendingFile(slot));
   livesyncdev::resetSyncState(fresh);  // a new setup pulls everything again
   showMessage(tr(STR_LIVESYNC_READY));
 }
 
 void LiveSyncActivity::syncNow() {
   progress.begin(renderer, tr(STR_LIVESYNC_SYNCING));
+  lastSyncOk = syncProfile(slot, profile);
+  showMessage(profile.lastResult);
+}
+
+void LiveSyncActivity::syncAll() {
+  int total = 0, good = 0;
+  std::string onlyResult;
+  for (int s = 1; s <= livesyncdev::MAX_PROFILES; ++s) {
+    if (!(syncMask & (1u << (s - 1))) || !livesyncdev::hasProfile(s)) continue;
+    livesyncdev::Profile p;
+    if (!livesyncdev::load(s, p)) continue;
+    ++total;
+    progress.begin(renderer, (std::string(tr(STR_LIVESYNC_SYNCING)) + " " + p.vaultName).c_str());
+    // The sync before this one closed its HTTPS session, but it may have left the heap in pieces:
+    // a new TLS session needs one free block of this size (the limit the downloads use too).
+    if (total > 1 && ESP.getMaxAllocHeap() < HttpDownloader::MIN_TLS_MAX_ALLOC) {
+      LOG_ERR("LSY", "Profile %d not synced: largest free block %u", s, static_cast<unsigned>(ESP.getMaxAllocHeap()));
+      p.lastResult = tr(STR_LIVESYNC_LOW_MEMORY);
+      livesyncdev::save(s, p);
+    } else if (syncProfile(s, p)) {
+      ++good;
+    }
+    onlyResult = p.lastResult;
+    livesyncdev::wipeProfile(p);
+  }
+  lastSyncOk = good == total;
+  if (total == 1) {
+    showMessage(onlyResult);
+    return;
+  }
+  char summary[256];
+  snprintf(summary, sizeof(summary), tr(STR_LIVESYNC_ALL_DONE), good, total);
+  showMessage(summary);
+}
+
+bool LiveSyncActivity::syncProfile(const int profileSlot, livesyncdev::Profile& profile) {
   // The vault folder was deleted (or never written): the saved checkpoint would skip everything.
   if (!Storage.exists(livesyncdev::options(profile).vaultDir.c_str())) livesyncdev::resetSyncState(profile);
   livesync::SyncStats stats;
@@ -336,7 +434,6 @@ void LiveSyncActivity::syncNow() {
     // A certificate the device can't vouch for looks like a dead connection: say what to try.
     if (livesyncdev::lastFailedUnverified()) profile.lastResult += std::string(" ") + tr(STR_LIVESYNC_CERT_HINT);
   }
-  lastSyncOk = ok;
-  livesyncdev::save(profile);
-  showMessage(profile.lastResult);
+  livesyncdev::save(profileSlot, profile);
+  return ok;
 }

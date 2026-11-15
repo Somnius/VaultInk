@@ -1981,28 +1981,32 @@ void CrossPointWebServer::handlePostWifiNetwork() {
 }
 
 // Uses POST (not HTTP DELETE) because ESP32 WebServer doesn't support DELETE with body.
-// A LiveSync Setup URI pasted on the Settings page. It stays encrypted on the SD card until the
-// device's LiveSync screen unlocks it with the passphrase typed there.
+// A LiveSync Setup URI pasted on the Settings page, with the vault folder it should sync into and
+// the profile (1..4) it is for, both optional. It stays encrypted on the SD card until the device's
+// LiveSync screen unlocks it with the passphrase typed there.
 void CrossPointWebServer::handleLiveSyncSetup() {
   if (!server->hasArg("plain") || server->arg("plain").length() > 40 * 1024) {
     server->send(400, "text/plain", "Missing or oversized JSON body");
     return;
   }
+  livesync::SetupRequest request;
+  int slot = 0;
+  livesync::SetupError error = livesync::parseSetupBody(std::string(server->arg("plain").c_str()), request);
+  if (error == livesync::SetupError::Ok) error = livesync::acceptSetup(livesyncdev::profileFs(), request, slot);
+  if (error != livesync::SetupError::Ok) {
+    const int code = error == livesync::SetupError::WriteFailed                                             ? 500
+                     : error == livesync::SetupError::Full || error == livesync::SetupError::DuplicateVault ? 409
+                                                                                                            : 400;
+    server->send(code, "text/plain", livesync::setupErrorText(error));
+    return;
+  }
   JsonDocument doc;
-  if (deserializeJson(doc, server->arg("plain")) != DeserializationError::Ok) {
-    server->send(400, "text/plain", "Invalid JSON");
-    return;
-  }
-  const std::string uri = doc["uri"] | "";
-  if (uri.size() > 32 * 1024 || (uri.rfind("obsidian://setuplivesync?settings=", 0) != 0 && uri.rfind("%$", 0) != 0)) {
-    server->send(400, "text/plain", "Not a LiveSync Setup URI");
-    return;
-  }
-  if (!livesyncdev::savePendingSetup(uri)) {
-    server->send(500, "text/plain", "Could not write to the SD card");
-    return;
-  }
-  server->send(200, "text/plain", "OK");
+  doc["ok"] = true;
+  doc["profile"] = slot;
+  doc["vault"] = request.vault;  // "" = the database's name, known once the passphrase is typed
+  String response;
+  serializeJson(doc, response);
+  server->send(200, "application/json", response);
 }
 
 // What the companion app shows on its LiveSync card. Read-only: a sync can't be started from here,
@@ -2011,27 +2015,47 @@ void CrossPointWebServer::handleLiveSyncSetup() {
 // next to this server would not fit the heap this screen already runs at the edge of.
 void CrossPointWebServer::handleLiveSyncStatus() const {
   JsonDocument doc;
-  const bool configured = livesyncdev::hasProfile();
-  doc["configured"] = configured;
+  const auto& fs = livesyncdev::profileFs();
+  // The top-level keys describe profile 1, as they did when there was one profile.
+  const livesync::SlotInfo first = livesync::slotInfo(fs, 1);
+  doc["configured"] = first.configured;
   // A Setup URI pasted on the web page that the device hasn't unlocked with its passphrase yet.
-  doc["pendingSetup"] = livesyncdev::hasPendingSetup();
+  doc["pendingSetup"] = first.pending;
   // The passphrase is typed once, on the device; the derived key stays on the card, so a saved
   // profile is an unlocked one.
-  doc["unlocked"] = configured;
+  doc["unlocked"] = first.configured;
   doc["running"] = false;
   doc["canSync"] = false;
   // A sync can be asked for with a file: upload /.vaultink/sync-request while File Transfer is open; leaving File
-  // Transfer restarts the reader and the wake that follows runs the sync (LiveSyncDevice.cpp autoSyncDue).
+  // Transfer restarts the reader and the wake that follows syncs every profile (LiveSyncDevice.cpp autoSyncDue).
   doc["syncRequest"] = true;
-  if (configured) {
-    livesyncdev::Profile profile;
-    if (livesyncdev::load(profile)) {
-      doc["vault"] = profile.vaultName;
-      doc["lastResult"] = profile.lastResult;    // the LiveSync screen's own summary or error text
-      doc["lastAttempt"] = profile.lastAttempt;  // epoch seconds of the last automatic try; 0 = none
-      doc["autoHours"] = profile.autoHours;
-      doc["canPush"] = profile.canPush();
+  doc["maxProfiles"] = livesync::MAX_PROFILES;
+  JsonArray profiles = doc["profiles"].to<JsonArray>();
+  for (int slot = 1; slot <= livesync::MAX_PROFILES; ++slot) {
+    const livesync::SlotInfo info = slot == 1 ? first : livesync::slotInfo(fs, slot);
+    if (!info.inUse()) continue;
+    JsonObject o = profiles.add<JsonObject>();
+    o["index"] = slot;
+    o["vault"] = info.vault;  // "" while a pending setup has no folder name yet
+    o["configured"] = info.configured;
+    o["pendingSetup"] = info.pending;
+    o["unlocked"] = info.configured;
+    bool canPush = false;
+    if (info.configured) {
+      livesyncdev::Profile profile;
+      canPush = livesyncdev::load(slot, profile) && profile.canPush();
       livesyncdev::wipeProfile(profile);
+      o["lastResult"] = info.lastResult;    // the LiveSync screen's own summary or error text
+      o["lastAttempt"] = info.lastAttempt;  // epoch seconds of the last automatic try; 0 = none
+      o["autoHours"] = info.autoHours;
+      o["canPush"] = canPush;
+    }
+    if (slot == 1 && info.configured) {
+      doc["vault"] = info.vault;
+      doc["lastResult"] = info.lastResult;
+      doc["lastAttempt"] = info.lastAttempt;
+      doc["autoHours"] = info.autoHours;
+      doc["canPush"] = canPush;
     }
   }
   String response;

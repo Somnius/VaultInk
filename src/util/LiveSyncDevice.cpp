@@ -27,6 +27,7 @@ namespace livesyncdev {
 namespace {
 
 constexpr size_t MAX_PROFILE = 8 * 1024;
+constexpr size_t MAX_PENDING = 48 * 1024;           // a Setup URI (32 KB at most) as JSON
 constexpr size_t MAX_STATE_FILE = 2 * 1024 * 1024;  // the id->path map of a big vault
 // One CouchDB answer (a page of changes, a batch of docs or chunks); lands in PSRAM.
 constexpr size_t MAX_RESPONSE = 6 * 1024 * 1024;
@@ -66,6 +67,13 @@ std::string parentOf(const std::string& path) {
   return slash == std::string::npos || slash == 0 ? std::string("/") : path.substr(0, slash);
 }
 
+livesync::Obfuscator obfuscator() {
+  livesync::Obfuscator o;
+  o.hide = [](const std::string& plain) { return std::string(obfuscation::obfuscateToBase64(plain).c_str()); };
+  o.reveal = [](const char* encoded, bool* ok) { return obfuscation::deobfuscateFromBase64(encoded, ok); };
+  return o;
+}
+
 std::string b64(const uint8_t* data, size_t len) { return livesync::base64Encode(data, len); }
 
 // The file being streamed by Storage::begin/append/commit.
@@ -88,83 +96,64 @@ void wipeProfile(Profile& p) {
   mbedtls_platform_zeroize(p.master, sizeof(p.master));
 }
 
-bool hasProfile() { return Storage.exists(PROFILE); }
+const livesync::ProfileFs& profileFs() {
+  static const livesync::ProfileFs fs = [] {
+    livesync::ProfileFs f;
+    f.exists = [](const std::string& p) { return Storage.exists(p.c_str()); };
+    f.readAll = [](const std::string& p, std::string& out) {
+      return Storage.readFileToString("LSY", p, MAX_PENDING, out);
+    };
+    f.writeAll = [](const std::string& p, const std::string& text) {
+      Storage.ensureDirectoryExists(parentOf(p).c_str());
+      const std::string tmp = p + ".tmp";
+      return writeText(tmp, text) && Storage.replaceFile(tmp.c_str(), p.c_str());
+    };
+    f.remove = [](const std::string& p) { return !Storage.exists(p.c_str()) || Storage.remove(p.c_str()); };
+    f.rename = [](const std::string& from, const std::string& to) {
+      Storage.ensureDirectoryExists(parentOf(to).c_str());
+      return Storage.rename(from.c_str(), to.c_str());
+    };
+    return f;
+  }();
+  static bool migrated = false;
+  if (!migrated) {
+    migrated = true;
+    livesync::migrateLegacy(fs);
+  }
+  return fs;
+}
 
-bool load(Profile& out) {
-  std::string text;
-  if (!Storage.readFileToString("LSY", PROFILE, MAX_PROFILE, text)) return false;
-  JsonDocument doc;
-  if (deserializeJson(doc, text) != DeserializationError::Ok) return false;
+bool hasProfile(const int slot) {
+  profileFs();
+  return livesync::validSlot(slot) && Storage.exists(livesync::profileFile(slot).c_str());
+}
+
+bool hasProfile() {
+  for (int slot = 1; slot <= MAX_PROFILES; ++slot) {
+    if (hasProfile(slot)) return true;
+  }
+  return false;
+}
+
+bool load(const int slot, Profile& out) {
   out = Profile{};
-  out.serverUrl = doc["server"] | "";
-  out.user = doc["user"] | "";
-  out.database = doc["database"] | "";
-  out.saltB64 = doc["salt"] | "";
-  out.vaultName = doc["vault"] | "";
-  out.lastResult = doc["last"] | "";
-  out.checkCert = doc["checkCert"] | true;
-  out.autoHours = doc["autoHours"] | 0;
-  out.lastAttempt = doc["lastAttempt"] | static_cast<int64_t>(0);
-  bool okPush = true;
-  out.hashedPass = obfuscation::deobfuscateFromBase64(doc["pushIdA"] | "", &okPush);
-  out.passDigest = obfuscation::deobfuscateFromBase64(doc["pushIdB"] | "", &okPush);
-  if (!okPush) out.hashedPass.clear(), out.passDigest.clear();
-  bool okIdKey = true;
-  out.idKey = obfuscation::deobfuscateFromBase64(doc["pushIdK"] | "", &okIdKey);
-  if (!okIdKey || !livesync::isIdKeyHex(out.idKey)) out.idKey.clear();
-  out.nfcPaths = doc["pushNfc"] | false;
-  bool ok = true, okKey = true;
-  out.password = obfuscation::deobfuscateFromBase64(doc["password"] | "", &ok);
-  std::string key = obfuscation::deobfuscateFromBase64(doc["key"] | "", &okKey);
-  wipe(text);
-  const bool valid =
-      ok && okKey && key.size() == sizeof(out.master) && !out.serverUrl.empty() && !out.vaultName.empty();
-  if (valid) memcpy(out.master, key.data(), sizeof(out.master));
-  wipe(key);
-  if (!valid) wipeProfile(out);
-  return valid;
-}
-
-bool save(const Profile& p) {
-  JsonDocument doc;
-  doc["server"] = p.serverUrl;
-  doc["user"] = p.user;
-  doc["password"] = obfuscation::obfuscateToBase64(p.password);
-  doc["database"] = p.database;
-  doc["salt"] = p.saltB64;
-  doc["key"] = obfuscation::obfuscateToBase64(std::string(reinterpret_cast<const char*>(p.master), sizeof(p.master)));
-  doc["vault"] = p.vaultName;
-  doc["last"] = p.lastResult;
-  doc["checkCert"] = p.checkCert;
-  doc["autoHours"] = p.autoHours;
-  doc["lastAttempt"] = p.lastAttempt;
-  if (!p.idsV1() && p.canPush()) {
-    doc["pushIdA"] = obfuscation::obfuscateToBase64(p.hashedPass);
-    doc["pushIdB"] = obfuscation::obfuscateToBase64(p.passDigest);
-  }
-  if (p.idsV1()) {
-    doc["pushIdK"] = obfuscation::obfuscateToBase64(p.idKey);
-    doc["pushNfc"] = p.nfcPaths;
-  }
+  if (!hasProfile(slot)) return false;
   std::string text;
-  serializeJson(doc, text);
-  Storage.ensureDirectoryExists(DIR);
-  const std::string tmp = std::string(PROFILE) + ".tmp";
-  return writeText(tmp, text) && Storage.replaceFile(tmp.c_str(), PROFILE);
+  if (!Storage.readFileToString("LSY", livesync::profileFile(slot), MAX_PROFILE, text)) return false;
+  const bool ok = livesync::profileFromJson(text, obfuscator(), out);
+  wipe(text);
+  return ok;
 }
 
-void forget() {
-  Storage.remove(PROFILE);
-  clearPendingSetup();
+bool save(const int slot, const Profile& p) {
+  if (!livesync::validSlot(slot)) return false;
+  std::string text = livesync::profileToJson(p, obfuscator());
+  const bool ok = profileFs().writeAll(livesync::profileFile(slot), text);
+  wipe(text);
+  return ok;
 }
 
-bool hasPendingSetup() { return Storage.exists(PENDING_SETUP); }
-bool readPendingSetup(std::string& uri) { return Storage.readFileToString("LSY", PENDING_SETUP, 64 * 1024, uri); }
-bool savePendingSetup(const std::string& uri) {
-  Storage.ensureDirectoryExists(DIR);
-  return Storage.writeFile(PENDING_SETUP, String(uri.c_str()));
-}
-void clearPendingSetup() { Storage.remove(PENDING_SETUP); }
+void forget(const int slot) { livesync::removeSlot(profileFs(), slot); }
 
 bool profileFromSetup(const std::string& uri, const std::string& passphrase, Profile& out, std::string& e2ee,
                       std::string& why) {
@@ -459,20 +448,24 @@ bool pushChanges(Profile& p, PushStats& stats, std::string& error) {
 // sync once, as if it were due.
 constexpr char SYNC_REQUEST[] = "/.vaultink/sync-request";
 
-bool autoSyncDue() {
+uint8_t autoSyncDue() {
   const bool requested = Storage.exists(SYNC_REQUEST);
   if (requested) Storage.remove(SYNC_REQUEST);
-  if (!hasProfile()) return false;
-  Profile p;
-  if (!load(p)) return false;
   const int64_t now = trustedtime::trustedNow();
-  const bool due = p.autoHours > 0 && now > 0 && now - p.lastAttempt >= static_cast<int64_t>(p.autoHours) * 3600;
-  if (due) {
-    p.lastAttempt = now;
-    save(p);
+  uint8_t mask = 0;
+  for (int slot = 1; slot <= MAX_PROFILES; ++slot) {
+    if (!hasProfile(slot)) continue;
+    Profile p;
+    if (!load(slot, p)) continue;
+    const bool due = p.autoHours > 0 && now > 0 && now - p.lastAttempt >= static_cast<int64_t>(p.autoHours) * 3600;
+    if (due) {
+      p.lastAttempt = now;
+      save(slot, p);
+    }
+    wipeProfile(p);
+    if (due || requested) mask |= static_cast<uint8_t>(1u << (slot - 1));
   }
-  wipeProfile(p);
-  return due || requested;
+  return mask;
 }
 
 bool hasOwnCaCert() { return Storage.exists(CA_CERT); }

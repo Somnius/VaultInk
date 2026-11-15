@@ -80,3 +80,16 @@ add_executable(LiveSyncSetupTest LiveSyncSetupTest.cpp)
 target_include_directories(LiveSyncSetupTest PRIVATE ${REPO_ROOT}/lib/LiveSync)
 target_link_libraries(LiveSyncSetupTest PRIVATE GTest::gtest_main)
 gtest_discover_tests(LiveSyncSetupTest)
+
+add_executable(LiveSyncProfilesTest
+  LiveSyncProfilesTest.cpp
+  ${REPO_ROOT}/lib/LiveSync/LiveSyncProfiles.cpp
+  ${REPO_ROOT}/lib/LiveSync/LiveSyncCrypto.cpp
+  ${REPO_ROOT}/lib/LiveSync/LiveSyncPull.cpp
+  ${REPO_ROOT}/lib/LiveSync/LiveSyncEngine.cpp
+  ${REPO_ROOT}/lib/LiveSync/LiveSyncIds.cpp
+  ${REPO_ROOT}/lib/Utf8/Utf8.cpp
+)
+target_include_directories(LiveSyncProfilesTest PRIVATE ${REPO_ROOT}/lib/LiveSync ${REPO_ROOT}/lib/Utf8)
+target_link_libraries(LiveSyncProfilesTest PRIVATE livesync_mbedtls ArduinoJson GTest::gtest_main)
+gtest_discover_tests(LiveSyncProfilesTest)

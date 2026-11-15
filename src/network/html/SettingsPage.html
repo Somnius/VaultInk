@@ -219,7 +219,17 @@
     <p>Pull a vault from Obsidian Self-hosted LiveSync (read only). In Obsidian, open LiveSync's settings and copy the
       Setup URI, paste it here, then finish on the device: Settings → Vaults → LiveSync, where you type the Setup URI's
       passphrase. The URI is stored still encrypted; the passphrase never comes through this page.</p>
+    <p>Up to 4 vaults, each from its own Setup URI. Save one at a time and finish it on the device.</p>
+    <div id="livesync-profiles"></div>
     <p><textarea id="livesync-uri" rows="4" style="width:100%" placeholder="obsidian://setuplivesync?settings=..."></textarea></p>
+    <p><label for="livesync-vault">Vault folder on the SD card (optional)</label><br>
+      <input type="text" id="livesync-vault" maxlength="64" style="width:100%" placeholder="the database's name, e.g. My Vault">
+      <small>Goes under /Vaults. Letters, digits, spaces, - _ and . only. Two profiles can't share a folder.</small></p>
+    <p><label for="livesync-profile">Profile</label>
+      <select id="livesync-profile">
+        <option value="0">Next free</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option>
+      </select></p>
     <p><button class="save-btn" onclick="saveLiveSyncSetup()">Save Setup URI</button> <span id="livesync-status"></span></p>
   </div>
   <div id="plugin-container"></div>
@@ -528,18 +538,45 @@
   // passwords remain unchanged server-side.
   let wifiNetworks = [];
 
+  async function loadLiveSyncProfiles() {
+    const box = document.getElementById('livesync-profiles');
+    const r = await fetch('/api/livesync/status').catch(() => null);
+    if (!r || !r.ok) return;
+    const data = await r.json().catch(() => null);
+    box.textContent = '';
+    for (const p of (data && data.profiles) || []) {
+      const line = document.createElement('p');
+      const state = p.pendingSetup ? 'waiting for the passphrase on the device'
+                  : (p.lastResult || 'not synced yet');
+      line.textContent = 'Profile ' + p.index + ': ' + (p.vault ? '/Vaults/' + p.vault : '(folder from the database name)')
+                       + ' - ' + state;
+      box.appendChild(line);
+    }
+  }
+
   async function saveLiveSyncSetup() {
     const uri = document.getElementById('livesync-uri').value.trim();
+    const vault = document.getElementById('livesync-vault').value.trim();
+    const profile = parseInt(document.getElementById('livesync-profile').value, 10) || 0;
     const status = document.getElementById('livesync-status');
     if (!uri.startsWith('obsidian://setuplivesync?settings=') && !uri.startsWith('%$')) {
       status.textContent = 'That is not a LiveSync Setup URI.';
       return;
     }
+    const body = { uri };
+    if (vault) body.vault = vault;
+    if (profile) body.profile = profile;
     const r = await fetch('/api/livesync/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uri }) }).catch(() => null);
-    status.textContent = r && r.ok ? 'Saved. Finish on the device: Settings → Vaults → LiveSync.'
-                                   : 'Could not save: ' + (r ? await r.text() : 'network error');
-    if (r && r.ok) document.getElementById('livesync-uri').value = '';
+      body: JSON.stringify(body) }).catch(() => null);
+    const saved = r && r.ok ? await r.json().catch(() => null) : null;
+    status.textContent = r && r.ok
+      ? 'Saved as profile ' + (saved ? saved.profile : '') + '. Finish on the device: Settings → Vaults → LiveSync.'
+      : 'Could not save: ' + (r ? await r.text() : 'network error');
+    if (r && r.ok) {
+      document.getElementById('livesync-uri').value = '';
+      document.getElementById('livesync-vault').value = '';
+      loadLiveSyncProfiles();
+    }
   }
 
   function renderWifiNetwork(net, idx) {
@@ -931,6 +968,7 @@
   (async () => {
     await loadSettings();
     await loadWifiNetworks();
+    await loadLiveSyncProfiles();
     await loadOpdsServers();
     await loadRemoteServers();
     await loadPlugins('settings');

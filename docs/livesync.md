@@ -19,13 +19,80 @@ remote is refused with a message, before anything is written.
 1. On the device, open **Transfer & Remotes**, join a network and open the device's page in a browser.
 2. Go to **Settings**, paste the Setup URI into the **LiveSync** box and press **Save Setup URI**.
    The URI is stored on the SD card still encrypted. The passphrase never goes through the web page.
+   **Vault folder** is optional: the name of the folder under `/Vaults` (see "More than one vault").
 3. On the device, open **Settings → Vaults → LiveSync → Finish setup** and type the Setup URI's
    passphrase.
 4. The device joins Wi-Fi, reads the database's encryption salt and unlocks the vault key. Unlocking
    takes 310,000 rounds of PBKDF2, so give it a few seconds. Then it deletes the pending URI.
 
-The vault goes into `/Vaults/<database name>/`. A database name the SD card can't store becomes
-`/Vaults/LiveSync`.
+The vault goes into `/Vaults/<vault folder>/` when you gave a folder name, else into
+`/Vaults/<database name>/`. A database name the SD card can't store becomes `/Vaults/LiveSync`.
+
+## More than one vault (not released yet)
+
+The reader keeps up to **four LiveSync profiles**. Each profile is one CouchDB database synced into
+its own folder under `/Vaults`, with its own Sync on wake and Check certificate choice. So a
+database called `vtm` can be the folder `/Vaults/Constantinople By Night` and `vtm-private-lef` the
+folder `/Vaults/Lefteris-RPG`.
+
+- **Adding one.** Copy that vault's Setup URI in Obsidian, paste it on the web page as above, type
+  the **Vault folder** name and save. It becomes the next free profile (or the one you pick under
+  **Profile**; picking a profile that is already set up replaces it once you finish on the device,
+  and until then the old setup keeps working). Then finish it on the device with its passphrase.
+  Pasting the same URI twice doesn't use two profiles.
+- **The folder name.** Up to 64 letters (Greek and other non-Latin letters too), digits, spaces,
+  `-`, `_` and `.`; no `/`, and no dot or space at either end. With no name, the folder is the
+  database's name, as before. Setting the same database up again in the same profile keeps the
+  folder it had.
+- **Two profiles never share a folder.** The web page refuses a folder another profile uses (also
+  when only the case of A-Z differs: to the SD card those are one folder), and so does Finish
+  setup, with a message, when the database's name is already another profile's folder. Give that
+  one a folder name.
+- **A folder that already has files.** Nothing changed here: the sync writes the server's files
+  into it, and a file at the same path that you didn't change on the device is replaced by the
+  server's. Files only on the card stay. Notes changed on the device are kept and sent (see
+  "Sending your changes").
+- **On the device.** With two or more profiles, **Settings → Vaults → LiveSync** lists them by
+  folder name with their last result (or "Enter the Setup URI passphrase"), and **Sync all** under
+  them. Tap one for its page: Finish setup, Sync now, Vault, Server, Check certificate, Sync on
+  wake and Forget this setup. With one profile the screen opens on that page, as before.
+- **Sync all, the Sync tile, sync on wake and the companion's sync request** go through the
+  profiles one after the other, never two at once: one profile's connection is closed before the
+  next one opens. Each profile keeps its own result line, and one that fails doesn't stop the
+  next. The screen then says how many synced ("1 of 2 vaults synced"). On wake only the profiles
+  whose own interval has passed are synced; the Sync tile and a sync request take all of them.
+  If the memory left after one vault is too broken up for another connection (under 20,000 bytes
+  in one piece, the limit the downloads use), the next profile is not tried and its result line
+  says to sync it on its own.
+- **Each vault's state is separate.** The checkpoint, the id map, the trash and the list of notes
+  changed on the device live in `/.vaultink/<id>/`, where `<id>` comes from the folder's path, so
+  two folders never share them. Removing a profile leaves its folder and that state on the card.
+- **Coming from one profile.** The first time the new firmware reads the profiles it moves
+  `/.vaultink/livesync/profile.json` to `profiles/1.json` (one rename, nothing rewritten) and a
+  waiting `setup-uri.txt` to `profiles/1.setup.json`. Your vault, folder and settings stay as they
+  were. Going back to an older firmware afterwards, that firmware won't find the profile: set it
+  up again there.
+
+How it was checked: computer tests of the profile files (the move from one profile, adding and
+removing, folder names, the shared-folder refusals, four at most, old files) and of the web
+page's request, and builds for the X4 Pro and the simulator. **Not run on a reader or in the
+simulator yet**: the list and profile pages, Sync all with two real databases, and how much memory
+is left for the second vault after the first.
+
+### A Setup URI with a passphrase you can type
+
+`scripts/livesync_setup_uri.py` (on a computer, Python 3, nothing to install) opens a Setup URI
+with its passphrase and writes the same settings under a new passphrase, for example a short one
+for the reader's keyboard:
+
+```bash
+python3 scripts/livesync_setup_uri.py --uri-file old-uri.txt --out new-uri.txt
+```
+
+It asks for the two passphrases without showing them (or reads them from files or the
+environment: `--help`); they are never taken from the command line or printed. The new URI is in
+the same format the plugin writes, and a test opens one of its URIs with the firmware's own code.
+A shorter passphrase is easier to guess: keep the new URI as private as the old one.
 
 ## Sync
 
@@ -45,14 +112,16 @@ like the other sync screens do.
 
 ## What is stored on the device
 
-`/.vaultink/livesync/profile.json` holds the server address, the user name, the database name, the
-encryption salt, and two secrets: the CouchDB password and the 32-byte vault key derived from your
+`/.vaultink/livesync/profiles/1.json` to `4.json` (one per profile; before profiles it was
+`/.vaultink/livesync/profile.json`) each hold the server address, the user name, the database name, the
+vault folder, the encryption salt, and two secrets: the CouchDB password and the 32-byte vault key derived from your
 passphrase. Both secrets are obfuscated with a key from the device's hardware (MAC) address. That
 only stops a copy of the SD card from working on another device. **It is not encryption**: treat the
 SD card like the key to that vault.
 
-The passphrase itself is never stored. **Forget this setup** removes the profile, and the vault
-files stay on the card.
+The passphrase itself is never stored. **Forget this setup** removes that profile (and a Setup URI
+waiting for it), and the vault files stay on the card. A Setup URI that waits for its passphrase is
+in `profiles/<n>.setup.json`, still encrypted, with the folder name you gave.
 
 ## Sending your changes (0.28.0)
 

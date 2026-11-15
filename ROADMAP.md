@@ -428,6 +428,17 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
   Gemini and Grok; tile and wake sync tested in the simulator against the Docker CouchDB.
   Certificate checking can't be tested in the simulator (its HTTPS client doesn't check), so
   it needs the device.
+* ✅ (built, not released) **More than one vault**: up to four LiveSync profiles, each a database
+  into its own folder under `/Vaults` with a name you choose (spaces, capitals, hyphens), so `vtm`
+  can be `/Vaults/Constantinople By Night`. `POST /api/livesync/setup` takes `vault` and `profile`,
+  `GET /api/livesync/status` lists `profiles` (the old keys stay, for profile 1), the web page's
+  LiveSync box has a vault folder field, and Settings → Vaults → LiveSync lists the profiles with
+  Sync all; the tile, sync on wake and the sync request go through them one after the other. The
+  old single profile moves to profile 1 by itself. Two profiles can't share a folder.
+  `scripts/livesync_setup_uri.py` re-encrypts a Setup URI with a passphrase that is easier to type.
+  Computer tests (profile files, the web request, the script against the firmware's decryption)
+  and builds only: **not run on a reader or in the simulator**, so Sync all with two real
+  databases and the memory left for the second vault are still to be seen (docs/livesync.md).
 * To do: timing the 310,000 rounds on the S3 (hardware); certificate checking on the device
   (Let's Encrypt server, self-signed with ca.pem, an IP address); the return to the book after
   a sync (the simulator doesn't replay that restart).

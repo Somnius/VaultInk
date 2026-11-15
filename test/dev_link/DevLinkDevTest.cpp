@@ -744,6 +744,8 @@ TEST(DevPaths, TheRestOfTheDeviceFolderIsClosed) {
     EXPECT_FALSE(isAllowed("/.vaultink/livesync", access));
     EXPECT_FALSE(isAllowed("/.vaultink/livesync/profile.json", access));
     EXPECT_FALSE(isAllowed("/.vaultink/livesync/setup-uri.txt", access));
+    EXPECT_FALSE(isAllowed("/.vaultink/livesync/profiles/1.json", access));
+    EXPECT_FALSE(isAllowed("/.vaultink/livesync/profiles/2.setup.json", access));
     EXPECT_FALSE(isAllowed("/.vaultink/phone-text.txt", access));
     EXPECT_FALSE(isAllowed("/.vaultink/habits.txt", access));
     EXPECT_FALSE(isAllowed("/.vaultink/exports/a.md", access));
