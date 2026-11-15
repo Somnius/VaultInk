@@ -508,6 +508,24 @@ Big files and skipped files (2026-11-15, unreleased; computer tests and builds o
   `std::string` would reset the device), and `Transport::info` (`ResponseInfo`: Content-Type,
   Content-Length, chunked, bytes read, `complete` from `SecureHttpClient::responseComplete()`).
   A 200 with a body that ended early is no longer parsed.
+- `lib/LiveSync/LiveSyncHttp.h` (2026-11-15): `requestCapped(http, method, body, response,
+  CappedRequest{cap, largestFreeBlock, tick}, info, CappedResult&)` is the transport's request
+  (template over the HTTP client, so it runs on a computer). `!info.complete` -> `http.end()`
+  and, when a status line had come, `closedUnfinished` (logged once). `SecureHttpClient` itself
+  closes when `!_bodyComplete`, on `Connection: close` and on a close-delimited body
+  (SecureHttpClient.h, end of `sendRequestOnce`); `SecureClient::stop()` frees the wolfSSL
+  session, its context and the socket. `test/livesync/LiveSyncConnectionTest.cpp` with
+  `netstubs/WiFiClient.h` (a connection per connect, a server that does not answer behind an
+  unread body, open/close counts). A request below zero logs
+  `heap_caps_get_free_size`/`heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)`.
+- freeink-sdk (on 131bebd): `SecureHttpClient::readChunked` returns true only after the empty
+  line that ends the trailers (was: `!_aborted` after a failed `readLine`); headers without their
+  blank line close the connection with `responseComplete()` false; `Failure::Handshake` (TCP
+  connected, TLS failed; `SecureClient::reachedServer()`) beside `Failure::Connect`.
+  `livesync::failureCause(status, complete, connectFailed, handshakeFailed, checked,
+  workedBefore)` -> None / Certificate / Unreachable / NoAnswer; `livesyncdev::lastFailureCause()`
+  replaces `lastFailedUnverified()`; strings `STR_LIVESYNC_UNREACHABLE`, `STR_LIVESYNC_NO_ANSWER`.
+  The engine's `_changes` page needs `info.complete`.
 - A failed `_all_docs` is asked once more (not after NoMemory or too big). If it fails again the
   engine asks for the version doc: an answer (200 or 404) means the server is there and only that
   request is unusable; anything else stops the sync as before. 401/403 always stop it. An unusable

@@ -173,7 +173,15 @@ class Run {
       const ResponseInfo info = infoFor(response);
       if (status != 200) {
         log(describeResponse("changes", status, info, response, nullptr, true));
-        error = "Server answered " + std::to_string(status) + " to the change list.";
+        error = status < 0 ? std::string("No answer to the change list request.")
+                           : "Server answered " + std::to_string(status) + " to the change list.";
+        return false;
+      }
+      if (!info.complete) {
+        // The end of the body was not read (a chunked body's last "0" line, say), even if what
+        // came parses: the page is not used.
+        log(describeResponse("changes", status, info, response, nullptr, true));
+        error = "The change list was cut short.";
         return false;
       }
       JsonDocument changes;
@@ -244,6 +252,7 @@ class Run {
     } else if (status != 404) {
       log(describeResponse("version", status, infoFor(response), response, nullptr, true));
       error = status == 401 || status == 403 ? "The server refused the user name or password."
+              : status < 0                   ? std::string("No answer from the server.")
                                              : "Server answered " + std::to_string(status) + ".";
       return false;
     }
@@ -390,6 +399,7 @@ class Run {
       return Fetch::Abort;
     }
     error = status == 200 ? "The connection to the server was lost."
+            : status < 0  ? "No answer to a document request."
                           : "Server answered " + std::to_string(status) + " to a document request.";
     return Fetch::Abort;
   }

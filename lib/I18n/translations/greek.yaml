@@ -945,6 +945,8 @@ STR_LIVESYNC_CERT_BUILTIN: "Ναι, με τα ενσωματωμένα πιστ�
 STR_LIVESYNC_CERT_OWN: "Ναι, με το δικό σου ca.pem"
 STR_LIVESYNC_CERT_OFF: "Όχι: κρυπτογραφημένο, αλλά ο διακομιστής δεν ελέγχεται"
 STR_LIVESYNC_CERT_HINT: "Αν ο διακομιστής σου έχει δικό του πιστοποιητικό, βάλ' το στο /.vaultink/livesync/ca.pem ή κλείσε τον Έλεγχο πιστοποιητικού."
+STR_LIVESYNC_UNREACHABLE: "Δεν ήταν δυνατή η σύνδεση με τον διακομιστή."
+STR_LIVESYNC_NO_ANSWER: "Ο διακομιστής δεν απάντησε (η σύνδεση έληξε)."
 STR_LIVESYNC_AUTO: "Συγχρονισμός στο ξύπνημα"
 STR_LIVESYNC_AUTO_OFF: "Όχι"
 STR_LIVESYNC_AUTO_EVERY: "Στο ξύπνημα, το πολύ κάθε %d ώρες (αποθηκευμένο Wi-Fi)"

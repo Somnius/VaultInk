@@ -472,6 +472,23 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
   (before, files past it were never asked for again). See docs/livesync.md, "Sending a request,
   and the screen staying on". The fault in the sending code is real, but these request bodies are
   under 1 KB, so it is **not known** whether it is what the reader hit: the new log lines will say.
+* ✅ (written 2026-11-15, unreleased; computer tests and builds only, **not run on a reader**)
+  LiveSync connections after an answer that was cut: the sync closes the connection itself when an
+  answer was not read to its end (the shared HTTP code already did) and logs "connection closed
+  after an unfinished answer"; the request code moved to `LiveSyncHttp.h` and runs in computer
+  tests over the real HTTP client and fake sockets that count every open and close. A failed
+  request logs the internal memory left. From a reader's log of that day: the two skipped pictures
+  were one piece each with an answer over 2 MB (nothing to halve; needs streamed reading, cap
+  unchanged), and the requests without an answer are **not explained** by a reused connection; the
+  internal memory had been down to 536 bytes. See docs/livesync.md, "Sending a request, and the
+  screen staying on".
+  Also: a chunked answer is whole only when its last blank line was read (the shared HTTP code
+  kept the connection after waiting 30 s for it, and the late bytes became the start of the next
+  answer), a change list not read to its end is not applied, and the result screen tells a failed
+  TLS handshake (certificate hint) from a server that could not be reached and from one that did
+  not answer (English, Greek).
+* To do (LiveSync): read a chunk answer as a stream so a piece over about 1 MB fits; find what
+  takes the internal memory during a pull (the new log line gives the figure at each failure).
 * To do: timing the 310,000 rounds on the S3 (hardware); certificate checking on the device
   (Let's Encrypt server, self-signed with ca.pem, an IP address); the return to the book after
   a sync (the simulator doesn't replay that restart).
