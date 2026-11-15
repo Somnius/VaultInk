@@ -18,6 +18,7 @@
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
 #include "network/HttpDownloader.h"
+#include "util/SmallBlocksInPsram.h"
 #include "util/TaskWatchdog.h"
 #include "util/VaultEdit.h"
 #include "util/VaultFiles.h"
@@ -483,6 +484,8 @@ void LiveSyncActivity::syncAll() {
 }
 
 bool LiveSyncActivity::syncProfile(const int profileSlot, livesyncdev::Profile& profile) {
+  // cppcheck-suppress unusedVariable
+  const SmallBlocksInPsram smallBlocks;  // keep the internal heap for Wi-Fi and TLS while the sync runs
   // The vault folder was deleted (or never written): the saved checkpoint would skip everything.
   if (!Storage.exists(livesyncdev::options(profile).vaultDir.c_str())) livesyncdev::resetSyncState(profile);
   livesync::SyncStats stats;

@@ -20,6 +20,7 @@
 
 #include "activities/RenderLock.h"
 #include "components/UITheme.h"
+#include "util/SmallBlocksInPsram.h"
 #include "util/VaultFiles.h"
 
 namespace pdfconvert {
@@ -57,32 +58,6 @@ bool inflateZlib(const uint8_t* in, size_t len, std::string& out, size_t maxOut)
     if (status == InflateStream::Status::Error) return false;
   }
 }
-
-// While a PDF is read, blocks over 64 bytes come from the PSRAM where the board has it. The PDF library holds a book
-// in tens of thousands of blocks of 100 to 4000 bytes (objects, fonts' tables, a page's text), and malloc() takes
-// blocks up to CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL (4096) from the internal heap while it has room: a 166-page book
-// left 140 bytes of it free (measured on an X4 Pro), which is nothing for what can only live there.
-// The setting is malloc()'s own (Arduino sets it once at boot) and is put back when the PDF is done. A block that does
-// not fit in the PSRAM still falls back to the internal heap.
-class SmallBlocksInPsram {
- public:
-  SmallBlocksInPsram() {
-#if defined(CONFIG_SPIRAM_USE_MALLOC) && defined(CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL)
-    active = psramFound();
-    if (active) heap_caps_malloc_extmem_enable(64);
-#endif
-  }
-  ~SmallBlocksInPsram() {
-#if defined(CONFIG_SPIRAM_USE_MALLOC) && defined(CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL)
-    if (active) heap_caps_malloc_extmem_enable(CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL);
-#endif
-  }
-  SmallBlocksInPsram(const SmallBlocksInPsram&) = delete;
-  SmallBlocksInPsram& operator=(const SmallBlocksInPsram&) = delete;
-
- private:
-  bool active = false;
-};
 
 bool readStamp(const std::string& path, uint64_t& stamp) {
   HalFile file;
