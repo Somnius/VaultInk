@@ -663,6 +663,8 @@ shows in Recent and on the Continue card (opening it from there goes straight to
 
 Big books: a PDF whose pages are drawn as forms inside forms (many layout programs write them so) reset the reader while it was being opened, up to 0.76.0. Fixed after 0.76.0 (the reader ran out of stack), together with limits on the memory a long book's fonts take. Tried on the computer with a 25 MB and a 58 MB book, not yet on the reader.
 
+Memory: on an X4 Pro the 25 MB book converted, but it left 140 bytes of the reader's internal memory free while it ran. After 0.76.0 the PDF reader keeps its tables in far fewer and larger pieces, uses the extra memory (PSRAM) of boards that have it for nearly everything while a PDF is read, and watches the internal memory: when little is left it drops what it can read again, and if that is not enough it stops and says **This PDF needs more memory than the reader has**, where it would have restarted. The text it writes is the same as before (compared on both books). Tried on the computer only, not yet on the reader.
+
 ## Highlights to a vault note
 
 In a book that has clippings, the reading menu has **Highlights to a Vault Note**. It writes them to

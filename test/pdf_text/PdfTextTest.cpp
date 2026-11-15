@@ -548,7 +548,7 @@ TEST(PdfText, AFontWrittenInTheResourcesIsRead) {
 TEST(PdfText, TextIsTheSameWithNoFontsOrObjectsKeptBetweenPages) {
   pdf::Limits tight;
   tight.maxFontBytes = 0;
-  tight.maxCacheNodes = 0;
+  tight.maxCacheBytes = 0;
   for (const char* file : {"libreoffice.pdf", "xref-stream.pdf", "cid.pdf", "columns.pdf", "hand-made.pdf"}) {
     const Extracted loose = extract(slurp(file));
     const Extracted run = extractWith(slurp(file), tight);
@@ -606,4 +606,123 @@ TEST(PdfText, APageOfVeryManyPiecesStopsAtTheLimit) {
   const Extracted run = extract(pdf);
   ASSERT_TRUE(run.ok);
   EXPECT_EQ(std::count(run.text.begin(), run.text.end(), 'a'), 20000);
+}
+
+// The memory guard (Limits::freeMemory). With memory to spare nothing changes.
+TEST(PdfText, TheMemoryGuardChangesNothingWithMemoryToSpare) {
+  pdf::Limits guarded;
+  size_t asked = 0;
+  guarded.freeMemory = [&asked] {
+    ++asked;
+    return size_t{144000};
+  };
+  for (const char* file : {"libreoffice.pdf", "xref-stream.pdf", "classic-xref.pdf", "cid.pdf", "columns.pdf"}) {
+    const Extracted loose = extract(slurp(file));
+    const Extracted run = extractWith(slurp(file), guarded);
+    ASSERT_TRUE(run.ok) << file;
+    EXPECT_FALSE(run.result.outOfMemory) << file;
+    EXPECT_TRUE(run.text == loose.text) << file;
+  }
+  EXPECT_GT(asked, 20u);
+}
+
+// Under the limit but over half of it: the cached objects and the fonts are dropped at every look and read again,
+// and the text is whole.
+TEST(PdfText, LowMemoryDropsWhatCanBeReadAgain) {
+  pdf::Limits guarded;
+  guarded.freeMemory = [] { return size_t{30000}; };
+  for (const char* file : {"libreoffice.pdf", "xref-stream.pdf", "cid.pdf", "columns.pdf", "hand-made.pdf"}) {
+    const Extracted loose = extract(slurp(file));
+    const Extracted run = extractWith(slurp(file), guarded);
+    ASSERT_TRUE(run.ok) << file;
+    EXPECT_FALSE(run.result.outOfMemory) << file;
+    EXPECT_TRUE(run.text == loose.text) << file;
+  }
+  const Extracted forms = extractWith(nestedFormsPdf(), guarded);
+  ASSERT_TRUE(forms.ok);
+  EXPECT_EQ(squeeze(forms.text), "page outer middle inner");
+}
+
+std::string manyPagesPdf(const int pages) {
+  std::vector<std::string> bodies = {"<< /Type /Catalog /Pages 2 0 R >>", ""};
+  std::string kids;
+  for (int k = 0; k < pages; ++k) {
+    const int page = 3 + 2 * k;
+    kids += std::to_string(page) + " 0 R ";
+    bodies.push_back("<< /Type /Page /Parent 2 0 R /Contents " + std::to_string(page + 1) +
+                     " 0 R /Resources << /Font << /F1 " + std::to_string(3 + 2 * pages) + " 0 R >> >> >>");
+    bodies.push_back(contentObject("BT /F1 12 Tf 72 700 Td (page" + std::to_string(k) + ") Tj ET"));
+  }
+  bodies[1] = "<< /Type /Pages /Kids [" + kids + "] /Count " + std::to_string(pages) + " >>";
+  bodies.push_back("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  return buildPdf(bodies);
+}
+
+// Memory that only shrinks: first the cache and the fonts go, then the extraction stops with what it has, and says so.
+TEST(PdfText, MemoryThatRunsOutStopsTheExtractionCleanly) {
+  const std::string pdf = manyPagesPdf(40);
+  const Extracted loose = extract(pdf);
+  ASSERT_TRUE(loose.ok);
+  ASSERT_EQ(loose.pages, 40u);
+
+  pdf::Limits guarded;
+  size_t freeNow = 60000;
+  size_t lowLooks = 0;
+  guarded.freeMemory = [&freeNow, &lowLooks, &guarded] {
+    freeNow -= std::min<size_t>(freeNow, 150);
+    if (freeNow < guarded.minFreeMemory) ++lowLooks;
+    return freeNow;
+  };
+  const Extracted run = extractWith(pdf, guarded);
+  EXPECT_FALSE(run.ok);
+  EXPECT_TRUE(run.result.outOfMemory);
+  EXPECT_FALSE(run.result.encrypted);
+  EXPECT_FALSE(run.result.xrefFailed);
+  EXPECT_GT(run.pages, 0u);
+  EXPECT_LT(run.pages, 40u);
+  EXPECT_GT(lowLooks, 50u);  // it went on, with the cache dropped, between the limit and half of it
+  // What was given before it stopped is the start of the whole text, page for page.
+  EXPECT_EQ(loose.text.compare(0, run.text.size(), run.text), 0);
+
+  // Nothing free from the start: no page at all.
+  pdf::Limits none;
+  none.freeMemory = [] { return size_t{0}; };
+  const Extracted nothing = extractWith(pdf, none);
+  EXPECT_FALSE(nothing.ok);
+  EXPECT_TRUE(nothing.result.outOfMemory);
+  EXPECT_EQ(nothing.pages, 0u);
+}
+
+// One look that finds almost nothing free, at every place the guard looks in turn: the page that was being read is
+// read again from its start, so the text is whole, or the extraction says it ran out. Never a wrong text.
+TEST(PdfText, AMomentOfNoMemoryNeverGivesAWrongText) {
+  const std::vector<std::string> files = {slurp("libreoffice.pdf"), slurp("cid.pdf"), slurp("xref-stream.pdf"),
+                                          nestedFormsPdf(), manyPagesPdf(6)};
+  for (size_t f = 0; f < files.size(); ++f) {
+    const Extracted loose = extract(files[f]);
+    ASSERT_TRUE(loose.ok);
+    size_t looks = 0;
+    pdf::Limits counting;
+    counting.freeMemory = [&looks] {
+      ++looks;
+      return size_t{144000};
+    };
+    ASSERT_TRUE(extractWith(files[f], counting).ok);
+    const size_t total = looks;
+    size_t whole = 0;
+    for (size_t dip = 1; dip <= total; ++dip) {
+      size_t look = 0;
+      pdf::Limits guarded;
+      guarded.freeMemory = [&look, dip] { return ++look == dip ? size_t{100} : size_t{144000}; };
+      const Extracted run = extractWith(files[f], guarded);
+      if (run.ok) {
+        ++whole;
+        EXPECT_FALSE(run.result.outOfMemory) << f << " dip " << dip;
+        EXPECT_TRUE(run.text == loose.text) << f << " dip " << dip;
+      } else {
+        EXPECT_TRUE(run.result.outOfMemory) << f << " dip " << dip;
+      }
+    }
+    EXPECT_GT(whole, total / 2) << f;
+  }
 }
