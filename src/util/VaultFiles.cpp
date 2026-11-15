@@ -18,11 +18,11 @@ constexpr size_t NAME_LEN = 256;
 
 std::vector<Vault> findVaults() {
   std::vector<Vault> vaults;
-  char name[NAME_LEN];
   HalFile root = Storage.open(VAULTS_ROOT);
   if (root && root.isDirectory()) {
     for (auto file = root.openNextFile(); file && vaults.size() < MAX_VAULTS; file = root.openNextFile()) {
       if (!file.isDirectory()) continue;
+      char name[NAME_LEN];
       file.getName(name, sizeof(name));
       std::string path = std::string(VAULTS_ROOT) + "/" + name;
       if (!vaultpaths::isVault(path)) continue;
