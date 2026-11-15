@@ -10,6 +10,8 @@
 #include <PdfText.h>
 
 #include <functional>
+#include <memory>
+#include <new>
 
 #include "activities/RenderLock.h"
 #include "components/UITheme.h"
@@ -37,11 +39,14 @@ bool inflateZlib(const uint8_t* in, size_t len, std::string& out, size_t maxOut)
   if (!stream.init(true)) return false;
   stream.setSource(in, len);
   stream.setZlibWrapped();
-  uint8_t buffer[4096];
+  // Not on the stack: this runs under the PDF reader's nested frames, on the 24 KB loop task.
+  constexpr size_t BUFFER_BYTES = 4096;
+  const std::unique_ptr<uint8_t[]> buffer(new (std::nothrow) uint8_t[BUFFER_BYTES]);
+  if (!buffer) return false;
   while (true) {
     size_t produced = 0;
-    const auto status = stream.readAtMost(buffer, sizeof(buffer), &produced);
-    out.append(reinterpret_cast<const char*>(buffer), produced);
+    const auto status = stream.readAtMost(buffer.get(), BUFFER_BYTES, &produced);
+    out.append(reinterpret_cast<const char*>(buffer.get()), produced);
     if (out.size() > maxOut) return false;
     if (status == InflateStream::Status::Done) return true;
     if (status == InflateStream::Status::Error) return false;

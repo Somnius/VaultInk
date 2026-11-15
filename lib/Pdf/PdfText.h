@@ -24,6 +24,11 @@ struct Limits {
   size_t maxPages = 5000;
   size_t maxStreamBytes = 4 * 1024 * 1024;  // one decoded content or object stream
   size_t maxPageText = 256 * 1024;
+  // Memory kept between pages, so a long book does not grow until the reader runs out (0.76.x): the loaded fonts'
+  // tables in bytes (past it they are dropped between pages and loaded again when used), and the cached objects
+  // counted in parts (an object and every object inside it; about 200 bytes each on the reader).
+  size_t maxFontBytes = 1024 * 1024;
+  size_t maxCacheNodes = 4000;
   // Bold, italic and headings as control bytes in the text (kos25k #29, 0.73.0); off for plain text.
   bool styleMarks = false;
 };

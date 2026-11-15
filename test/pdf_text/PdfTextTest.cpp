@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <fstream>
 #include <sstream>
@@ -447,4 +448,162 @@ TEST(PdfText, StyleMarksMakeHeadingsAndBold) {
   EXPECT_TRUE(squeeze(stripped) == squeeze(plain.text));  // not EXPECT_EQ: a failure would print the whole text
   // Marks off by default: plain text has none of the bytes.
   for (const char c : plain.text) EXPECT_TRUE(c < 1 || c > 4);
+}
+
+namespace {
+
+// Extracts with `limits`, and notes how deep the stack went below the caller when the file was read (the library
+// reads objects from inside the content-stream interpreter, so the deepest read is under its nested frames).
+Extracted extractWith(const std::string& bytes, const pdf::Limits& limits, size_t* stackUsed = nullptr) {
+  Extracted run;
+  char base = 0;
+  const char* const top = &base;
+  size_t deepest = 0;
+  pdf::Source src;
+  src.size = bytes.size();
+  src.read = [&bytes, &deepest, top](uint64_t off, uint8_t* out, size_t len) {
+    char here = 0;
+    const char* const now = &here;
+    if (now < top) deepest = std::max(deepest, static_cast<size_t>(top - now));
+    if (off + len > bytes.size()) return false;
+    std::copy(bytes.begin() + off, bytes.begin() + off + len, out);
+    return true;
+  };
+  run.ok = pdf::extractText(
+      src, inflater(),
+      [&run](size_t, size_t, const std::string& t) {
+        if (run.pages++) run.text += '\f';
+        run.text += t;
+      },
+      &run.result, limits);
+  if (stackUsed) *stackUsed = deepest;
+  return run;
+}
+
+std::string formObject(const std::string& content, const std::string& resources) {
+  return "<< /Type /XObject /Subtype /Form /BBox [0 0 600 800] /Resources " + resources + " /Length " +
+         std::to_string(content.size()) + " >>\nstream\n" + content + "\nendstream";
+}
+
+// A page that draws a form, that draws a form, that draws a form: each level picks a font of its own, so the
+// innermost font is loaded with all the content streams above it still running.
+std::string nestedFormsPdf() {
+  const std::string font = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+  return buildPdf(
+      {"<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+       "<< /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources << /Font << /F1 8 0 R >> /XObject << /A 5 0 R >> >> >>",
+       contentObject("BT /F1 12 Tf 72 700 Td (page) Tj ET /A Do"),
+       formObject("BT /F2 12 Tf 72 660 Td (outer) Tj ET /B Do", "<< /Font << /F2 9 0 R >> /XObject << /B 6 0 R >> >>"),
+       formObject("BT /F3 12 Tf 72 620 Td (middle) Tj ET /C Do",
+                  "<< /Font << /F3 10 0 R >> /XObject << /C 7 0 R >> >>"),
+       formObject("BT /F4 12 Tf 72 580 Td (inner) Tj ET", "<< /Font << /F4 11 0 R >> >>"), font, font, font, font});
+}
+
+}  // namespace
+
+// The reader's task stack is 24 KB. With the font loader inside the interpreter's frame (8.4 KB a level on the
+// reader) a page of forms inside forms ran over it and the reader reset while opening the book. The frame is a
+// different size on the computer that runs this test, so the limit here is only a guard against the same mistake:
+// this file took 48 KB before and takes 14 KB now (an optimised build; other builds are not checked).
+TEST(PdfText, FormsInsideFormsStayOnASmallStack) {
+  size_t stackUsed = 0;
+  const Extracted run = extractWith(nestedFormsPdf(), pdf::Limits(), &stackUsed);
+  ASSERT_TRUE(run.ok);
+  EXPECT_EQ(squeeze(run.text), "page outer middle inner");
+#if !defined(__SANITIZE_ADDRESS__) && defined(NDEBUG)
+  EXPECT_LT(stackUsed, 24u * 1024u);
+#endif
+}
+
+TEST(PdfText, AFormThatDrawsItselfStops) {
+  const std::string pdf = buildPdf(
+      {"<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+       "<< /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources << /XObject << /A 5 0 R >> >> >>",
+       contentObject("/A Do"),
+       formObject("BT /F1 12 Tf 72 700 Td (again) Tj ET /A Do", "<< /Font << /F1 6 0 R >> /XObject << /A 5 0 R >> >>"),
+       "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
+  const Extracted run = extract(pdf);
+  ASSERT_TRUE(run.ok);
+  EXPECT_EQ(squeeze(run.text), "again again again");  // three forms deep, no further
+}
+
+// A font written inside the resources has no object number: it is loaded once for the stream, not at every Tf.
+TEST(PdfText, AFontWrittenInTheResourcesIsRead) {
+  std::string content = "BT 72 700 Td ";
+  for (int k = 0; k < 400; ++k) content += "/F1 12 Tf (ab) Tj /F2 12 Tf (cd) Tj ";
+  content += "ET";
+  const std::string pdf = buildPdf(
+      {"<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+       "<< /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources << /Font << "
+       "/F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> "
+       "/F2 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Differences [99 /x /y] >> >> >> >> >>",
+       contentObject(content)});
+  const Extracted run = extract(pdf);
+  ASSERT_TRUE(run.ok);
+  EXPECT_EQ(run.text.size(), 1600u);
+  EXPECT_EQ(run.text.compare(0, 8, "abxyabxy"), 0);
+}
+
+// The memory kept between pages has limits (fonts, cached objects). With both at nothing the text is the same.
+TEST(PdfText, TextIsTheSameWithNoFontsOrObjectsKeptBetweenPages) {
+  pdf::Limits tight;
+  tight.maxFontBytes = 0;
+  tight.maxCacheNodes = 0;
+  for (const char* file : {"libreoffice.pdf", "xref-stream.pdf", "cid.pdf", "columns.pdf", "hand-made.pdf"}) {
+    const Extracted loose = extract(slurp(file));
+    const Extracted run = extractWith(slurp(file), tight);
+    ASSERT_TRUE(run.ok) << file;
+    EXPECT_FALSE(run.text.empty()) << file;
+    EXPECT_TRUE(run.text == loose.text) << file;
+    EXPECT_EQ(run.result.droppedGlyphs, loose.result.droppedGlyphs) << file;
+  }
+}
+
+TEST(PdfText, APageTreeDeeperThanTheLimitIsNotWalked) {
+  const auto tree = [](const int levels) {
+    std::vector<std::string> bodies = {"<< /Type /Catalog /Pages 2 0 R >>"};
+    for (int k = 0; k < levels; ++k) {
+      bodies.push_back("<< /Type /Pages /Kids [" + std::to_string(k + 3) + " 0 R] /Count 1 >>");
+    }
+    const int page = levels + 2;
+    bodies.push_back("<< /Type /Page /Contents " + std::to_string(page + 1) + " 0 R /Resources << /Font << /F1 " +
+                     std::to_string(page + 2) + " 0 R >> >> >>");
+    bodies.push_back(contentObject("BT /F1 12 Tf 72 700 Td (deep) Tj ET"));
+    bodies.push_back("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+    return buildPdf(bodies);
+  };
+  const Extracted fine = extract(tree(12));
+  ASSERT_TRUE(fine.ok);
+  EXPECT_EQ(fine.text, "deep");
+  const Extracted tooDeep = extract(tree(40));
+  EXPECT_TRUE(tooDeep.ok);
+  EXPECT_EQ(tooDeep.pages, 0u);
+}
+
+TEST(PdfText, APagesStreamsTogetherStayUnderTheStreamLimit) {
+  const std::string pdf = buildPdf(
+      {"<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+       "<< /Type /Page /Parent 2 0 R /Contents [4 0 R 5 0 R] /Resources << /Font << /F1 6 0 R >> >> >>",
+       contentObject("BT /F1 12 Tf 72 700 Td (first) Tj ET"), contentObject("BT /F1 12 Tf 72 600 Td (second) Tj ET"),
+       "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
+  EXPECT_EQ(squeeze(extract(pdf).text), "first second");
+  pdf::Limits limits;
+  limits.maxStreamBytes = 60;  // each stream fits, both together don't
+  const Extracted run = extractWith(pdf, limits);
+  ASSERT_TRUE(run.ok);
+  EXPECT_EQ(run.text, "first");
+}
+
+// One glyph per operator is one piece of text each: the page stops at a fixed number of them.
+TEST(PdfText, APageOfVeryManyPiecesStopsAtTheLimit) {
+  std::string content = "BT /F1 12 Tf 72 700 Td ";
+  for (int k = 0; k < 25000; ++k) content += "(a) Tj ";
+  content += "ET";
+  const std::string pdf =
+      buildPdf({"<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                "<< /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+                contentObject(content), "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
+  const Extracted run = extract(pdf);
+  ASSERT_TRUE(run.ok);
+  EXPECT_EQ(std::count(run.text.begin(), run.text.end(), 'a'), 20000);
 }

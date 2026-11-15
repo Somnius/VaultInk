@@ -661,6 +661,8 @@ What it doesn't: pictures, tables as tables, more than four columns, page number
 scans without a text layer. Two, three or four columns (0.56.0) are read column by column when the page has clear gutters (a title across all of them is kept in place). A file whose fonts carry no text map (so the letters can't be told) says the text can't be read, instead of showing garbage (0.56.0). A scan says "This PDF has no text to read". A PDF locked with a password you need to open it says so (PDFs that are only locked against copying or printing, with no password to open, are read: RC4, AES-128 and, from 0.56.0, AES-256). A PDF you have read
 shows in Recent and on the Continue card (opening it from there goes straight to the text). Since 0.58.0 PDFs are also listed in the Library (the PDF row in Book formats), and you can still find one in Browse Files or by its link.
 
+Big books: a PDF whose pages are drawn as forms inside forms (many layout programs write them so) reset the reader while it was being opened, up to 0.76.0. Fixed after 0.76.0 (the reader ran out of stack), together with limits on the memory a long book's fonts take. Tried on the computer with a 25 MB and a 58 MB book, not yet on the reader.
+
 ## Highlights to a vault note
 
 In a book that has clippings, the reading menu has **Highlights to a Vault Note**. It writes them to
