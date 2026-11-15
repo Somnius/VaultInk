@@ -40,7 +40,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (my code is MIT; the firmware binaries are GPL-3.0-or-later, see [License](#license)). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Still early.** VaultInk is at 0.75.1. Releases from 0.8.2 on have been tested on a real X4 Pro by one
+> **Still early.** VaultInk is at 0.76.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
 > tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Much of the
 > newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
 > the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
@@ -51,7 +51,7 @@ It's free and open source (my code is MIT; the firmware binaries are GPL-3.0-or-
 ## At a glance
 
 <p>
-  <img src="docs/images/vaultink/home-071.png" width="190" alt="Home screen with the current book, Books, Vaults, Favourites, Search, Browse Files, Gallery, File Transfer, Plugins, Random page and Settings">
+  <img src="docs/images/vaultink/home-10-rows-0.75.0.png" width="190" alt="Home screen with the current book, Books, Vaults, Favourites, Search, Browse Files, Gallery, Transfer &amp; Remotes, Plugins, Random page and Settings">
   <img src="docs/images/vaultink/library-sort.png" width="190" alt="Library with the Recent, up-percent and down-percent bar and the percent read next to each author">
   <img src="docs/images/vaultink/note.png" width="190" alt="An Obsidian note with links, a callout, tasks and a table">
   <img src="docs/images/vaultink/search-results-wide.png" width="190" alt="Search in Book results that fill the row, with the gear at the right of the header">
@@ -428,12 +428,13 @@ If it saves you time, the converter's page has a "Buy me a coffee" link for its 
 
 The [roadmap](ROADMAP.md) has the details and the order. Open items right now:
 
-- Real-device testing of what 0.75.0 has only run on a computer: SFTP (the SSH terminal connected from a real X4 Pro in 0.75.1), DOC and CHM books, the translation lookup (the reader has never connected to the service), the gamepad buttons (never tried with a real pad), sunset-to-sunrise warmth, gestures in presets, the read-only developer build and the debug page.
-- Real-device testing of most of 0.74.0 (book map, hidden flows, gestures, FB2/HTML/RTF, auto warmth, Wikipedia, Readwise and Memos, WebDAV and FTP).
-- Switching on the certificate check for the update check in the release build. It passed on a real X4 Pro in a developer build in 0.75.0.
+- The backup and restore page for the web loader is written but **not published**: it failed to connect to my X4 Pro in Chromium on Linux (the port was lost a few milliseconds after it opened, and a third-party flasher failed the same way, while Espressif's own `esptool` works). It needs a working test on a real reader first. [docs/backup-restore.md](docs/backup-restore.md)
+- Switching on the certificate check for GitHub in the release build. On 2026-11-15 my developer build passed the update check and the font list with it on; the firmware download and a run with the clock not yet set still need a test.
+- Real-device testing of what 0.75.0 has only run on a computer: SFTP (the SSH terminal connected from a real X4 Pro in 0.75.1), DOC and CHM books, the translation lookup (the reader has never connected to the service), the gamepad buttons (never tried with a real gamepad), and Highlights to Readwise and Memos.
+- Real-device testing of most of 0.74.0 (book map, hidden flows, gestures, FB2/HTML/RTF, auto warmth, Wikipedia, WebDAV and FTP).
 - Scroll mode works on the device but refreshes the whole screen on every step (about 1.4 seconds); a partial refresh would make it usable for long reading. See [Continuous scrolling](docs/reading-and-files.md#continuous-scrolling-0750).
-- Checking on a real X4 Pro that the bottom row of the Settings list (System) now reacts to a tap without scrolling first. It is fixed in the code after 0.75.1 (computer tests only, not in a release yet).
-- The Typography Engine (unreleased) was run once on a real X4 Pro (settings, popups, English and Greek pages with condensing and letter spacing); Every Typography Engine setting has now been seen on a real reader at least once.
+- Typography Engine: right-to-left, mixed-direction, CJK and ruby text are laid out as before; the language of a single passage inside a book is not read; more hyphenation languages would have to load from the SD card, as the firmware has no room for them.
+- The 34 languages other than English and Greek show the newest rows in English.
 - Real-device testing of older features: MOBI and AZW books, Advanced Typography, Dice, VaultEUC with a real wheel and the Bluetooth client and keyboard.
 - Chapters and the cover for MOBI books, and pictures and links for AZW3.
 - The XTCH refresh choice and a few share-to-reader edge cases wait for device tests.
