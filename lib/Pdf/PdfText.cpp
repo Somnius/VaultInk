@@ -2345,6 +2345,9 @@ bool extractText(const Source& source, const Inflate& inflate,
   };
   size_t pagesFound = 0;
   walkPages(doc, pagesRoot, Obj(), handlePage, visits, pagesFound, 0, limits.maxPages);
+  // The memory guard can stop the walk while it loads a page-tree node: the pages after it are then missing, and the
+  // book must not be saved as whole.
+  if (doc.stopped()) result.outOfMemory = true;
   result.pages = index;
   if (resultOut) *resultOut = result;
   return !result.outOfMemory;
