@@ -441,8 +441,14 @@ shown twice; it is still shown when it says something the title does not.
 
 ## Books only in the Library (0.35.0)
 
-Under the Library's tabs there's a switch, **All** | **Books only**. Books only leaves the vault
-notes (and canvases) out of Recent, Title and Author, so the list is just your books. Search still
+The Library never lists what is in `/Vaults`: Obsidian vaults are not books, so their notes (and any
+other file in a vault) are opened from **Vaults**, **Search** or **Browse Files**, and they don't show
+on the Continue Reading card, in Recent, in Favourites or in Random page!. Only the folders in `/Vaults`
+are vaults; a folder with `.obsidian` anywhere else is an ordinary folder. (Not released yet; checked
+with tests on a computer, not on a device.)
+
+Under the Library's tabs there's a switch, **All** | **Books only**. Books only leaves the notes
+and text files that are not in a vault (and canvases) out of Recent, Title and Author, so the list is just your books. Search still
 works with it on, and finds only books. The choice is remembered. Favourites only ever hold books,
 so the switch isn't shown there.
 

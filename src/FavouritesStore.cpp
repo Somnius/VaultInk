@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <HalStorage.h>
 #include <Logging.h>
+#include <VaultPaths.h>
 
 #include <algorithm>
 
@@ -32,6 +33,8 @@ void FavouritesStore::load() {
     Favourite fav{obj["path"] | "", obj["title"] | "", obj["author"] | ""};
     if (!fav.path.empty() && !contains(fav.path)) favourites.push_back(std::move(fav));
   }
+  // A vault's files an older build saved are left out: notes are not books.
+  vaultpaths::dropVaultEntries(favourites);
   LOG_DBG("FAV", "%d favourites", static_cast<int>(favourites.size()));
 }
 
@@ -40,6 +43,7 @@ bool FavouritesStore::contains(const std::string& path) const {
 }
 
 void FavouritesStore::add(const std::string& path, const std::string& title, const std::string& author) {
+  if (vaultpaths::isUnderVaults(path)) return;  // a vault's file is a note, not a book
   auto it = std::find_if(favourites.begin(), favourites.end(), [&](const Favourite& f) { return f.path == path; });
   if (it != favourites.end()) {
     std::rotate(favourites.begin(), it, it + 1);
@@ -63,7 +67,11 @@ bool FavouritesStore::remove(const std::string& path) {
 void FavouritesStore::updatePath(const std::string& oldPath, const std::string& newPath) {
   auto it = std::find_if(favourites.begin(), favourites.end(), [&](const Favourite& f) { return f.path == oldPath; });
   if (it == favourites.end()) return;
-  it->path = newPath;
+  if (vaultpaths::isUnderVaults(newPath)) {
+    favourites.erase(it);  // moved into a vault
+  } else {
+    it->path = newPath;
+  }
   save();
 }
 

@@ -720,13 +720,23 @@ void HomeActivity::onOpdsBrowserOpen() { activityManager.goToBrowser(); }
 // Tries a few books in case the draw lands on a note.
 void HomeActivity::openRandomPage() {
   library::LibraryIndexFile index;
-  if (!index.open(library::libraryIndexPath()) || index.bookCount() == 0) return;
+  if (!index.open(library::libraryIndexPath())) {
+    // No index, or one an older build wrote (it listed the vaults' notes): build it now, like the Library does.
+    index.close();
+    GUI.drawPopup(renderer, tr(STR_LIBRARY_REBUILDING));
+    library::BuildStats stats;
+    const bool built = library::buildLibraryIndex("/", stats, SETTINGS.libraryUseMetadata != 0);
+    requestUpdate();  // the popup goes when no book opens
+    if (!built || !index.open(library::libraryIndexPath())) return;
+  }
+  if (index.bookCount() == 0) return;
   std::string path;
   for (int attempt = 0; attempt < 40; ++attempt) {
     const auto ordinal = static_cast<uint16_t>(randompage::random32() % index.bookCount());
     library::ClixRecord record{};
     if (!index.readRecord(ordinal, record) || !index.readPath(record, path)) continue;
-    if (!FsHelpers::isRandomPageBook(path)) continue;
+    // An index from before the update can still hold a vault's files: never a random page.
+    if (!FsHelpers::isRandomPageBook(path) || !library::isLibraryBookFile(path)) continue;
     index.close();  // the reader wants the card to itself
     randompage::request();
     activityManager.goToReader(path);

@@ -1,6 +1,7 @@
 add_executable(FsHelpersTest
   FsHelpersTest.cpp
   FileSortTest.cpp
+  VaultPathsTest.cpp
   ${REPO_ROOT}/lib/FsHelpers/FsHelpers.cpp
   ${REPO_ROOT}/lib/Utf8/Utf8.cpp
 )

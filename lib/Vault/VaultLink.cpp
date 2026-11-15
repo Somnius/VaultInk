@@ -74,11 +74,12 @@ bool sameName(std::string_view a, std::string_view b) {
 
 std::string vaultRoot(const std::string& notePath, const Fs& fs) {
   const std::string noteDir = parentOf(notePath);
-  // The nearest .obsidian wins; without one, a folder right under /Vaults is the vault (an
-  // imported ZIP, a copy without Obsidian's settings).
+  // Vaults are in /Vaults only. There the nearest .obsidian wins; without one, a folder right
+  // under /Vaults is the vault (an imported ZIP, a copy without Obsidian's settings). A note
+  // anywhere else is an ordinary file, also below a folder that holds .obsidian.
   std::string vaultsChild;
   for (std::string dir = noteDir;; dir = parentOf(dir)) {
-    if (fs.exists(join(dir, ".obsidian"))) return dir;
+    if (dir.rfind("/Vaults/", 0) == 0 && fs.exists(join(dir, ".obsidian"))) return dir;
     if (vaultsChild.empty() && parentOf(dir) == "/Vaults") vaultsChild = dir;
     if (dir == "/") break;
   }

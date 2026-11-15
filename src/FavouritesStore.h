@@ -5,6 +5,7 @@
 
 // Books the reader marked as favourites, newest first: /.crosspoint/favourites.json. Held in RAM
 // (at most MAX_FAVOURITES short entries), so "is this a favourite?" never reads the card.
+// Files in /Vaults are notes, not books: never added, and left out when the file is loaded.
 // Saves go through a .tmp file; a file that can't be read is kept as .bad, never overwritten.
 class FavouritesStore {
  public:

@@ -9,6 +9,7 @@
 #include <Logging.h>
 #include <Memory.h>
 #include <Utf8.h>
+#include <VaultPaths.h>
 #include <Xtc.h>
 
 #include <algorithm>
@@ -489,9 +490,12 @@ void walk(WalkState& st, const std::string& path, const int depth) {
     const std::string name(st.nameBuf);
 
     if (isDir) {
+      // Obsidian vaults are not books: nothing in /Vaults is listed.
+      const std::string childPath = joinLibraryPath(path, name);
+      if (vaultpaths::isUnderVaults(childPath)) continue;
       const size_t resumePosition = dir.position();
       dir.close();
-      walk(st, joinLibraryPath(path, name), depth + 1);
+      walk(st, childPath, depth + 1);
       if (st.failed || st.books >= CLIX_MAX_RECORDS) return;
 
       dir = Storage.open(path.c_str());
@@ -1060,6 +1064,7 @@ bool emitIndex(const char* folderStagePath, WalkState& st, const uint16_t* order
 const char* libraryIndexPath() { return INDEX_PATH; }
 
 bool isLibraryBookFile(const std::string_view path) {
+  if (vaultpaths::isUnderVaults(path)) return false;  // a vault's files are notes, not books
   // Match the walk's exclusions in every path component. A lone "." names the folder itself.
   size_t start = 0;
   while (start < path.size()) {

@@ -33,7 +33,9 @@ inline constexpr uint8_t CLIX_FORMAT_VERSION = 3;
 // Bump when the fold or a permutation's sort key changes.
 // Forces fold and ranks to be rebuilt while firstSeen values are preserved, so
 // arrival history survives.
-inline constexpr uint8_t CLIX_FOLD_VERSION = 4;
+// 5: no change to the fold; the walk stopped listing /Vaults, and the bump makes every reader
+// rebuild its index once so the vault notes an older build listed are dropped.
+inline constexpr uint8_t CLIX_FOLD_VERSION = 5;
 
 inline constexpr uint32_t CLIX_ALIGN = 512;
 inline constexpr size_t CLIX_FOLD_BYTES = 96;

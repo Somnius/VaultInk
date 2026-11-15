@@ -4,9 +4,10 @@
 #include <vector>
 
 #include "activities/UiListActivity.h"
+#include "util/VaultFiles.h"
 
-// Lists the Obsidian vaults on the SD card (every folder in /Vaults, and top-level folders that
-// hold .obsidian) and opens the picked one in the file browser. Below them, the last notes read.
+// Lists the Obsidian vaults on the SD card (every folder in /Vaults) and opens the picked one in
+// the file browser. Below them, the last notes read (vaultfiles::recentNotes).
 class VaultPickerActivity final : public UiListActivity {
  public:
   explicit VaultPickerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput);
@@ -20,13 +21,13 @@ class VaultPickerActivity final : public UiListActivity {
     std::string subtitle;  // "Last: <note>", or the path
   };
 
-  // The notes read last, from any vault (the recent list), under the vaults.
+  // The notes read last, from any vault, under the vaults.
   struct RecentNote {
     std::string title;
     std::string path;
     std::string vault;
   };
-  static constexpr size_t MAX_RECENT_NOTES = 5;
+  static constexpr size_t MAX_RECENT_NOTES = vaultfiles::MAX_RECENT_NOTES;
 
   // The first row opens the flashcards (Phase 10); the vaults and recent notes follow it.
   static constexpr int EXTRA_ROWS = 1;
