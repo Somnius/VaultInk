@@ -63,14 +63,16 @@ class EpubReaderMenuActivity final : public UiListActivity {
   // The toolbar's More panel from the classic list: Chapters, Text settings, Frontlight and Night mode have a tool of
   // their own; Search, Go to % and Go to page lead, and the favourite toggle to Reading presets close the list.
   static void arrangeMoreItems(std::vector<MenuItem>& items);
+  // hasContents: the book's table of contents has more than one entry (formatfeatures::showContents).
   static void buildMenuItems(std::vector<MenuItem>& items, bool hasFootnotes, bool hasBookmarks, bool hasClippings,
-                             bool isVaultNote = false, bool isFavourite = false, bool hasBookMap = false);
+                             bool isVaultNote = false, bool isFavourite = false, bool hasBookMap = false,
+                             bool hasContents = true);
 
   explicit EpubReaderMenuActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const std::string& title,
                                   const int currentPage, const int totalPages, const int bookProgressPercent,
                                   const uint8_t currentOrientation, const bool hasFootnotes, bool hasBookmarks,
                                   bool hasClippings, bool isVaultNote = false, bool isFavourite = false,
-                                  bool hasBookMap = false);
+                                  bool hasBookMap = false, bool hasContents = true);
 
   void render(RenderLock&&) override;
   bool handleHomeGesture() override;

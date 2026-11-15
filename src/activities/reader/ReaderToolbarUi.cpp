@@ -98,7 +98,7 @@ void ReaderToolbarUi::screenFn(UiScreen& screen, void* user) {
   }
 }
 
-// The Contents / Text / More row: three equal slots, an icon centred in each,
+// The Contents / Text / More row: equal slots (two when Contents is left out), an icon centred in each,
 // the active one inside an outline pill (the theme's control radius). Each
 // slot is registered as one tap target. A small name under each icon makes the three tools
 // findable without trying them (VaultInk).
@@ -113,12 +113,13 @@ void ReaderToolbarUi::buildToolRow(UiScreen& screen, const fui::LayoutAnchor anc
   // must land on the same x either way, or the icons jump when a tap swaps
   // the toolbar for a panel.
   const fui::Rect row = screen.take(anchor, kToolRowH).inset(fui::Insets{0, sideInset, 0, sideInset});
-  const int16_t slotW = static_cast<int16_t>(row.width / kToolCount);
+  const int firstTool = model_.contentsTool ? 0 : 1;
+  const int16_t slotW = static_cast<int16_t>(row.width / (kToolCount - firstTool));
   // Theme radius as-is (the frontlight panel pattern); the fill clamps to
   // the shape's own height so round themes cannot overshoot.
   const uint8_t pillRadius = tokens.controlRadius;
-  for (int i = 0; i < kToolCount; ++i) {
-    const fui::Rect slot{static_cast<int16_t>(row.x + slotW * i), row.y, slotW, row.height};
+  for (int i = firstTool; i < kToolCount; ++i) {
+    const fui::Rect slot{static_cast<int16_t>(row.x + slotW * (i - firstTool)), row.y, slotW, row.height};
     if (i == model_.activeTool) {
       screen.target().stroke(slot.inset(fui::Insets{4, kToolPillInset, 4, kToolPillInset}),
                              fui::Paint::solid(fui::Color::Black), 2, pillRadius);
