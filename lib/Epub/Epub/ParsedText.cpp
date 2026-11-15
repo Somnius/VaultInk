@@ -57,15 +57,22 @@ uint32_t firstCodepoint(const std::string_view word) {
 }
 
 // Returns the last codepoint of a word by scanning backward for the start of the last UTF-8 sequence.
-uint32_t lastCodepoint(const std::string_view word) {
-  if (word.empty()) return 0;
-  // UTF-8 continuation bytes start with 10xxxxxx; scan backward to find the leading byte.
-  size_t i = word.size() - 1;
-  while (i > 0 && (static_cast<uint8_t>(word[i]) & 0xC0) == 0x80) {
-    --i;
+// Trailing soft hyphens (U+00AD) are skipped, as firstCodepoint skips leading ones: they are not drawn, and the line
+// breaker sees words with them while extractLine sees them stripped, so both must find the same last letter (the
+// optical word gap and kerning depend on it).
+uint32_t lastCodepoint(std::string_view word) {
+  while (!word.empty()) {
+    // UTF-8 continuation bytes start with 10xxxxxx; scan backward to find the leading byte.
+    size_t i = word.size() - 1;
+    while (i > 0 && (static_cast<uint8_t>(word[i]) & 0xC0) == 0x80) {
+      --i;
+    }
+    const auto* ptr = reinterpret_cast<const unsigned char*>(word.data() + i);
+    const uint32_t cp = utf8NextCodepoint(&ptr);
+    if (cp != 0x00AD) return cp;
+    word = word.substr(0, i);
   }
-  const auto* ptr = reinterpret_cast<const unsigned char*>(word.data() + i);
-  return utf8NextCodepoint(&ptr);
+  return 0;
 }
 
 // Hanging punctuation (textfeatures::HANGING): an opening quote or bracket that starts a line hangs into the left
