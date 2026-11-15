@@ -12,6 +12,30 @@
 #   PIO=/path/to/pio scripts/deploy_web_installer.sh
 set -euo pipefail
 
+# The backup and restore page is held back until it has worked on a real reader (it failed to connect on the
+# maintainer's own computer, 2026-11-14). Its files stay in site/ but are not published, and the link on the
+# install page is cut out, unless BACKUP_PAGE=1.
+publish_backup_page() { # $1 = folder that is about to be published
+  if [[ "${BACKUP_PAGE:-0}" == 1 ]]; then
+    for page in backup.html backuplib.js; do
+      [[ -s "$1/$page" ]] || { echo "site/$page is missing: the backup and restore page would not be published." >&2; exit 1; }
+    done
+  else
+    rm -f "$1/backup.html" "$1/backuplib.js"
+    python3 - "$1/index.html" <<'PY'
+import re, sys
+p = sys.argv[1]
+s = open(p).read()
+s = re.sub(r"[ \t]*<!-- backup-page:start -->.*?<!-- backup-page:end -->\n", "", s, flags=re.S)
+open(p, "w").write(s)
+PY
+    if grep -q "backup.html" "$1/index.html"; then
+      echo "The install page still links to backup.html." >&2
+      exit 1
+    fi
+  fi
+}
+
 # --dry-run (or DRY_RUN=1): everything up to the first push. The files that would go to gh-pages
 # and to the release are left in a folder that is printed at the end; nothing is pushed, tagged or
 # uploaded, and release notes are not required.
@@ -81,9 +105,7 @@ cp site/* "$PAGES/"
 for page in debug.html debuglib.js; do
   [[ -s "$PAGES/$page" ]] || { echo "site/$page is missing: the debug page would not be published." >&2; exit 1; }
 done
-for page in backup.html backuplib.js; do
-  [[ -s "$PAGES/$page" ]] || { echo "site/$page is missing: the backup and restore page would not be published." >&2; exit 1; }
-done
+publish_backup_page "$PAGES"
 cp .pio/build/x4pro-gh_release/firmware.factory.bin "$PAGES/vaultink-x4pro-factory.bin"
 # The developer build's full image, made the same way (firmware.factory.bin of its own env).
 cp .pio/build/x4pro-dev-user/firmware.factory.bin "$PAGES/vaultink-x4pro-dev-factory.bin"

@@ -1,7 +1,9 @@
 # Back up and restore the X4 Pro's flash
 
+**Not published yet.** The page is written and tested on a computer, but it failed to connect to a real reader in Chromium on Linux (the port was lost a few milliseconds after it opened), so it is held back and the install page does not link to it.
+
 A page that copies everything stored in the reader's own memory into one file on your computer,
-and writes such a file back: <https://somnius.github.io/VaultInk/backup.html>
+and writes such a file back (it would be at <https://somnius.github.io/VaultInk/backup.html>):
 
 "Everything" is the whole 16 MB flash chip: the bootloader, the partition table, the firmware
 (stock or VaultInk), and the settings the firmware keeps in the reader. The SD card is not part

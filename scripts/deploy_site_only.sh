@@ -8,6 +8,30 @@
 #   scripts/deploy_site_only.sh
 set -euo pipefail
 
+# The backup and restore page is held back until it has worked on a real reader (it failed to connect on the
+# maintainer's own computer, 2026-11-14). Its files stay in site/ but are not published, and the link on the
+# install page is cut out, unless BACKUP_PAGE=1.
+publish_backup_page() { # $1 = folder that is about to be published
+  if [[ "${BACKUP_PAGE:-0}" == 1 ]]; then
+    for page in backup.html backuplib.js; do
+      [[ -s "$1/$page" ]] || { echo "site/$page is missing: the backup and restore page would not be published." >&2; exit 1; }
+    done
+  else
+    rm -f "$1/backup.html" "$1/backuplib.js"
+    python3 - "$1/index.html" <<'PY'
+import re, sys
+p = sys.argv[1]
+s = open(p).read()
+s = re.sub(r"[ \t]*<!-- backup-page:start -->.*?<!-- backup-page:end -->\n", "", s, flags=re.S)
+open(p, "w").write(s)
+PY
+    if grep -q "backup.html" "$1/index.html"; then
+      echo "The install page still links to backup.html." >&2
+      exit 1
+    fi
+  fi
+}
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REMOTE="${REMOTE:-https://github.com/Somnius/VaultInk.git}"
 cd "$ROOT"
@@ -65,9 +89,7 @@ fi
 for page in debug.html debuglib.js; do
   [[ -s "$OUT/$page" ]] || { echo "site/$page is missing: the debug page would not be published." >&2; exit 1; }
 done
-for page in backup.html backuplib.js; do
-  [[ -s "$OUT/$page" ]] || { echo "site/$page is missing: the backup and restore page would not be published." >&2; exit 1; }
-done
+publish_backup_page "$OUT"
 touch "$OUT/.nojekyll"
 cd "$OUT"
 git init -q -b gh-pages
