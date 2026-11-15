@@ -1,6 +1,5 @@
-#include <gtest/gtest.h>
-
 #include <SecureHttpClient.h>
+#include <gtest/gtest.h>
 
 #include <string>
 
