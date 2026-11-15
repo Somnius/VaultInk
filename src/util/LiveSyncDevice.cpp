@@ -10,9 +10,11 @@
 #include <ObfuscationUtils.h>
 #include <SecureHttpClient.h>
 #include <TrustedTime.h>
+#include <esp_heap_caps.h>
 #include <esp_random.h>
 #include <mbedtls/platform_util.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cstring>
 #include <ctime>
@@ -28,8 +30,10 @@ namespace {
 
 constexpr size_t MAX_PROFILE = 8 * 1024;
 constexpr size_t MAX_STATE_FILE = 2 * 1024 * 1024;  // the id->path map of a big vault
-// One CouchDB answer (a page of changes, a batch of docs or chunks); lands in PSRAM.
-constexpr size_t MAX_RESPONSE = 6 * 1024 * 1024;
+// One CouchDB answer (a page of changes, a batch of docs or chunks); lands in PSRAM. The engine
+// parses it into a JSON document of about the same size and then decrypts a chunk out of that, so
+// the cap is a quarter of the PSRAM; the engine sizes its chunk batches for 1.5 MB.
+constexpr size_t MAX_RESPONSE = 2 * 1024 * 1024;
 
 void wipe(std::string& s) {
   mbedtls_platform_zeroize(s.data(), s.size());
@@ -80,6 +84,7 @@ Writer writer;
 std::unique_ptr<freeink::SecureHttpClient> session;
 bool failedUnverified = false;
 std::string caPem;
+livesync::ResponseInfo lastInfo;  // of the last answer, for the engine's error log
 
 }  // namespace
 
@@ -293,6 +298,8 @@ livesync::Transport transport(const Profile& p) {
       http.setCACert(caPem.empty() ? ca_bundle::PEM : caPem.c_str());
     }
     http.setTimeout(30000);
+    lastInfo = livesync::ResponseInfo{};
+    lastInfo.complete = false;
     if (!http.begin(base + path)) return -1;
     http.addHeader("Authorization", authHeader);
     http.addHeader("Accept", "application/json");
@@ -301,11 +308,25 @@ livesync::Transport transport(const Profile& p) {
     // slow server can take up to the timeout.
     response.clear();
     bool tooBig = false;
-    const auto onData = [&response, &tooBig](const uint8_t* data, size_t len) {
+    bool noMemory = false;
+    const auto onData = [&response, &tooBig, &noMemory, &http](const uint8_t* data, size_t len) {
       resetTaskWatchdogIfSubscribed();
-      if (response.size() + len > MAX_RESPONSE) {
+      lastInfo.received += len;
+      const size_t need = response.size() + len;
+      const size_t announced = http.hasContentLength() ? http.getContentLength() : 0;
+      if (need > MAX_RESPONSE || announced > MAX_RESPONSE) {
         tooBig = true;
         return false;
+      }
+      if (need > response.capacity()) {
+        // The buffer grows here, checked first: an allocation that fails inside std::string resets
+        // the device. With a Content-Length it is taken once, else it doubles.
+        const size_t want = std::min(MAX_RESPONSE, std::max({need, announced, response.capacity() * 2}));
+        if (want > 64 * 1024 && heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT) < want + want / 4) {
+          noMemory = true;
+          return false;
+        }
+        response.reserve(want);
       }
       response.append(reinterpret_cast<const char*>(data), len);
       return true;
@@ -316,13 +337,26 @@ livesync::Transport transport(const Profile& p) {
     };
     const int status =
         http.sendRequest(method, reinterpret_cast<const uint8_t*>(body.data()), body.size(), onData, keepAlive);
+    lastInfo.contentType = http.getHeader("content-type");
+    lastInfo.contentLength = http.hasContentLength() ? static_cast<int64_t>(http.getContentLength()) : -1;
+    lastInfo.chunked = http.getHeader("transfer-encoding").find("chunked") != std::string::npos;
+    // A body that stops early (the socket closed, a read waited out the timeout) still comes back
+    // with its status: the engine must not parse it as if it were whole.
+    lastInfo.complete = status >= 0 && http.responseComplete();
     if (tooBig) {
       LOG_ERR("LSY", "Response over %u bytes", static_cast<unsigned>(MAX_RESPONSE));
-      return -2;
+      return livesync::STATUS_TOO_BIG;
+    }
+    if (noMemory) {
+      LOG_ERR("LSY", "No memory for a response (%u bytes read, largest free block %u)",
+              static_cast<unsigned>(lastInfo.received),
+              static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
+      return livesync::STATUS_NO_MEMORY;
     }
     failedUnverified = check && status < 0;
     return status;
   };
+  t.info = [] { return lastInfo; };
   return t;
 }
 
@@ -384,6 +418,10 @@ livesync::SyncOptions options(const Profile& p) {
   // A conflict copy holds the server's text: it is sent back up too, so Obsidian keeps both.
   const std::string vaultDir = o.vaultDir;
   o.onConflictCopy = [vaultDir](const std::string& rel) { vaultedit::markChanged(vaultDir + "/" + rel); };
+  // A log entry holds 255 characters: a longer line goes out in pieces.
+  o.logError = [](const std::string& line) {
+    for (size_t at = 0; at < line.size(); at += 200) LOG_ERR("LSY", "%s", line.substr(at, 200).c_str());
+  };
   return o;
 }
 
@@ -483,7 +521,10 @@ void resetSyncState(const Profile& profile) {
   const auto o = options(profile);
   Storage.remove((o.stateDir + "/checkpoint").c_str());
   Storage.remove((o.stateDir + "/files.tsv").c_str());
+  Storage.remove(skippedListPath(profile).c_str());  // everything is pulled again anyway
 }
+
+std::string skippedListPath(const Profile& profile) { return options(profile).stateDir + "/" + livesync::SKIPPED_FILE; }
 
 void endSession() {
   if (session) session->end();

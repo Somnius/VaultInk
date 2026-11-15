@@ -86,6 +86,10 @@ bool lastFailedUnverified();
 // Starts the next sync from the beginning (drops the checkpoint and the id->path map).
 void resetSyncState(const Profile& profile);
 
+// The list of files the last sync left out (path, reason, id per line); they are tried again by
+// the next sync.
+std::string skippedListPath(const Profile& profile);
+
 // Closes the HTTPS session the transport keeps between requests (after a sync or a setup).
 void endSession();
 

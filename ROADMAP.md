@@ -428,6 +428,19 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
   Gemini and Grok; tile and wake sync tested in the simulator against the Docker CouchDB.
   Certificate checking can't be tested in the simulator (its HTTPS client doesn't check), so
   it needs the device.
+* ✅ (written 2026-11-15, unreleased; computer tests and builds only, **not run on a reader**)
+  Pictures and other big files in a LiveSync vault. A first pull on an X4 Pro stopped at the third
+  file with "The server's answer could not be read (too big or not JSON)" after a 228 kB answer
+  the server had sent whole. Found on a computer: the JSON library kept string lengths in 2 bytes
+  and refuses a document with a string over 65,535 characters, which one piece of a picture
+  passes; it now uses 4 bytes. Also: a file's pieces are fetched in batches sized for 1.5 MB per
+  answer and written out batch by batch (before, all of a file's pieces sat in memory); an answer
+  is capped at 2 MB and a cut-off one is no longer parsed; a file that can't be fetched or decoded
+  is skipped with a reason in `/.vaultink/<id>/livesync/skipped.txt`, counted in the result line
+  and tried again by the next sync, while a dead server or a refused login still stops the sync;
+  every unusable answer is logged with its status, type, length, bytes read and the parser's
+  error. See docs/livesync.md, "Big files, limits and skipped files". Whether this is what the
+  reader hit is not confirmed until it runs there: the new log line names the error.
 * To do: timing the 310,000 rounds on the S3 (hardware); certificate checking on the device
   (Let's Encrypt server, self-signed with ca.pem, an IP address); the return to the book after
   a sync (the simulator doesn't replay that restart).

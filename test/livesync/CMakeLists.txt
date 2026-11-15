@@ -28,6 +28,9 @@ gtest_discover_tests(LiveSyncCryptoTest)
 FetchContent_Declare(arduinojson GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git GIT_TAG v7.4.2
                      GIT_SHALLOW TRUE)
 FetchContent_MakeAvailable(arduinojson)
+# The firmware builds ArduinoJson with 4-byte string lengths (platformio.ini): a chunk is one JSON
+# string and passes the 65,535 characters of the default.
+add_compile_definitions(ARDUINOJSON_STRING_LENGTH_SIZE=4)
 
 add_executable(LiveSyncPullTest
   LiveSyncPullTest.cpp

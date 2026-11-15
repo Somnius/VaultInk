@@ -43,6 +43,54 @@ The vault goes into `/Vaults/<database name>/`. A database name the SD card can'
 When you leave the LiveSync screen after using Wi-Fi, the device restarts quietly to free memory,
 like the other sync screens do.
 
+## Big files, limits and skipped files
+
+Written 2026-11-15, not in a release yet. Tested on a computer only (a fake server); **not run on
+a reader yet**.
+
+A file is stored on the server as a list of pieces (chunks). The device asks for them a few at a
+time, writes them to the card and drops them before asking for more, so a file's size does not
+decide how much memory the sync needs.
+
+- **Pieces per request.** At most 8, and fewer for a file with big pieces: the device takes the
+  file's average piece (its size divided by the number of pieces), adds the base64 and encryption
+  overhead (about 1.8 times), doubles it because pieces are uneven, and asks for as many as fit
+  in 1.5 MB.
+- **One answer from the server** can be 2 MB at most. A bigger one is dropped while it arrives
+  ("Response over ... bytes" in the log). In practice that means one piece of about 1 MB of file
+  data is the most the device can take.
+- **One file** can be 32 MB at most.
+- **A file that can't be fetched or decoded is skipped, and the sync goes on.** That covers: over
+  32 MB, a name the SD card can't store (`?`, `*`, `:` and the like), an answer that is too big,
+  cut short or not JSON, a server error for that file's pieces after a second try, a piece that
+  is missing on the server or doesn't decrypt. The result line then ends with
+  "N files skipped, see /.vaultink/<id>/livesync/skipped.txt".
+- **`skipped.txt`** has one line per skipped file: the path, the reason and the file's id on the
+  server, separated by tabs (paths are cut at 300 bytes). It holds 2000 files at most; more are
+  counted in the result but not listed.
+- **Skipped files are tried again** at the start of every sync. One that works leaves the list.
+  A file that was counted but not listed (over the 2000) comes back only when it changes on the
+  server, or when LiveSync is set up again.
+- **The sync still stops** when the server itself can't be used: no network, a certificate that
+  isn't accepted, a refused user name or password, a server that doesn't answer a small request
+  either, a database with compression on, or an SD card that can't be written. Nothing is
+  recorded as skipped then, and the next sync starts from the same place.
+
+Every answer the device could not use is written to the log (tag `LSY`, level ERR): the kind of
+request (`version`, `parameters`, `changes`, `docs`, `chunks`), the HTTP status, the
+Content-Type, the Content-Length or `chunked`, the bytes read, whether the body ended early, the
+JSON parser's error by name (`NoMemory`, `IncompleteInput`, `InvalidInput`), the first 80 bytes
+of the body when it isn't a memory problem, and the file being fetched. A long line is split
+into pieces of 200 characters. The server address, the user name and the password are never
+logged.
+
+What was wrong before, as found on a computer: the JSON library kept the length of a string in 2
+bytes, so any answer with a piece longer than 65,535 characters failed with "The server's answer
+could not be read (too big or not JSON)" and the whole sync stopped there. A picture can have
+such pieces. An X4 Pro stopped with that message on a picture, after an answer of 228 kB; that
+this was the reason there is not confirmed until the new build runs on it. The device also kept
+every piece of a file in memory until the file was written.
+
 ## What is stored on the device
 
 `/.vaultink/livesync/profile.json` holds the server address, the user name, the database name, the
