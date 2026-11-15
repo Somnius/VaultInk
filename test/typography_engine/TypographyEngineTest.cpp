@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -131,7 +132,7 @@ TEST(TypographyEngineConfig, ValuesOutsideTheChoicesAreBroughtBack) {
   c.minRight = 6;
   c.language = 14;
   const Config s = typoengine::sanitized(c);
-  EXPECT_EQ(s.condensePercent, 50);
+  EXPECT_EQ(s.condensePercent, 100);  // below 50 is not a choice: off, not the strongest
   EXPECT_EQ(s.letterSpacing, 2);
   EXPECT_EQ(s.hyphenMode, typoengine::HYPHEN_PATTERNS);
   EXPECT_EQ(s.minLeft, 5);
@@ -150,6 +151,107 @@ TEST(TypographyEngineConfig, ValuesOutsideTheChoicesAreBroughtBack) {
     ASSERT_LE(u.minRight, typoengine::MIN_LETTERS_MAX);
     ASSERT_LE(u.language, typoengine::LANGUAGE_COUNT);
   }
+}
+
+TEST(TypographyEngineConfig, ACondensePercentageOutsideFiftyToAHundredIsOff) {
+  for (int percent = 0; percent <= 255; ++percent) {
+    const uint8_t snapped = typoengine::sanitizeCondensePercent(static_cast<uint8_t>(percent));
+    if (percent < 50 || percent > 100) {
+      EXPECT_EQ(snapped, 100) << percent;
+    } else {
+      EXPECT_EQ(snapped, percent - percent % 10) << percent;
+    }
+  }
+  // 0, as in a settings file or a preset edited by hand, packs like the engine off.
+  Config c;
+  c.condensePercent = 0;
+  EXPECT_EQ(typoengine::sanitized(c).condensePercent, 100);
+  EXPECT_EQ(typoengine::pack(c), 0u);
+  c.condensePercent = 49;
+  EXPECT_EQ(typoengine::pack(c), 0u);
+  c.condensePercent = 50;
+  EXPECT_EQ(typoengine::unpack(typoengine::pack(c)).condensePercent, 50);
+}
+
+TEST(TypographyEngineConfig, HyphenationIsOnOnlyWithTheSwitchOnAndTheModeNotOff) {
+  EXPECT_TRUE(typoengine::hyphenationOn(1, typoengine::HYPHEN_PATTERNS));
+  EXPECT_TRUE(typoengine::hyphenationOn(1, typoengine::HYPHEN_SOFT_ONLY));
+  EXPECT_FALSE(typoengine::hyphenationOn(1, typoengine::HYPHEN_OFF));
+  EXPECT_FALSE(typoengine::hyphenationOn(0, typoengine::HYPHEN_PATTERNS));
+  EXPECT_FALSE(typoengine::hyphenationOn(0, typoengine::HYPHEN_OFF));
+  // A mode outside the choices is Patterns, as sanitized() makes it.
+  EXPECT_TRUE(typoengine::hyphenationOn(1, 9));
+}
+
+TEST(TypographyEngineConfig, TheHyphenationCheckboxAlwaysChangesWhatItShows) {
+  for (uint8_t sw : {uint8_t{0}, uint8_t{1}}) {
+    for (uint8_t mode = 0; mode < typoengine::HYPHEN_MODE_COUNT; ++mode) {
+      uint8_t s = sw, m = mode;
+      const bool before = typoengine::hyphenationOn(s, m);
+      typoengine::toggleHyphenation(s, m);
+      EXPECT_NE(before, typoengine::hyphenationOn(s, m)) << int(sw) << " " << int(mode);
+    }
+  }
+  // Switching off keeps the mode; switching on from mode Off goes back to Patterns; Soft hyphens only is kept.
+  uint8_t s = 1, m = typoengine::HYPHEN_SOFT_ONLY;
+  typoengine::toggleHyphenation(s, m);
+  EXPECT_EQ(s, 0);
+  EXPECT_EQ(m, typoengine::HYPHEN_SOFT_ONLY);
+  typoengine::toggleHyphenation(s, m);
+  EXPECT_EQ(s, 1);
+  EXPECT_EQ(m, typoengine::HYPHEN_SOFT_ONLY);
+  s = 1;
+  m = typoengine::HYPHEN_OFF;
+  typoengine::toggleHyphenation(s, m);
+  EXPECT_EQ(s, 1);
+  EXPECT_EQ(m, typoengine::HYPHEN_PATTERNS);
+}
+
+TEST(TypographyEngineConfig, EveryPatternSetHasItsOwnName) {
+  EXPECT_STREQ(typoengine::languageName(0), "");
+  EXPECT_STREQ(typoengine::languageName(14), "");
+  EXPECT_STREQ(typoengine::languageName(-1), "");
+  const std::vector<std::pair<const char*, const char*>> expected = {{"en", "English"},
+                                                                     {"fr", "Français"},
+                                                                     {"de", "Deutsch"},
+                                                                     {"ru", "Русский"},
+                                                                     {"es", "Español"},
+                                                                     {"it", "Italiano"},
+                                                                     {"pl", "Polski"},
+                                                                     {"sv", "Svenska"},
+                                                                     {"uk", "Українська"},
+                                                                     {"fi", "Suomi"},
+                                                                     {"pt", "Português"},
+                                                                     {"el", "Ελληνικά"},
+                                                                     {"grc", "Ελληνικά (πολυτονικά)"}};
+  ASSERT_EQ(expected.size(), static_cast<size_t>(typoengine::LANGUAGE_COUNT));
+  for (size_t i = 0; i < expected.size(); ++i) {
+    EXPECT_STREQ(typoengine::LANGUAGE_TAGS[i], expected[i].first);
+    EXPECT_STREQ(typoengine::languageName(static_cast<int>(i) + 1), expected[i].second);
+    for (size_t k = 0; k < i; ++k) EXPECT_STRNE(typoengine::LANGUAGE_NAMES[i], typoengine::LANGUAGE_NAMES[k]);
+  }
+}
+
+TEST(TypographyEngineConfig, ScopedOffHidesTheBooksEngineAndGivesItBack) {
+  Config c;
+  c.condensePercent = 70;
+  c.language = 12;
+  c.hyphenMode = typoengine::HYPHEN_SOFT_ONLY;
+  const uint32_t book = typoengine::pack(c);
+  typoengine::set(book);
+  {
+    const typoengine::ScopedOff off;
+    EXPECT_EQ(typoengine::storage().load(), 0u);
+    EXPECT_EQ(typoengine::current().condensePercent, 100);
+    EXPECT_EQ(typoengine::current().language, 0);
+    {
+      const typoengine::ScopedOff inner;  // a second one inside changes nothing
+      EXPECT_EQ(typoengine::storage().load(), 0u);
+    }
+    EXPECT_EQ(typoengine::storage().load(), 0u);
+  }
+  EXPECT_EQ(typoengine::storage().load(), book);
+  typoengine::set(0);
 }
 
 TEST(TypographyEngineConfig, OnlyAnEngineInUseChangesTheLayoutSignature) {

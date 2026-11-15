@@ -3812,16 +3812,25 @@ void EpubReaderActivity::showTextRowPopup(const int row) {
       break;
     }
     case 14: {
-      // The rows of Settings > Reader > Typography Engine with their values; picking one steps it to its next
-      // choice and lays the book out again.
+      // The rows of Settings > Reader > Typography Engine with their values. Picking a switch flips it; picking
+      // one of the others opens the list of its choices, as in Settings. Either way the book is laid out again.
       std::vector<std::string> options;
       for (int i = 0; i < typooptions::COUNT; ++i) {
         options.push_back(std::string(I18N.get(typooptions::NAMES[i])) + ": " + typooptions::valueText(i));
       }
       overlayPopup.show(StrId::STR_TYPOGRAPHY_ENGINE, options, 0, [this](int idx) {
         if (idx < 0 || idx >= typooptions::COUNT) return;
-        typooptions::step(idx);
-        applyTextSettingLive();
+        if (typooptions::isSwitch(idx)) {
+          typooptions::step(idx);
+          applyTextSettingLive();
+          return;
+        }
+        overlayPopup.show(typooptions::NAMES[idx], typooptions::choices(idx), typooptions::choice(idx),
+                          [this, idx](int picked) {
+                            typooptions::setChoice(idx, picked);
+                            applyTextSettingLive();
+                          });
+        overlayPopupReplaced = true;  // the list of seven is still on the screen under the new one
       });
       break;
     }
@@ -4023,7 +4032,7 @@ void EpubReaderActivity::renderOverlay() {
     model.rowCheckbox = [](void* ctx, int i, freeink::ui::ListItem& item) {
       const auto* self = static_cast<EpubReaderActivity*>(ctx);
       const int row = self->textRowAt(i);
-      if (row == 4) GUI.setCheckboxRow(item, SETTINGS.hyphenationEnabled);
+      if (row == 4) GUI.setCheckboxRow(item, SETTINGS.hyphenationOn());
       if (row == 5) GUI.setCheckboxRow(item, SETTINGS.focusReadingEnabled);
       if (row == 12) GUI.setCheckboxRow(item, SETTINGS.embeddedStyle != 0);
       if (row == 13) GUI.setCheckboxRow(item, SETTINGS.scrollMode != 0);
@@ -4054,18 +4063,21 @@ void EpubReaderActivity::handleOverlayInput() {
   // A modal option picker over the panel owns all input while open.
   if (overlayPopup.isActive()) {
     overlayPopup.handleInput(mappedInput, [this] {
-      if (overlayPopup.isActive()) {
+      if (overlayPopup.isActive() && !overlayPopupReplaced) {
         paintOverlayPopup();  // highlight moved
         return;
       }
+      overlayPopupReplaced = false;
       // Dismissed or selected: erase the dialog -- clean page back, then the
-      // panel over it (the dialog can overhang the sheet onto the page).
+      // panel over it (the dialog can overhang the sheet onto the page). A pick
+      // that opened the next picker erases the same way, then draws the new one.
       RenderLock lock;
       settleOverlayRefresh();
       if (overlayPageStored) {
         renderer.restoreBwBuffer(/*resyncPanelBaseline=*/false);
         overlayPageStored = renderer.storeBwBuffer();
         renderOverlay();
+        if (overlayPopup.isActive()) overlayPopup.render(renderer);
         pushOverlayRefresh();
       } else {
         requestUpdate();
@@ -4189,7 +4201,7 @@ void EpubReaderActivity::handleOverlayInput() {
                                });
       } else if (textRow == 4) {
         // Hyphenation is an on/off that can change while reading (kos25k); the chapter re-paginates.
-        SETTINGS.hyphenationEnabled = SETTINGS.hyphenationEnabled ? 0 : 1;
+        SETTINGS.toggleHyphenation();
         applyTextSettingLive();
       } else if (textRow == 5) {
         // Focus Reading is a genuine on/off: a tap toggles and applies live.

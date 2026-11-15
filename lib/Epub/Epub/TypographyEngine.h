@@ -27,6 +27,26 @@ inline constexpr uint8_t LANGUAGE_COUNT = 13;
 // The pattern sets, in the order of the Hyphenation language choice (1..13; 0 = the book's language).
 inline constexpr const char* LANGUAGE_TAGS[LANGUAGE_COUNT] = {"en", "fr", "de", "ru", "es", "it", "pl",
                                                               "sv", "uk", "fi", "pt", "el", "grc"};
+// What the choice list shows for each: the language's own name, the same in every interface language.
+inline constexpr const char* LANGUAGE_NAMES[LANGUAGE_COUNT] = {"English",
+                                                               "Français",
+                                                               "Deutsch",
+                                                               "Русский",
+                                                               "Español",
+                                                               "Italiano",
+                                                               "Polski",
+                                                               "Svenska",
+                                                               "Українська",
+                                                               "Suomi",
+                                                               "Português",
+                                                               "Ελληνικά",
+                                                               "Ελληνικά (πολυτονικά)"};
+
+// The name of Hyphenation language choice 1..13; empty for 0 (the book's language, a translated string) and for a
+// number outside the choices.
+constexpr const char* languageName(const int choice) {
+  return choice >= 1 && choice <= LANGUAGE_COUNT ? LANGUAGE_NAMES[choice - 1] : "";
+}
 
 struct Config {
   uint8_t condensePercent = 100;  // 100 = off; else a word gap may shrink to this share of its width
@@ -38,10 +58,10 @@ struct Config {
   uint8_t language = 0;  // 0 = book language (Greek words still use Greek patterns), 1..13 = LANGUAGE_TAGS
 };
 
-// Snaps a stored percentage to one of 100, 90, 80, 70, 60, 50.
+// Snaps a stored percentage to one of 100, 90, 80, 70, 60, 50. A value outside 50..100 (0 in a file edited by hand)
+// is not a choice and means off, never the strongest condensing.
 constexpr uint8_t sanitizeCondensePercent(const uint8_t percent) {
-  if (percent >= 100) return 100;
-  if (percent <= CONDENSE_MIN_PERCENT) return CONDENSE_MIN_PERCENT;
+  if (percent >= 100 || percent < CONDENSE_MIN_PERCENT) return 100;
   return static_cast<uint8_t>(percent - percent % CONDENSE_STEP_PERCENT);
 }
 
@@ -78,6 +98,23 @@ constexpr Config unpack(const uint32_t packed) {
   return sanitized(c);
 }
 
+// Whether words are hyphenated at all: the Hyphenation switch is on and the engine's Hyphenation mode is not Off.
+// Everything that shows or uses the switch asks this, so the two can not disagree.
+constexpr bool hyphenationOn(const uint8_t hyphenationSwitch, const uint8_t hyphenMode) {
+  return hyphenationSwitch != 0 && hyphenMode != HYPHEN_OFF;
+}
+
+// What a press on the Hyphenation checkbox does. On goes off by the switch. Off goes on, and a mode of Off goes back
+// to Patterns, or the press would change nothing the reader can see.
+constexpr void toggleHyphenation(uint8_t& hyphenationSwitch, uint8_t& hyphenMode) {
+  if (hyphenationOn(hyphenationSwitch, hyphenMode)) {
+    hyphenationSwitch = 0;
+    return;
+  }
+  hyphenationSwitch = 1;
+  if (hyphenMode == HYPHEN_OFF) hyphenMode = HYPHEN_PATTERNS;
+}
+
 inline std::atomic<uint32_t>& storage() {
   static std::atomic<uint32_t> value{0};
   return value;
@@ -85,6 +122,20 @@ inline std::atomic<uint32_t>& storage() {
 
 inline void set(const uint32_t packed) { storage().store(packed, std::memory_order_relaxed); }
 inline Config current() { return unpack(storage().load(std::memory_order_relaxed)); }
+
+// Text that is not the book (a dictionary definition, the Text settings sample) is laid out with the engine off:
+// while one of these is alive current() is all defaults, and the open book's value is back when it goes away. Only
+// the activity on top lays text out, so a book's build never runs while one is alive.
+class ScopedOff {
+ public:
+  ScopedOff() : saved(storage().exchange(0, std::memory_order_relaxed)) {}
+  ~ScopedOff() { storage().store(saved, std::memory_order_relaxed); }
+  ScopedOff(const ScopedOff&) = delete;
+  ScopedOff& operator=(const ScopedOff&) = delete;
+
+ private:
+  uint32_t saved;
+};
 
 // --- Space condensing ---
 

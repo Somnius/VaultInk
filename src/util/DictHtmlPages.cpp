@@ -220,6 +220,7 @@ bool buildDictionaryHtmlPages(GfxRenderer& renderer, const std::string& definiti
   size_t retainedElements = 0;
   {
     const std::string tmpPath = TMP_HTML_PATH;  // the parser stores a reference
+    const typoengine::ScopedOff engineOff;      // a definition is not laid out with the open book's Typography Engine
     // Heap-allocated as Section does — the parser object is far too large for
     // a stack local. Null epub is safe: imageRendering=2 suppresses <img>
     // handling, the only path that dereferences it.
@@ -227,7 +228,7 @@ bool buildDictionaryHtmlPages(GfxRenderer& renderer, const std::string& definiti
     parser = makeUniqueNoThrow<ChapterHtmlSlimParser>(
         nullptr, tmpPath, renderer, SETTINGS.getReaderFontId(), SETTINGS.getReaderLineCompression(),
         SETTINGS.extraParagraphSpacing, SETTINGS.paragraphAlignment, viewportWidth, viewportHeight,
-        SETTINGS.hyphenationEnabled, SETTINGS.focusReadingEnabled,
+        SETTINGS.hyphenationOn(), SETTINGS.focusReadingEnabled,
         [&pagesOut, &parser, &retainedElements, &limitReason](std::unique_ptr<Page> page, uint16_t, uint16_t,
                                                               uint32_t) {
           if (limitReason) return;
