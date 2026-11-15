@@ -125,6 +125,15 @@ std::string pendingFile(const int slot) {
   return std::string(PROFILES_ROOT) + "/profiles/" + std::to_string(slot) + ".setup.json";
 }
 
+// Names the card (and a PC reading it) reserves: CON, PRN, AUX, NUL, COM1-9, LPT1-9, also with an extension.
+bool reservedFolderName(std::string_view name) {
+  std::string base(name.substr(0, name.find('.')));
+  for (char& c : base) c = static_cast<char>(c >= 'a' && c <= 'z' ? c - 'a' + 'A' : c);
+  if (base == "CON" || base == "PRN" || base == "AUX" || base == "NUL") return true;
+  return base.size() == 4 && (base.compare(0, 3, "COM") == 0 || base.compare(0, 3, "LPT") == 0) && base[3] >= '1' &&
+         base[3] <= '9';
+}
+
 bool validVaultFolder(std::string_view name) {
   if (name.empty() || name.size() > MAX_VAULT_FOLDER) return false;
   if (name.front() == '.' || name.front() == ' ' || name.back() == '.' || name.back() == ' ') return false;
@@ -133,11 +142,17 @@ bool validVaultFolder(std::string_view name) {
     const bool digit = c >= '0' && c <= '9';
     if (!letter && !digit && c != ' ' && c != '-' && c != '_' && c != '.') return false;
   }
+  if (reservedFolderName(name)) return false;
   return true;
 }
 
 std::string defaultVaultFolder(const std::string& database) {
-  return safeVaultPath(database) && database.find('/') == std::string::npos ? database : std::string("LiveSync");
+  // The database name when it is a name the card keeps as typed; else "LiveSync" (a trailing dot or space, or a
+  // reserved name, would be changed by the card and could land two profiles in one folder).
+  const bool plain =
+      !database.empty() && database.back() != '.' && database.back() != ' ' && !reservedFolderName(database);
+  return safeVaultPath(database) && database.find('/') == std::string::npos && plain ? database
+                                                                                     : std::string("LiveSync");
 }
 
 std::string foldFolderName(std::string_view name) {

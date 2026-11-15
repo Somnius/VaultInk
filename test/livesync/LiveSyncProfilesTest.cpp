@@ -746,3 +746,16 @@ TEST(LiveSyncProfiles, FilesPerSlot) {
     EXPECT_GT(strlen(setupErrorText(e)), 5u);
   }
 }
+
+TEST(LiveSyncProfiles, ReservedAndTrailingNamesAreNotFolders) {
+  EXPECT_FALSE(livesync::validVaultFolder("CON"));
+  EXPECT_FALSE(livesync::validVaultFolder("nul.txt"));
+  EXPECT_FALSE(livesync::validVaultFolder("com3"));
+  EXPECT_FALSE(livesync::validVaultFolder("LPT9"));
+  EXPECT_TRUE(livesync::validVaultFolder("com10"));
+  EXPECT_TRUE(livesync::validVaultFolder("Constantinople By Night"));
+  EXPECT_EQ(livesync::defaultVaultFolder("notes "), "LiveSync");
+  EXPECT_EQ(livesync::defaultVaultFolder("notes."), "LiveSync");
+  EXPECT_EQ(livesync::defaultVaultFolder("aux"), "LiveSync");
+  EXPECT_EQ(livesync::defaultVaultFolder("vtm-private-lef"), "vtm-private-lef");
+}
