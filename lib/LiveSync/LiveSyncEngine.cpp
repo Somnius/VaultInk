@@ -300,14 +300,15 @@ class Run {
     } else if (skips.size() < o.maxSkipList) {
       skips[id] = Skip{shown, clean(reason, 100)};
     } else {
-      ++unlisted;
+      // No room to remember this file: the sync stops before the checkpoint moves past it.
+      listFull = true;
     }
-    stats.skipped = static_cast<int>(skips.size() + unlisted);
+    stats.skipped = static_cast<int>(skips.size());
   }
 
   void forget(const std::string& id) {
     skips.erase(id);
-    stats.skipped = static_cast<int>(skips.size() + unlisted);
+    stats.skipped = static_cast<int>(skips.size());
   }
 
   // One POST _all_docs?include_docs=true {"keys": ids}. False with the answer logged, a short
@@ -326,6 +327,7 @@ class Run {
     const char* jsonError = nullptr;
     bool showBody = true;
     retry = true;
+    sizeTrouble = false;
     if (status == 200 && info.complete) {
       const DeserializationError parsed = deserializeJson(docs, response);
       if (parsed == DeserializationError::Ok && docs["rows"].is<JsonArrayConst>()) return true;
@@ -333,6 +335,7 @@ class Run {
       jsonError = parsed == DeserializationError::Ok ? "Ok but no rows" : parsed.c_str();
       showBody = !noMemory;
       retry = !noMemory;
+      sizeTrouble = noMemory;
       why = noMemory ? "not enough memory for the server's answer"
                      : std::string("the server's answer was not readable JSON (") + jsonError + ")";
     } else if (status == 200) {
@@ -340,9 +343,11 @@ class Run {
     } else if (status == STATUS_TOO_BIG) {
       why = "the server's answer was too big";
       retry = false;
+      sizeTrouble = true;
     } else if (status == STATUS_NO_MEMORY) {
       why = "not enough memory for the server's answer";
       retry = false;
+      sizeTrouble = true;
     } else {
       why = "the server answered " + std::to_string(status);
     }
@@ -355,13 +360,18 @@ class Run {
 
   // The docs for `ids`, tried twice. Unusable: this request cannot be answered but the server is
   // there (a small request still works), so only what was asked for is left out. Abort: the server
-  // cannot be used (no answer, a refused login); `error` is set.
+  // cannot be used (no answer, a refused login, or request after request failing while the small
+  // one still works, as behind a proxy that refuses them); `error` is set. After Unusable,
+  // `sizeTrouble` says the answer was too big for the device: asking for less may work.
   Fetch fetch(const char* kind, const std::vector<std::string>& ids, const std::string* file, JsonDocument& docs,
               std::string& why) {
     int status = 0;
     bool retry = false;
     for (int attempt = 0; attempt < 2; ++attempt) {
-      if (fetchOnce(kind, ids, file, docs, why, status, retry)) return Fetch::Ok;
+      if (fetchOnce(kind, ids, file, docs, why, status, retry)) {
+        failedInARow = 0;
+        return Fetch::Ok;
+      }
       if (status == 401 || status == 403) {
         error = "The server refused the user name or password.";
         return Fetch::Abort;
@@ -370,7 +380,15 @@ class Run {
     }
     std::string small;
     const int probe = net.request("GET", "obsydian_livesync_version", "", small);
-    if (probe == 200 || probe == 404) return Fetch::Unusable;
+    if (probe == 200 || probe == 404) {
+      // An answer too big for the device is about that one file. Anything else, time after time
+      // with no request answered in between, is the server (or a proxy before it) refusing them
+      // all: stopping keeps the checkpoint, where going on would skip every file and call it done.
+      if (sizeTrouble || ++failedInARow <= o.maxFailuresInARow) return Fetch::Unusable;
+      error = std::to_string(failedInARow) + " document requests in a row failed (" + why +
+              "). The sync stopped; nothing was left out.";
+      return Fetch::Abort;
+    }
     error = status == 200 ? "The connection to the server was lost."
                           : "Server answered " + std::to_string(status) + " to a document request.";
     return Fetch::Abort;
@@ -382,6 +400,11 @@ class Run {
       const std::vector<std::string> batch(ids.begin() + static_cast<std::ptrdiff_t>(i),
                                            ids.begin() + static_cast<std::ptrdiff_t>(std::min(ids.size(), i + step)));
       if (!applyDocs(batch)) return false;
+      if (listFull) {
+        error = "More than " + std::to_string(o.maxSkipList) + " files could not be fetched (see " + SKIPPED_FILE +
+                "). The sync stopped here so none of the others is lost.";
+        return false;
+      }
     }
     return true;
   }
@@ -490,8 +513,8 @@ class Run {
     };
     // A batch of chunks is fetched, written out and dropped before the next one is asked for, so
     // only one answer is in memory whatever the file's size.
-    const size_t step = chunksPerRequest(entry, o);
-    for (size_t i = 0; i < entry.children.size(); i += step) {
+    size_t step = chunksPerRequest(entry, o);
+    for (size_t i = 0; i < entry.children.size();) {
       const size_t end = std::min(entry.children.size(), i + step);
       std::vector<std::string> batch;
       for (size_t j = i; j < end; ++j) {
@@ -504,7 +527,17 @@ class Run {
         fs.commit(false);
         return Wrote::Abort;
       }
-      if (fetched == Fetch::Unusable) return leaveOut(entry, why);
+      if (fetched == Fetch::Unusable) {
+        // Too big for the device (uneven chunks, little memory left): the same chunks in smaller
+        // batches, down to one at a time, before the file is given up. What was written stays.
+        if (sizeTrouble && end - i > 1) {
+          step = (end - i) / 2;
+          log("chunks: asking again, " + std::to_string(step) + " per request, file \"" + clean(entry.path, 200) +
+              "\"");
+          continue;
+        }
+        return leaveOut(entry, why);
+      }
       std::map<std::string, JsonObjectConst> got;
       for (JsonObjectConst row : docs["rows"].as<JsonArrayConst>()) {
         JsonObjectConst doc = row["doc"];
@@ -533,6 +566,7 @@ class Run {
                                                        : "a piece of it could not be decoded");
         }
       }
+      i = end;
     }
     if (!fs.commit(true)) {
       error = "Could not save " + entry.path + " (is the SD card full?).";
@@ -564,7 +598,9 @@ class Run {
   std::map<std::string, Skip> skips;        // id -> the files this sync left out
   std::string skipFile;
   bool hadSkipFile = false;
-  size_t unlisted = 0;  // left out with the list already full
+  bool listFull = false;     // a file could not be listed: the sync stops (see applyInBatches)
+  bool sizeTrouble = false;  // the last request failed because its answer was too big for the device
+  int failedInARow = 0;      // requests that failed, one after the other, with the server still there
 };
 
 }  // namespace

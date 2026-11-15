@@ -461,6 +461,17 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
   every unusable answer is logged with its status, type, length, bytes read and the parser's
   error. See docs/livesync.md, "Big files, limits and skipped files". Whether this is what the
   reader hit is not confirmed until it runs there: the new log line names the error.
+* ✅ (written 2026-11-15, unreleased; computer tests and builds only, **not run on a reader**)
+  After the first pull on a reader (about 150 files in, then requests with no answer, then sleep):
+  a request body is written until the socket has taken all of it, with a 30 s stall limit and a
+  log line that says how many bytes went out (the shared HTTP code of every POST and PUT, and
+  WebDAV uploads); a job that held the reader for 5 seconds or more restarts the sleep timer when
+  it ends, so a long sync no longer ends in sleep; a batch of pieces whose answer is too big is
+  asked again in halves down to one piece; more than 20 failed requests in a row stop the sync
+  (before, every file was skipped and the sync said done); a full skip list (2000) stops it too
+  (before, files past it were never asked for again). See docs/livesync.md, "Sending a request,
+  and the screen staying on". The fault in the sending code is real, but these request bodies are
+  under 1 KB, so it is **not known** whether it is what the reader hit: the new log lines will say.
 * To do: timing the 310,000 rounds on the S3 (hardware); certificate checking on the device
   (Let's Encrypt server, self-signed with ca.pem, an IP address); the return to the book after
   a sync (the simulator doesn't replay that restart).

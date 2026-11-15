@@ -24,6 +24,10 @@ class LiveSyncActivity final : public UiListActivity {
   void onEnter() override;
   void onExit() override;
   void loop() override;
+  // A sync keeps the reader awake. It runs inside loop(), which holds the main loop (and with it
+  // the auto-sleep check) until it returns; main.cpp then counts the end of such a long pass as
+  // activity. This flag says the same to anything that asks while a sync is running.
+  bool preventAutoSleep() override { return syncing; }
 
  private:
   enum class Row : uint8_t { FinishSetup, SyncNow, Vault, Server, CertCheck, AutoSync, Forget, OpenProfile, SyncAll };
@@ -69,6 +73,7 @@ class LiveSyncActivity final : public UiListActivity {
   bool wifiUsed = false;
   bool autoSyncPending = false;
   bool lastSyncOk = false;
+  bool syncing = false;  // set for the whole of syncNow() / syncAll(), cleared on every way out
   bool leaveOnError = false;
   ReturnTo returnTo = ReturnTo::Settings;
   std::string passphrase;  // only between the keyboard and the setup; wiped right after

@@ -512,10 +512,39 @@ Big files and skipped files (2026-11-15, unreleased; computer tests and builds o
   engine asks for the version doc: an answer (200 or 404) means the server is there and only that
   request is unusable; anything else stops the sync as before. 401/403 always stop it. An unusable
   docs batch is asked again one id at a time; an unusable chunk batch skips the file.
+- Review leftovers (2026-11-15, computer tests only): (a) a skip that finds the list full
+  (`maxSkipList`) sets `listFull`; `applyInBatches` then stops the sync with "More than N files
+  could not be fetched..." before the page's checkpoint is saved (before, `unlisted` was counted and
+  the checkpoint passed those files). (b) `SyncOptions::maxFailuresInARow` 20: `fetch` counts
+  requests that end Unusable with the probe still answered, reset by any request that works; one
+  more is Abort with "N document requests in a row failed (...)". Too-big and NoMemory answers
+  (`sizeTrouble`) are not counted: they are about one file. (c) `writeFile`: a chunk batch that
+  fails with `sizeTrouble` is asked again with half as many chunks ((end - i) / 2) from the same
+  place, down to 1, logged as `chunks: asking again, N per request`; what was appended stays.
+- Request writes (2026-11-15; freeink-sdk SecureNet, computer tests `test/secure_http`, not run on
+  a reader). Before: `SecureHttpClient::writeRequest` did one `_conn->write()` for the head and one
+  for the body and failed unless each returned the full size; `SecureClient::write` did one
+  `wolfSSL_write` and returned 0 for WANT_WRITE too, although wolfSSL then holds the unsent record
+  and expects the same call again (internal.c `SendData`: "output buffer was full, trying to send
+  again"), with the records before it already sent. Now: `SecureClient::writeWouldBlock()` tells a
+  WANT_WRITE/WANT_READ 0 from an error; `SecureHttpClient::writeAll` offers pieces of `WRITE_CHUNK`
+  4096 bytes, adds what was taken, offers an untaken piece again unchanged, polls the abort
+  callback, and gives up when the connection is gone, on a TLS error, or after the timeout with
+  nothing taken. `failure()` (Connect, WriteHeaders, WriteBody, NoStatusLine),
+  `requestBodySent()` and `requestBodyLength()` say where a -1 came from; the LiveSync transport
+  logs them (`request body: sent N of M bytes`). `WebDavClient` PUT has its own `writeAll` with the
+  same rules. Content-Length is the payload size and the payload is sent whole or the connection is
+  closed.
+- Auto-sleep and long jobs (2026-11-15, builds only): `syncNow`/`syncAll` run inside
+  `LiveSyncActivity::loop()`, so `loop()` in main.cpp (the only place the inactivity timer is
+  checked) does not run during a sync, and `lastActivityTime` was stale when it returned: the next
+  pass slept. Now a pass of `activityManager.loop()` of `LONG_JOB_MS` 5000 or more sets
+  `lastActivityTime` (every blocking job: sync, PDF conversion, downloads), and
+  `LiveSyncActivity::preventAutoSleep()` is true while `syncing` (a scope guard in both functions).
 - `stateDir/skipped.txt`: `path<TAB>reason<TAB>id` per line, path cut at 300 bytes, reason at 100,
   control bytes as `?`, at most `maxSkipList` 2000 lines. Written before the checkpoint. The next
   sync fetches those ids first (before `_changes`), and the list is rebuilt from what fails again.
-  `SyncStats::skipped` is the list's size plus the unlisted ones; `resetSyncState` deletes the
+  `SyncStats::skipped` is the list's size; `resetSyncState` deletes the
   file. Also skipped instead of fatal now: a path `safeVaultPath` refuses and a file record that
   can't be read. Still fatal: a wrong key on a file record, compression, SD write errors.
 - Error log (`SyncOptions::logError`, `describeResponse`), one line per unusable answer:

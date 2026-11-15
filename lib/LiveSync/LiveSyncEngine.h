@@ -18,9 +18,11 @@
 // only after the whole page is applied, so a failure retries the same page.
 //
 // A file that cannot be fetched or decoded does not stop the sync: it goes to stateDir/skipped.txt
-// ("path<TAB>reason<TAB>id" per line) and is tried again at the start of the next sync. The sync
-// stops only when the server itself cannot be used (no answer, a refused login) or the SD card
-// cannot be written.
+// ("path<TAB>reason<TAB>id" per line) and is tried again at the start of the next sync. A batch of
+// chunks whose answer is too big for the device is asked for again in halves, down to one chunk a
+// request, before its file is left out. The sync stops only when the server itself cannot be used
+// (no answer, a refused login, more than maxFailuresInARow requests failing one after the other),
+// when the skip list is full, or when the SD card cannot be written.
 namespace livesync {
 
 // Transport results below zero that are about one answer, not about the connection.
@@ -69,7 +71,13 @@ struct SyncOptions {
   // A chunk batch is sized so its answer should stay under this: the file's average chunk
   // (size / chunk count) with the base64 and encryption overhead, doubled for uneven chunks.
   size_t maxResponseBytes = 1536 * 1024;
-  size_t maxSkipList = 2000;  // files kept in skipped.txt; more are counted but not listed
+  // Files kept in skipped.txt. One more than this stops the sync with a message, before the
+  // checkpoint moves past a file that could not be listed (it would never be asked for again).
+  size_t maxSkipList = 2000;
+  // Document requests that may fail one after the other, with none answered in between, while the
+  // server still answers a small GET (a proxy that refuses POST, say). One more stops the sync
+  // rather than skipping every file and reporting success. Answers too big for the device don't count.
+  int maxFailuresInARow = 20;
   // Paths (under vaultDir) changed on the device and not pushed yet. A remote change to one is
   // written beside it as "<name> (conflict <conflictDate>).<ext>", and a remote delete or rename
   // leaves it where it is: local edits are never overwritten.

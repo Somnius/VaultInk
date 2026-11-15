@@ -63,12 +63,23 @@ Error fromStatus(const int status) {
   return Error::Refused;
 }
 
-bool writeAll(::Client& conn, const uint8_t* data, size_t len) {
+// Writes all of `data`. A socket that takes nothing for now (`tls`: TLS waiting on it, which must
+// then be offered the same bytes again) is asked again until TIMEOUT_MS pass with nothing taken;
+// a closed connection or a TLS error fails at once.
+bool writeAll(::Client& conn, const freeink::SecureClient* tls, const uint8_t* data, size_t len,
+              const Transfer& transfer) {
+  unsigned long lastProgress = millis();
   while (len > 0) {
     const size_t n = conn.write(data, len);
-    if (n == 0) return false;
-    data += n;
-    len -= n;
+    if (n > 0) {
+      data += n;
+      len -= n;
+      lastProgress = millis();
+      continue;
+    }
+    if (!conn.connected() || (tls && !tls->writeWouldBlock())) return false;
+    if (transfer.cancelled() || millis() - lastProgress >= TIMEOUT_MS) return false;
+    delay(2);
   }
   return true;
 }
@@ -381,7 +392,7 @@ Error WebDavClient::upload(const std::string& localPath, const std::string& dir,
   LOG_DBG("DAV", "PUT %s (%u bytes)", url.c_str(), static_cast<unsigned>(size));
 
   Error result = Error::Ok;
-  bool sendFailed = !writeAll(*conn, reinterpret_cast<const uint8_t*>(head.data()), head.size());
+  bool sendFailed = !writeAll(*conn, tls.get(), reinterpret_cast<const uint8_t*>(head.data()), head.size(), transfer);
   uint64_t sent = 0;
   while (!sendFailed && result == Error::Ok && sent < size) {
     if (transfer.cancelled()) {
@@ -395,7 +406,9 @@ Error WebDavClient::upload(const std::string& localPath, const std::string& dir,
       result = Error::File;  // the file got shorter, or the card failed
       break;
     }
-    if (!writeAll(*conn, buffer.get(), static_cast<size_t>(n))) {
+    if (!writeAll(*conn, tls.get(), buffer.get(), static_cast<size_t>(n), transfer)) {
+      LOG_ERR("DAV", "PUT request body: sent %llu of %llu bytes", static_cast<unsigned long long>(sent),
+              static_cast<unsigned long long>(size));
       sendFailed = true;
       break;
     }

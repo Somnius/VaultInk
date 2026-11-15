@@ -1102,6 +1102,8 @@ void loop() {
 
   // Check for any user activity (button press or release) or active background work
   static unsigned long lastActivityTime = millis();
+  // One pass of the activity's loop this long was a job the reader was busy with (see below).
+  static constexpr unsigned long LONG_JOB_MS = 5000;
 
   // Handle incoming serial commands,
   // nb: we use logSerial from logging to avoid deprecation warnings
@@ -1292,6 +1294,11 @@ void loop() {
   const unsigned long activityStartTime = millis();
   activityManager.loop();
   const unsigned long activityDuration = millis() - activityStartTime;
+  // A long job that runs inside the activity's loop (a LiveSync sync, a PDF conversion, a download
+  // with its progress on screen) holds this loop, so nothing here can put the reader to sleep while
+  // it runs. Its end counts as activity: without this the inactivity timer, which was not fed all
+  // that time, fired on the very next pass, before the result could be read.
+  if (activityDuration >= LONG_JOB_MS) lastActivityTime = millis();
 
   const unsigned long loopDuration = millis() - loopStartTime;
   if (loopDuration > maxLoopDuration) {

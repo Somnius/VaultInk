@@ -424,13 +424,26 @@ void LiveSyncActivity::finishSetup() {
   showMessage(tr(STR_LIVESYNC_READY));
 }
 
+namespace {
+// Sets a flag for a scope: every return path clears it.
+struct Busy {
+  explicit Busy(bool& flag) : flag(flag) { flag = true; }
+  ~Busy() { flag = false; }
+  Busy(const Busy&) = delete;
+  Busy& operator=(const Busy&) = delete;
+  bool& flag;
+};
+}  // namespace
+
 void LiveSyncActivity::syncNow() {
+  const Busy busy(syncing);
   progress.begin(renderer, tr(STR_LIVESYNC_SYNCING));
   lastSyncOk = syncProfile(slot, profile);
   showMessage(profile.lastResult);
 }
 
 void LiveSyncActivity::syncAll() {
+  const Busy busy(syncing);
   int total = 0, good = 0;
   std::string onlyResult;
   for (int s = 1; s <= livesyncdev::MAX_PROFILES; ++s) {

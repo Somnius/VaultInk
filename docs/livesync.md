@@ -181,16 +181,55 @@ decide how much memory the sync needs.
   cut short or not JSON, a server error for that file's pieces after a second try, a piece that
   is missing on the server or doesn't decrypt. The result line then ends with
   "N files skipped, see /.vaultink/<id>/livesync/skipped.txt".
+- **An answer that is too big is asked for again in smaller parts** before the file is skipped:
+  when a request for several pieces comes back over the 2 MB, or leaves no memory to read it, the
+  device asks for half as many, down to one piece a request. What was already written of the file
+  stays. Only a single piece that is too big on its own skips the file.
 - **`skipped.txt`** has one line per skipped file: the path, the reason and the file's id on the
-  server, separated by tabs (paths are cut at 300 bytes). It holds 2000 files at most; more are
-  counted in the result but not listed.
+  server, separated by tabs (paths are cut at 300 bytes). It holds 2000 files at most.
 - **Skipped files are tried again** at the start of every sync. One that works leaves the list.
-  A file that was counted but not listed (over the 2000) comes back only when it changes on the
-  server, or when LiveSync is set up again.
 - **The sync still stops** when the server itself can't be used: no network, a certificate that
   isn't accepted, a refused user name or password, a server that doesn't answer a small request
   either, a database with compression on, or an SD card that can't be written. Nothing is
   recorded as skipped then, and the next sync starts from the same place.
+- **It also stops when skipping would hide a bigger problem** (the place it got to is kept, so no
+  file is lost):
+  - *More than 20 requests in a row fail* with none answered in between, while the server still
+    answers a small request: "21 document requests in a row failed (...). The sync stopped;
+    nothing was left out." That is a server, or a proxy in front of it, refusing these requests;
+    before, every file was skipped and the sync said it was done. Answers that are too big for
+    the device don't count here.
+  - *The list of skipped files is full*: "More than 2000 files could not be fetched (see
+    skipped.txt). The sync stopped here so none of the others is lost." Before, files past the
+    2000 were counted but not listed, and the sync moved on past them for good.
+
+### Sending a request, and the screen staying on
+
+Written 2026-11-15 after a first pull on an X4 Pro (a 0.76.1 development build, CouchDB behind
+nginx): after about 150 files, requests for documents got no answer for 30 to 36 seconds each.
+nginx logged them as closed by the client (499) and they never reached CouchDB: nginx waits for
+the whole request body before it passes a request on, so the body had not arrived whole. The
+reader then went to sleep by its 10-minute timer with the result unread.
+
+- **A request body is now written until every byte is taken.** The network code used to hand the
+  body to the socket once and treat anything but "all of it" as a failure; over TLS a socket that
+  was busy for a moment left the part already sent on the wire and the rest unsent. Now the rest
+  is offered again until it is all in, and a socket that takes nothing for 30 seconds fails the
+  request with the connection closed. The same code sends every POST and PUT of the firmware
+  (LiveSync push, KOReader sync, highlight exports, clippings, Translate, plugins, WebDAV), and
+  WebDAV uploads got the same loop.
+- **What the log says** when a request gets no answer (tag `LSY`, level ERR), next to the line
+  described below: `POST request body: sent 1024 of 4096 bytes` (the body did not go out whole),
+  `POST: request sent whole (body 700 of 700 bytes), no answer came back` (it did, and the server
+  closed the connection or stayed silent for 30 seconds), or `POST: could not connect`.
+- **Not confirmed on the reader.** The fault in the sending code is real and is covered by
+  computer tests (a fake socket that takes 512 bytes a time, one that is busy now and then, one
+  that stalls). Whether it is what the reader hit is not known: these request bodies are under
+  1 KB. The next sync on the reader will say which of the lines above it is.
+- **A sync keeps the reader awake.** The sync runs in one go, and the sleep timer was not fed
+  while it ran, so it fired the moment a sync longer than the timeout ended. The end of any job
+  that held the reader for 5 seconds or more (a sync, a PDF conversion, a download) now counts as
+  a key press for the timer: the full timeout starts again from there.
 
 Every answer the device could not use is written to the log (tag `LSY`, level ERR): the kind of
 request (`version`, `parameters`, `changes`, `docs`, `chunks`), the HTTP status, the
