@@ -88,6 +88,9 @@ inline void setChoice(const int row, const int index) {
   const int count = static_cast<int>(choices(row).size());
   if (value == nullptr || index < 0 || index >= count) return;
   *value = static_cast<uint8_t>(row == CONDENSE ? 100 - index * typoengine::CONDENSE_STEP_PERCENT : index);
+  // Choosing Patterns or Soft hyphens only is asking for hyphenation: the Hyphenation switch goes on with it, else the
+  // pick would change nothing visible while the switch is off.
+  if (row == HYPHEN_MODE && *value != typoengine::HYPHEN_OFF) SETTINGS.hyphenationEnabled = 1;
 }
 
 inline std::string valueText(const int row) {
