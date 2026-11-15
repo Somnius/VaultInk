@@ -127,6 +127,11 @@ Status ensureText(const GfxRenderer& renderer, const std::string& pdfPath, std::
       },
       &result, limits);
   flushPending("");
+  // How close the extraction came to the end of this task's stack (the loop task, 24 KB): a PDF with nested forms
+  // once overflowed it. Logged so a device run shows the real figure, in words (the high-water mark is the least
+  // stack that was ever free, in bytes on ESP-IDF).
+  LOG_INF("PDF", "stack: least free %u bytes",
+          static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));  // bytes on ESP-IDF's FreeRTOS
   out.flush();
   out.close();
   source.close();
