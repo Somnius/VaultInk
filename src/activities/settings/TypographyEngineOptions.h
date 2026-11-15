@@ -2,6 +2,7 @@
 
 #include <I18n.h>
 
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -64,7 +65,7 @@ inline std::vector<std::string> choices(const int row) {
       break;
     case LANGUAGE:
       out.emplace_back(tr(STR_TYPO_BOOK_LANGUAGE));
-      for (const char* name : typoengine::LANGUAGE_NAMES) out.emplace_back(name);
+      out.insert(out.end(), std::begin(typoengine::LANGUAGE_NAMES), std::end(typoengine::LANGUAGE_NAMES));
       break;
     default:
       break;
