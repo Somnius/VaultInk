@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
+#include <string_view>
 #include <vector>
 
 // A chunk's `data` is one JSON string, and it can pass 65,535 characters. ArduinoJson keeps a
@@ -320,10 +322,50 @@ class Run {
     stats.skipped = static_cast<int>(skips.size());
   }
 
+  // The answer to a request for one chunk that is too long to parse: the answer itself, and where
+  // the chunk's stored text is in it.
+  struct Raw {
+    size_t expected = 0;  // about how long the answer will be
+    std::string text;
+    size_t at = 0;
+    size_t len = 0;
+    bool encrypted = false;
+    bool used = false;
+  };
+
+  // Finds the one chunk `id` in an `_all_docs` answer without parsing the chunk's text: the answer
+  // with that text cut out is small and is parsed as usual, which says whether it is one row, for
+  // this id, with a `data` string. A chunk as LiveSync stores it ("%=" and base64) has no escapes;
+  // text that has any is left to the full parser. False: not found that way.
+  static bool sliceChunk(const std::string& response, const std::string& id, Raw& raw) {
+    static constexpr std::string_view KEY = "\"data\":\"";
+    const size_t key = response.find(KEY);
+    if (key == std::string::npos) return false;
+    const size_t start = key + KEY.size();
+    const size_t end = response.find('"', start);
+    if (end == std::string::npos || memchr(response.data() + start, '\\', end - start)) return false;
+    if (start + (response.size() - end) > 16 * 1024) return false;
+    std::string shell(response, 0, start);
+    shell.append(response, end, std::string::npos);
+    JsonDocument small;
+    if (deserializeJson(small, shell) != DeserializationError::Ok) return false;
+    const JsonArrayConst rows = small["rows"].as<JsonArrayConst>();
+    if (rows.size() != 1) return false;
+    const JsonObjectConst doc = rows[0]["doc"];
+    if (id != (doc["_id"] | "") || !doc["data"].is<JsonString>() || doc["data"].as<JsonString>().size() != 0) {
+      return false;
+    }
+    raw.at = start;
+    raw.len = end - start;
+    raw.encrypted = doc["e_"] | false;
+    return true;
+  }
+
   // One POST _all_docs?include_docs=true {"keys": ids}. False with the answer logged, a short
-  // reason in `why`, and `retry` set when the same request may work a second time.
+  // reason in `why`, and `retry` set when the same request may work a second time. With `raw` (one
+  // chunk asked for) an answer too long to parse is handed over in it, and `docs` stays empty.
   bool fetchOnce(const char* kind, const std::vector<std::string>& ids, const std::string* file, JsonDocument& docs,
-                 std::string& why, int& status, bool& retry) {
+                 std::string& why, int& status, bool& retry, Raw* raw) {
     std::string body, response;
     {
       JsonDocument req;
@@ -331,13 +373,24 @@ class Run {
       for (const auto& id : ids) keys.add(id);
       serializeJson(req, body);
     }
-    status = net.request("POST", "_all_docs?include_docs=true", body, response);
+    static constexpr char PATH[] = "_all_docs?include_docs=true";
+    status = raw && net.requestOne ? net.requestOne("POST", PATH, body, response, raw->expected)
+                                   : net.request("POST", PATH, body, response);
     const ResponseInfo info = infoFor(response);
     const char* jsonError = nullptr;
     bool showBody = true;
     retry = true;
     sizeTrouble = false;
-    if (status == 200 && info.complete) {
+    if (status == 200 && info.complete && response.size() > o.maxParsedBytes) {
+      if (raw && sliceChunk(response, ids[0], *raw)) {
+        raw->text = std::move(response);
+        raw->used = true;
+        return true;
+      }
+      why = "the server's answer was too big";
+      retry = false;
+      sizeTrouble = true;
+    } else if (status == 200 && info.complete) {
       const DeserializationError parsed = deserializeJson(docs, response);
       if (parsed == DeserializationError::Ok && docs["rows"].is<JsonArrayConst>()) return true;
       const bool noMemory = parsed == DeserializationError::NoMemory;
@@ -373,11 +426,11 @@ class Run {
   // one still works, as behind a proxy that refuses them); `error` is set. After Unusable,
   // `sizeTrouble` says the answer was too big for the device: asking for less may work.
   Fetch fetch(const char* kind, const std::vector<std::string>& ids, const std::string* file, JsonDocument& docs,
-              std::string& why) {
+              std::string& why, Raw* raw = nullptr) {
     int status = 0;
     bool retry = false;
     for (int attempt = 0; attempt < 2; ++attempt) {
-      if (fetchOnce(kind, ids, file, docs, why, status, retry)) {
+      if (fetchOnce(kind, ids, file, docs, why, status, retry, raw)) {
         failedInARow = 0;
         return Fetch::Ok;
       }
@@ -508,6 +561,28 @@ class Run {
     return Wrote::Skipped;
   }
 
+  // After one chunk went to the sink. False with what writeFile returns when the file stops here.
+  bool chunkWritten(const FileEntry& entry, const Result r, const bool cardFailed, Wrote& stop) {
+    if (cardFailed) {
+      fs.commit(false);
+      error = "Could not write " + entry.path + " (is the SD card full?).";
+      stop = Wrote::Abort;
+      return false;
+    }
+    if (r == Result::Unsupported) {
+      fs.commit(false);
+      error = "This database uses compression. Turn it off in LiveSync and sync again.";
+      stop = Wrote::Abort;
+      return false;
+    }
+    if (r != Result::Ok) {
+      stop = leaveOut(
+          entry, r == Result::WrongKey ? "a piece of it could not be decrypted" : "a piece of it could not be decoded");
+      return false;
+    }
+    return true;
+  }
+
   Wrote writeFile(const FileEntry& entry) {
     if (progress) progress(stats.written + stats.trashed, entry.path);
     const bool conflict = o.locallyChanged && o.locallyChanged(entry.path);
@@ -532,7 +607,13 @@ class Run {
       }
       JsonDocument docs;
       std::string why;
-      const Fetch fetched = fetch("chunks", batch, &entry.path, docs, why);
+      // One chunk alone may be longer than a batch is allowed to be (a picture stored as one piece).
+      Raw raw;
+      if (batch.size() == 1 && !entry.children.empty()) {
+        const uint64_t average = entry.size / entry.children.size();
+        raw.expected = static_cast<size_t>((entry.binary ? average * 16 / 9 : average * 4 / 3) + 2048);
+      }
+      const Fetch fetched = fetch("chunks", batch, &entry.path, docs, why, batch.size() == 1 ? &raw : nullptr);
       if (fetched == Fetch::Abort) {
         fs.commit(false);
         return Wrote::Abort;
@@ -548,6 +629,14 @@ class Run {
         }
         return leaveOut(entry, why);
       }
+      if (raw.used) {
+        const Result r =
+            appendChunkInPlace(entry.binary, master, raw.text.data() + raw.at, raw.len, raw.encrypted, sink);
+        Wrote stop;
+        if (!chunkWritten(entry, r, cardFailed, stop)) return stop;
+        i = end;
+        continue;
+      }
       std::map<std::string, JsonObjectConst> got;
       for (JsonObjectConst row : docs["rows"].as<JsonArrayConst>()) {
         JsonObjectConst doc = row["doc"];
@@ -561,20 +650,8 @@ class Run {
         const JsonString data = it->second["data"].as<JsonString>();
         const Result r = appendChunk(entry.binary, master, std::string_view(data.c_str(), data.size()),
                                      it->second["e_"] | false, sink);
-        if (cardFailed) {
-          fs.commit(false);
-          error = "Could not write " + entry.path + " (is the SD card full?).";
-          return Wrote::Abort;
-        }
-        if (r == Result::Unsupported) {
-          fs.commit(false);
-          error = "This database uses compression. Turn it off in LiveSync and sync again.";
-          return Wrote::Abort;
-        }
-        if (r != Result::Ok) {
-          return leaveOut(entry, r == Result::WrongKey ? "a piece of it could not be decrypted"
-                                                       : "a piece of it could not be decoded");
-        }
+        Wrote stop;
+        if (!chunkWritten(entry, r, cardFailed, stop)) return stop;
       }
       i = end;
     }

@@ -36,6 +36,17 @@ constexpr size_t MAX_STATE_FILE = 2 * 1024 * 1024;  // the id->path map of a big
 // parses it into a JSON document of about the same size and then decrypts a chunk out of that, so
 // the cap is a quarter of the PSRAM; the engine sizes its chunk batches for 1.5 MB.
 constexpr size_t MAX_RESPONSE = 2 * 1024 * 1024;
+// The answer to a request for ONE chunk (a picture stored as one piece is over 2 MB of JSON) may be
+// longer: the engine does not parse it into a document but decrypts and decodes the chunk inside
+// the answer's own buffer, so the answer is held once. Up to half of the largest free PSRAM block
+// (the buffer is taken once at the expected size; the other half is left for everything else),
+// never under MAX_RESPONSE and never over this.
+constexpr size_t MAX_ONE_CHUNK_RESPONSE = 6 * 1024 * 1024;
+
+size_t oneChunkCap() {
+  const size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+  return std::max(MAX_RESPONSE, std::min(MAX_ONE_CHUNK_RESPONSE, largest / 2));
+}
 
 void wipe(std::string& s) {
   mbedtls_platform_zeroize(s.data(), s.size());
@@ -92,7 +103,8 @@ Writer writer;
 // One TLS session for the whole sync: repeated handshakes fragment the heap.
 std::unique_ptr<freeink::SecureHttpClient> session;
 livesync::FailureCause failureCause = livesync::FailureCause::None;
-bool sessionWorked = false;  // a request of this session was answered
+bool sessionWorked = false;   // a request of this session was answered
+uint32_t connectsLogged = 0;  // connections of this session that have their "connect #N" line
 std::string caPem;
 livesync::ResponseInfo lastInfo;  // of the last answer, for the engine's error log
 
@@ -333,8 +345,8 @@ livesync::Transport transport(const Profile& p) {
   const std::string userPass = p.user + ":" + p.password;
   const std::string authHeader = "Basic " + b64(reinterpret_cast<const uint8_t*>(userPass.data()), userPass.size());
   const bool check = p.checkCert;
-  t.request = [base, authHeader, check](const char* method, const std::string& path, const std::string& body,
-                                        std::string& response) {
+  const auto ask = [base, authHeader, check](const char* method, const std::string& path, const std::string& body,
+                                             std::string& response, const bool oneChunk, const size_t expected) {
     if (!session) session.reset(new (std::nothrow) freeink::SecureHttpClient());
     if (!session) return -1;
     auto& http = *session;
@@ -358,19 +370,62 @@ livesync::Transport transport(const Profile& p) {
     http.setTimeout(30000);
     lastInfo = livesync::ResponseInfo{};
     lastInfo.complete = false;
-    if (!http.begin(base + path)) return -1;
-    http.addHeader("Authorization", authHeader);
-    http.addHeader("Accept", "application/json");
-    if (!body.empty()) http.addHeader("Content-Type", "application/json");
+    const auto prepare = [&] {
+      if (!http.begin(base + path)) return false;
+      http.addHeader("Authorization", authHeader);
+      http.addHeader("Accept", "application/json");
+      if (!body.empty()) http.addHeader("Content-Type", "application/json");
+      return true;
+    };
+    if (!prepare()) return -1;
+    // One line for every connection made, so a log shows which requests shared one and that a
+    // closed one was replaced.
+    const auto logConnects = [&http, &base] {
+#ifndef SIMULATOR  // the simulator's own HTTP client does not count them
+      const bool tls = base.rfind("https://", 0) == 0;
+      while (connectsLogged < http.connectionsOpened()) {
+        LOG_INF("LSY", "LSY connect #%u (%s)", static_cast<unsigned>(++connectsLogged),
+                tls ? "new TLS session" : "new connection, no TLS");
+      }
+#else
+      (void)http;
+      (void)base;
+#endif
+    };
     // Streamed into `response` (capped); every piece and every wait feeds the watchdog, since a
     // slow server can take up to the timeout.
     livesync::CappedRequest limits;
-    limits.cap = MAX_RESPONSE;
+    limits.cap = oneChunk ? oneChunkCap() : MAX_RESPONSE;
+    limits.expected = expected;
     limits.largestFreeBlock = [] { return heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT); };
     limits.tick = [] { resetTaskWatchdogIfSubscribed(); };
+    limits.closed = [&](const bool answerStarted) {
+      logConnects();
+      if (answerStarted) {
+        LOG_ERR("LSY", "%s: closed after an unfinished answer (%u bytes of it read)", method,
+                static_cast<unsigned>(lastInfo.received));
+      } else {
+        LOG_ERR("LSY", "%s: closed after a request with no answer", method);
+      }
+    };
+    // A request that only reads is sent once more on a new connection before it counts as failed;
+    // one that writes (a note going up) is not, since the first try may have reached the database.
+    const bool reads = strcmp(method, "GET") == 0 || path.rfind("_all_docs", 0) == 0;
+    limits.again = [&](const int failed) {
+#ifndef SIMULATOR
+      // No connection could be made at all: the next try would only wait as long again.
+      if (failed < 0 && (http.failure() == freeink::SecureHttpClient::Failure::Connect ||
+                         http.failure() == freeink::SecureHttpClient::Failure::Handshake)) {
+        return false;
+      }
+#endif
+      if (!reads || !prepare()) return false;
+      LOG_ERR("LSY", "%s: asking again on a new connection (the first try ended with %d)", method, failed);
+      return true;
+    };
     livesync::CappedResult result;
     const int status = livesync::requestCapped(http, method, body, response, limits, lastInfo, result);
-    if (result.closedUnfinished) LOG_ERR("LSY", "%s: connection closed after an unfinished answer", method);
+    logConnects();
 #ifndef SIMULATOR  // the simulator's own HTTP client does not report this
     if (status < 0 && !result.tooBig && !result.noMemory) {
       // Where a request with no answer stopped. A body that was not sent whole never reaches a
@@ -405,7 +460,8 @@ livesync::Transport transport(const Profile& p) {
     }
 #endif
     if (result.tooBig) {
-      LOG_ERR("LSY", "Response over %u bytes", static_cast<unsigned>(MAX_RESPONSE));
+      LOG_ERR("LSY", "Response over %u bytes%s", static_cast<unsigned>(limits.cap),
+              oneChunk ? " (one chunk asked for)" : "");
       failureCause = livesync::FailureCause::None;
       return status;
     }
@@ -428,6 +484,11 @@ livesync::Transport transport(const Profile& p) {
     if (status >= 0 && lastInfo.complete) sessionWorked = true;
     return status;
   };
+  t.request = [ask](const char* method, const std::string& path, const std::string& body, std::string& response) {
+    return ask(method, path, body, response, false, 0);
+  };
+  t.requestOne = [ask](const char* method, const std::string& path, const std::string& body, std::string& response,
+                       const size_t expected) { return ask(method, path, body, response, true, expected); };
   t.info = [] { return lastInfo; };
   return t;
 }
@@ -608,6 +669,7 @@ void endSession() {
   if (session) session->end();
   session.reset();  // drops the Authorization header and the TLS state with it
   sessionWorked = false;
+  connectsLogged = 0;
   caPem.clear();
 }
 

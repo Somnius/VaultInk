@@ -21,10 +21,13 @@ void* defaultYieldCtx = nullptr;
 
 const mbedtls_md_info_t* sha256() { return mbedtls_md_info_from_type(MBEDTLS_MD_SHA256); }
 
-// iv | hkdfSalt | ciphertext | tag, with the master key.
-Result openBox(const Key master, const uint8_t* box, const size_t len, std::string& plain) {
+// iv | hkdfSalt | ciphertext | tag, with the master key: the plaintext (ciphertext length) to `out`.
+// `out` may be the start of the box itself: the output then trails the ciphertext by 44 bytes (GCM
+// decryption needs at least 8), and the IV is copied first since the output runs over it.
+Result openBoxTo(const Key master, const uint8_t* box, const size_t len, uint8_t* out) {
   if (len < IV_LEN + HKDF_SALT_LEN + TAG_LEN) return Result::BadFormat;
-  const uint8_t* iv = box;
+  uint8_t iv[IV_LEN];
+  memcpy(iv, box, IV_LEN);
   const uint8_t* hkdfSalt = box + IV_LEN;
   const uint8_t* ct = hkdfSalt + HKDF_SALT_LEN;
   const size_t ctLen = len - IV_LEN - HKDF_SALT_LEN - TAG_LEN;
@@ -35,19 +38,29 @@ Result openBox(const Key master, const uint8_t* box, const size_t len, std::stri
   }
   mbedtls_gcm_context gcm;
   mbedtls_gcm_init(&gcm);
-  plain.assign(ctLen, '\0');
   int rc = mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, key, 256);
-  if (rc == 0) {
-    rc = mbedtls_gcm_auth_decrypt(&gcm, ctLen, iv, IV_LEN, nullptr, 0, tag, TAG_LEN, ct,
-                                  reinterpret_cast<uint8_t*>(plain.data()));
-  }
+  if (rc == 0) rc = mbedtls_gcm_auth_decrypt(&gcm, ctLen, iv, IV_LEN, nullptr, 0, tag, TAG_LEN, ct, out);
   mbedtls_gcm_free(&gcm);
   mbedtls_platform_zeroize(key, sizeof(key));
-  if (rc != 0) {
-    plain.clear();
-    return rc == MBEDTLS_ERR_GCM_AUTH_FAILED ? Result::WrongKey : Result::BadFormat;
-  }
+  if (rc != 0) return rc == MBEDTLS_ERR_GCM_AUTH_FAILED ? Result::WrongKey : Result::BadFormat;
   return Result::Ok;
+}
+
+Result openBox(const Key master, const uint8_t* box, const size_t len, std::string& plain) {
+  if (len < IV_LEN + HKDF_SALT_LEN + TAG_LEN) return Result::BadFormat;
+  plain.assign(len - IV_LEN - HKDF_SALT_LEN - TAG_LEN, '\0');
+  const Result r = openBoxTo(master, box, len, reinterpret_cast<uint8_t*>(plain.data()));
+  if (r != Result::Ok) plain.clear();
+  return r;
+}
+
+int base64Value(const char c) {
+  if (c >= 'A' && c <= 'Z') return c - 'A';
+  if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+  if (c >= '0' && c <= '9') return c - '0' + 52;
+  if (c == '+') return 62;
+  if (c == '/') return 63;
+  return -1;
 }
 
 // "%=..." / "%$..." prefix check; legacy formats are refused.
@@ -102,16 +115,33 @@ std::string base64Encode(const uint8_t* data, const size_t len) {
   return out;
 }
 
+bool base64DecodeInPlace(char* data, const size_t len, size_t& outLen) {
+  outLen = 0;
+  if (len % 4 != 0) return false;
+  // Four characters are read before their (at most) three bytes are written, further back.
+  for (size_t i = 0; i < len; i += 4) {
+    int v[4];
+    int pad = 0;
+    for (int k = 0; k < 4; ++k) {
+      const char c = data[i + k];
+      if (c == '=' && i + 4 == len && k >= 2) {
+        v[k] = 0;
+        ++pad;
+        continue;
+      }
+      if (pad || (v[k] = base64Value(c)) < 0) return false;
+    }
+    const uint32_t n = (v[0] << 18) | (v[1] << 12) | (v[2] << 6) | v[3];
+    data[outLen++] = static_cast<char>(n >> 16);
+    if (pad < 2) data[outLen++] = static_cast<char>((n >> 8) & 255);
+    if (pad < 1) data[outLen++] = static_cast<char>(n & 255);
+  }
+  return true;
+}
+
 bool base64Decode(std::string_view in, std::string& out) {
   // Standard alphabet with '=' padding (no whitespace, no URL-safe forms: LiveSync writes neither).
-  const auto value = [](const char c) -> int {
-    if (c >= 'A' && c <= 'Z') return c - 'A';
-    if (c >= 'a' && c <= 'z') return c - 'a' + 26;
-    if (c >= '0' && c <= '9') return c - '0' + 52;
-    if (c == '+') return 62;
-    if (c == '/') return 63;
-    return -1;
-  };
+  const auto value = base64Value;
   out.clear();
   if (in.size() % 4 != 0) return false;
   out.reserve(in.size() / 4 * 3);
@@ -174,6 +204,20 @@ Result decrypt(const Key master, std::string_view encrypted, std::string& plain)
   const Result r = prefixed(encrypted, '=', box);
   if (r != Result::Ok) return r;
   return openBox(master, reinterpret_cast<const uint8_t*>(box.data()), box.size(), plain);
+}
+
+Result decryptInPlace(const Key master, char* data, const size_t len, size_t& plainLen) {
+  plainLen = 0;
+  if (len < 2 || data[0] != '%' || data[1] != '=') {
+    return (len > 0 && (data[0] == '%' || data[0] == '[')) ? Result::Unsupported : Result::BadFormat;
+  }
+  size_t boxLen = 0;
+  memmove(data, data + 2, len - 2);
+  if (!base64DecodeInPlace(data, len - 2, boxLen)) return Result::BadFormat;
+  auto* box = reinterpret_cast<uint8_t*>(data);
+  const Result r = openBoxTo(master, box, boxLen, box);
+  if (r == Result::Ok) plainLen = boxLen - IV_LEN - HKDF_SALT_LEN - TAG_LEN;
+  return r;
 }
 
 Result decryptWithPassphrase(std::string_view passphrase, std::string_view encrypted, std::string& plain) {

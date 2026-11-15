@@ -92,6 +92,24 @@ Result appendChunk(const bool binary, const Key master, const std::string_view s
   return sink(bytes.data(), bytes.size()) ? Result::Ok : Result::BadFormat;
 }
 
+Result appendChunkInPlace(const bool binary, const Key master, char* data, size_t len, const bool encrypted,
+                          const ByteSink& sink) {
+  if (encrypted) {
+    size_t plainLen = 0;
+    const Result r = decryptInPlace(master, data, len, plainLen);
+    if (r != Result::Ok) return r;
+    len = plainLen;
+  }
+  if (len >= 4 && std::memcmp(data,
+                              "\x0EL"
+                              "Z\x1D",
+                              4) == 0) {
+    return Result::Unsupported;
+  }
+  if (binary && !base64DecodeInPlace(data, len, len)) return Result::BadFormat;
+  return sink(data, len) ? Result::Ok : Result::BadFormat;
+}
+
 Result assemble(const FileEntry& file, const Key master, const ChunkGetter& chunk, const ByteSink& sink) {
   std::string stored;
   for (const auto& id : file.children) {

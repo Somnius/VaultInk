@@ -487,8 +487,21 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
   answer), a change list not read to its end is not applied, and the result screen tells a failed
   TLS handshake (certificate hint) from a server that could not be reached and from one that did
   not answer (English, Greek).
-* To do (LiveSync): read a chunk answer as a stream so a piece over about 1 MB fits; find what
-  takes the internal memory during a pull (the new log line gives the figure at each failure).
+* ✅ (written 2026-11-16, unreleased; computer tests and builds only, **not run on a reader**)
+  LiveSync after a reader's log with the internal memory fine (149 KB free) and requests still
+  left without an answer after three pictures were skipped as too big. A picture stored as one
+  piece: a request for one piece may get an answer up to half of the largest free PSRAM block
+  (6 MB at most, 2 MB for batches as before); it is not parsed into a JSON document, the piece is
+  decrypted and decoded inside the answer's own buffer, taken once at the size the file's record
+  gives. Connections: the HTTP client stops both sockets on every close and counts its
+  connections; the log has `LSY connect #N (new TLS session)` for each and `closed after an
+  unfinished answer` / `closed after a request with no answer` for each close; a request that only
+  reads is sent once more on a new connection before it counts as failed. No path that skips the
+  close after a cut answer was found in the code, and the requests without an answer are still
+  **not explained**. See docs/livesync.md, "Sending a request, and the screen staying on".
+* To do (LiveSync): run the above on a reader (a picture of one piece over 2 MB; the connect and
+  close lines when requests stop being answered); the in-place decryption on the reader's AES
+  hardware; a piece over half of the free PSRAM still needs streamed reading.
 * To do: timing the 310,000 rounds on the S3 (hardware); certificate checking on the device
   (Let's Encrypt server, self-signed with ca.pem, an IP address); the return to the book after
   a sync (the simulator doesn't replay that restart).

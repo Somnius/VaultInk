@@ -88,10 +88,14 @@ struct Wire {
   Fixture f;
   std::unique_ptr<SecureHttpClient> http{new SecureHttpClient()};
   size_t cap = 2 * 1024 * 1024;
+  size_t capOne = 6 * 1024 * 1024;  // for a request that asks for one chunk
   Framing framing;
   livesync::ResponseInfo info;
-  int unfinished = 0;  // "connection closed after an unfinished answer"
+  int unfinished = 0;  // requests with a "closed after an unfinished answer"
+  int closes = 0;      // connections closed by the request code, for either reason
+  int retried = 0;     // requests sent a second time on a new connection
   int tooBig = 0;
+  size_t biggestBuffer = 0;  // the largest block an answer was read into
   size_t biggestAnswer = 0;
   std::vector<size_t> keysAsked;  // per chunk request for a file made here
 
@@ -117,19 +121,40 @@ struct Wire {
     f.net.request = [this](const char* method, const std::string& path, const std::string& body, std::string& out) {
       return request(method, path, body, out);
     };
+    f.net.requestOne = [this](const char* method, const std::string& path, const std::string& body, std::string& out,
+                              const size_t expected) { return ask(method, path, body, out, true, expected); };
     f.net.info = [this] { return info; };
   }
 
   int request(const char* method, const std::string& path, const std::string& body, std::string& out) {
+    return ask(method, path, body, out, false, 0);
+  }
+
+  int ask(const char* method, const std::string& path, const std::string& body, std::string& out, const bool one,
+          const size_t expected) {
     http->setTimeout(30000);
-    if (!http->begin("https://couch.test/db/" + path)) return -1;
-    http->addHeader("Accept", "application/json");
+    const auto prepare = [&] {
+      if (!http->begin("https://couch.test/db/" + path)) return false;
+      http->addHeader("Accept", "application/json");
+      return true;
+    };
+    if (!prepare()) return -1;
     livesync::CappedRequest limits;
-    limits.cap = cap;
+    limits.cap = one ? capOne : cap;
+    limits.expected = expected;
+    limits.closed = [this](bool) { ++closes; };
+    const bool reads = std::string(method) == "GET" || path.rfind("_all_docs", 0) == 0;
+    limits.again = [&](const int failed) {
+      using Failure = SecureHttpClient::Failure;
+      if (failed < 0 && (http->failure() == Failure::Connect || http->failure() == Failure::Handshake)) return false;
+      return reads && prepare();
+    };
     livesync::CappedResult result;
     const int status = livesync::requestCapped(*http, method, body, out, limits, info, result);
     unfinished += result.closedUnfinished;
     tooBig += result.tooBig;
+    retried += result.retried;
+    biggestBuffer = std::max(biggestBuffer, out.capacity());
     return status;
   }
 
@@ -247,7 +272,7 @@ TEST(LiveSyncConnection, MissingEndOfAChunkedBodyReplacesTheConnection) {
     FakeNet::get().holdBack = 0;
     ASSERT_EQ(w.request("POST", ALL_DOCS, keysOf({"obsydian_livesync_version"}), out), 200);
     EXPECT_TRUE(w.info.complete);
-    EXPECT_EQ(FakeNet::get().requestConn, (std::vector<int>{0, 1}));
+    EXPECT_EQ(FakeNet::get().requestConn, (std::vector<int>{0, 1, 2}));  // asked twice, then the next one
     w.expectNothingLeftOpen();
   }
 }
@@ -264,15 +289,23 @@ TEST(LiveSyncConnection, AnswerOverTheCapClosesItsConnectionAndTheNextRequestOpe
   EXPECT_FALSE(w.info.complete);
   EXPECT_TRUE(w.info.chunked);
   EXPECT_EQ(w.unfinished, 1);
+  EXPECT_EQ(w.closes, 1);
+  EXPECT_EQ(w.retried, 0);  // the same request would only pass the cap again
   const auto& net = FakeNet::get();
   ASSERT_EQ(net.conns.size(), 1u);
   EXPECT_FALSE(net.conns[0].open);
   EXPECT_GT(net.conns[0].unreadAtClose, 100u * 1024u);  // the server was still sending
   EXPECT_EQ(net.closes, 1);
   EXPECT_EQ(net.tlsCloses, 1);
+  EXPECT_EQ(w.http->connectionsOpened(), 1u);
 
-  // The next requests: a new connection, answered, and kept.
+  // The next requests: a new connection (TCP and TLS), answered at once, and kept.
+  const unsigned long before = millis();
   ASSERT_EQ(w.request("GET", "obsydian_livesync_version", "", out), 200);
+  EXPECT_EQ(millis(), before);  // no waiting behind the old answer
+  EXPECT_FALSE(w.http->reusedConnection());
+  EXPECT_EQ(w.http->connectionsOpened(), 2u);
+  EXPECT_EQ(net.tlsOpens, 2);
   EXPECT_EQ(out, w.f.couch.version);
   ASSERT_EQ(w.request("POST", ALL_DOCS, keysOf({chunks[0]}), out), livesync::STATUS_TOO_BIG);
   ASSERT_EQ(w.request("GET", "obsydian_livesync_version", "", out), 200);
@@ -328,12 +361,14 @@ TEST(LiveSyncConnection, BodyThatStopsAndRequestWithNoAnswer) {
   EXPECT_EQ(w.http->failure(), SecureHttpClient::Failure::NoStatusLine);
   EXPECT_EQ(w.unfinished, 1);  // no answer had started: the request's own log line says so
   EXPECT_EQ(FakeNet::get().openNow(), 0);
-  // Tried on the kept connection, then once more on a new one.
-  EXPECT_EQ(FakeNet::get().requestConn, (std::vector<int>{0, 1, 1, 2}));
+  // The cut answer was asked for twice (0, 1). The silent one: on the kept connection, then by the
+  // HTTP client on a new one, then once more by the request code on another.
+  EXPECT_EQ(FakeNet::get().requestConn, (std::vector<int>{0, 1, 2, 2, 3, 4}));
+  EXPECT_EQ(w.retried, 2);
 
   FakeNet::get().server = answering;
   ASSERT_EQ(w.request("GET", "obsydian_livesync_version", "", out), 200);
-  EXPECT_EQ(FakeNet::get().requestConn.back(), 3);
+  EXPECT_EQ(FakeNet::get().requestConn.back(), 5);
   w.expectNothingLeftOpen();
 }
 
@@ -386,6 +421,7 @@ TEST(LiveSyncConnection, FileInOneMegabyteChunksCompletes) {
 // that file is left out (and listed); the files after it still arrive, on new connections.
 TEST(LiveSyncConnection, SingleChunkOverTheCapSkipsOnlyThatFile) {
   Wire w;
+  w.capOne = w.cap;  // little PSRAM free: one chunk gets no more room than a batch
   const std::string big = noise(2 * 1300 * 1000, 5), small = noise(40 * 1024, 6);
   w.f.couch.addFile(w.f.master, "Board/Images/Image 13 - Kara.png", big, 1300 * 1000);
   w.f.couch.addFile(w.f.master, "Board/after.png", small, 20 * 1024);
@@ -402,6 +438,120 @@ TEST(LiveSyncConnection, SingleChunkOverTheCapSkipsOnlyThatFile) {
   EXPECT_EQ(w.tooBig, 1);
   EXPECT_EQ(w.unfinished, 1);
   EXPECT_EQ(FakeNet::get().opens, 2);
+  w.expectNothingLeftOpen();
+}
+
+// The same picture with room for a longer answer to a one-chunk request (the X4 Pro with its PSRAM
+// free): each piece's answer is over the 2 MB of a batch, is not parsed into a document, and the
+// file arrives whole.
+TEST(LiveSyncConnection, SingleChunkOverTheBatchCapArrivesWhenOneChunkMayBeLonger) {
+  Wire w;
+  const std::string big = noise(2 * 1300 * 1000, 5), small = noise(40 * 1024, 6);
+  w.f.couch.addFile(w.f.master, "Board/Images/Image 13 - Kara.png", big, 1300 * 1000);
+  w.f.couch.addFile(w.f.master, "Board/after.png", small, 20 * 1024);
+  livesync::SyncStats stats;
+  std::string error;
+  ASSERT_TRUE(w.f.sync(stats, error)) << error;
+  EXPECT_GT(w.biggestAnswer, w.cap);
+  EXPECT_EQ(stats.skipped, 0);
+  EXPECT_TRUE(w.f.sd.files["/Vaults/Demo/Board/Images/Image 13 - Kara.png"] == big);
+  EXPECT_TRUE(w.f.sd.files["/Vaults/Demo/Board/after.png"] == small);
+  EXPECT_EQ(w.tooBig, 0);
+  EXPECT_EQ(w.closes, 0);
+  EXPECT_EQ(FakeNet::get().opens, 1);
+  EXPECT_TRUE(w.f.log.empty());
+  w.expectNothingLeftOpen();
+}
+
+// A picture stored as ONE chunk whose answer is 3 MB of JSON. The buffer is taken once at the size
+// the file's record gives (no doubling), and the chunk is decrypted and decoded inside it.
+TEST(LiveSyncConnection, OneChunkOfThreeMegabytesIsWrittenFromTheAnswersOwnBuffer) {
+  Wire w;
+  const std::string image = noise(1750 * 1000, 11), small = noise(40 * 1024, 6);
+  w.f.couch.addFile(w.f.master, "Board/Board overview.jpg", image, image.size());
+  w.f.couch.addFile(w.f.master, "Board/after.png", small, 20 * 1024);
+  livesync::SyncStats stats;
+  std::string error;
+  ASSERT_TRUE(w.f.sync(stats, error)) << error;
+  EXPECT_GT(w.biggestAnswer, 3000u * 1000u);
+  EXPECT_LT(w.biggestAnswer, w.capOne);
+  EXPECT_EQ(stats.skipped, 0);
+  EXPECT_TRUE(w.f.sd.files["/Vaults/Demo/Board/Board overview.jpg"] == image);
+  EXPECT_TRUE(w.f.sd.files["/Vaults/Demo/Board/after.png"] == small);
+  EXPECT_GE(w.biggestBuffer, w.biggestAnswer);
+  EXPECT_LT(w.biggestBuffer, w.biggestAnswer + 16 * 1024);  // taken once, at about the answer's size
+  EXPECT_EQ(w.tooBig, 0);
+  EXPECT_EQ(FakeNet::get().opens, 1);
+  EXPECT_TRUE(w.f.log.empty());
+  w.expectNothingLeftOpen();
+
+  // Still too big for the room there is: left out and listed, as before; the next file arrives.
+  Wire tight;
+  tight.capOne = 3000 * 1000;
+  tight.f.couch.addFile(tight.f.master, "Board/Board overview.jpg", image, image.size());
+  tight.f.couch.addFile(tight.f.master, "Board/after.png", small, 20 * 1024);
+  ASSERT_TRUE(tight.f.sync(stats, error)) << error;
+  EXPECT_EQ(stats.skipped, 1);
+  EXPECT_NE(tight.f.sd.files[tight.f.skipList].find("Board overview.jpg\tthe server's answer was too big"),
+            std::string::npos);
+  EXPECT_FALSE(tight.f.sd.files.count("/Vaults/Demo/Board/Board overview.jpg"));
+  EXPECT_TRUE(tight.f.sd.files["/Vaults/Demo/Board/after.png"] == small);
+  EXPECT_EQ(tight.tooBig, 1);
+  EXPECT_EQ(tight.closes, 1);
+  EXPECT_EQ(FakeNet::get().opens, 2);
+  tight.expectNothingLeftOpen();
+}
+
+// After an answer over the cap its connection is closed. The NEW connection then takes the next
+// request and never answers it (what the reader's log showed: sent whole, nothing back). That
+// connection is closed too and the request is sent once more on a third one before it counts as
+// failed.
+TEST(LiveSyncConnection, RequestWithNoAnswerOnANewConnectionIsSentOnceMore) {
+  Wire w;
+  w.cap = 64 * 1024;
+  const auto chunks = w.f.couch.addFile(w.f.master, "big.png", noise(200 * 1024, 2), 100 * 1024);
+  std::string out;
+  ASSERT_EQ(w.request("GET", "obsydian_livesync_version", "", out), 200);
+  ASSERT_EQ(w.request("POST", ALL_DOCS, keysOf(chunks), out), livesync::STATUS_TOO_BIG);
+  auto& net = FakeNet::get();
+  net.silent = {1};
+  ASSERT_EQ(w.request("POST", ALL_DOCS, keysOf({"obsydian_livesync_version"}), out), 200);
+  EXPECT_TRUE(w.info.complete);
+  EXPECT_NE(out.find("\"rows\""), std::string::npos);
+  EXPECT_EQ(w.retried, 1);
+  EXPECT_EQ(w.closes, 2);  // the answer over the cap, and the request with no answer
+  EXPECT_FALSE(net.conns[1].open);
+  EXPECT_EQ(net.requestConn, (std::vector<int>{0, 0, 2}));
+  EXPECT_EQ(w.http->connectionsOpened(), 3u);
+  EXPECT_EQ(net.tlsOpens, 3);
+  EXPECT_EQ(net.requestsBehindUnreadAnswer, 0);
+
+  // A note going up is not sent twice: the first try may have reached the database.
+  net.silent = {3};
+  w.framing.closeHeader = true;  // the next answer ends its connection, so the PUT starts on a new one
+  ASSERT_EQ(w.request("GET", "obsydian_livesync_version", "", out), 200);
+  EXPECT_EQ(w.request("PUT", "some-note", "{}", out), -1);
+  EXPECT_EQ(w.retried, 1);
+  EXPECT_EQ(net.opens, 4);
+  w.expectNothingLeftOpen();
+}
+
+// A kept connection on which the server has gone silent (it takes the request, nothing comes back):
+// the request after it is answered on a new connection, and the silent one is closed.
+TEST(LiveSyncConnection, KeptConnectionGoneSilentDoesNotStopTheNextRequest) {
+  Wire w;
+  std::string out;
+  ASSERT_EQ(w.request("GET", "obsydian_livesync_version", "", out), 200);
+  auto& net = FakeNet::get();
+  net.silent = {0};
+  ASSERT_EQ(w.request("GET", "obsydian_livesync_version", "", out), 200);
+  EXPECT_EQ(out, w.f.couch.version);
+  EXPECT_FALSE(net.conns[0].open);
+  EXPECT_EQ(net.requestConn, (std::vector<int>{0, 1}));
+  EXPECT_EQ(w.http->connectionsOpened(), 2u);
+  ASSERT_EQ(w.request("GET", "obsydian_livesync_version", "", out), 200);
+  EXPECT_TRUE(w.http->reusedConnection());
+  EXPECT_EQ(net.opens, 2);
   w.expectNothingLeftOpen();
 }
 

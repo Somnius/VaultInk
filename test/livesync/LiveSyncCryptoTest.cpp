@@ -84,6 +84,42 @@ TEST(LiveSyncCrypto, DecodesASetupUriMadeByThePythonScript) {
             livesync::Result::WrongKey);
 }
 
+// A chunk too big to copy is decrypted and decoded inside its own buffer: the same bytes as the
+// copying way, and a damaged one is refused.
+TEST(LiveSyncCrypto, DecryptsAndDecodesInPlace) {
+  livesync::Key master;
+  for (size_t i = 0; i < sizeof(master); ++i) master[i] = static_cast<uint8_t>(i * 7 + 1);
+  uint32_t seed = 3;
+  const livesync::RandomFill random = [&seed](uint8_t* out, size_t len) {
+    for (size_t i = 0; i < len; ++i) out[i] = static_cast<uint8_t>((seed = seed * 1664525u + 1013904223u) >> 24);
+  };
+  for (const size_t size : {0u, 1u, 2u, 3u, 15u, 16u, 17u, 4096u, 300001u}) {
+    std::string bytes(size, '\0');
+    random(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+    const std::string text = livesync::base64Encode(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
+    std::string stored;
+    ASSERT_TRUE(livesync::encrypt(master, text, random, stored));
+    std::string copied;
+    ASSERT_EQ(livesync::decrypt(master, stored, copied), livesync::Result::Ok);
+    std::string buffer = stored;
+    size_t len = 0;
+    ASSERT_EQ(livesync::decryptInPlace(master, buffer.data(), buffer.size(), len), livesync::Result::Ok) << size;
+    EXPECT_EQ(std::string(buffer.data(), len), copied) << size;
+    size_t decoded = 0;
+    ASSERT_TRUE(livesync::base64DecodeInPlace(buffer.data(), len, decoded));
+    EXPECT_EQ(std::string(buffer.data(), decoded), bytes) << size;
+
+    buffer = stored;
+    buffer[buffer.size() / 2] = buffer[buffer.size() / 2] == 'A' ? 'B' : 'A';
+    EXPECT_EQ(livesync::decryptInPlace(master, buffer.data(), buffer.size(), len), livesync::Result::WrongKey);
+  }
+  std::string legacy = "%~abc", none = "abc", bad = "%=a!bc";
+  size_t len = 0;
+  EXPECT_EQ(livesync::decryptInPlace(master, legacy.data(), legacy.size(), len), livesync::Result::Unsupported);
+  EXPECT_EQ(livesync::decryptInPlace(master, none.data(), none.size(), len), livesync::Result::BadFormat);
+  EXPECT_EQ(livesync::decryptInPlace(master, bad.data(), bad.size(), len), livesync::Result::BadFormat);
+}
+
 TEST(LiveSyncCrypto, Base64RoundTrip) {
   for (const std::string s : {"", "f", "fo", "foo", "foob", "fooba", "foobar", "\xce\xb1\x00\xff"}) {
     const std::string enc = livesync::base64Encode(reinterpret_cast<const uint8_t*>(s.data()), s.size());
