@@ -9,7 +9,10 @@
 #include <Logging.h>
 #include <PdfText.h>
 #include <esp_heap_caps.h>
-#include <sdkconfig.h>
+
+#if __has_include(<sdkconfig.h>)
+#include <sdkconfig.h>  // the device's build settings; the simulator has none
+#endif
 
 #include <functional>
 #include <memory>
@@ -144,7 +147,8 @@ Status ensureText(const GfxRenderer& renderer, const std::string& pdfPath, std::
   // (Status::OutOfMemory) before an allocation fails, which in this build is a reset.
   limits.freeMemory = [] { return heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); };
   const size_t heapBefore = limits.freeMemory();
-  const SmallBlocksInPsram smallBlocks;
+  // cppcheck-suppress unusedVariable
+  const SmallBlocksInPsram smallBlocks;  // its constructor and destructor are the point
   const bool opened = pdf::extractText(
       src, inflateZlib,
       [&](size_t page, size_t pages, const std::string& text) {
