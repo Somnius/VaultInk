@@ -910,6 +910,9 @@ void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fo
   // text. The scan is skipped while the engine is off.
   enginePlainText = false;
   condensePercent = 100;
+  punctSpace = 0;
+  opticalSpacing = false;
+  opticalAverageRoom = 0;
   if (typoengine::storage().load(std::memory_order_relaxed) != 0 && !blockStyle.isRtl && !hasRtlWord &&
       rubyTexts.empty()) {
     bool hasZeroWidthGap = false;
@@ -917,8 +920,30 @@ void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fo
       hasZeroWidthGap = wordNoSpaceBefore[i] && !wordContinues[i];
     }
     enginePlainText = !hasZeroWidthGap;
-    if (enginePlainText && blockStyle.alignment == CssTextAlign::Justify) {
-      condensePercent = typoengine::current().condensePercent;
+    if (enginePlainText) {
+      const typoengine::Config typo = typoengine::current();
+      if (blockStyle.alignment == CssTextAlign::Justify) condensePercent = typo.condensePercent;
+      punctSpace = typo.punctSpace;
+      if (typo.opticalSpacing) {
+        // The average side room of the paragraph's ordinary word gaps: a gap is corrected by how far its own side
+        // room is from it, so the text keeps its length on average.
+        int roomSum = 0;
+        int roomCount = 0;
+        for (size_t i = 1; i < words.size(); ++i) {
+          int room = 0;
+          if (wordContinues[i] || wordNoSpaceBefore[i] || narrowedAfter(wordAt(i - 1)) ||
+              !gapSideRoom(renderer, fontId, wordAt(i - 1), wordAt(i), getWordStyleAt(i - 1), getWordStyleAt(i),
+                           room)) {
+            continue;
+          }
+          roomSum += room;
+          ++roomCount;
+        }
+        if (roomCount > 0) {
+          opticalSpacing = true;
+          opticalAverageRoom = (roomSum >= 0 ? roomSum + roomCount / 2 : roomSum - roomCount / 2) / roomCount;
+        }
+      }
     }
   }
 
@@ -1170,10 +1195,50 @@ std::vector<uint16_t> ParsedText::calculateWordWidths(const GfxRenderer& rendere
   return wordWidths;
 }
 
+// Typography Engine, Space after punctuation: true when the space after this word is narrowed or removed. Such a
+// gap is never stretched or shrunk.
+bool ParsedText::narrowedAfter(const std::string_view previousWord) const {
+  return punctSpace != typoengine::PUNCT_SPACE_NORMAL && typoengine::isSpacedPunctuation(lastCodepoint(previousWord));
+}
+
+// Typography Engine, Optical spacing: the empty room beside the two glyphs around a word gap. False when the font
+// has no metrics in memory for one of them.
+bool ParsedText::gapSideRoom(const GfxRenderer& renderer, const int fontId, const std::string_view previousWord,
+                             const std::string_view nextWord, const EpdFontFamily::Style previousStyle,
+                             const EpdFontFamily::Style nextStyle, int& room) const {
+  int lastLeft = 0;
+  int lastRight = 0;
+  int firstLeft = 0;
+  int firstRight = 0;
+  if (!renderer.getGlyphSideBearings(fontId, lastCodepoint(previousWord), previousStyle, lastLeft, lastRight) ||
+      !renderer.getGlyphSideBearings(fontId, firstCodepoint(nextWord), nextStyle, firstLeft, firstRight)) {
+    return false;
+  }
+  room = lastRight + firstLeft;
+  return true;
+}
+
+// The natural width of an ordinary word gap. With the engine's two gap settings off (and in text that is not plain
+// left-to-right) it is the font's space with its kerning, scaled by Word spacing, as before.
+int ParsedText::spaceGap(const GfxRenderer& renderer, const int fontId, const std::string_view previousWord,
+                         const std::string_view nextWord, const EpdFontFamily::Style previousStyle,
+                         const EpdFontFamily::Style nextStyle) const {
+  const int space =
+      scaleSpace(renderer.getSpaceAdvance(fontId, lastCodepoint(previousWord), firstCodepoint(nextWord), previousStyle),
+                 wordSpacingPercent);
+  if (narrowedAfter(previousWord)) return typoengine::punctuationGap(space, punctSpace);
+  int room = 0;
+  if (opticalSpacing && gapSideRoom(renderer, fontId, previousWord, nextWord, previousStyle, nextStyle, room)) {
+    return typoengine::opticalGap(space, room, opticalAverageRoom);
+  }
+  return space;
+}
+
 // Typography Engine: the pixels the ordinary word gap before words[wordIndex] can give up when its line is
 // condensed. 0 when condensing is off for this paragraph, and for a locked gap (after an opening quote or a dash).
 int ParsedText::condensableShrink(const size_t wordIndex, const int gap) const {
   if (condensePercent >= 100 || wordIndex == 0) return 0;
+  if (narrowedAfter(wordAt(wordIndex - 1))) return 0;
   if (typoengine::current().lockedSpace && typoengine::isLockedSpaceWord(wordAt(wordIndex - 1))) return 0;
   return typoengine::gapShrink(gap, condensePercent);
 }
@@ -1227,9 +1292,7 @@ std::vector<size_t> ParsedText::computeLineBreaks(const GfxRenderer& renderer, c
       } else if (j > static_cast<size_t>(i) && noSpaceBeforeVec[j]) {
         gap = blockStyle.characterSpacing;
       } else if (j > static_cast<size_t>(i)) {
-        gap = scaleSpace(renderer.getSpaceAdvance(fontId, lastCodepoint(wordAt(j - 1)), firstCodepoint(wordAt(j)),
-                                                  getWordStyleAt(j - 1)),
-                         wordSpacingPercent);
+        gap = spaceGap(renderer, fontId, wordAt(j - 1), wordAt(j), getWordStyleAt(j - 1), getWordStyleAt(j));
         shrink += condensableShrink(j, gap);
       }
 
@@ -1348,10 +1411,8 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
       } else if (!isFirstWord && noSpaceBeforeVec[currentIndex]) {
         spacing = blockStyle.characterSpacing;
       } else if (!isFirstWord) {
-        spacing =
-            scaleSpace(renderer.getSpaceAdvance(fontId, lastCodepoint(wordAt(currentIndex - 1)),
-                                                firstCodepoint(wordAt(currentIndex)), getWordStyleAt(currentIndex - 1)),
-                       wordSpacingPercent);
+        spacing = spaceGap(renderer, fontId, wordAt(currentIndex - 1), wordAt(currentIndex),
+                           getWordStyleAt(currentIndex - 1), getWordStyleAt(currentIndex));
         spacingShrink = condensableShrink(currentIndex, spacing);
       }
       const int candidateWidth = spacing + wordWidths[currentIndex];
@@ -1618,7 +1679,7 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   // Locked space: lockedGap[i] is set when the gap before word i (a space, or a no-break space token) follows a
   // word made of opening quotes or dashes. Such a gap keeps its width: it is not counted as a gap to justify.
   std::vector<bool> lockedGap;
-  if (typo.lockedSpace && plainLtr) lockedGap.assign(lineWordCount, false);
+  if ((typo.lockedSpace || punctSpace != 0) && plainLtr) lockedGap.assign(lineWordCount, false);
   const auto isLockedGap = [&lockedGap](const size_t idx) { return idx < lockedGap.size() && lockedGap[idx]; };
   // Letter spacing on a loose line swaps in its own widths and tracking for this line (below).
   const uint16_t* lineWidths = wordWidths.data() + lastBreakAt;
@@ -1637,7 +1698,12 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
         lineWords[wordIdx] == " " && wordIdx + 1 < lineWordCount && continuesVec[boundaryIdx + 1];
     const bool justifiable = TokenBoundary::isJustifiableGap(continuesVec[boundaryIdx], isStretchableSpace);
     if (justifiable && !lockedGap.empty() && (continuesVec[boundaryIdx] || !noSpaceBeforeVec[boundaryIdx]) &&
-        typoengine::isLockedSpaceWord(lineWords[wordIdx - 1])) {
+        typo.lockedSpace && typoengine::isLockedSpaceWord(lineWords[wordIdx - 1])) {
+      lockedGap[wordIdx] = true;
+    }
+    // Space after punctuation: the narrowed (or removed) space keeps its width too.
+    if (justifiable && !lockedGap.empty() && !continuesVec[boundaryIdx] && !noSpaceBeforeVec[boundaryIdx] &&
+        narrowedAfter(lineWords[wordIdx - 1])) {
       lockedGap[wordIdx] = true;
     }
     if (justifiable && !isLockedGap(wordIdx)) {
@@ -1650,10 +1716,8 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
     } else if (noSpaceBeforeVec[boundaryIdx]) {
       totalNaturalGaps += blockStyle.characterSpacing;
     } else {
-      const int gap =
-          scaleSpace(renderer.getSpaceAdvance(fontId, lastCodepoint(lineWords[wordIdx - 1]),
-                                              firstCodepoint(lineWords[wordIdx]), lineWordStyles[wordIdx - 1]),
-                     wordSpacingPercent);
+      const int gap = spaceGap(renderer, fontId, lineWords[wordIdx - 1], lineWords[wordIdx],
+                               lineWordStyles[wordIdx - 1], lineWordStyles[wordIdx]);
       totalNaturalGaps += gap;
       if (!isLockedGap(wordIdx)) {
         const int allowance = typoengine::gapShrink(gap, condensePercent);
@@ -1737,9 +1801,8 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
         } else if (noSpaceBeforeVec[logical]) {
           gaps += spacing;
         } else {
-          gaps += scaleSpace(renderer.getSpaceAdvance(fontId, lastCodepoint(lineWords[wordIdx - 1]),
-                                                      firstCodepoint(lineWords[wordIdx]), lineWordStyles[wordIdx - 1]),
-                             wordSpacingPercent);
+          gaps += spaceGap(renderer, fontId, lineWords[wordIdx - 1], lineWords[wordIdx], lineWordStyles[wordIdx - 1],
+                           lineWordStyles[wordIdx]);
         }
       }
       const int spacedSpare =
@@ -2003,10 +2066,8 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
           if (wordIdx + 1 < lineWordCount) {
             nextNoSpace = noSpaceBeforeVec[lastBreakAt + wordIdx + 1];
             gap = nextNoSpace ? lineSpacing
-                              : scaleSpace(renderer.getSpaceAdvance(fontId, lastCodepoint(lineWords[wordIdx]),
-                                                                    firstCodepoint(lineWords[wordIdx + 1]),
-                                                                    lineWordStyles[wordIdx]),
-                                           wordSpacingPercent);
+                              : spaceGap(renderer, fontId, lineWords[wordIdx], lineWords[wordIdx + 1],
+                                         lineWordStyles[wordIdx], lineWordStyles[wordIdx + 1]);
           }
           if (wordIdx + 1 < lineWordCount && effectiveAlignment == CssTextAlign::Justify && !isLastLine &&
               !isLockedGap(wordIdx + 1)) {

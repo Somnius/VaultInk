@@ -19,11 +19,21 @@ enum HyphenMode : uint8_t {
   HYPHEN_MODE_COUNT = 3,
 };
 
+enum PunctSpace : uint8_t {
+  PUNCT_SPACE_NORMAL = 0,   // a normal space after a punctuation mark, as before
+  PUNCT_SPACE_MINIMAL = 1,  // half a space, never stretched or shrunk
+  PUNCT_SPACE_NONE = 2,     // no space: the next word follows the mark (the line may still break there)
+  PUNCT_SPACE_COUNT = 3,
+};
+
 inline constexpr uint8_t CONDENSE_MIN_PERCENT = 50;
 inline constexpr uint8_t CONDENSE_STEP_PERCENT = 10;
 inline constexpr uint8_t LETTER_SPACING_LEVELS = 3;  // off, small (1 px a letter), medium (2 px)
 inline constexpr uint8_t MIN_LETTERS_MAX = 5;        // 0 = the language's own minimum
 inline constexpr uint8_t LANGUAGE_COUNT = 13;
+inline constexpr uint8_t PUNCT_MINIMAL_PERCENT = 50;  // Space after punctuation, Minimal: this share of a space
+inline constexpr uint8_t OPTICAL_MAX_PERCENT = 40;    // Optical spacing moves a gap by at most this share of a space
+inline constexpr uint8_t OPTICAL_MIN_PERCENT = 30;    // and never leaves it narrower than this share
 // The pattern sets, in the order of the Hyphenation language choice (1..13; 0 = the book's language).
 inline constexpr const char* LANGUAGE_TAGS[LANGUAGE_COUNT] = {"en", "fr", "de", "ru", "es", "it", "pl",
                                                               "sv", "uk", "fi", "pt", "el", "grc"};
@@ -56,6 +66,8 @@ struct Config {
   uint8_t minLeft = 0;   // letters before a pattern break; 0 = the language's own
   uint8_t minRight = 0;  // letters after it
   uint8_t language = 0;  // 0 = book language (Greek words still use Greek patterns), 1..13 = LANGUAGE_TAGS
+  uint8_t punctSpace = PUNCT_SPACE_NORMAL;  // the space after , . ; : · ! ? » ) and the like
+  bool opticalSpacing = false;              // word gaps corrected by the side room of the two glyphs around them
 };
 
 // Snaps a stored percentage to one of 100, 90, 80, 70, 60, 50. A value outside 50..100 (0 in a file edited by hand)
@@ -73,16 +85,20 @@ constexpr Config sanitized(Config c) {
   if (c.minLeft > MIN_LETTERS_MAX) c.minLeft = MIN_LETTERS_MAX;
   if (c.minRight > MIN_LETTERS_MAX) c.minRight = MIN_LETTERS_MAX;
   if (c.language > LANGUAGE_COUNT) c.language = 0;
+  if (c.punctSpace >= PUNCT_SPACE_COUNT) c.punctSpace = PUNCT_SPACE_NORMAL;
   return c;
 }
 
-// All defaults pack to 0, which is what "the engine is off" means everywhere else.
+// All defaults pack to 0, which is what "the engine is off" means everywhere else. Bits: condensing 0-2, letter
+// spacing 3-4, locked space 5, hyphenation mode 6-7, letters before 8-10 and after 11-13, language 14-17, space after
+// punctuation 18-19, optical spacing 20.
 constexpr uint32_t pack(const Config& raw) {
   const Config c = sanitized(raw);
   const uint32_t condenseSteps = static_cast<uint32_t>(100 - c.condensePercent) / CONDENSE_STEP_PERCENT;  // 0..5
   return condenseSteps | (static_cast<uint32_t>(c.letterSpacing) << 3) | (static_cast<uint32_t>(c.lockedSpace) << 5) |
          (static_cast<uint32_t>(c.hyphenMode) << 6) | (static_cast<uint32_t>(c.minLeft) << 8) |
-         (static_cast<uint32_t>(c.minRight) << 11) | (static_cast<uint32_t>(c.language) << 14);
+         (static_cast<uint32_t>(c.minRight) << 11) | (static_cast<uint32_t>(c.language) << 14) |
+         (static_cast<uint32_t>(c.punctSpace) << 18) | (static_cast<uint32_t>(c.opticalSpacing) << 20);
 }
 
 constexpr Config unpack(const uint32_t packed) {
@@ -95,6 +111,8 @@ constexpr Config unpack(const uint32_t packed) {
   c.minLeft = static_cast<uint8_t>((packed >> 8) & 7U);
   c.minRight = static_cast<uint8_t>((packed >> 11) & 7U);
   c.language = static_cast<uint8_t>((packed >> 14) & 15U);
+  c.punctSpace = static_cast<uint8_t>((packed >> 18) & 3U);
+  c.opticalSpacing = ((packed >> 20) & 1U) != 0;
   return sanitized(c);
 }
 
@@ -210,6 +228,40 @@ inline bool isLockedSpaceWord(const std::string_view word) {
     i += length;
   }
   return true;
+}
+
+// --- Space after punctuation ---
+
+// The marks whose following space Space after punctuation narrows or removes: comma, full stop, semicolon (also the
+// Greek question mark), colon, the Greek ano teleia, question and exclamation marks, closing quotes and brackets.
+constexpr bool isSpacedPunctuation(const uint32_t cp) {
+  return cp == ',' || cp == '.' || cp == ';' || cp == ':' || cp == '!' || cp == '?' || cp == ')' || cp == ']' ||
+         cp == '}' || cp == 0x00B7 || cp == 0x0387 || cp == 0x037E || cp == 0x00BB || cp == 0x201D || cp == 0x203A;
+}
+
+// The width of the space after such a mark, from the width of a normal space.
+constexpr int punctuationGap(const int space, const uint8_t mode) {
+  if (mode == PUNCT_SPACE_NONE) return 0;
+  if (mode == PUNCT_SPACE_MINIMAL) return condensedGap(space, PUNCT_MINIMAL_PERCENT);
+  return space;
+}
+
+// --- Optical spacing ---
+
+// A word gap looks as wide as the space plus the empty room beside the two glyphs around it (`sideRoom`: the right
+// side bearing of the last glyph of one word plus the left side bearing of the first glyph of the next). With every
+// gap narrowed by its side room less the paragraph's average (`averageRoom`), the gaps look the same width and the
+// text keeps its length on average. The change is at most OPTICAL_MAX_PERCENT of a space either way, and a gap is
+// never left under OPTICAL_MIN_PERCENT of one (or under one pixel).
+constexpr int opticalGap(const int space, const int sideRoom, const int averageRoom) {
+  if (space <= 0) return space;
+  const int limit = space * OPTICAL_MAX_PERCENT / 100;
+  int change = sideRoom - averageRoom;
+  if (change > limit) change = limit;
+  if (change < -limit) change = -limit;
+  const int floor = condensedGap(space, OPTICAL_MIN_PERCENT);
+  const int gap = space - change;
+  return gap < floor ? floor : gap;
 }
 
 }  // namespace typoengine

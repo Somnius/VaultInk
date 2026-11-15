@@ -6,6 +6,7 @@
 #include <GfxRenderer.h>
 #include <gtest/gtest.h>
 
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -15,12 +16,19 @@ namespace {
 
 using typoengine::Config;
 
+// The fixture font of the next layout() calls: the width of its space and the side bearings (left, right) of the
+// codepoints that have metrics. Engine puts both back.
+int fixtureSpace = 4;
+std::map<uint32_t, std::pair<int, int>> fixtureBearings;
+
 // Sets the engine for one test and switches it off again after it.
 struct Engine {
   explicit Engine(const Config& config) { typoengine::set(typoengine::pack(config)); }
   ~Engine() {
     typoengine::set(0);
     Hyphenator::setPreferredLanguage("");
+    fixtureSpace = 4;
+    fixtureBearings.clear();
   }
 };
 
@@ -42,6 +50,8 @@ struct Line {
 std::vector<Line> layout(const std::vector<const char*>& words, const uint16_t width, const bool hyphenation = false,
                          const CssTextAlign alignment = CssTextAlign::Justify) {
   GfxRenderer renderer;
+  renderer.spaceAdvance = fixtureSpace;
+  renderer.sideBearings = fixtureBearings;
   BlockStyle style;
   style.alignment = alignment;
   style.textIndentDefined = true;
@@ -92,6 +102,45 @@ TEST(TypographyEngineConfig, DefaultsPackToZero) {
   EXPECT_EQ(c.minLeft, 0);
   EXPECT_EQ(c.minRight, 0);
   EXPECT_EQ(c.language, 0);
+  EXPECT_EQ(c.punctSpace, typoengine::PUNCT_SPACE_NORMAL);
+  EXPECT_FALSE(c.opticalSpacing);
+}
+
+TEST(TypographyEngineConfig, SpaceAfterPunctuationAndOpticalSpacingHaveTheirOwnBits) {
+  for (uint8_t punct = 0; punct < typoengine::PUNCT_SPACE_COUNT; ++punct) {
+    for (const bool optical : {false, true}) {
+      // The other settings at their largest values: nothing runs into the new bits, and the new bits into nothing.
+      Config c = condense(50);
+      c.letterSpacing = typoengine::LETTER_SPACING_LEVELS - 1;
+      c.lockedSpace = true;
+      c.hyphenMode = typoengine::HYPHEN_OFF;
+      c.minLeft = c.minRight = typoengine::MIN_LETTERS_MAX;
+      c.language = typoengine::LANGUAGE_COUNT;
+      const uint32_t others = typoengine::pack(c);
+      c.punctSpace = punct;
+      c.opticalSpacing = optical;
+      const uint32_t packed = typoengine::pack(c);
+      EXPECT_EQ(packed & 0x3FFFFU, others);
+      EXPECT_EQ(packed >> 18, static_cast<uint32_t>(punct) | (optical ? 4U : 0U));
+      const Config back = typoengine::unpack(packed);
+      EXPECT_EQ(back.punctSpace, punct);
+      EXPECT_EQ(back.opticalSpacing, optical);
+      EXPECT_EQ(back.condensePercent, 50);
+      EXPECT_EQ(back.language, typoengine::LANGUAGE_COUNT);
+      EXPECT_EQ(back.minRight, typoengine::MIN_LETTERS_MAX);
+
+      // Each one alone is an engine in use.
+      Config alone;
+      alone.punctSpace = punct;
+      alone.opticalSpacing = optical;
+      EXPECT_EQ(typoengine::pack(alone) != 0, punct != 0 || optical);
+    }
+  }
+  // A choice that does not exist is Normal.
+  Config odd;
+  odd.punctSpace = 3;
+  EXPECT_EQ(typoengine::sanitized(odd).punctSpace, typoengine::PUNCT_SPACE_NORMAL);
+  EXPECT_EQ(typoengine::unpack(3U << 18).punctSpace, typoengine::PUNCT_SPACE_NORMAL);
 }
 
 TEST(TypographyEngineConfig, EveryValueSurvivesPacking) {
@@ -450,6 +499,8 @@ TEST(SpaceCondensing, CjkAndRtlParagraphsAreUntouched) {
         Config all = condense(50);
         all.letterSpacing = 2;
         all.lockedSpace = true;
+        all.punctSpace = typoengine::PUNCT_SPACE_NONE;
+        all.opticalSpacing = true;
         Engine engine(all);
         const auto on = layout(words, width, hyphenation);
         ASSERT_EQ(wordsOf(on), wordsOf(off));
@@ -650,6 +701,237 @@ TEST(LockedSpace, ALockedGapIsNotCondensedEither) {
   }
 }
 
+// --- Space after punctuation ---
+
+namespace {
+
+Config punctuation(const uint8_t mode) {
+  Config c;
+  c.punctSpace = mode;
+  return c;
+}
+
+}  // namespace
+
+TEST(SpaceAfterPunctuation, TheMarks) {
+  for (const uint32_t cp : {uint32_t{','}, uint32_t{'.'}, uint32_t{';'}, uint32_t{':'}, uint32_t{'!'}, uint32_t{'?'},
+                            uint32_t{')'}, uint32_t{']'}, uint32_t{'}'}, uint32_t{0x00B7}, uint32_t{0x0387},
+                            uint32_t{0x037E}, uint32_t{0x00BB}, uint32_t{0x201D}, uint32_t{0x203A}}) {
+    EXPECT_TRUE(typoengine::isSpacedPunctuation(cp)) << cp;
+  }
+  for (const uint32_t cp : {uint32_t{'a'}, uint32_t{0x03B1}, uint32_t{'('}, uint32_t{0x00AB}, uint32_t{0x2014},
+                            uint32_t{'-'}, uint32_t{' '}, uint32_t{0}, uint32_t{'\''}, uint32_t{0x2019}}) {
+    EXPECT_FALSE(typoengine::isSpacedPunctuation(cp)) << cp;
+  }
+}
+
+TEST(SpaceAfterPunctuation, MinimalIsHalfASpaceAndNoneIsNoSpace) {
+  using namespace typoengine;
+  EXPECT_EQ(punctuationGap(12, PUNCT_SPACE_NORMAL), 12);
+  EXPECT_EQ(punctuationGap(12, PUNCT_SPACE_MINIMAL), 6);
+  EXPECT_EQ(punctuationGap(5, PUNCT_SPACE_MINIMAL), 3);  // rounded up
+  EXPECT_EQ(punctuationGap(1, PUNCT_SPACE_MINIMAL), 1);  // a gap that exists stays a pixel wide
+  EXPECT_EQ(punctuationGap(12, PUNCT_SPACE_NONE), 0);
+  EXPECT_EQ(punctuationGap(0, PUNCT_SPACE_MINIMAL), 0);
+}
+
+TEST(SpaceAfterPunctuation, OnALeftAlignedLine) {
+  // "aa, bb cc": 24 + 4 + 16 + 4 + 16 px.
+  const std::vector<const char*> words{"aa,", "bb", "cc"};
+  EXPECT_EQ(layout(words, 200, false, CssTextAlign::Left)[0].xpos, (std::vector<int16_t>{0, 28, 48}));
+  for (const bool hyphenation : {false, true}) {
+    {
+      Engine engine(punctuation(typoengine::PUNCT_SPACE_MINIMAL));
+      EXPECT_EQ(layout(words, 200, hyphenation, CssTextAlign::Left)[0].xpos, (std::vector<int16_t>{0, 26, 46}));
+    }
+    Engine engine(punctuation(typoengine::PUNCT_SPACE_NONE));
+    EXPECT_EQ(layout(words, 200, hyphenation, CssTextAlign::Left)[0].xpos, (std::vector<int16_t>{0, 24, 44}));
+  }
+}
+
+TEST(SpaceAfterPunctuation, EveryListedMarkNarrowsItsSpace) {
+  for (const char* first :
+       {"a,", "a.", "a;", "a:", "a!", "a?", "a)", "a]", "a·", "a\xCE\x87", "a\xCD\xBE", "a»", "a”"}) {
+    Engine engine(punctuation(typoengine::PUNCT_SPACE_NONE));
+    EXPECT_EQ(layout({first, "bb"}, 200, false, CssTextAlign::Left)[0].xpos, (std::vector<int16_t>{0, 16})) << first;
+  }
+  // Not after a letter, an opening quote, an opening bracket or a dash.
+  for (const char* first : {"ab", "a«", "a(", "a—"}) {
+    Engine engine(punctuation(typoengine::PUNCT_SPACE_NONE));
+    EXPECT_EQ(layout({first, "bb"}, 200, false, CssTextAlign::Left)[0].xpos, (std::vector<int16_t>{0, 20})) << first;
+  }
+}
+
+TEST(SpaceAfterPunctuation, JustificationDoesNotStretchTheGap) {
+  // "aa, bb cc" is 64 px on a 100 px line: off, the 36 spare pixels go to both gaps.
+  const std::vector<const char*> words{"aa,", "bb", "cc", "xxxxxxxxxxxx"};
+  EXPECT_EQ(layout(words, 100)[0].xpos, (std::vector<int16_t>{0, 46, 84}));
+  for (const bool hyphenation : {false, true}) {
+    SCOPED_TRACE(hyphenation);
+    {
+      Engine engine(punctuation(typoengine::PUNCT_SPACE_MINIMAL));
+      const auto lines = layout(words, 100, hyphenation);
+      // The gap after the comma stays 2 px; the other gap takes all the spare room.
+      EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 26, 84}));
+      EXPECT_EQ(lines[0].right, 100);
+    }
+    Engine engine(punctuation(typoengine::PUNCT_SPACE_NONE));
+    const auto lines = layout(words, 100, hyphenation);
+    EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 24, 84}));
+    EXPECT_EQ(lines[0].right, 100);
+  }
+}
+
+TEST(SpaceAfterPunctuation, ALineWhoseOnlyGapFollowsAMarkStaysAsItIs) {
+  Engine engine(punctuation(typoengine::PUNCT_SPACE_MINIMAL));
+  EXPECT_EQ(layout({"aa,", "bb", "xxxxxxxxxxxx"}, 100)[0].xpos, (std::vector<int16_t>{0, 26}));
+}
+
+TEST(SpaceAfterPunctuation, NoneStillBreaksTheLineAfterTheMark) {
+  // "aaaa,bbbb,cccc,dddd" with no spaces is 152 px: the line must still break after a comma.
+  const std::vector<const char*> words{"aaaa,", "bbbb,", "cccc,", "dddd"};
+  for (const bool hyphenation : {false, true}) {
+    for (const CssTextAlign alignment : {CssTextAlign::Left, CssTextAlign::Justify}) {
+      Engine engine(punctuation(typoengine::PUNCT_SPACE_NONE));
+      const auto lines = layout(words, 90, hyphenation, alignment);
+      ASSERT_EQ(wordsOf(lines), (std::vector<std::vector<std::string>>{{"aaaa,", "bbbb,"}, {"cccc,", "dddd"}}));
+      EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 40}));
+      EXPECT_EQ(lines[1].xpos, (std::vector<int16_t>{0, 40}));
+    }
+  }
+}
+
+TEST(SpaceAfterPunctuation, TheGapIsNotCondensedEither) {
+  // "aa, bbbb cccc" with Minimal is 24 + 2 + 32 + 4 + 32 = 94 px. At 50% the ordinary gap gives 2 px and the gap
+  // after the comma nothing: the line fits 92 px and not 91.
+  const std::vector<const char*> words{"aa,", "bbbb", "cccc", "dddddd"};
+  for (const bool hyphenation : {false, true}) {
+    SCOPED_TRACE(hyphenation);
+    Config c = condense(50);
+    c.punctSpace = typoengine::PUNCT_SPACE_MINIMAL;
+    Engine engine(c);
+    const auto lines = layout(words, 92, hyphenation);
+    EXPECT_EQ(lines[0].words, (std::vector<std::string>{"aa,", "bbbb", "cccc"}));
+    EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 26, 60}));
+    EXPECT_EQ(lines[0].right, 92);
+    EXPECT_EQ(layout(words, 91, hyphenation)[0].words, (std::vector<std::string>{"aa,", "bbbb"}));
+  }
+}
+
+// --- Optical spacing ---
+
+namespace {
+
+Config optical() {
+  Config c;
+  c.opticalSpacing = true;
+  return c;
+}
+
+// A fixture font with a 20 px space where 'a' has 1 px of empty room on each side and 'o' has 4 px.
+void useBearingFont() {
+  fixtureSpace = 20;
+  fixtureBearings = {{'a', {1, 1}}, {'o', {4, 4}}, {'x', {0, 0}}, {'O', {12, 12}}};
+}
+
+// What the eye sees between two words of a line: the gap plus the empty room of the two glyphs around it.
+std::vector<int> visibleGaps(const Line& line) {
+  std::vector<int> out;
+  for (size_t i = 1; i < line.words.size(); ++i) {
+    const std::string& before = line.words[i - 1];
+    const int gap = line.xpos[i] - (line.xpos[i - 1] + 8 * static_cast<int>(before.size()));
+    out.push_back(gap + fixtureBearings.at(static_cast<uint32_t>(before.back())).second +
+                  fixtureBearings.at(static_cast<uint32_t>(line.words[i].front())).first);
+  }
+  return out;
+}
+
+}  // namespace
+
+TEST(OpticalSpacing, TheArithmetic) {
+  using typoengine::opticalGap;
+  EXPECT_EQ(opticalGap(20, 5, 5), 20);    // the average side room: the gap as it is
+  EXPECT_EQ(opticalGap(20, 8, 5), 17);    // more room beside the glyphs: a narrower gap
+  EXPECT_EQ(opticalGap(20, 2, 5), 23);    // less: a wider one
+  EXPECT_EQ(opticalGap(20, 40, 0), 12);   // at most 40% of a space
+  EXPECT_EQ(opticalGap(20, -40, 0), 28);  // either way
+  EXPECT_EQ(opticalGap(0, 9, 0), 0);
+  for (int space = 1; space <= 40; ++space) {
+    for (int room = -60; room <= 60; ++room) {
+      const int gap = opticalGap(space, room, 0);
+      ASSERT_GE(gap * 100, space * typoengine::OPTICAL_MIN_PERCENT) << space << " " << room;
+      ASSERT_GE(gap, 1);
+      ASSERT_LE((gap > space ? gap - space : space - gap) * 100, space * typoengine::OPTICAL_MAX_PERCENT);
+    }
+  }
+}
+
+TEST(OpticalSpacing, TheGapsLookTheSameWidth) {
+  // Side room of the gaps: a-a 2, a-o 5, o-o 8, o-a 5; the average is 5.
+  const std::vector<const char*> words{"aa", "aa", "oo", "oo", "aa"};
+  for (const bool hyphenation : {false, true}) {
+    SCOPED_TRACE(hyphenation);
+    {
+      Engine engine{Config{}};
+      useBearingFont();
+      const auto off = layout(words, 400, hyphenation, CssTextAlign::Left);
+      EXPECT_EQ(off[0].xpos, (std::vector<int16_t>{0, 36, 72, 108, 144}));
+      EXPECT_EQ(visibleGaps(off[0]), (std::vector<int>{22, 25, 28, 25}));
+    }
+    Engine engine(optical());
+    useBearingFont();
+    const auto on = layout(words, 400, hyphenation, CssTextAlign::Left);
+    EXPECT_EQ(on[0].xpos, (std::vector<int16_t>{0, 39, 75, 108, 144}));  // gaps of 23, 20, 17 and 20 px
+    EXPECT_EQ(visibleGaps(on[0]), (std::vector<int>{25, 25, 25, 25}));
+  }
+}
+
+TEST(OpticalSpacing, AJustifiedLineSharesTheRestEvenly) {
+  // Five words of 16 px on a 180 px line leave 100 px for the four gaps; with their 20 px of side room each gap
+  // looks 30 px wide.
+  const std::vector<const char*> words{"aa", "aa", "oo", "oo", "aa", "xxxxxxxxxxxxxxxxxxxxxx"};
+  for (const bool hyphenation : {false, true}) {
+    SCOPED_TRACE(hyphenation);
+    Engine engine(optical());
+    useBearingFont();
+    const auto lines = layout(words, 180, hyphenation);
+    ASSERT_EQ(lines[0].words.size(), 5u);
+    EXPECT_EQ(visibleGaps(lines[0]), (std::vector<int>{30, 30, 30, 30}));
+    EXPECT_EQ(lines[0].right, 180);
+  }
+}
+
+TEST(OpticalSpacing, TheCorrectionIsLimited) {
+  // Side room: x-x 0 three times, x-O 12, O-O 24; the average is 36 / 5 = 7. The O-O gap would lose 17 px and
+  // loses 8 (40% of the space).
+  Engine engine(optical());
+  useBearingFont();
+  const auto lines = layout({"xx", "xx", "xx", "xx", "OO", "OO"}, 400, false, CssTextAlign::Left);
+  EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 43, 86, 129, 160, 188}));  // gaps of 27, 27, 27, 15 and 12 px
+}
+
+TEST(OpticalSpacing, AGlyphWithoutMetricsKeepsItsGap) {
+  const std::vector<const char*> words{"aa", "bb", "oo", "bb", "aa", "oo"};
+  Engine engine(optical());
+  useBearingFont();
+  // Only a-o has metrics on both sides, so it is the average itself: nothing moves.
+  EXPECT_EQ(layout(words, 400, false, CssTextAlign::Left)[0].xpos, (std::vector<int16_t>{0, 36, 72, 108, 144, 180}));
+  // And a font with no metrics at all lays out as with the setting off.
+  fixtureBearings.clear();
+  EXPECT_EQ(layout(words, 400, false, CssTextAlign::Left)[0].xpos, (std::vector<int16_t>{0, 36, 72, 108, 144, 180}));
+}
+
+TEST(OpticalSpacing, NotAfterANarrowedPunctuationGap) {
+  Config c = optical();
+  c.punctSpace = typoengine::PUNCT_SPACE_MINIMAL;
+  Engine engine(c);
+  useBearingFont();
+  fixtureBearings[','] = {0, 9};
+  // "aa," then "oo": half a space (10 px), whatever the side room. The other gaps: o-o 8 and o-a 5, average 7.
+  const auto lines = layout({"aa,", "oo", "oo", "aa"}, 400, false, CssTextAlign::Left);
+  EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 34, 69, 107}));  // gaps of 10, 19 and 22 px
+}
+
 // --- Everything on: no line passes the right edge ---
 
 TEST(TypographyEngineLayout, NoLinePassesThePageWidth) {
@@ -664,7 +946,13 @@ TEST(TypographyEngineLayout, NoLinePassesThePageWidth) {
         Config c = condense(static_cast<uint8_t>(percent));
         c.letterSpacing = letters;
         c.lockedSpace = locked;
+        // Space after punctuation and Optical spacing take turns with the rest.
+        c.punctSpace =
+            static_cast<uint8_t>((percent / 10 + letters + (locked ? 1 : 0)) % typoengine::PUNCT_SPACE_COUNT);
+        c.opticalSpacing = (letters + (locked ? 1 : 0)) % 2 == 0;
         Engine engine(c);
+        fixtureBearings = {{'t', {0, 3}}, {'s', {1, 1}}, {'f', {0, -2}}, {'o', {2, 2}},
+                           {'i', {1, 1}}, {'w', {0, 0}}, {'a', {1, 2}},  {'e', {3, 1}}};
         Hyphenator::setPreferredLanguage("en");
         for (uint16_t width = 96; width <= 260; ++width) {
           for (const bool hyphenation : {false, true}) {
@@ -678,6 +966,8 @@ TEST(TypographyEngineLayout, NoLinePassesThePageWidth) {
               for (size_t w = 1; w < lines[i].xpos.size(); ++w) {
                 // Words stay in order and never overlap: a condensed gap is still a gap.
                 ASSERT_GT(lines[i].xpos[w], lines[i].xpos[w - 1]);
+                // and with None the next word starts where the mark ends, never before it
+                ASSERT_GE(lines[i].xpos[w], lines[i].xpos[w - 1] + 8);
               }
               wordCount += lines[i].words.size();
             }

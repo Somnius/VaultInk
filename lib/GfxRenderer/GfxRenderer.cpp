@@ -2127,6 +2127,21 @@ int GfxRenderer::getSpaceAdvance(const int fontId, const uint32_t leftCp, const 
   return fp4::toPixel(spaceAdvanceFP + kernFP);
 }
 
+bool GfxRenderer::getGlyphSideBearings(const int fontId, const uint32_t cp, const EpdFontFamily::Style style, int& left,
+                                       int& right) const {
+  auto sdIt = sdCardFonts_.find(fontId);
+  if (sdIt != sdCardFonts_.end() && sdIt->second->hasAdvanceTable()) {
+    return sdIt->second->getSideBearings(cp, resolveSdCardStyle(*sdIt->second, style), left, right);
+  }
+  const auto fontIt = fontMap.find(fontId);
+  if (fontIt == fontMap.end() || !fontIt->second.hasCodepoint(cp, style)) return false;
+  const EpdGlyph* glyph = fontIt->second.getGlyph(cp, style);
+  if (!glyph || glyph->width == 0) return false;
+  left = glyph->left;
+  right = fp4::toPixel(glyph->advanceX) - glyph->left - glyph->width;
+  return true;
+}
+
 int GfxRenderer::getKerning(const int fontId, const uint32_t leftCp, const uint32_t rightCp,
                             const EpdFontFamily::Style style, const int8_t tracking) const {
   const auto fontIt = fontMap.find(fontId);

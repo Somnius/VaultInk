@@ -381,11 +381,15 @@ TEST(ReadingPresetsTypographyEngine, RoundTripKeepsTheEngineSettings) {
   l.typoMinLeft = 3;
   l.typoMinRight = 4;
   l.typoHyphenLang = 12;
+  l.typoPunctSpace = 2;
+  l.typoOptical = 1;
   PresetList list;
   ASSERT_TRUE(save(list, 4, l));
   const std::string json = toJson(list);
   EXPECT_NE(json.find("\"tcondense\":70"), std::string::npos);
   EXPECT_NE(json.find("\"tlang\":12"), std::string::npos);
+  EXPECT_NE(json.find("\"tpunct\":2"), std::string::npos);
+  EXPECT_NE(json.find("\"toptical\":1"), std::string::npos);
   PresetList back;
   ASSERT_TRUE(parse(json.c_str(), json.size(), back));
   EXPECT_EQ(l, back.slots[4].layout);
@@ -398,7 +402,8 @@ TEST(ReadingPresetsTypographyEngine, APresetWithTheEngineOffIsWrittenAsBefore) {
   PresetList list;
   ASSERT_TRUE(save(list, 0, sampleLayout()));
   const std::string json = toJson(list);
-  for (const char* key : {"tcondense", "tletters", "tlocked", "thyphen", "tleft", "tright", "tlang"}) {
+  for (const char* key :
+       {"tcondense", "tletters", "tlocked", "thyphen", "tleft", "tright", "tlang", "tpunct", "toptical"}) {
     EXPECT_EQ(json.find(key), std::string::npos) << key;
   }
   // A file from before the engine has none of the keys and reads as all off (condensing 100 %).
@@ -419,6 +424,8 @@ static typoengine::Config engineOf(const Layout& l) {
   c.minLeft = l.typoMinLeft;
   c.minRight = l.typoMinRight;
   c.language = l.typoHyphenLang;
+  c.punctSpace = l.typoPunctSpace;
+  c.opticalSpacing = l.typoOptical != 0;
   return typoengine::sanitized(c);
 }
 
@@ -457,7 +464,8 @@ TEST(ReadingPresetsTypographyEngine, TenFullPresetsFitTheSaveBuffer) {
                               &Layout::textKerning,        &Layout::textWidowOrphan,       &Layout::textKeepHeadings,
                               &Layout::textHanging,        &Layout::typoCondense,          &Layout::typoLetterSpacing,
                               &Layout::typoLockedSpace,    &Layout::typoHyphenMode,        &Layout::typoMinLeft,
-                              &Layout::typoMinRight,       &Layout::typoHyphenLang}) {
+                              &Layout::typoMinRight,       &Layout::typoHyphenLang,        &Layout::typoPunctSpace,
+                              &Layout::typoOptical}) {
     l.*m = 255;
   }
   Gestures g;

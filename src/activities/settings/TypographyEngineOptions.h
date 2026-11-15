@@ -12,11 +12,23 @@
 // panel: their names, the choices of each, and reading and writing the setting behind a row as a choice number.
 namespace typooptions {
 
-enum Row : int { CONDENSE = 0, LETTER_SPACING, LOCKED_SPACE, HYPHEN_MODE, MIN_LEFT, MIN_RIGHT, LANGUAGE, COUNT };
+enum Row : int {
+  CONDENSE = 0,
+  LETTER_SPACING,
+  LOCKED_SPACE,
+  PUNCT_SPACE,
+  OPTICAL,
+  HYPHEN_MODE,
+  MIN_LEFT,
+  MIN_RIGHT,
+  LANGUAGE,
+  COUNT
+};
 
 inline constexpr StrId NAMES[COUNT] = {
-    StrId::STR_TYPO_CONDENSE, StrId::STR_TYPO_LETTER_SPACING, StrId::STR_TYPO_LOCKED_SPACE, StrId::STR_TYPO_HYPHEN_MODE,
-    StrId::STR_TYPO_MIN_LEFT, StrId::STR_TYPO_MIN_RIGHT,      StrId::STR_TYPO_HYPHEN_LANG};
+    StrId::STR_TYPO_CONDENSE,    StrId::STR_TYPO_LETTER_SPACING, StrId::STR_TYPO_LOCKED_SPACE,
+    StrId::STR_TYPO_PUNCT_SPACE, StrId::STR_TYPO_OPTICAL,        StrId::STR_TYPO_HYPHEN_MODE,
+    StrId::STR_TYPO_MIN_LEFT,    StrId::STR_TYPO_MIN_RIGHT,      StrId::STR_TYPO_HYPHEN_LANG};
 
 inline uint8_t* field(const int row) {
   switch (row) {
@@ -26,6 +38,10 @@ inline uint8_t* field(const int row) {
       return &SETTINGS.typoLetterSpacing;
     case LOCKED_SPACE:
       return &SETTINGS.typoLockedSpace;
+    case PUNCT_SPACE:
+      return &SETTINGS.typoPunctSpace;
+    case OPTICAL:
+      return &SETTINGS.typoOptical;
     case HYPHEN_MODE:
       return &SETTINGS.typoHyphenMode;
     case MIN_LEFT:
@@ -53,7 +69,11 @@ inline std::vector<std::string> choices(const int row) {
       out = {tr(STR_STATE_OFF), tr(STR_TYPO_SMALL), tr(STR_TYPO_MEDIUM)};
       break;
     case LOCKED_SPACE:
+    case OPTICAL:
       out = {tr(STR_STATE_OFF), tr(STR_STATE_ON)};
+      break;
+    case PUNCT_SPACE:
+      out = {tr(STR_NORMAL), tr(STR_TYPO_PUNCT_MINIMAL), tr(STR_NONE_OPT)};
       break;
     case HYPHEN_MODE:
       out = {tr(STR_TYPO_HYPHEN_PATTERNS), tr(STR_TYPO_HYPHEN_SOFT), tr(STR_STATE_OFF)};

@@ -353,6 +353,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t typoMinLeft = 0;        // letters before a hyphen: 0 = the language's own, 1..5
   uint8_t typoMinRight = 0;       // letters after it
   uint8_t typoHyphenLang = 0;     // 0 = book language, 1..13 = typoengine::LANGUAGE_TAGS
+  uint8_t typoPunctSpace = 0;     // the space after a punctuation mark: 0 normal, 1 minimal (half), 2 none
+  uint8_t typoOptical = 0;        // optical spacing: word gaps corrected by the glyphs' side room
   // Auto-sleep timeout setting (default 10 minutes). Legacy sleepTimeout enum values are migration-only.
   uint8_t sleepTimeoutMinutes = 10;
   // E-ink refresh frequency (default 15 pages)

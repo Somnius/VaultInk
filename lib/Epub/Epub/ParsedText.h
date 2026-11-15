@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "WordStore.h"
@@ -95,6 +96,17 @@ class ParsedText {
   bool enginePlainText = false;
   uint8_t condensePercent = 100;
   int condensableShrink(size_t wordIndex, int gap) const;
+  // Space after punctuation (0 = normal) and Optical spacing, both only for plain left-to-right text.
+  // opticalAverageRoom is the average side room of the paragraph's word gaps (see typoengine::opticalGap).
+  uint8_t punctSpace = 0;
+  bool opticalSpacing = false;
+  int opticalAverageRoom = 0;
+  bool narrowedAfter(std::string_view previousWord) const;
+  bool gapSideRoom(const GfxRenderer& renderer, int fontId, std::string_view previousWord, std::string_view nextWord,
+                   EpdFontFamily::Style previousStyle, EpdFontFamily::Style nextStyle, int& room) const;
+  // The natural width of the ordinary space between two words on one line.
+  int spaceGap(const GfxRenderer& renderer, int fontId, std::string_view previousWord, std::string_view nextWord,
+               EpdFontFamily::Style previousStyle, EpdFontFamily::Style nextStyle) const;
   uint8_t paragraphIndentSpaces;
   bool hyphenationEnabled;
   bool focusReadingEnabled;

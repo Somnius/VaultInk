@@ -523,6 +523,11 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                          StrId::STR_TYPOGRAPHY_ENGINE));
   emit(SettingInfo::Toggle(StrId::STR_TYPO_LOCKED_SPACE, &CrossPointSettings::typoLockedSpace, "typoLockedSpace",
                            StrId::STR_TYPOGRAPHY_ENGINE));
+  emit(SettingInfo::Enum(StrId::STR_TYPO_PUNCT_SPACE, &CrossPointSettings::typoPunctSpace,
+                         {StrId::STR_NORMAL, StrId::STR_TYPO_PUNCT_MINIMAL, StrId::STR_NONE_OPT}, "typoPunctSpace",
+                         StrId::STR_TYPOGRAPHY_ENGINE));
+  emit(SettingInfo::Toggle(StrId::STR_TYPO_OPTICAL, &CrossPointSettings::typoOptical, "typoOptical",
+                           StrId::STR_TYPOGRAPHY_ENGINE));
   emit(SettingInfo::Enum(StrId::STR_TYPO_HYPHEN_MODE, &CrossPointSettings::typoHyphenMode,
                          {StrId::STR_TYPO_HYPHEN_PATTERNS, StrId::STR_TYPO_HYPHEN_SOFT, StrId::STR_STATE_OFF},
                          "typoHyphenMode", StrId::STR_TYPOGRAPHY_ENGINE));

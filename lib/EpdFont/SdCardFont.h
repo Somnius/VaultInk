@@ -84,6 +84,10 @@ class SdCardFont {
   // Returns the 12.4 fixed-point advance, or 0 if not found.
   uint16_t getAdvance(uint32_t codepoint, uint8_t style) const;
 
+  // The side bearings of a codepoint from the advance table, in pixels. False when the codepoint is not in the
+  // table or has no ink; never reads the card.
+  bool getSideBearings(uint32_t codepoint, uint8_t style, int& left, int& right) const;
+
   // Returns true if advance table is populated for at least one style.
   bool hasAdvanceTable() const;
 
@@ -307,6 +311,10 @@ class SdCardFont {
   struct AdvanceEntry {
     uint32_t codepoint;
     uint16_t advanceX;  // 12.4 fixed-point
+    // Side bearings in pixels (the empty room left and right of the ink box), for Optical spacing. They take the
+    // two bytes that were padding, so the table is no larger.
+    int8_t leftBearing;
+    int8_t rightBearing;
   };
   // Per-style advance table. Sorted by codepoint for binary lookup.
   // Bounded to ADVANCE_CACHE_LIMIT entries; persists across layout passes

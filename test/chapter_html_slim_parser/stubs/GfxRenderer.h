@@ -102,7 +102,17 @@ class GfxRenderer {
   int getKerning(int, uint32_t left, uint32_t right, EpdFontFamily::Style, int8_t tracking = 0) const {
     return trackingBetween(left, right, tracking);
   }
-  int getSpaceAdvance(int, uint32_t, uint32_t, EpdFontFamily::Style) const { return 4; }
+  int spaceAdvance = 4;  // a test may widen the fixture space
+  int getSpaceAdvance(int, uint32_t, uint32_t, EpdFontFamily::Style) const { return spaceAdvance; }
+  // Side bearings a test gives to codepoints (left, right); a codepoint without an entry has no metrics.
+  std::map<uint32_t, std::pair<int, int>> sideBearings;
+  bool getGlyphSideBearings(int, uint32_t cp, EpdFontFamily::Style, int& left, int& right) const {
+    const auto found = sideBearings.find(cp);
+    if (found == sideBearings.end()) return false;
+    left = found->second.first;
+    right = found->second.second;
+    return true;
+  }
   bool isSdCardFont(int) const { return sdFont; }
   void ensureSdCardFontReady(int fontId, const char* text, uint8_t mask, bool includeSmallCaps = false) const {
     const auto* cursor = reinterpret_cast<const uint8_t*>(text);
