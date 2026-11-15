@@ -72,6 +72,7 @@
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/settings/ReadingPresetsActivity.h"
 #include "activities/settings/TextSettingsActivity.h"
+#include "activities/settings/TypographyEngineOptions.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "activities/util/FrontlightPanelActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
@@ -3806,6 +3807,20 @@ void EpubReaderActivity::showTextRowPopup(const int row) {
                                     &SETTINGS.textKeepHeadings, &SETTINGS.textHanging};
         if (idx < 0 || idx >= static_cast<int>(std::size(toggled))) return;
         *toggled[idx] = *toggled[idx] ? 0 : 1;
+        applyTextSettingLive();
+      });
+      break;
+    }
+    case 14: {
+      // The rows of Settings > Reader > Typography Engine with their values; picking one steps it to its next
+      // choice and lays the book out again.
+      std::vector<std::string> options;
+      for (int i = 0; i < typooptions::COUNT; ++i) {
+        options.push_back(std::string(I18N.get(typooptions::NAMES[i])) + ": " + typooptions::valueText(i));
+      }
+      overlayPopup.show(StrId::STR_TYPOGRAPHY_ENGINE, options, 0, [this](int idx) {
+        if (idx < 0 || idx >= typooptions::COUNT) return;
+        typooptions::step(idx);
         applyTextSettingLive();
       });
       break;

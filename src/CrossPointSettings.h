@@ -345,6 +345,14 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t textKeepHeadings = 1;
   uint8_t textHanging = 0;
   uint8_t evenWordGaps = 0;  // justified: 0 off, 1 gaps grow by at most half a space, 2 one space; else ragged
+  // Settings > Reader > Typography Engine (kos25k #30), all off by default; see lib/Epub/Epub/TypographyEngine.h.
+  uint8_t typoCondense = 100;     // a word gap may shrink to this percentage to fit one more word: 100 (off) .. 50
+  uint8_t typoLetterSpacing = 0;  // letter spacing on loose lines: 0 off, 1 small, 2 medium
+  uint8_t typoLockedSpace = 0;    // the gap after an opening quote or dash is not stretched
+  uint8_t typoHyphenMode = 0;     // 0 patterns, 1 soft hyphens only, 2 off
+  uint8_t typoMinLeft = 0;        // letters before a hyphen: 0 = the language's own, 1..5
+  uint8_t typoMinRight = 0;       // letters after it
+  uint8_t typoHyphenLang = 0;     // 0 = book language, 1..13 = typoengine::LANGUAGE_TAGS
   // Auto-sleep timeout setting (default 10 minutes). Legacy sleepTimeout enum values are migration-only.
   uint8_t sleepTimeoutMinutes = 10;
   // E-ink refresh frequency (default 15 pages)

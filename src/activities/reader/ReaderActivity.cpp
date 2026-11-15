@@ -111,6 +111,7 @@ void ReaderActivity::rememberBookOnceRendered() {
 void ReaderActivity::onExit() {
   Activity::onExit();
   textfeatures::set(textfeatures::DEFAULTS);  // the menus and lists draw with the usual kerning and ligatures again
+  typoengine::set(0);                         // and text laid out elsewhere is not touched by the Typography Engine
   // Leaving the book (Back, home) ends the session too, not only sleep (kos25k #23: reading then
   // going home logged nothing).
   flushReaderSession();

@@ -14,6 +14,15 @@ class LanguageHyphenator {
     return liangBreakIndexes(cps, patterns_, config_);
   }
 
+  // The same patterns with other minimum letters before and after a break (Typography Engine).
+  std::vector<size_t> breakIndexes(const std::vector<CodepointInfo>& cps, const size_t minPrefix,
+                                   const size_t minSuffix) const {
+    LiangWordConfig config = config_;
+    config.minPrefix = minPrefix;
+    config.minSuffix = minSuffix;
+    return liangBreakIndexes(cps, patterns_, config);
+  }
+
   size_t minPrefix() const { return config_.minPrefix; }
   size_t minSuffix() const { return config_.minSuffix; }
 

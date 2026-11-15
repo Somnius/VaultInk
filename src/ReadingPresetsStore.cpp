@@ -66,6 +66,13 @@ readingpresets::Layout ReadingPresetsStore::capture() {
   l.textWidowOrphan = SETTINGS.textWidowOrphan;
   l.textKeepHeadings = SETTINGS.textKeepHeadings;
   l.textHanging = SETTINGS.textHanging;
+  l.typoCondense = SETTINGS.typoCondense;
+  l.typoLetterSpacing = SETTINGS.typoLetterSpacing;
+  l.typoLockedSpace = SETTINGS.typoLockedSpace;
+  l.typoHyphenMode = SETTINGS.typoHyphenMode;
+  l.typoMinLeft = SETTINGS.typoMinLeft;
+  l.typoMinRight = SETTINGS.typoMinRight;
+  l.typoHyphenLang = SETTINGS.typoHyphenLang;
   return l;
 }
 
@@ -115,6 +122,22 @@ bool ReadingPresetsStore::apply(const int index, bool* gesturesSet) {
   SETTINGS.textWidowOrphan = l.textWidowOrphan ? 1 : 0;
   SETTINGS.textKeepHeadings = l.textKeepHeadings ? 1 : 0;
   SETTINGS.textHanging = l.textHanging ? 1 : 0;
+  typoengine::Config typo;
+  typo.condensePercent = l.typoCondense;
+  typo.letterSpacing = l.typoLetterSpacing;
+  typo.lockedSpace = l.typoLockedSpace != 0;
+  typo.hyphenMode = l.typoHyphenMode;
+  typo.minLeft = l.typoMinLeft;
+  typo.minRight = l.typoMinRight;
+  typo.language = l.typoHyphenLang;
+  typo = typoengine::sanitized(typo);  // a hand-edited file cannot ask for a value outside the choices
+  SETTINGS.typoCondense = typo.condensePercent;
+  SETTINGS.typoLetterSpacing = typo.letterSpacing;
+  SETTINGS.typoLockedSpace = typo.lockedSpace ? 1 : 0;
+  SETTINGS.typoHyphenMode = typo.hyphenMode;
+  SETTINGS.typoMinLeft = typo.minLeft;
+  SETTINGS.typoMinRight = typo.minRight;
+  SETTINGS.typoHyphenLang = typo.language;
   if (list.slots[index].hasGestures) {
     // An action this firmware does not know (a file from a newer one) becomes Default, as on load.
     const readingpresets::Gestures& g = list.slots[index].gestures;
@@ -129,9 +152,9 @@ bool ReadingPresetsStore::apply(const int index, bool* gesturesSet) {
 }
 
 bool ReadingPresetsStore::save() {
-  // 10 slots at ~250 bytes each, ~610 with every name byte escaped, and up to 86 more for a gestures block; the
-  // buffer lives on the heap, not the stack of the UI task.
-  constexpr size_t CAP = 7424;
+  // 10 slots at ~250 bytes each, ~610 with every name byte escaped, up to 86 more for a gestures block and up to
+  // 95 for the Typography Engine fields; the buffer lives on the heap, not the stack of the UI task.
+  constexpr size_t CAP = 8448;
   std::unique_ptr<char[]> buf(new (std::nothrow) char[CAP]);
   if (!buf) return false;
   const size_t need = readingpresets::serialize(list, buf.get(), CAP);

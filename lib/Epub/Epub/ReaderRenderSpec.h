@@ -2,6 +2,7 @@
 #include <cstdint>
 
 #include "../../EpdFont/TextFeatures.h"
+#include "TypographyEngine.h"
 
 // The resolved text-rendering configuration a reader hands to the layout
 // engine. Section-cache validation keys on every field: a section file built
@@ -32,6 +33,9 @@ struct ReaderRenderSpec {
   // textfeatures:: bits (ligatures, kerning, widow/orphan control, headings with the next paragraph, hanging
   // punctuation), Settings > Reader > Experimental (kos25k #30).
   uint8_t textFeatures = textfeatures::DEFAULTS;
+  // typoengine::pack() of the Typography Engine settings (space condensing, letter spacing on loose lines, locked
+  // space, hyphenation mode, minimum letters and language). 0 = all off.
+  uint32_t typographyEngine = 0;
 };
 
 // Stable signature for clipping anchors. Page-local word ordinals are valid
@@ -56,5 +60,7 @@ inline uint32_t readerRenderSpecSignature(const ReaderRenderSpec& spec) {
   mix(spec.focusReadingEnabled);
   mix(spec.evenWordGaps);
   mix(spec.textFeatures);
+  // Only when in use, so the signature of every layout made without the engine stays what it was.
+  if (spec.typographyEngine != 0) mix(spec.typographyEngine);
   return signature == 0 ? 1 : signature;
 }

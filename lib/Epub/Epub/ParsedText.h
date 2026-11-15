@@ -88,6 +88,13 @@ class ParsedText {
   std::deque<std::string> rubyTexts;
   BlockStyle blockStyle;
   uint8_t wordSpacingPercent = 100;
+  // Typography Engine: set by layoutAndExtractLines for the words it lays out. enginePlainText is true for
+  // left-to-right text with no RTL word, no CJK-style zero-width gap and no ruby: only such text gets condensing,
+  // letter spacing and locked spaces. condensePercent is how narrow a word gap may become; 100 (off) unless the
+  // text is plain and justified.
+  bool enginePlainText = false;
+  uint8_t condensePercent = 100;
+  int condensableShrink(size_t wordIndex, int gap) const;
   uint8_t paragraphIndentSpaces;
   bool hyphenationEnabled;
   bool focusReadingEnabled;

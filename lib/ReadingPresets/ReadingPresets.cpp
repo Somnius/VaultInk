@@ -13,6 +13,9 @@ namespace {
 struct Field {
   const char* key;
   uint8_t Layout::* member;
+  // A field with this value is left out of the file (-1: always written). The Typography Engine fields use it, so
+  // a preset with the engine off is the same bytes as before the engine existed.
+  int omitWhen = -1;
 };
 
 constexpr Field kFields[] = {
@@ -32,6 +35,13 @@ constexpr Field kFields[] = {
     {"widow", &Layout::textWidowOrphan},
     {"headings", &Layout::textKeepHeadings},
     {"hanging", &Layout::textHanging},
+    {"tcondense", &Layout::typoCondense, 100},
+    {"tletters", &Layout::typoLetterSpacing, 0},
+    {"tlocked", &Layout::typoLockedSpace, 0},
+    {"thyphen", &Layout::typoHyphenMode, 0},
+    {"tleft", &Layout::typoMinLeft, 0},
+    {"tright", &Layout::typoMinRight, 0},
+    {"tlang", &Layout::typoHyphenLang, 0},
 };
 
 bool isSpace(const char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
@@ -478,6 +488,7 @@ size_t serialize(const PresetList& list, char* buf, const size_t cap) {
       w.put(",\"sdFont\":");
       w.putString(preset.layout.sdFontFamilyName);
       for (const Field& f : kFields) {
+        if (static_cast<int>(preset.layout.*(f.member)) == f.omitWhen) continue;
         w.put(",\"%s\":%u", f.key, static_cast<unsigned>(preset.layout.*(f.member)));
       }
       if (preset.hasGestures) {
