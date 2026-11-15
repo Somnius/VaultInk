@@ -3695,7 +3695,9 @@ std::string EpubReaderActivity::textRowValue(int row) const {
     case 2:
       return I18N.get(kSpacingIds[SETTINGS.lineSpacing % CrossPointSettings::LINE_COMPRESSION_COUNT]);
     case 3:
-      return I18N.get(kAlignIds[SETTINGS.paragraphAlignment % CrossPointSettings::PARAGRAPH_ALIGNMENT_COUNT]);
+      // The label follows what the page is laid out with: a stored "Book's style" a format cannot follow reads Justify.
+      return I18N.get(kAlignIds[formatfeatures::alignmentChoiceShown(
+          bookKind(), SETTINGS.paragraphAlignment % CrossPointSettings::PARAGRAPH_ALIGNMENT_COUNT)]);
     case 6:
       return I18N.get(kGapIds[SETTINGS.evenWordGaps % std::size(kGapIds)]);
     case 7:
