@@ -11,13 +11,13 @@ Checked on a real X4 Pro:
 - **Typography Engine** (kos25k #30): Settings > Reader > Typography Engine, and the last row of a book's Text menu (it can be hidden or moved in Book menu options, and Reading presets keep it). All of it is off by default, so nothing changes until you turn something on. **Space condensing** (90 to 50%): a justified line may shrink its word gaps to fit one more word or syllable. **Letter spacing on loose lines** (Small, Medium): when a gap would grow by more than half a space, part of the room goes between the letters. **Locked space after a quote or dash**: the gap after a leading dash or a lone opening quote keeps its width. **Hyphenation mode**: patterns (as before), soft hyphens only, or off. **Letters before and after a hyphen** (1 to 5) and **Hyphenation language** (the book's language, or one of the 13 pattern sets, by name). I wrote it from published ideas, with no code from KOReader. I tried every setting on an English page, a Greek page and a dialogue page. 50% condensing is too strong (some gaps nearly vanish), and on the pages I looked at 70 and 80% changed nothing. It only works on left-to-right text: right-to-left, mixed-direction, CJK and ruby paragraphs are laid out as before.
 - **The bottom row of Settings (System) reacts to a tap** without scrolling first. The list was 4 px too tall for its rows, so the last row was drawn clipped and got no touch area; the padding above the section headings now takes up the difference.
 - **Dark pictures in the Gallery** are no longer solid black boxes. The grid is one black-and-white pass, and its dither turned every picture darker than about 60% gray to black; it now uses a two-level dither over the whole range. My "Image 01.png" was just a dark picture. The thumbnails are made again once (the old ones stay on the card, unused, in /.crosspoint/thumbs).
+- The first Typography Engine popup in a book wraps long names, so every row shows its value (seen on the reader).
 - The `[GFX] Outside range` error line when the Gallery opened is gone: its header rule was drawn one pixel past the edge (the search bar in a book had the same off-by-one).
 
 Tested on a computer only:
 
 - The Hyphenation switch agrees in Settings, on the web page and in the book when the Hyphenation mode is Off (turning it on puts the mode back to Patterns). The web settings page reads the list again after a save.
 - A hand-edited condensing value below 50 means Off.
-- The first Typography Engine popup in a book wraps long names so every row shows its value.
 
 Every book is laid out again the first time you open it (the layout cache has a new version).
 

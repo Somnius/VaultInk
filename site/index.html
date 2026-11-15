@@ -710,42 +710,95 @@
     <div class="wrap">
       <p class="eyebrow sans">New in 0.76.0</p>
       <h2>The Typography Engine</h2>
-      <p class="lead">kos25k asked for typography like KOReader&rsquo;s. I wrote it from the published ideas, with no KOReader code. It is one group of settings, off by default: Settings &gt; Reader &gt; Typography Engine, and the last row of a book&rsquo;s Text menu. I checked every setting on my X4 Pro, on an English page, a Greek page and a dialogue page.</p>
+      <p class="lead">kos25k asked for typography like KOReader&rsquo;s. I wrote it from the published ideas, with no KOReader code. It is one group of settings, off by default, so a book looks the same until you turn something on: <strong>Settings &gt; Reader &gt; Typography Engine</strong>, and the last row of a book&rsquo;s Text menu. I tried every setting on my X4 Pro, on an English page, a Greek page and a dialogue page. These screenshots come from the reader itself, except the Gallery one.</p>
 
       <div class="features">
         <figure class="feature">
-          <a href="shot-typo-off.png" class="shot"><img src="shot-typo-off.png" width="480" height="800" loading="lazy" alt="A justified English page with the engine off"></a>
+          <a href="shot-typo-settings.png" class="shot"><img src="shot-typo-settings.png" width="480" height="800" loading="lazy" alt="The seven Typography Engine settings"></a>
+          <figcaption>
+            <h3>The settings</h3>
+            <p>Space condensing, letter spacing on loose lines, a locked space after a quote or dash, a hyphenation mode, minimum letters before and after a hyphen, and a hyphenation language (13 sets, by name).</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-typo-panel.png" class="shot"><img src="shot-typo-panel.png" width="480" height="800" loading="lazy" alt="A book's Text menu with Typography Engine as its last row"></a>
+          <figcaption>
+            <h3>In the book</h3>
+            <p>The last row of the Text menu. Book menu options can move or hide it, and Reading presets keep it.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-typo-en-off.png" class="shot"><img src="shot-typo-en-off.png" width="480" height="800" loading="lazy" alt="An English test page, justified, engine off"></a>
           <figcaption>
             <h3>Engine off</h3>
-            <p>The same page as before: long gaps on loose lines.</p>
+            <p>A justified page as before.</p>
           </figcaption>
         </figure>
         <figure class="feature">
-          <a href="shot-typo-condense.png" class="shot"><img src="shot-typo-condense.png" width="480" height="800" loading="lazy" alt="The same page with space condensing at 50% and Medium letter spacing"></a>
+          <a href="shot-typo-en-on.png" class="shot"><img src="shot-typo-en-on.png" width="480" height="800" loading="lazy" alt="The same English page with space condensing at 60% and Small letter spacing"></a>
           <figcaption>
-            <h3>Space condensing and letter spacing</h3>
-            <p>Gaps may shrink to fit one more word, and loose lines spread their letters a little. This is 50%, which is too strong: some gaps nearly vanish.</p>
+            <h3>Condensing 60%, Small letter spacing</h3>
+            <p>Gaps shrink to fit more on a line. On my test pages 60% fit one more word, 70 and 80% changed nothing, and 50% is too strong: some gaps nearly vanish.</p>
           </figcaption>
         </figure>
         <figure class="feature">
-          <a href="shot-typo-greek.png" class="shot"><img src="shot-typo-greek.png" width="480" height="800" loading="lazy" alt="A Greek page with space condensing at 60%"></a>
+          <a href="shot-typo-en-hyph-off.png" class="shot"><img src="shot-typo-en-hyph-off.png" width="480" height="800" loading="lazy" alt="The same page with Hyphenation mode Off"></a>
           <figcaption>
-            <h3>Greek</h3>
-            <p>Hyphenation by the book&rsquo;s language, with a language picker, minimum letters before and after a hyphen, and a mode with soft hyphens only. Condensing at 60% saved a line here.</p>
+            <h3>Hyphenation mode Off</h3>
+            <p>No hyphens, so loose lines get long gaps. Patterns is the default; Soft hyphens only is in between.</p>
           </figcaption>
         </figure>
         <figure class="feature">
-          <a href="shot-typo-locked.png" class="shot"><img src="shot-typo-locked.png" width="960" height="800" loading="lazy" alt="Dialogue lines, locked space off on the left and on on the right"></a>
+          <a href="shot-typo-greek-off.png" class="shot"><img src="shot-typo-greek-off.png" width="480" height="800" loading="lazy" alt="A Greek test page, engine off"></a>
           <figcaption>
-            <h3>Locked space</h3>
-            <p>Off on the left: the gap after a leading dash stretches. On the right it keeps its width.</p>
+            <h3>Greek, off</h3>
+            <p>Hyphenation by the book&rsquo;s language, as before.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-typo-greek-on.png" class="shot"><img src="shot-typo-greek-on.png" width="480" height="800" loading="lazy" alt="The same Greek page with space condensing at 60% and Small letter spacing"></a>
+          <figcaption>
+            <h3>Greek, 60% and Small</h3>
+            <p>The same page: the line breaks change, and the gaps are more even.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-typo-locked-off.png" class="shot"><img src="shot-typo-locked-off.png" width="480" height="800" loading="lazy" alt="Dialogue lines with locked space off"></a>
+          <figcaption>
+            <h3>Locked space off</h3>
+            <p>The gap after a leading dash stretches with the line.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-typo-locked-on.png" class="shot"><img src="shot-typo-locked-on.png" width="480" height="800" loading="lazy" alt="The same lines with locked space on"></a>
+          <figcaption>
+            <h3>Locked space on</h3>
+            <p>The gap after the dash keeps its width.</p>
+          </figcaption>
+        </figure>
+      </div>
+
+      <h3 style="margin-top:2.4rem">Two fixes</h3>
+      <div class="features">
+        <figure class="feature">
+          <a href="shot-settings-system.png" class="shot"><img src="shot-settings-system.png" width="480" height="800" loading="lazy" alt="Settings with the System row fully drawn at the bottom"></a>
+          <figcaption>
+            <h3>The bottom row of Settings</h3>
+            <p>System now reacts to a tap without scrolling first; it was drawn clipped, with no touch area. Checked on a real X4 Pro.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-gallery-dark.png" class="shot"><img src="shot-gallery-dark.png" width="480" height="800" loading="lazy" alt="The Gallery grid with dark pictures that stay visible"></a>
+          <figcaption>
+            <h3>Dark pictures in the Gallery</h3>
+            <p>They are no longer solid black boxes. This screenshot is from the simulator with my own test pictures; the fix is checked on a real X4 Pro.</p>
           </figcaption>
         </figure>
       </div>
 
       <ul class="list">
-        <li>The bottom row of Settings (System) now reacts to a tap without scrolling first, and dark pictures in the Gallery are no longer solid black boxes. Both checked on a real X4 Pro.</li>
-        <li>Known: the GitHub certificate check is still off in release builds, and every book is laid out again once after the update. Only English and Greek have the new names.</li>
+        <li>Known limits: it only works on left-to-right text (right-to-left, mixed-direction, CJK and ruby paragraphs are laid out as before); the 13 hyphenation languages are the ones in the firmware, and more would have to load from the SD card; only English and Greek have the new names; the GitHub certificate check is still off in release builds.</li>
+        <li>Computer tests only: the Hyphenation switch now agrees in Settings, on the web settings page and in the book. Every book is laid out again the first time you open it.</li>
       </ul>
 
       <h3 style="margin-top:2.4rem">From 0.75.1: a terminal font, and Transfer &amp; Remotes</h3>
@@ -771,7 +824,7 @@
       <ul class="list">
         <li><strong>The SSH terminal connected to a real server</strong> from a real X4 Pro, and it has <strong>its own font</strong>: fixed-width, 1-bit, made from Terminus and drawn pixel for pixel, so it is crisp. Four sizes (8x16 is the default, 60 columns), with box-drawing and block characters, bold and Greek. Settings &gt; Connectivity &gt; SSH servers &gt; Terminal text size. SFTP has still not been tried from a device.</li>
         <li>The licences screen now lists the terminal font (Terminus Font 4.49.1, SIL OFL 1.1).</li>
-        <li>Known bugs and limits: the bottom row of Settings (System) ignores a tap until you scroll the list; the Books list still takes about 1.75 s to show; I haven&rsquo;t judged how readable the smallest terminal size (6x12) is on the panel; only English and Greek have the new names, the other 34 languages keep File Transfer on Home and show the new rows in English.</li>
+        <li>Known bugs and limits: the bottom row of Settings (System) ignores a tap until you scroll the list (fixed in 0.76.0); the Books list still takes about 1.75 s to show; I haven&rsquo;t judged how readable the smallest terminal size (6x12) is on the panel; only English and Greek have the new names, the other 34 languages keep File Transfer on Home and show the new rows in English.</li>
       </ul>
 
       <h3 style="margin-top:2.4rem">From 0.75.0: scroll mode, SSH, and the first checks on a real X4 Pro</h3>
@@ -825,7 +878,7 @@
         <li><strong>Gestures inside Reading presets</strong>: Save preset asks &ldquo;Include gestures&rdquo;.</li>
         <li><strong>Developer link, debug page and a developer build you can install</strong>: a read-only build answers status and log requests over USB, and the <a href="debug.html">debug page</a> makes a report file from it. It can&rsquo;t read or write your files or settings, press keys or flash anything. It can reboot the reader, change the log level, take a screenshot and write a small bench log to the card. I used the full developer build for my own tests; the read-only build and the page haven&rsquo;t been tried on a reader yet.</li>
         <li>The X4 Pro firmware now also holds wolfSSH (GPL-3.0-or-later), so the firmware binaries are under GPL-3.0-or-later; VaultInk&rsquo;s own code stays MIT.</li>
-        <li>Known bug: the bottom row of Settings (System) ignores a tap until you scroll the list.</li>
+        <li>Known bug (fixed in 0.76.0): the bottom row of Settings (System) ignores a tap until you scroll the list.</li>
       </ul>
     </div>
   </section>
@@ -905,7 +958,7 @@
           <a href="shot-presets.png" class="shot"><img src="shot-presets.png" width="480" height="800" loading="lazy" alt="Reading presets in Settings"></a>
           <figcaption>
             <h3>Reading presets</h3>
-            <p>Ten named slots that keep your Text settings: font, size, spacing, margins, alignment and the Advanced Typography switches. Save one in Settings or from the book menu, and one press on a slot applies it while you read.</p>
+            <p>Ten named slots that keep your Text settings: font, size, spacing, margins, alignment and the Advanced Typography switches (and, from 0.76.0, the Typography Engine settings). Save one in Settings or from the book menu, and one press on a slot applies it while you read.</p>
           </figcaption>
         </figure>
         <figure class="feature">

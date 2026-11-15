@@ -44,14 +44,14 @@ It's free and open source (my code is MIT; the firmware binaries are GPL-3.0-or-
 > tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Much of the
 > newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
 > the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
-> books, Advanced Typography, Dice, VaultEUC and the Bluetooth keyboard. Back up your SD card. The screenshots
-> below come from the simulator. From 0.75.0 I can also check things on my own X4 Pro over USB; each release
+> books, Dice, VaultEUC and the Bluetooth keyboard. Back up your SD card. Most screenshots below come
+> from the simulator; each section says which. From 0.75.0 I can also check things on my own X4 Pro over USB; each release
 > note says what was checked there.
 
 ## At a glance
 
 <p>
-  <img src="docs/images/vaultink/home-10-rows-0.75.0.png" width="190" alt="Home screen with the current book, Books, Vaults, Favourites, Search, Browse Files, Gallery, Transfer &amp; Remotes, Plugins, Random page and Settings">
+  <img src="docs/images/vaultink/home-0.76.0.png" width="190" alt="Home screen: Books, Vaults, Favourites, Search, Browse Files, Gallery, Transfer &amp; Remotes and Settings (a simulator screenshot)">
   <img src="docs/images/vaultink/library-sort.png" width="190" alt="Library with the Recent, up-percent and down-percent bar and the percent read next to each author">
   <img src="docs/images/vaultink/note.png" width="190" alt="An Obsidian note with links, a callout, tasks and a table">
   <img src="docs/images/vaultink/search-results-wide.png" width="190" alt="Search in Book results that fill the row, with the gear at the right of the header">
@@ -91,21 +91,40 @@ MOBI and AZW books, the status bar options with the book page number, and Advanc
 
 More screenshots are in the sections below and in [docs/](docs/).
 
-## New in 0.76.0: the Typography Engine
+## New in 0.76.0: the Typography Engine, and two fixes
 
-kos25k asked for typography like KOReader's (#30). I wrote it from the published ideas, with no KOReader code, as one group of settings: **Settings > Reader > Typography Engine**, and the last row of a book's Text menu. All of it is off by default.
+kos25k asked for typography like KOReader's (#30). I wrote it from the published ideas, with no KOReader code, as one group of settings: **Settings > Reader > Typography Engine** (Greek: Μηχανή τυπογραφίας) and the last row of a book's Text menu. All of it is off by default, so a book looks the same until you turn something on. I tried every setting on my own X4 Pro, on an English page, a Greek page and a dialogue page; these screenshots are from the reader, except the Gallery and Home ones (simulator).
 
 <p>
-  <img src="docs/images/vaultink/typography-engine-en-off.png" width="190" alt="An English page, justified, with the engine off">
-  <img src="docs/images/vaultink/typography-engine-en-condense50-letters-medium.png" width="190" alt="The same page with space condensing at 50% and Medium letter spacing">
-  <img src="docs/images/vaultink/typography-engine-greek-condense60.png" width="190" alt="A Greek page with space condensing at 60%">
+  <img src="docs/images/vaultink/typography-engine-settings-0.76.0.png" width="190" alt="The Typography Engine screen with its seven settings">
+  <img src="docs/images/vaultink/typography-engine-text-panel-0.76.0.png" width="190" alt="A book's Text menu with Typography Engine as its last row">
+  <img src="docs/images/vaultink/typography-engine-en-page-off-0.76.0.png" width="190" alt="An English test page, justified, engine off">
+  <img src="docs/images/vaultink/typography-engine-en-condense60-letters-small-0.76.0.png" width="190" alt="The same page with space condensing at 60% and Small letter spacing">
 </p>
 
-Checked on a real X4 Pro (every setting, on an English, a Greek and a dialogue page): **Space condensing** (90 to 50%), **Letter spacing on loose lines**, **Locked space after a quote or dash**, **Hyphenation mode** (patterns, soft hyphens only, off), **Letters before and after a hyphen**, and **Hyphenation language**. 50% condensing is too strong; some gaps nearly vanish. [docs/reading-and-files.md](docs/reading-and-files.md#typography-engine-0760)
+<p>
+  <img src="docs/images/vaultink/typography-engine-en-hyphenation-off-0.76.0.png" width="190" alt="The same page with Hyphenation mode Off: long gaps on loose lines">
+  <img src="docs/images/vaultink/typography-engine-greek-off-0.76.0.png" width="190" alt="A Greek test page, engine off">
+  <img src="docs/images/vaultink/typography-engine-greek-condense60-letters-small-0.76.0.png" width="190" alt="The same Greek page with space condensing at 60% and Small letter spacing">
+  <img src="docs/images/vaultink/typography-engine-locked-off-0.76.0.png" width="190" alt="Dialogue lines with Locked space off: the gap after the leading dash stretches">
+  <img src="docs/images/vaultink/typography-engine-locked-on-0.76.0.png" width="190" alt="The same lines with Locked space on: the gap after the dash keeps its width">
+</p>
 
-Also checked on the device: the bottom row of Settings (System) now reacts to a tap, and dark pictures in the Gallery are no longer solid black boxes.
+The settings: **Space condensing** (word gaps shrink to 90 down to 50% of a space to fit one more word), **Letter spacing on loose lines**, **Locked space after a quote or dash**, **Hyphenation mode** (patterns, soft hyphens only, off), **Letters before and after a hyphen**, and **Hyphenation language** (13 sets, by name). What each does, with the numbers: [docs/reading-and-files.md](docs/reading-and-files.md#typography-engine-0760). On my test pages 60% condensing fit one more word on a line, 70 and 80% changed nothing, and 50% is too strong (some gaps nearly vanish).
 
-Known: the GitHub certificate check is still off in release builds, and the backup and restore page is not published yet. Every book is laid out again once after the update.
+Two fixes, both checked on my X4 Pro:
+
+<p>
+  <img src="docs/images/vaultink/settings-list-system-row-0.76.0.png" width="190" alt="Settings with the System row fully drawn at the bottom">
+  <img src="docs/images/vaultink/gallery-dark-pictures-0.76.0.png" width="190" alt="The Gallery grid with dark pictures that stay visible (a simulator screenshot with my own test pictures)">
+</p>
+
+- **The bottom row of Settings (System) reacts to a tap** without scrolling first (it was drawn clipped, with no touch area).
+- **Dark pictures in the Gallery are no longer solid black boxes**, and the `[GFX] Outside range` line when the Gallery opens is gone. The thumbnails are made again once; the old ones stay on the card, unused.
+
+Also (computer tests only): the Hyphenation switch agrees in Settings, on the web settings page and in the book. Every book is laid out again the first time you open it.
+
+Known limits: it only works on left-to-right text (right-to-left, mixed-direction, CJK and ruby paragraphs are laid out as before); only English and Greek have the new names; the GitHub certificate check is still off in release builds; the backup and restore page is not published yet.
 
 ## New in 0.75.1: a terminal font, and Transfer & Remotes
 
@@ -125,7 +144,7 @@ Not checked on a device: whether the Greek name fits its row. The licences scree
 
 For developers: `scripts/devlink.py push-update` sends your own developer build to the reader over Wi-Fi (developer builds only, never in a release image; tried on a real X4 Pro). [docs/devlink.md](docs/devlink.md)
 
-Known bugs and limits: the bottom row of Settings (System) ignores a tap until you scroll the list; the Books list still takes about 1.75 s to show; I haven't judged how readable the smallest terminal size (6x12) is on the panel; only English and Greek have the new names, the other 34 languages keep File Transfer on Home and show the new rows in English.
+Known bugs and limits: the bottom row of Settings (System) ignores a tap until you scroll the list (fixed in 0.76.0); the Books list still takes about 1.75 s to show; I haven't judged how readable the smallest terminal size (6x12) is on the panel; only English and Greek have the new names, the other 34 languages keep File Transfer on Home and show the new rows in English.
 
 ## New in 0.75.0: scroll mode, SSH, and the first checks on a real X4 Pro
 
@@ -162,7 +181,7 @@ Tried on a computer only, not on a device:
 
 The X4 Pro firmware now also holds wolfSSH (GPL-3.0-or-later), so the firmware binaries are distributed under the GPL-3.0-or-later; VaultInk's own code stays MIT ([docs/licenses.md](docs/licenses.md), [NOTICE](NOTICE)).
 
-Known bug: the bottom row of Settings (System) ignores a tap until you scroll the list.
+Known bug (fixed in 0.76.0): the bottom row of Settings (System) ignores a tap until you scroll the list.
 
 ## New in 0.74.0: the KOReader milestone
 
@@ -217,7 +236,7 @@ Settings → Reader → Advanced Typography, and in a book Text → Advanced Typ
   <img src="docs/images/vaultink/more-order-070.png" width="190" alt="The end of the More menu">
 </p>
 
-Ten slots, in Settings → Reader → Reading presets and as the last row of the book menu → More. **Save preset** keeps your current Text settings in a slot with a name you give it: font, size, line spacing, alignment, hyphenation, Focus Reading, Even Word Gaps, word and character spacing, margin, paragraph indent and the five Advanced Typography switches. Inside a book one press on a slot applies it and the page is laid out again. In the More menu, Search, Go to % and Go to page come first; the favourite toggle, Take screenshot, Show page as QR, Delete Book Cache, Go Home and Reading presets come last. Frontlight and Night Mode left More, and are still in the quick settings. [docs/reading-and-files.md](docs/reading-and-files.md#reading-presets-0700)
+Ten slots, in Settings → Reader → Reading presets and as the last row of the book menu → More. **Save preset** keeps your current Text settings in a slot with a name you give it: font, size, line spacing, alignment, hyphenation, Focus Reading, Even Word Gaps, word and character spacing, margin, paragraph indent and the five Advanced Typography switches and (0.76.0) the seven Typography Engine settings. Inside a book one press on a slot applies it and the page is laid out again. In the More menu, Search, Go to % and Go to page come first; the favourite toggle, Take screenshot, Show page as QR, Delete Book Cache, Go Home and Reading presets come last. Frontlight and Night Mode left More, and are still in the quick settings. [docs/reading-and-files.md](docs/reading-and-files.md#reading-presets-0700)
 
 ### Page numbers and the status bar (0.65.0 to 0.68.0)
 
