@@ -156,6 +156,42 @@ TEST(PngSlowDecoder, ScalesDownAndUpByNearestSample) {
   }
 }
 
+const Fixture* fixtureNamed(const std::string& name) {
+  for (const Fixture& f : kFixtures) {
+    if (name == f.name) return &f;
+  }
+  return nullptr;
+}
+
+// A Gallery report (2026-11-15): an interlaced PNG showed as a black box. A gradient, dark at the
+// left and light at the right, must come out the same with and without Adam7, at its own size and
+// at thumbnail sizes, and must not be dark all over.
+TEST(PngSlowDecoder, AnInterlacedGradientDecodesLikeThePlainOne) {
+  for (const char* kind : {"Gray8", "Rgb8", "Indexed8", "Rgba8", "Gray16", "Rgba16"}) {
+    const Fixture* plain = fixtureNamed(std::string("Gradient") + kind);
+    const Fixture* interlaced = fixtureNamed(std::string("Gradient") + kind + "Interlaced");
+    ASSERT_NE(plain, nullptr) << kind;
+    ASSERT_NE(interlaced, nullptr) << kind;
+    ASSERT_EQ(plain->interlace, 0);
+    ASSERT_EQ(interlaced->interlace, 1);
+    const pngslow::Region whole{0, 0, plain->width, plain->height};
+    const int sizes[][2] = {{plain->width, plain->height}, {19, 15}, {9, 7}, {74, 58}};
+    for (const auto& size : sizes) {
+      const std::vector<uint8_t> a = decode(*plain, whole, size[0], size[1]);
+      const std::vector<uint8_t> b = decode(*interlaced, whole, size[0], size[1]);
+      EXPECT_EQ(a, b) << kind << " to " << size[0] << "x" << size[1];
+      EXPECT_EQ(b, sampled(*interlaced, whole, size[0], size[1])) << kind;
+      // Left column dark, right column light, and never darker from one pixel to the next.
+      for (int y = 0; y < size[1]; y++) {
+        const uint8_t* row = b.data() + static_cast<size_t>(y) * size[0];
+        EXPECT_LT(row[0], 40) << kind;
+        EXPECT_GT(row[size[0] - 1], 200) << kind;
+        for (int x = 1; x < size[0]; x++) EXPECT_GE(row[x], row[x - 1]) << kind << " at " << x << "," << y;
+      }
+    }
+  }
+}
+
 TEST(PngSlowDecoder, ShowsOnlyTheAskedRegion) {
   for (const Fixture& f : kFixtures) {
     if (f.width < 4 || f.height < 4) continue;

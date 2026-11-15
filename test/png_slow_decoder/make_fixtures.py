@@ -120,6 +120,20 @@ def make(name, width, height, color, depth, interlace, rng, **kwargs):
         palette = [tuple(rng.randrange(256) for _ in range(3)) for _ in range(1 << depth)]
         trns = bytes(rng.randrange(256) for _ in range((1 << depth) - 1))  # the last entry stays opaque
     pixels = [[tuple(rng.randrange(top + 1) for _ in range(CHANNELS[color])) for _ in range(width)] for _ in range(height)]
+    if kwargs.pop("gradient", False):
+        # Dark at the left to light at the right, a little lighter towards the bottom. The same
+        # picture whatever the rng did, so a pair with and without interlace must decode alike.
+        def shade(x, y):
+            return (x * 230 // (width - 1) + y * 25 // (height - 1)) * top // 255
+
+        if color == 3:
+            palette = [(i, i, i) for i in range(256)]
+            trns = None
+            pixels = [[(shade(x, y),) for x in range(width)] for y in range(height)]
+        else:
+            colour_channels = CHANNELS[color] - (1 if color in (4, 6) else 0)
+            alpha = (top,) if color in (4, 6) else ()
+            pixels = [[(shade(x, y),) * colour_channels + alpha for x in range(width)] for y in range(height)]
     if kwargs.pop("color_key", False):
         key = pixels[0][0]
         pixels[height - 1][width - 1] = key
@@ -164,6 +178,17 @@ def main():
         make("TwoByFiveInterlaced", 2, 5, 0, 16, 1, rng),
         make("Rgba8", 12, 7, 6, 8, 0, rng),
     ]
+    # Gradients, each kind once plain and once interlaced (AnInterlacedGradientDecodesLikeThePlainOne).
+    for kind, color, depth in [
+        ("Gray8", 0, 8),
+        ("Rgb8", 2, 8),
+        ("Indexed8", 3, 8),
+        ("Rgba8", 6, 8),
+        ("Gray16", 0, 16),
+        ("Rgba16", 6, 16),
+    ]:
+        cases.append(make(f"Gradient{kind}", 37, 29, color, depth, 0, rng, gradient=True))
+        cases.append(make(f"Gradient{kind}Interlaced", 37, 29, color, depth, 1, rng, gradient=True))
     out = ["// Written by make_fixtures.py: do not edit.", ""]
     for name, width, height, color, depth, interlace, png, gray in cases:
         out.append(f"const uint8_t k{name}Png[] = {{\n{c_array(png)}\n}};")

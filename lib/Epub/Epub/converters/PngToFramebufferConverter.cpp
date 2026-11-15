@@ -308,7 +308,9 @@ void renderGrayRows(PngContext* ctx, int firstDstY, int endDstY) {
           uint8_t gray = ctx->grayLineBuffer[srcX];
 
           uint8_t ditheredGray;
-          if (useDithering) {
+          if (ctx->config->oneBit) {
+            ditheredGray = applyBayerDither1Bit(gray, outX, outY);
+          } else if (useDithering) {
             ditheredGray = applyBayerDither4Level(gray, outX, outY);
           } else {
             ditheredGray = gray >> 6;

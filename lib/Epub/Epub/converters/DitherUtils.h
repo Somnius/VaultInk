@@ -25,3 +25,13 @@ inline uint8_t applyBayerDither4Level(uint8_t gray, int x, int y) {
   if (adjusted < 192) return 2;
   return 3;
 }
+
+// Two levels only (0 black, 3 white) for a picture that is drawn in one black-and-white pass and
+// never gets the gray passes on top. In that pass every level below 3 is drawn black, so the
+// 4-level dither above turns any area darker than gray 157 into solid black: its -40..+35 offset only
+// reaches across the top threshold (192). Here the 16 thresholds span the whole range (8, 24, ...
+// 248), so the share of white pixels follows the gray value.
+inline uint8_t applyBayerDither1Bit(uint8_t gray, int x, int y) {
+  const int threshold = bayer4x4[y & 3][x & 3] * 16 + 8;
+  return gray >= threshold ? 3 : 0;
+}
