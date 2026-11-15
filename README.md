@@ -416,8 +416,8 @@ The [roadmap](ROADMAP.md) has the details and the order. Open items right now:
 - Real-device testing of most of 0.74.0 (book map, hidden flows, gestures, FB2/HTML/RTF, auto warmth, Wikipedia, Readwise and Memos, WebDAV and FTP).
 - Switching on the certificate check for the update check in the release build. It passed on a real X4 Pro in a developer build in 0.75.0.
 - Scroll mode works on the device but refreshes the whole screen on every step (about 1.4 seconds); a partial refresh would make it usable for long reading. See [Continuous scrolling](docs/reading-and-files.md#continuous-scrolling-0750).
-- The bottom row of the Settings list (System) doesn't react to a tap until the list is scrolled.
-- The Typography Engine (unreleased) has only been tested on a computer; it needs a look on a real reader.
+- Checking on a real X4 Pro that the bottom row of the Settings list (System) now reacts to a tap without scrolling first. It is fixed in the code after 0.75.1 (computer tests only, not in a release yet).
+- The Typography Engine (unreleased) was run once on a real X4 Pro (settings, popups, English and Greek pages with condensing and letter spacing); Locked space, the hyphenation mode and the minimum letters still need a look on a reader.
 - Real-device testing of older features: MOBI and AZW books, Advanced Typography, Dice, VaultEUC with a real wheel and the Bluetooth client and keyboard.
 - Chapters and the cover for MOBI books, and pictures and links for AZW3.
 - The XTCH refresh choice and a few share-to-reader edge cases wait for device tests.

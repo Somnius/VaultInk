@@ -8,6 +8,7 @@
 
 #include "MappedInputManager.h"
 #include "SettingsActivity.h"
+#include "SettingsListFit.h"
 #include "SettingsSearchActivity.h"
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
@@ -113,6 +114,9 @@ void SettingsListActivity::buildScreen(UiScreen& screen) {
   const int16_t paddingY = mappedInput.hasTouch() ? theme.listTouchRowPaddingY : theme.listRowPaddingY;
   props.rowHeight = static_cast<int16_t>(std::max<int16_t>(textHeight, ICON_SIZE) + 2 * paddingY);
   syncListViewport(screen, props);
+  // Both group headings sit below the first row, so both carry the section padding. Without this
+  // the last row (System) is 4 px too tall for a 480x800 touch panel and takes no tap.
+  settingslist::fitSectionGap(screen, props, 2);
   screen.list(props);
 }
 
