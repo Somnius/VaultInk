@@ -81,6 +81,12 @@ TEST(VaultLink, VaultRoot) {
   // A .obsidian deeper down still wins over the /Vaults rule.
   f.dirs.insert("/Vaults/Plain/Sub/.obsidian");
   EXPECT_EQ(vaultlink::vaultRoot("/Vaults/Plain/Sub/n.md", f.fs()), "/Vaults/Plain/Sub");
+  // Outside /Vaults a folder with .obsidian is not a vault: the note's own folder.
+  f.dirs.insert("/Notes");
+  f.dirs.insert("/Notes/.obsidian");
+  f.dirs.insert("/Notes/Sub");
+  EXPECT_EQ(vaultlink::vaultRoot("/Notes/Sub/c.md", f.fs()), "/Notes/Sub");
+  EXPECT_EQ(vaultlink::vaultRoot("/Notes/c.md", f.fs()), "/Notes");
 }
 
 TEST(VaultLink, ResolvesLikeObsidian) {

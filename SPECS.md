@@ -265,7 +265,18 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 
 ## 4. Vaults on the SD card
 
-- A vault is any folder that contains `.obsidian/`, or a folder the user picks. Default root: `/Vaults/`.
+- A vault is a folder right in `/Vaults/` (at most 32), with or without `.obsidian/`. A folder anywhere
+  else is not a vault, also when it holds `.obsidian/` (decided 2026-11-15; before, a top-level folder
+  with `.obsidian/` was one). The rule is `vaultpaths::isVault` (lib/FsHelpers/VaultPaths.h, platform-free);
+  `vaultfiles::findVaults` lists `/Vaults` with it and `vaultlink::vaultRoot` follows it (a note outside
+  `/Vaults` resolves its links from its own folder).
+- Vaults are not books (2026-11-15; computer tests and builds only): `vaultpaths::isUnderVaults` (the
+  `/Vaults` name compared without case) keeps a vault's files out of the Library walk and
+  `isLibraryBookFile`, out of `RecentBooksStore` (so the Continue Reading card) and `FavouritesStore`
+  (never added; saved entries dropped on load; an entry moved into `/Vaults` is removed), and out of
+  Random page!. The index format is unchanged; `CLIX_FOLD_VERSION` went 4 to 5 only so every index is
+  rebuilt once (arrival order kept). The Vaults screen's recent notes are its own list,
+  `/.vaultink/recent-notes.txt` (five paths, newest first, written by `vaultfiles::rememberLastNote`).
 - Several vaults; the last one opened is remembered.
 - Paths are UTF-8 and can be Greek and long (exFAT/FAT long names). Must handle names up to the
   file-system limit (255 UTF-16 units, so up to ~765 UTF-8 bytes) and paths up to 1024 bytes. What the

@@ -77,7 +77,8 @@ bool markLibraryIndexDirty();
 bool isLibraryIndexDirty();
 
 // Whether `path` (a full path or a bare name) passes the walk's name filter: a
-// book extension, and no hidden or system folder or file name.
+// book extension, no hidden or system folder or file name, and not in /Vaults
+// (Obsidian vaults are not books).
 bool isLibraryBookFile(std::string_view path);
 
 }  // namespace library

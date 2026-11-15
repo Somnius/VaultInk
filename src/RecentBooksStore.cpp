@@ -2,6 +2,7 @@
 
 #include <HalStorage.h>
 #include <Logging.h>
+#include <VaultPaths.h>
 
 #include <algorithm>
 
@@ -31,6 +32,8 @@ bool RecentBooksStore::fromJson(JsonVariantConst doc) {
     book.coverBmpPath = obj["coverBmpPath"] | "";
     recentBooks.push_back(book);
   }
+  // Vault notes an older build saved here: notes are not books (the Vaults screen has its own list).
+  vaultpaths::dropVaultEntries(recentBooks);
 
   LOG_DBG("RBS", "Recent books loaded from file (%d entries)", getCount());
   return true;
@@ -40,6 +43,8 @@ void RecentBooksStore::addBook(const std::string& path, const std::string& title
                                const std::string& coverBmpPath) {
   // VaultInk's own notes (What's New, a canvas card) are not books to come back to; a PDF's text is.
   if (path.rfind("/.vaultink/", 0) == 0 && path.rfind("/.vaultink/pdf/", 0) != 0) return;
+  // Nor is anything in an Obsidian vault: not in the recent list, so not on the Home card either.
+  if (vaultpaths::isUnderVaults(path)) return;
   // Drop stale entries first so a new add can't evict a valid book in their stead.
   pruneMissing();
 
@@ -95,6 +100,11 @@ void RecentBooksStore::updatePath(const std::string& oldPath, const std::string&
   auto it = std::find_if(recentBooks.begin(), recentBooks.end(),
                          [&](const RecentBook& book) { return book.path == oldPath; });
   if (it == recentBooks.end()) {
+    return;
+  }
+  if (vaultpaths::isUnderVaults(newPath)) {
+    recentBooks.erase(it);  // moved into a vault: a note now, not a book
+    saveToFile();
     return;
   }
   it->path = newPath;

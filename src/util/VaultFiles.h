@@ -16,7 +16,8 @@ struct Vault {
   std::string path;
 };
 
-// Every folder in /Vaults, and top-level folders that hold .obsidian, sorted by name.
+// Every folder in /Vaults (at most MAX_VAULTS), sorted by name. A folder anywhere else is not a
+// vault, also when it holds .obsidian: its files are ordinary files (vaultpaths::isVault).
 std::vector<Vault> findVaults();
 
 // The search index of a vault: /.vaultink/<id>/index.tsv, outside the vault.
@@ -29,6 +30,10 @@ const Vault* vaultOf(const std::vector<Vault>& vaults, const std::string& notePa
 void rememberLastNote(const std::string& notePath);
 // The vault's last note if it still exists, else "".
 std::string lastNote(const std::string& vaultPath);
+// The notes read last in any vault, newest first (/.vaultink/recent-notes.txt, kept by
+// rememberLastNote): vault notes are not in the books' recent list. Only notes that still exist.
+constexpr size_t MAX_RECENT_NOTES = 5;
+std::vector<std::string> recentNotes();
 
 // Deletes every vault's search index (the next search rebuilds them). Returns how many.
 int clearSearchIndexes();

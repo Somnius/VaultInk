@@ -12,7 +12,6 @@
 #include "CrossPointSettings.h"
 #include "FlashcardsActivity.h"
 #include "MappedInputManager.h"
-#include "RecentBooksStore.h"
 #include "activities/ActivityManager.h"
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
@@ -45,21 +44,15 @@ void VaultPickerActivity::findVaults() {
 
 void VaultPickerActivity::findRecentNotes() {
   recentNotes.clear();
-  for (const auto& book : RECENT_BOOKS.getBooks()) {
+  for (auto& path : vaultfiles::recentNotes()) {
     if (recentNotes.size() >= MAX_RECENT_NOTES) break;
-    const std::string& path = book.path;
-    if (path.size() < 4 || path.compare(path.size() - 3, 3, ".md") != 0 || !Storage.exists(path.c_str())) continue;
-    RecentNote note{book.title, path, {}};
-    if (note.title.empty()) {
-      note.title = path.substr(path.find_last_of('/') + 1);
-      note.title.resize(note.title.size() - 3);
-    }
     const auto inside = std::find_if(vaults.begin(), vaults.end(), [&path](const Vault& v) {
       return path.size() > v.path.size() && path.compare(0, v.path.size(), v.path) == 0 && path[v.path.size()] == '/';
     });
-    if (inside != vaults.end()) note.vault = inside->name;
-    if (note.vault.empty()) continue;  // only vault notes, not What's New or other .md files
-    recentNotes.push_back(std::move(note));
+    if (inside == vaults.end() || path.size() < 4) continue;  // only notes of a vault that is still there
+    std::string title = path.substr(path.find_last_of('/') + 1);
+    title.resize(title.size() - 3);  // ".md"
+    recentNotes.push_back({std::move(title), std::move(path), inside->name});
   }
 }
 

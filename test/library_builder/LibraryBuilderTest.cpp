@@ -92,6 +92,53 @@ TEST(LibraryBookFileTest, RejectsSystemFoldersWithoutHidingOrdinaryTextBooks) {
   EXPECT_TRUE(isLibraryBookFile("/XTCacheArchive/book.txt"));
 }
 
+TEST(LibraryBookFileTest, NothingInVaultsIsABook) {
+  EXPECT_FALSE(isLibraryBookFile("/Vaults/V1/a.md"));
+  EXPECT_FALSE(isLibraryBookFile("/Vaults/V1/sub/b.epub"));
+  EXPECT_FALSE(isLibraryBookFile("/Vaults/loose.txt"));
+  EXPECT_FALSE(isLibraryBookFile("/vaults/V1/a.md"));  // the card's file system ignores case
+  EXPECT_TRUE(isLibraryBookFile("/Vaults2/a.md"));
+  EXPECT_TRUE(isLibraryBookFile("/Books/Vaults/a.epub"));
+  EXPECT_TRUE(isLibraryBookFile("/Notes/c.md"));
+  EXPECT_TRUE(isLibraryBookFile("Vaults.md"));
+}
+
+TEST_F(LibraryBuilderTest, VaultsAreNotBooks) {
+  fake::reset();
+  fake::add("/Vaults/V1/a.md");
+  fake::add("/Vaults/V1/sub/b.epub");
+  fake::add("/Books/x.epub");
+  fake::add("/Books/n.md");
+  fake::add("/Notes/.obsidian/app.json");
+  fake::add("/Notes/c.md");
+  ASSERT_TRUE(buildLibraryIndex("/", stats, false));
+
+  LibraryIndexFile index;
+  ASSERT_TRUE(index.open(INDEX));
+  std::vector<std::string> paths;
+  for (uint16_t row = 0; row < index.bookCount(); ++row) paths.push_back(pathAt(index, SortOrder::TitleAsc, row));
+  std::sort(paths.begin(), paths.end());
+  EXPECT_EQ(paths, (std::vector<std::string>{"/Books/n.md", "/Books/x.epub", "/Notes/c.md"}));
+  EXPECT_EQ(fake::directoryEntriesByPath["/Vaults/V1"], 0u);  // the walk never goes into /Vaults
+}
+
+TEST_F(LibraryBuilderTest, RebuildDropsVaultNotesAnOlderIndexListed) {
+  // What an older build's index held: the same files outside /Vaults, then moved in.
+  fake::reset();
+  fake::add("/Books/x.epub");
+  fake::add("/Old/a.md");
+  ASSERT_TRUE(buildLibraryIndex("/", stats, false));
+  EXPECT_EQ(stats.added, 2);
+  fake::files.erase("/Old/a.md");
+  fake::add("/Vaults/V1/a.md");
+  ASSERT_TRUE(buildLibraryIndex("/", stats, false));
+
+  LibraryIndexFile index;
+  ASSERT_TRUE(index.open(INDEX));
+  ASSERT_EQ(index.bookCount(), 1);
+  EXPECT_EQ(pathAt(index, SortOrder::TitleAsc, 0), "/Books/x.epub");
+}
+
 TEST_F(LibraryBuilderTest, SkipsSystemFolderContents) {
   fake::add("/XTCache/fontPos.txt");
   fake::add("/XTCache/epub/book/language.txt");
