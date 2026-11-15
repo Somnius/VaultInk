@@ -510,6 +510,11 @@ bool LiveSyncActivity::syncProfile(const int profileSlot, livesyncdev::Profile& 
       snprintf(summary, sizeof(summary), tr(STR_LIVESYNC_CONFLICTS), stats.conflicts);
       profile.lastResult += summary;
     }
+    if (stats.skipped > 0) {
+      snprintf(summary, sizeof(summary), tr(STR_LIVESYNC_SKIPPED), stats.skipped,
+               livesyncdev::skippedListPath(profile).c_str());
+      profile.lastResult += summary;
+    }
   } else {
     profile.lastResult = error;
     // A certificate the device can't vouch for looks like a dead connection: say what to try.

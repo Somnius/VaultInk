@@ -75,24 +75,30 @@ Result readFileDoc(JsonObjectConst doc, const Key master, FileEntry& out, DocKin
   return Result::Ok;
 }
 
+Result appendChunk(const bool binary, const Key master, const std::string_view stored, const bool encrypted,
+                   const ByteSink& sink) {
+  std::string piece;
+  if (encrypted) {
+    const Result r = decrypt(master, stored, piece);
+    if (r != Result::Ok) return r;
+  } else {
+    piece.assign(stored);
+  }
+  if (compressed(piece)) return Result::Unsupported;
+  if (!binary) return sink(piece.data(), piece.size()) ? Result::Ok : Result::BadFormat;
+  std::string bytes;
+  if (!base64Decode(piece, bytes)) return Result::BadFormat;
+  piece = std::string();  // the base64 text is not needed while the bytes are written
+  return sink(bytes.data(), bytes.size()) ? Result::Ok : Result::BadFormat;
+}
+
 Result assemble(const FileEntry& file, const Key master, const ChunkGetter& chunk, const ByteSink& sink) {
-  std::string stored, piece, bytes;
+  std::string stored;
   for (const auto& id : file.children) {
     bool encrypted = false;
     if (!chunk(id, stored, encrypted)) return Result::BadFormat;
-    if (encrypted) {
-      const Result r = decrypt(master, stored, piece);
-      if (r != Result::Ok) return r;
-    } else {
-      piece.swap(stored);
-    }
-    if (compressed(piece)) return Result::Unsupported;
-    if (file.binary) {
-      if (!base64Decode(piece, bytes)) return Result::BadFormat;
-      if (!sink(bytes.data(), bytes.size())) return Result::BadFormat;
-    } else if (!sink(piece.data(), piece.size())) {
-      return Result::BadFormat;
-    }
+    const Result r = appendChunk(file.binary, master, stored, encrypted, sink);
+    if (r != Result::Ok) return r;
   }
   return Result::Ok;
 }

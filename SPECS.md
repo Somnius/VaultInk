@@ -491,6 +491,40 @@ Phase 3 must at least support: E2EE V2, path obfuscation, compression off, `cust
 60, `hashAlg` xxhash64, `chunkSplitterVersion` v3-rabin-karp, `useEden` off, dynamic
 iterations off.
 
+Big files and skipped files (2026-11-15, unreleased; computer tests and builds only, not run on a reader):
+- ArduinoJson is built with `-DARDUINOJSON_STRING_LENGTH_SIZE=4` (platformio.ini `[base]` and the
+  simulator, `test/livesync/CMakeLists.txt`; a `static_assert` in LiveSyncEngine.cpp). Its default
+  outside 8-bit boards is 2: a string over 65,535 characters makes `deserializeJson` answer
+  `NoMemory` for the whole document, and a chunk's `data` is one string. Reproduced on a computer
+  with 7.4.2: three 65,536-character strings in an `_all_docs` body give NoMemory, 65,535 give Ok.
+- `chunksPerRequest(file, options)`: clamp(`maxResponseBytes` 1.5 MB / ((size / chunk count * 16/9
+  + 512) * 2), 1, `chunkBatch` 8). The configured chunk size is not known to the device (the
+  profile doesn't keep it), so the file's own average is used. Each batch is parsed, written
+  through `appendChunk` straight from the JSON document (no copy of the chunk map) and dropped
+  before the next request.
+- Transport (`LiveSyncDevice.cpp`): `MAX_RESPONSE` 2 MB (was 6 MB: the answer and its JSON
+  document are both in the PSRAM), `STATUS_TOO_BIG` (-2), `STATUS_NO_MEMORY` (-3: the buffer is
+  grown by hand and the largest free block is checked first, since a failed allocation inside
+  `std::string` would reset the device), and `Transport::info` (`ResponseInfo`: Content-Type,
+  Content-Length, chunked, bytes read, `complete` from `SecureHttpClient::responseComplete()`).
+  A 200 with a body that ended early is no longer parsed.
+- A failed `_all_docs` is asked once more (not after NoMemory or too big). If it fails again the
+  engine asks for the version doc: an answer (200 or 404) means the server is there and only that
+  request is unusable; anything else stops the sync as before. 401/403 always stop it. An unusable
+  docs batch is asked again one id at a time; an unusable chunk batch skips the file.
+- `stateDir/skipped.txt`: `path<TAB>reason<TAB>id` per line, path cut at 300 bytes, reason at 100,
+  control bytes as `?`, at most `maxSkipList` 2000 lines. Written before the checkpoint. The next
+  sync fetches those ids first (before `_changes`), and the list is rebuilt from what fails again.
+  `SyncStats::skipped` is the list's size plus the unlisted ones; `resetSyncState` deletes the
+  file. Also skipped instead of fatal now: a path `safeVaultPath` refuses and a file record that
+  can't be read. Still fatal: a wrong key on a file record, compression, SD write errors.
+- Error log (`SyncOptions::logError`, `describeResponse`), one line per unusable answer:
+  `chunks: HTTP 200, type application/json, length chunked, got 227636 bytes, body complete, JSON
+  NoMemory, file "..."`; the first 80 body bytes follow as `starts "..."` (escaped) unless the
+  error is NoMemory. No URL and no header that was sent is ever in it.
+- Not verified: the sync on a reader; the real peak of the PSRAM and of the internal heap during
+  a multi-MB file; the cause of the failure seen on the X4 Pro (the log line above will say).
+
 TLS and triggers (0.21.0):
 - Server certificates are verified by default: a 7-root PEM bundle in flash (`src/util/CaBundle.h`
   until 0.73.1; 0.74.0: `lib/TlsPolicy/CaBundle.h` with 10 roots, see the KOReader parity

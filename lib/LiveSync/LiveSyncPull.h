@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "LiveSyncCrypto.h"
@@ -41,6 +42,10 @@ Result readFileDoc(JsonObjectConst doc, const Key master, FileEntry& out, DocKin
 using ChunkGetter = std::function<bool(const std::string& id, std::string& data, bool& encrypted)>;
 // Receives the file's bytes in order; false stops the assembly.
 using ByteSink = std::function<bool(const char* bytes, size_t len)>;
+
+// One chunk as stored (`data` of its doc) to the sink: decrypted when `encrypted`, base64-decoded
+// when the file is `binary`. Unsupported for compressed data; BadFormat also when the sink stops.
+Result appendChunk(bool binary, const Key master, std::string_view stored, bool encrypted, const ByteSink& sink);
 
 // Writes the file's content to `sink`, chunk by chunk (nothing is held for the whole file).
 // BadFormat for a missing chunk or compressed data (VaultInk reads compression off only).
