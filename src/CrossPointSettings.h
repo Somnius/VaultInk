@@ -362,6 +362,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // the Text settings sample and the dictionary pages ask this, never the switch alone.
   bool hyphenationOn() const { return typoengine::hyphenationOn(hyphenationEnabled, typoHyphenMode); }
   void toggleHyphenation() { typoengine::toggleHyphenation(hyphenationEnabled, typoHyphenMode); }
+  void setHyphenation(const bool on) { typoengine::setHyphenation(hyphenationEnabled, typoHyphenMode, on); }
 
   // Reader screen margin settings
   static constexpr uint8_t SCREEN_MARGIN_MIN = 0;  // 0..40 in 1 px steps (kos25k: down to 0)

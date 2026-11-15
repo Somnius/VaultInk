@@ -207,6 +207,39 @@ TEST(TypographyEngineConfig, TheHyphenationCheckboxAlwaysChangesWhatItShows) {
   EXPECT_EQ(m, typoengine::HYPHEN_PATTERNS);
 }
 
+TEST(TypographyEngineConfig, SettingHyphenationOnOrOffAlwaysShowsAsAsked) {
+  // What the Settings and web switch does: after it, hyphenationOn() is what was asked, from every state.
+  for (uint8_t sw = 0; sw <= 1; ++sw) {
+    for (uint8_t mode = 0; mode < typoengine::HYPHEN_MODE_COUNT; ++mode) {
+      for (const bool on : {false, true}) {
+        uint8_t s = sw, m = mode;
+        typoengine::setHyphenation(s, m, on);
+        EXPECT_EQ(on, typoengine::hyphenationOn(s, m)) << int(sw) << " " << int(mode) << " " << on;
+        EXPECT_EQ(s, on ? 1 : 0);
+        // The mode only changes when on is asked while it is Off: then it is Patterns.
+        const uint8_t expectedMode = on && mode == typoengine::HYPHEN_OFF ? typoengine::HYPHEN_PATTERNS : mode;
+        EXPECT_EQ(m, expectedMode) << int(sw) << " " << int(mode) << " " << on;
+      }
+    }
+  }
+  // Setting the state it already shows changes nothing.
+  uint8_t s = 0, m = typoengine::HYPHEN_OFF;
+  typoengine::setHyphenation(s, m, false);
+  EXPECT_EQ(s, 0);
+  EXPECT_EQ(m, typoengine::HYPHEN_OFF);
+  s = 1;
+  m = typoengine::HYPHEN_SOFT_ONLY;
+  typoengine::setHyphenation(s, m, true);
+  EXPECT_EQ(s, 1);
+  EXPECT_EQ(m, typoengine::HYPHEN_SOFT_ONLY);
+  // A switch value that is not 0 or 1 (a hand-edited file) still ends as 0 or 1.
+  s = 7;
+  m = typoengine::HYPHEN_OFF;
+  typoengine::setHyphenation(s, m, true);
+  EXPECT_EQ(s, 1);
+  EXPECT_EQ(m, typoengine::HYPHEN_PATTERNS);
+}
+
 TEST(TypographyEngineConfig, EveryPatternSetHasItsOwnName) {
   EXPECT_STREQ(typoengine::languageName(0), "");
   EXPECT_STREQ(typoengine::languageName(14), "");

@@ -72,6 +72,15 @@ class OptionPopup {
     activate(currentIndex, std::move(onSelect));
   }
 
+  // As show(titleId, options, ...), for rows whose text can be wider than the dialog (a setting's name with its
+  // value): a row wraps to as many as maxLinesPerRow lines instead of ending in "…", and every row is as tall as the
+  // longest of them needs, so short lists stay compact. Lists too tall for the screen page as usual.
+  void showWrapped(StrId titleId, const std::vector<std::string>& options, const int maxLinesPerRow, int currentIndex,
+                   std::function<void(int)> onSelect) {
+    show(titleId, options, currentIndex, std::move(onSelect));
+    optionMaxLines = static_cast<uint8_t>(std::clamp(maxLinesPerRow, 1, 4));
+  }
+
   bool handleInput(MappedInputManager& input, const std::function<void()>& requestUpdate) {
     if (!active) return false;
 
@@ -258,14 +267,28 @@ class OptionPopup {
     props.styles.focused = props.styles.normal;
     props.styles.active = props.styles.normal;
     props.styles.disabled = props.styles.normal;
-    props.buttonHeight =
-        fui::clampI16(target.lineHeight(fui::GfxRendererTarget::FONT_BODY) + metrics.optionPopupSelectionVPadding * 2);
-
     // Fixed fraction of the screen, clamped by the theme's side margins; the
-    // old max-text-width sizing is gone, long labels wrap inside the buttons.
+    // old max-text-width sizing is gone. A label wider than its button ends in
+    // "…" unless the popup was opened with showWrapped().
     const fui::Rect screen = device.screen();
     const int16_t width =
         fui::clampI16(std::min<int>(screen.width * 3 / 4, screen.width - metrics.optionPopupDialogSideMargin * 2));
+    const int bodyLineHeight = target.lineHeight(fui::GfxRendererTarget::FONT_BODY);
+    // Lines a row gets: one, or with showWrapped() what the longest label of the whole list needs (measured with
+    // the SDK's own wrapping, so it is what the button draws). Every row has the same height.
+    int rowLines = 1;
+    if (optionMaxLines > 1 && bodyLineHeight > 0) {
+      props.buttonText.maxLines = optionMaxLines;
+      const fui::Insets buttonPadding = fui::ButtonProps{}.padding;
+      const int16_t labelWidth =
+          fui::clampI16(width - innerPadding * 2 - buttonPadding.left - buttonPadding.right, 1, width);
+      for (const std::string& label : ownedStrings) {
+        const int lines =
+            fui::measureWrappedText(target, label.c_str(), props.buttonText, labelWidth).height / bodyLineHeight;
+        rowLines = std::max(rowLines, lines);
+      }
+    }
+    props.buttonHeight = fui::clampI16(bodyLineHeight * rowLines + metrics.optionPopupSelectionVPadding * 2);
     // Fewer rows until the dialog fits on the screen (long lists page instead of running off it).
     while (shown > 1) {
       props.optionCount = count;
@@ -339,6 +362,7 @@ class OptionPopup {
     selectedIndex = currentIndex >= 0 && currentIndex < count ? currentIndex : 0;
     onSelectCallback = std::move(onSelect);
     message.clear();
+    optionMaxLines = 1;
     uiReady = false;
     active = count > 0;
   }
@@ -349,6 +373,7 @@ class OptionPopup {
   std::string message;
   std::vector<std::string> ownedStrings;
   int selectedIndex = 0;
+  uint8_t optionMaxLines = 1;  // lines a row's label may wrap to; above 1 only after showWrapped()
   // Written by render() (render task), read by pageBy() (loop task); a stale value only changes the
   // page step.
   mutable int visibleOptions = MAX_OPTIONS;

@@ -309,6 +309,22 @@ inline SettingInfo buildTypoHyphenLanguageSetting() {
   return s;
 }
 
+// The Hyphenation switch for the settings lists (the device's generic list and the web page): it shows
+// hyphenationOn(), so it reads off while Typography Engine's Hyphenation mode is Off, as the Text settings and the
+// book's checkbox do, and switching it on then also puts the mode back to Patterns. Load and save keep the base
+// list's plain entry under the same key, so the saved file does not change.
+inline SettingInfo buildHyphenationSetting() {
+  SettingInfo s;
+  s.nameId = StrId::STR_HYPHENATION;
+  s.type = SettingType::TOGGLE;
+  s.key = "hyphenationEnabled";
+  s.category = StrId::STR_CAT_READER;
+  s.inTextSettings = true;  // matches the base entry it replaces
+  s.valueGetter = []() -> uint8_t { return SETTINGS.hyphenationOn() ? 1 : 0; };
+  s.valueSetter = [](const uint8_t value) { SETTINGS.setHyphenation(value != 0); };
+  return s;
+}
+
 // Collects the same descriptors into an owning list for UI and web callers.
 std::vector<SettingInfo> getBaseSettingsList(size_t extraCapacity = 0);
 
@@ -357,6 +373,12 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
         std::find_if(v.begin(), v.end(), [](const SettingInfo& s) { return s.nameId == StrId::STR_TYPO_HYPHEN_LANG; });
     if (it != v.end()) {
       *it = buildTypoHyphenLanguageSetting();
+    }
+  }
+  {
+    auto it = std::find_if(v.begin(), v.end(), [](const SettingInfo& s) { return s.nameId == StrId::STR_HYPHENATION; });
+    if (it != v.end()) {
+      *it = buildHyphenationSetting();
     }
   }
   if (dictionaries && !dictionaries->empty()) {
