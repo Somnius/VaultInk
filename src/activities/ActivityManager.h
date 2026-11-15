@@ -103,7 +103,8 @@ class ActivityManager {
   // The picture grid over `folder` and its subfolders (kos25k #8).
   void goToGallery(std::string folder);
   // LiveSync's screen, syncing at once; the restart after Wi-Fi returns to the reader or home.
-  void goToLiveSyncNow(bool fromReader, bool automatic = false);
+  // `profiles`: which LiveSync profiles to sync (slot n is bit n-1); all of them by default.
+  void goToLiveSyncNow(bool fromReader, bool automatic = false, uint8_t profiles = 0x0F);
   void goToJoinNetwork();  // File Transfer straight into Join Network (post heap-defrag reboot)
   void goToUsbDrive();
   // openSection jumps straight into one group (End = the section list).

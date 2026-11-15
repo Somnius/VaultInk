@@ -3,6 +3,7 @@
 #include <string>
 
 #include "LiveSyncCrypto.h"
+#include "python_uri_fixture.h"
 #include "vectors.h"
 
 namespace {
@@ -68,6 +69,19 @@ TEST(LiveSyncCrypto, DecodesSetupUri) {
   ASSERT_EQ(livesync::decodeSetupUri(vectors::SETUP_BLOB, vectors::URI_PASSPHRASE, 2900, json), livesync::Result::Ok);
   EXPECT_EQ(json, vectors::SETTINGS_JSON);
   EXPECT_EQ(livesync::decodeSetupUri(vectors::SETUP_URI, "wrong", -1, json), livesync::Result::WrongKey);
+}
+
+// A Setup URI written by scripts/livesync_setup_uri.py (which re-encrypts a URI with a new
+// passphrase) opens with the code the device runs.
+TEST(LiveSyncCrypto, DecodesASetupUriMadeByThePythonScript) {
+  std::string json;
+  ASSERT_EQ(livesync::decodeSetupUri(pyfixture::SETUP_URI, pyfixture::PASSPHRASE, -1, json), livesync::Result::Ok);
+  EXPECT_EQ(json, pyfixture::SETTINGS_JSON);
+  // With the clock set the device tries the time-bound form first; the plain one still opens.
+  ASSERT_EQ(livesync::decodeSetupUri(pyfixture::SETUP_URI, pyfixture::PASSPHRASE, 2900, json), livesync::Result::Ok);
+  EXPECT_EQ(json, pyfixture::SETTINGS_JSON);
+  EXPECT_EQ(livesync::decodeSetupUri(pyfixture::SETUP_URI, "dummy-old-passphrase", -1, json),
+            livesync::Result::WrongKey);
 }
 
 TEST(LiveSyncCrypto, Base64RoundTrip) {

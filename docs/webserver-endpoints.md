@@ -488,10 +488,23 @@ device's LiveSync screen unlocks it with the passphrase typed there.
 
 ```bash
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"uri":"obsidian://setuplivesync?settings=..."}' http://vaultink.local/api/livesync/setup
+  -d '{"uri":"obsidian://setuplivesync?settings=...","vault":"Constantinople By Night","profile":2}' \
+  http://vaultink.local/api/livesync/setup
 ```
 
-`400` for a body that isn't a Setup URI, `500` when the card can't be written.
+- `uri` (required): the Setup URI, or its `%$...` part; 32 KB at most.
+- `vault` (optional, not released yet): the folder under `/Vaults` this profile syncs into. Up to
+  64 bytes of letters (non-Latin too), digits, spaces, `-`, `_`, `.`; no `/`, no dot or space at
+  either end. Left out or empty: the database's name (known once the passphrase is typed).
+- `profile` (optional, not released yet): `1` to `4`. Left out: the profile that already waits
+  with this same URI, else the next free one. A profile that is already set up keeps working
+  until the new setup is finished on the device.
+
+Answers `200` with `{"ok":true,"profile":2,"vault":"Constantinople By Night"}` (before profiles the
+body was the text `OK`; clients that only look at the status keep working). `400` with a line of
+text for a body that isn't JSON, isn't a Setup URI, a folder name the card can't hold or a
+profile outside 1 to 4; `409` when all four profiles are in use or another profile already uses
+that folder; `500` when the card can't be written.
 
 ### `GET /api/livesync/status` (0.63.0)
 
@@ -509,15 +522,30 @@ curl http://vaultink.local/api/livesync/status
   "running": false,
   "canSync": false,
   "syncRequest": true,
-  "vault": "Notes",
-  "lastResult": "12 notes pulled, 1 sent",
+  "vault": "Constantinople By Night",
+  "lastResult": "Synced: 12 updated, 0 removed. Sent 1 notes from here",
   "lastAttempt": 1762000000,
   "autoHours": 6,
-  "canPush": true
+  "canPush": true,
+  "maxProfiles": 4,
+  "profiles": [
+    {"index": 1, "vault": "Constantinople By Night", "configured": true, "pendingSetup": false,
+     "unlocked": true, "lastResult": "Synced: 12 updated, 0 removed. Sent 1 notes from here",
+     "lastAttempt": 1762000000, "autoHours": 6, "canPush": true},
+    {"index": 2, "vault": "Lefteris-RPG", "configured": false, "pendingSetup": true, "unlocked": false}
+  ]
 }
 ```
 
-- `configured`: a LiveSync profile is saved. `unlocked` is the same value: the passphrase is typed
+- `profiles` (not released yet): one entry per profile in use (set up, or with a Setup URI
+  waiting), in order of `index` (1 to 4); profiles not in use are left out. `vault` is the folder
+  under `/Vaults` (`""` while a waiting setup has no folder name: it becomes the database's name).
+  `lastResult`, `lastAttempt`, `autoHours` and `canPush` are there only when `configured`.
+  `maxProfiles` is how many the reader keeps.
+- The top-level `configured`, `pendingSetup`, `unlocked`, `vault`, `lastResult`, `lastAttempt`,
+  `autoHours` and `canPush` describe **profile 1**, as they did when there was one profile, so
+  older clients keep working. They say nothing about profiles 2 to 4.
+- `configured`: the profile is saved. `unlocked` is the same value: the passphrase is typed
   once on the device and the derived key is kept on the card, so a saved profile is usable.
 - `pendingSetup`: a Setup URI was posted (above) and the device hasn't unlocked it yet.
 - `vault`, `lastResult` (the LiveSync screen's own summary or error text), `lastAttempt` (epoch
@@ -532,7 +560,8 @@ curl http://vaultink.local/api/livesync/status
 - `syncRequest` is `true` (0.64.0): a sync can be asked for **with a file**. Upload a file named
   `/.vaultink/sync-request` (any content) with the normal `/upload` while File Transfer is open. When
   File Transfer is left the reader restarts, and the wake that follows runs one LiveSync sync as if it were
-  due, then deletes the file. Without a saved profile the file is just removed.
+  due (of every saved profile, one after the other), then deletes the file. Without a saved profile the
+  file is just removed.
 - **Text for a text field** (0.64.0): upload `/.vaultink/phone-text.txt` (UTF-8, up to 2,000 bytes). When a text
   entry screen on the reader is open (a note line, a search, a habit name), a **From phone** button appears
   in its header; tapping it puts the text into the line (line breaks become spaces) and deletes the file.

@@ -326,10 +326,10 @@ void ActivityManager::goToFileTransfer() {
   replaceActivity(std::make_unique<CrossPointWebServerActivity>(renderer, mappedInput));
 }
 
-void ActivityManager::goToLiveSyncNow(const bool fromReader, const bool automatic) {
+void ActivityManager::goToLiveSyncNow(const bool fromReader, const bool automatic, const uint8_t profiles) {
   replaceActivity(std::make_unique<LiveSyncActivity>(
       renderer, mappedInput, true, fromReader ? LiveSyncActivity::ReturnTo::Reader : LiveSyncActivity::ReturnTo::Home,
-      automatic));
+      automatic, profiles));
 }
 
 void ActivityManager::goToGallery(std::string folder) {

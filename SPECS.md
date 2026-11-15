@@ -434,6 +434,23 @@ generations it has been tested against and refuses others with a clear message.
     PouchDB's exact replication requests, compression order with encryption (VaultInk needs
     compression off), how `couchDB_URI` and `couchDB_DBNAME` join.
 - Scope: choose which vault (database) to sync. Text first; attachments on demand or by size limit.
+- Profiles (built, not released; computer tests and builds only, not run on a reader): up to four, each one
+  database into its own folder under `/Vaults` (`lib/LiveSync/LiveSyncProfiles`, the SD card behind `ProfileFs`).
+  Files: `/.vaultink/livesync/profiles/<n>.json` (the profile, secrets obfuscated by the device) and
+  `profiles/<n>.setup.json` (`{"uri", "vault"}`: a Setup URI still encrypted and the folder asked for). The single
+  `profile.json` / `setup-uri.txt` of earlier firmware move to profile 1 on first use (one rename; left alone when
+  profile 1 exists). Folder: the name asked for (1-64 bytes of letters incl. non-ASCII, digits, space, `-`, `_`,
+  `.`; no dot or space at either end), else the folder the slot already has for the same database, else the database
+  name (the old rule). No two profiles in one folder, compared ignoring ASCII case, checked when the URI is posted
+  and again when the setup is finished. Sync state is per folder already (`/.vaultink/<hash of the folder path>/`:
+  `livesync/checkpoint`, `files.tsv`, `revs.tsv`, `trash/`, and `changed.txt`). Sync all / tile / wake / sync
+  request: profiles in slot order, one HTTPS session at a time, each result saved in its own profile, a failure
+  doesn't stop the next; before a second TLS session the largest free block must be at least
+  `HttpDownloader::MIN_TLS_MAX_ALLOC` (20,000 bytes), else that profile is skipped with a message. On wake
+  `autoSyncDue()` returns the due profiles as a bit mask.
+- `scripts/livesync_setup_uri.py`: re-encrypts a Setup URI with a new passphrase (standard library only, AES-GCM
+  written out; secrets from files, the environment or a prompt). `test/test_livesync_setup_uri.py` opens the real
+  library's vector with it, and `LiveSyncCryptoTest` opens a URI it made (`test/livesync/python_uri_fixture.h`).
 - Deletes and conflicts: a remote delete moves the local file to `/.vaultink/<vault-id>/trash/`.
   Remote conflicts (`_conflicts`) are resolved by taking CouchDB's winning revision, like the plugin
   shows by default. Local edits are kept and shown as "local changes".

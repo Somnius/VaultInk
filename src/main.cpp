@@ -955,12 +955,12 @@ void setup() {
       APP_STATE.companionQrPending = 1;
       APP_STATE.saveToFile();
       activityManager.goToReader(note);
-    } else if (livesyncdev::autoSyncDue() && joinSavedWifiForSync()) {
+    } else if (const uint8_t syncProfiles = livesyncdev::autoSyncDue(); syncProfiles != 0 && joinSavedWifiForSync()) {
       // Automatic LiveSync on wake. The restart after it lands where this wake would have: the book
       // that was open when the device went to sleep, else home.
       activityManager.goToLiveSyncNow(
           !APP_STATE.openEpubPath.empty() && APP_STATE.lastSleepFromReader && APP_STATE.readerActivityLoadCount == 0,
-          true);
+          true, syncProfiles);
     } else if (APP_STATE.openEpubPath.empty() || !APP_STATE.lastSleepFromReader ||
                mappedInputManager.isPressed(MappedInputManager::Button::Back) ||
                APP_STATE.readerActivityLoadCount > 0) {
