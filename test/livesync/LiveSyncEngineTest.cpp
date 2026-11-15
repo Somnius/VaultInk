@@ -613,23 +613,113 @@ TEST(LiveSyncEngine, TooBigAndBadNamesAreListedNotFatal) {
   EXPECT_NE(list.find("Board/huge.bin\tbigger than 1 MB\t"), std::string::npos) << list;
   EXPECT_NE(list.find("Board/wide.png\tthe server's answer was too big\t"), std::string::npos) << list;
   EXPECT_EQ(f.logged("chunks:").rfind("chunks: answer over the size cap", 0), 0u);
+  // Three chunks in one request, then one at a time, each asked once: a single chunk is the least.
   int n = 0;
-  for (const auto& line : f.log) n += line.rfind("chunks:", 0) == 0;
-  EXPECT_EQ(n, 1);
+  for (const auto& line : f.log) n += line.rfind("chunks: answer over", 0) == 0;
+  EXPECT_EQ(n, 2);
 }
 
-TEST(LiveSyncEngine, SkipListIsCapped) {
+TEST(LiveSyncEngine, FullSkipListStopsTheSyncBeforeTheCheckpointMoves) {
   Fixture f;
+  livesync::SyncStats stats;
+  std::string error;
+  ASSERT_TRUE(f.sync(stats, error)) << error;  // the demo vault is in; its checkpoint is saved
+  const std::string before = f.checkpoint();
   f.options.maxSkipList = 2;
   f.options.maxFileBytes = 10;
   for (int i = 0; i < 4; ++i) f.couch.addFile(f.master, "big" + std::to_string(i) + ".bin", noise(100, 1), 50);
+  // Four files that cannot be listed in two lines: the sync says so and the page is asked again
+  // next time (a file counted but not listed used to be passed by the checkpoint for good).
+  EXPECT_FALSE(f.sync(stats, error));
+  EXPECT_NE(error.find("More than 2 files could not be fetched"), std::string::npos) << error;
+  EXPECT_EQ(f.checkpoint(), before);
+  EXPECT_EQ(stats.skipped, 2);
+
+  // With room for them the same four are found again: none was lost.
+  f.options.maxSkipList = 2000;
+  ASSERT_TRUE(f.sync(stats, error)) << error;
+  EXPECT_EQ(stats.skipped, 4);
+  const std::string list = f.sd.files[f.skipList];
+  EXPECT_EQ(std::count(list.begin(), list.end(), '\n'), 4);
+  EXPECT_EQ(f.checkpoint(), std::to_string(f.couch.order.size()));
+}
+
+// A proxy that refuses every POST while the small GET still works: the sync stops, it does not
+// skip the whole vault and report success.
+TEST(LiveSyncEngine, RequestsFailingInARowStopTheSync) {
+  Fixture f;
+  f.options.maxFailuresInARow = 5;
+  int refused = 0;
+  f.couch.intercept = [&](const std::string&, std::string& out) {
+    ++refused;
+    out = "<html>403 Forbidden</html>";
+    return 403 + 2;  // 405: 401 and 403 stop the sync on their own
+  };
+  livesync::SyncStats stats;
+  std::string error;
+  EXPECT_FALSE(f.sync(stats, error));
+  EXPECT_EQ(error,
+            "6 document requests in a row failed (the server answered 405). The sync stopped; nothing was "
+            "left out.");
+  EXPECT_EQ(refused, 12);  // each asked twice
+  EXPECT_EQ(f.checkpoint(), "");
+  EXPECT_FALSE(f.sd.files.count(f.skipList));
+
+  // Under the limit, with an answered request in between, files are skipped as before.
+  Fixture g;
+  const auto bad = g.couch.addFile(g.master, "Board/bad.png", noise(40 * 1024, 5), 20 * 1024);
+  g.options.maxFailuresInARow = 1;
+  g.couch.intercept = [&](const std::string& body, std::string&) { return mentions(body, bad) ? 500 : 0; };
+  ASSERT_TRUE(g.sync(stats, error)) << error;
+  EXPECT_EQ(stats.skipped, 1);
+}
+
+// Answers too big for the device are about one file each: they never add up to a stopped sync.
+TEST(LiveSyncEngine, TooBigAnswersDoNotCountAsAServerThatRefuses) {
+  Fixture f;
+  f.options.maxFailuresInARow = 2;
+  std::vector<std::string> wide;
+  for (int i = 0; i < 6; ++i) {
+    const auto ids = f.couch.addFile(f.master, "wide" + std::to_string(i) + ".png", noise(600, i), 300);
+    wide.insert(wide.end(), ids.begin(), ids.end());
+  }
+  f.couch.intercept = [&](const std::string& body, std::string&) {
+    return mentions(body, wide) ? livesync::STATUS_TOO_BIG : 0;
+  };
   livesync::SyncStats stats;
   std::string error;
   ASSERT_TRUE(f.sync(stats, error)) << error;
-  // The demo vault's own files are over 10 bytes too: all counted, two listed.
-  EXPECT_GT(stats.skipped, 4);
-  const std::string list = f.sd.files[f.skipList];
-  EXPECT_EQ(std::count(list.begin(), list.end(), '\n'), 2);
+  EXPECT_EQ(stats.skipped, 6);
+}
+
+// A batch whose answer is too big (or leaves no memory to read it) is asked again in halves, down
+// to one chunk a request, and the file is written; only a single chunk that is too big skips it.
+TEST(LiveSyncEngine, TooBigBatchIsAskedAgainInSmallerBatches) {
+  for (const int status : {livesync::STATUS_TOO_BIG, livesync::STATUS_NO_MEMORY}) {
+    Fixture f;
+    const std::string image = noise(16 * 20 * 1024, 4);
+    const auto chunks = f.couch.addFile(f.master, "Board/a.png", image, 20 * 1024);  // 16 chunks, 8 a request
+    std::vector<size_t> asked;
+    f.couch.intercept = [&](const std::string& body, std::string&) {
+      if (!mentions(body, chunks)) return 0;
+      JsonDocument req;
+      deserializeJson(req, body);
+      asked.push_back(req["keys"].as<JsonArrayConst>().size());
+      return asked.back() > 2 ? status : 0;  // the device can hold two chunks, no more
+    };
+    livesync::SyncStats stats;
+    std::string error;
+    ASSERT_TRUE(f.sync(stats, error)) << error;
+    EXPECT_EQ(stats.skipped, 0);
+    EXPECT_TRUE(f.sd.files["/Vaults/Demo/Board/a.png"] == image);
+    ASSERT_GE(asked.size(), 3u);
+    EXPECT_EQ(asked[0], 8u);
+    EXPECT_EQ(asked[1], 4u);
+    EXPECT_EQ(asked[2], 2u);
+    EXPECT_EQ(asked.size(), 2u + 8u);  // then two at a time for all sixteen
+    EXPECT_NE(f.logged("asking again"), "");
+    EXPECT_FALSE(f.sd.files.count(f.skipList));
+  }
 }
 
 TEST(LiveSyncEngine, DescribeResponse) {

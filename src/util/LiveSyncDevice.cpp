@@ -399,6 +399,32 @@ livesync::Transport transport(const Profile& p) {
     // A body that stops early (the socket closed, a read waited out the timeout) still comes back
     // with its status: the engine must not parse it as if it were whole.
     lastInfo.complete = status >= 0 && http.responseComplete();
+#ifndef SIMULATOR  // the simulator's own HTTP client does not report this
+    if (status < 0) {
+      // Where a request with no answer stopped. A body that was not sent whole never reaches a
+      // server behind a proxy that waits for all of it; one sent whole and not answered is the
+      // server's (or the network's) side.
+      using Failure = freeink::SecureHttpClient::Failure;
+      const unsigned sent = static_cast<unsigned>(http.requestBodySent());
+      const unsigned total = static_cast<unsigned>(http.requestBodyLength());
+      switch (http.failure()) {
+        case Failure::Connect:
+          LOG_ERR("LSY", "%s: could not connect", method);
+          break;
+        case Failure::WriteHeaders:
+          LOG_ERR("LSY", "%s: the request headers could not be sent; request body: sent 0 of %u bytes", method, total);
+          break;
+        case Failure::WriteBody:
+          LOG_ERR("LSY", "%s request body: sent %u of %u bytes", method, sent, total);
+          break;
+        case Failure::NoStatusLine:
+          LOG_ERR("LSY", "%s: request sent whole (body %u of %u bytes), no answer came back", method, sent, total);
+          break;
+        case Failure::None:
+          break;
+      }
+    }
+#endif
     if (tooBig) {
       LOG_ERR("LSY", "Response over %u bytes", static_cast<unsigned>(MAX_RESPONSE));
       return livesync::STATUS_TOO_BIG;
