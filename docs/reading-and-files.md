@@ -11,7 +11,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Paper contrast (0.60.0)](#paper-contrast-0600)
 - [Line spacing, 0 to 10](#line-spacing-0-to-10)
 - [Advanced Typography (0.66.0, renamed from Experimental in 0.66.1)](#advanced-typography-0660-renamed-from-experimental-in-0661)
-- [Typography Engine (unreleased)](#typography-engine-unreleased)
+- [Typography Engine (0.76.0)](#typography-engine-0760)
 - [Screenshots](#screenshots)
 - [Reading presets](#reading-presets-0700)
 - [Book menu options](#book-menu-options-0730)
@@ -175,7 +175,7 @@ some fonts, accents on capitals can touch the line above at levels 0 and 1.
 
 While a book is open the kerning and ligature switches also apply to the menus drawn over it; when you leave the book the menus are back to normal. Greek hyphenation, including polytonic, and the Greek letters in the built-in fonts are not switches, they are always on. Advanced Typography has been confirmed on a real X4 Pro.
 
-## Typography Engine (unreleased)
+## Typography Engine (0.76.0)
 
 **Settings → Reader → Typography Engine** (right after Advanced Typography), and in a book **Text → Typography Engine** (the last row), have seven settings for how justified lines are filled and how words are hyphenated (kos25k #30). All of them are off by default, so a book looks as it did until you change one; changing one lays the book out again once. In Settings a row opens the list of its choices. In the book the row opens the seven settings with their values; picking one opens the list of its choices too (Locked space, a switch, just flips). The row can be moved or hidden in Book menu options like the others, and Reading presets keep the seven settings.
 
@@ -194,7 +194,7 @@ The engine is for the book's own text. A dictionary definition, the description 
 
 ## Reading presets (0.70.0)
 
-**Settings → Reader → Reading presets**, and the last row of the book menu → **More**, keep ten sets of your Text settings (kos25k #12). **Save preset** asks which slot and then for a name (it starts as the slot's own name, "Preset 1" and so on). A preset holds font, size, line spacing, alignment, hyphenation, Focus Reading, Even Word Gaps, word and character spacing, screen margin, paragraph indent, the five Advanced Typography switches and (unreleased) the seven [Typography Engine](#typography-engine-unreleased) settings. In a book, press a slot and its settings apply at once and the page is laid out again; the slot that matches your current settings shows "In use". They are kept in `/.crosspoint/reading-presets.json`.
+**Settings → Reader → Reading presets**, and the last row of the book menu → **More**, keep ten sets of your Text settings (kos25k #12). **Save preset** asks which slot and then for a name (it starts as the slot's own name, "Preset 1" and so on). A preset holds font, size, line spacing, alignment, hyphenation, Focus Reading, Even Word Gaps, word and character spacing, screen margin, paragraph indent, the five Advanced Typography switches and (0.76.0) the seven [Typography Engine](#typography-engine-0760) settings. In a book, press a slot and its settings apply at once and the page is laid out again; the slot that matches your current settings shows "In use". They are kept in `/.crosspoint/reading-presets.json`.
 
 ### Gestures in a preset
 

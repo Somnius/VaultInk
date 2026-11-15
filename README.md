@@ -91,6 +91,22 @@ MOBI and AZW books, the status bar options with the book page number, and Advanc
 
 More screenshots are in the sections below and in [docs/](docs/).
 
+## New in 0.76.0: the Typography Engine
+
+kos25k asked for typography like KOReader's (#30). I wrote it from the published ideas, with no KOReader code, as one group of settings: **Settings > Reader > Typography Engine**, and the last row of a book's Text menu. All of it is off by default.
+
+<p>
+  <img src="docs/images/vaultink/typography-engine-en-off.png" width="190" alt="An English page, justified, with the engine off">
+  <img src="docs/images/vaultink/typography-engine-en-condense50-letters-medium.png" width="190" alt="The same page with space condensing at 50% and Medium letter spacing">
+  <img src="docs/images/vaultink/typography-engine-greek-condense60.png" width="190" alt="A Greek page with space condensing at 60%">
+</p>
+
+Checked on a real X4 Pro (every setting, on an English, a Greek and a dialogue page): **Space condensing** (90 to 50%), **Letter spacing on loose lines**, **Locked space after a quote or dash**, **Hyphenation mode** (patterns, soft hyphens only, off), **Letters before and after a hyphen**, and **Hyphenation language**. 50% condensing is too strong; some gaps nearly vanish. [docs/reading-and-files.md](docs/reading-and-files.md#typography-engine-0760)
+
+Also checked on the device: the bottom row of Settings (System) now reacts to a tap, and dark pictures in the Gallery are no longer solid black boxes.
+
+Known: the GitHub certificate check is still off in release builds, and the backup and restore page is not published yet. Every book is laid out again once after the update.
+
 ## New in 0.75.1: a terminal font, and Transfer & Remotes
 
 A patch on 0.75.0. The screenshots are from the simulator, which has no USB Drive and no SSH, so those two rows are missing in the second picture and there is no picture of the terminal itself.
@@ -308,7 +324,7 @@ Each line links to its guide where there is one; all the guides are listed in [d
 - **Search in Book**: a word or phrase, partial or whole words (accents and capitals never matter), starting at your chapter and wrapping, with the words shaded on the page and a bar to step through the hits or go back to your place. A gear sets the type and the range; an opt-in index makes repeat searches faster. [docs/reading-and-files.md](docs/reading-and-files.md#search-in-a-book)
 - **Text panel** in the book with every layout setting: font, size, line spacing 0 to 10, alignment, hyphenation (on by default, Greek and polytonic too), Even Word Gaps, word and character spacing, screen margin down to 0, paragraph indent. Changes show at once. [docs/reading-and-files.md](docs/reading-and-files.md#in-the-book-the-text-panel-0270)
 - **Advanced Typography** (0.66.0): switches for ligatures, kerning, widow and orphan control, headings kept with their text, and hanging punctuation. [docs/reading-and-files.md](docs/reading-and-files.md#advanced-typography-0660-renamed-from-experimental-in-0661)
-- **Typography Engine** (unreleased, computer tests only, not tried on a reader): seven settings, all off by default, in Settings → Reader and in the book's Text panel. Space condensing (word gaps may shrink to 90% down to 50% of a space so one more word or syllable fits a justified line), letter spacing on loose lines, a locked space after an opening quote or a dash, and for hyphenation a mode (patterns, soft hyphens only, off), the fewest letters before and after a hyphen, and a language to use instead of the book's. [docs/reading-and-files.md](docs/reading-and-files.md#typography-engine-unreleased)
+- **Typography Engine** (0.76.0, every setting checked on a real X4 Pro): seven settings, all off by default, in Settings → Reader and in the book's Text panel. Space condensing (word gaps may shrink to 90% down to 50% of a space so one more word or syllable fits a justified line), letter spacing on loose lines, a locked space after an opening quote or a dash, and for hyphenation a mode (patterns, soft hyphens only, off), the fewest letters before and after a hyphen, and a language to use instead of the book's. [docs/reading-and-files.md](docs/reading-and-files.md#typography-engine-0760)
 - **Reading presets** (0.70.0): ten named sets of your Text settings, saved and applied from Settings → Reader or the last row of the book menu's More, so one press applies one while you read. A preset can also carry your gestures and Quick Menu (0.75.0, computer tests only): Save preset asks "Include gestures". [docs/reading-and-files.md](docs/reading-and-files.md#reading-presets-0700)
 - **Page backgrounds**: fourteen of them, from plain to papyrus and bath towel, a set you choose for the quick-settings paper tile, and a 0 to 100 contrast slider with a preview. [Mostly for fun](#page-backgrounds).
 - **Status bar**: choose what it shows, hide it from Settings or the book menu, and show the page number counted from the start of the book in brackets, even with the bar hidden (the number is an estimate for books). **Go to page** in the book menu under More (0.68.0) jumps by that number. [docs/reading-and-files.md](docs/reading-and-files.md#hide-status-bar-and-the-book-page-number)

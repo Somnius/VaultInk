@@ -707,8 +707,47 @@
 
   <section id="release">
     <div class="wrap">
-      <p class="eyebrow sans">New in 0.75.1</p>
-      <h2>A terminal font, and Transfer &amp; Remotes</h2>
+      <p class="eyebrow sans">New in 0.76.0</p>
+      <h2>The Typography Engine</h2>
+      <p class="lead">kos25k asked for typography like KOReader&rsquo;s. I wrote it from the published ideas, with no KOReader code. It is one group of settings, off by default: Settings &gt; Reader &gt; Typography Engine, and the last row of a book&rsquo;s Text menu. I checked every setting on my X4 Pro, on an English page, a Greek page and a dialogue page.</p>
+
+      <div class="features">
+        <figure class="feature">
+          <a href="shot-typo-off.png" class="shot"><img src="shot-typo-off.png" width="480" height="800" loading="lazy" alt="A justified English page with the engine off"></a>
+          <figcaption>
+            <h3>Engine off</h3>
+            <p>The same page as before: long gaps on loose lines.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-typo-condense.png" class="shot"><img src="shot-typo-condense.png" width="480" height="800" loading="lazy" alt="The same page with space condensing at 50% and Medium letter spacing"></a>
+          <figcaption>
+            <h3>Space condensing and letter spacing</h3>
+            <p>Gaps may shrink to fit one more word, and loose lines spread their letters a little. This is 50%, which is too strong: some gaps nearly vanish.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-typo-greek.png" class="shot"><img src="shot-typo-greek.png" width="480" height="800" loading="lazy" alt="A Greek page with space condensing at 60%"></a>
+          <figcaption>
+            <h3>Greek</h3>
+            <p>Hyphenation by the book&rsquo;s language, with a language picker, minimum letters before and after a hyphen, and a mode with soft hyphens only. Condensing at 60% saved a line here.</p>
+          </figcaption>
+        </figure>
+        <figure class="feature">
+          <a href="shot-typo-locked.png" class="shot"><img src="shot-typo-locked.png" width="960" height="800" loading="lazy" alt="Dialogue lines, locked space off on the left and on on the right"></a>
+          <figcaption>
+            <h3>Locked space</h3>
+            <p>Off on the left: the gap after a leading dash stretches. On the right it keeps its width.</p>
+          </figcaption>
+        </figure>
+      </div>
+
+      <ul class="list">
+        <li>The bottom row of Settings (System) now reacts to a tap without scrolling first, and dark pictures in the Gallery are no longer solid black boxes. Both checked on a real X4 Pro.</li>
+        <li>Known: the GitHub certificate check is still off in release builds, and every book is laid out again once after the update. Only English and Greek have the new names.</li>
+      </ul>
+
+      <h3 style="margin-top:2.4rem">From 0.75.1: a terminal font, and Transfer &amp; Remotes</h3>
       <p class="lead">A patch on 0.75.0. The screenshots are from the simulator, which has no USB Drive and no SSH, so those two rows are missing in the second picture and there is no picture of the terminal itself.</p>
 
       <div class="features">

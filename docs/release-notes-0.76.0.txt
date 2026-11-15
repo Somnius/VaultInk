@@ -1,0 +1,12 @@
+Typography Engine (kos25k #30), a Settings fix and Gallery fixes.
+
+Checked on my X4 Pro:
+- Typography Engine: Settings > Reader > Typography Engine, and the last row of a book's Text menu. Space condensing, letter spacing on loose lines, locked space after a dash or quote, hyphenation mode, minimum letters before and after a hyphen, and a hyphenation language. All off by default. I tried every setting on an English, a Greek and a dialogue page. 50% condensing is too strong, some gaps nearly vanish.
+- The bottom row of Settings (System) reacts to a tap without scrolling first.
+- Dark pictures in the Gallery are no longer solid black boxes. Thumbnails are made again once; the old ones stay unused on the card.
+
+Also: the Hyphenation switch now agrees in Settings, on the web page and in the book. The web settings page reloads after a save.
+
+Every book is laid out again the first time you open it.
+
+Known: the GitHub certificate check is still off in release builds (it passed on my developer build for the update check and the font list, the firmware download wasn't run). Only English and Greek have the new names; other languages show them in English.
