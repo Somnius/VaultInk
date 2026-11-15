@@ -288,6 +288,27 @@ void forEachBaseSetting(Fn& fn) {
   forEachBaseSetting([](void* context, SettingInfo& info) { (*static_cast<Fn*>(context))(info); }, &fn);
 }
 
+// Typography Engine's Hyphenation language for the settings lists (the device's generic list and the web page): the
+// choices by name, "Book language" and then each language's own name, instead of the bare number 0..13 the saved
+// value is. Load and save keep the base list's number entry under the same key.
+inline SettingInfo buildTypoHyphenLanguageSetting() {
+  SettingInfo s;
+  s.nameId = StrId::STR_TYPO_HYPHEN_LANG;
+  s.type = SettingType::ENUM;
+  s.enumStringValues.reserve(typoengine::LANGUAGE_COUNT + 1);
+  s.enumStringValues.emplace_back(I18N.get(StrId::STR_TYPO_BOOK_LANGUAGE));
+  for (const char* name : typoengine::LANGUAGE_NAMES) s.enumStringValues.emplace_back(name);
+  s.key = "typoHyphenLang";
+  s.category = StrId::STR_TYPOGRAPHY_ENGINE;
+  s.valueGetter = []() -> uint8_t {
+    return SETTINGS.typoHyphenLang <= typoengine::LANGUAGE_COUNT ? SETTINGS.typoHyphenLang : 0;
+  };
+  s.valueSetter = [](const uint8_t value) {
+    if (value <= typoengine::LANGUAGE_COUNT) SETTINGS.typoHyphenLang = value;
+  };
+  return s;
+}
+
 // Collects the same descriptors into an owning list for UI and web callers.
 std::vector<SettingInfo> getBaseSettingsList(size_t extraCapacity = 0);
 
@@ -329,6 +350,13 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
     auto it = std::find_if(v.begin(), v.end(), [](const SettingInfo& s) { return s.nameId == StrId::STR_FONT_SIZE; });
     if (it != v.end()) {
       *it = buildFontSizeSetting(registry);
+    }
+  }
+  {
+    auto it =
+        std::find_if(v.begin(), v.end(), [](const SettingInfo& s) { return s.nameId == StrId::STR_TYPO_HYPHEN_LANG; });
+    if (it != v.end()) {
+      *it = buildTypoHyphenLanguageSetting();
     }
   }
   if (dictionaries && !dictionaries->empty()) {

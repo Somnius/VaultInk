@@ -64,7 +64,7 @@ inline std::vector<std::string> choices(const int row) {
       break;
     case LANGUAGE:
       out.emplace_back(tr(STR_TYPO_BOOK_LANGUAGE));
-      for (const char* tag : typoengine::LANGUAGE_TAGS) out.emplace_back(tag);
+      for (const char* name : typoengine::LANGUAGE_NAMES) out.emplace_back(name);
       break;
     default:
       break;
@@ -96,7 +96,10 @@ inline std::string valueText(const int row) {
   return index < static_cast<int>(all.size()) ? all[static_cast<size_t>(index)] : std::string();
 }
 
-// The next choice, back to the first after the last: what a pick in the book's Text panel does.
+// True for a row with two choices (a switch): a pick flips it. The others open the list of their choices.
+inline bool isSwitch(const int row) { return choices(row).size() <= 2; }
+
+// The next choice, back to the first after the last: what a pick of a switch row does in the book's Text panel.
 inline void step(const int row) {
   const int count = static_cast<int>(choices(row).size());
   if (count > 0) setChoice(row, (choice(row) + 1) % count);

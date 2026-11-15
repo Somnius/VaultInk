@@ -487,7 +487,7 @@ void TextSettingsActivity::confirmStyleRow(int row) {
       SETTINGS.focusReadingEnabled = !SETTINGS.focusReadingEnabled;
       break;
     case StyleRow::Hyphenation:
-      SETTINGS.hyphenationEnabled = !SETTINGS.hyphenationEnabled;
+      SETTINGS.toggleHyphenation();
       break;
     case StyleRow::EmbeddedStyle:
       SETTINGS.embeddedStyle = !SETTINGS.embeddedStyle;
@@ -508,7 +508,7 @@ bool TextSettingsActivity::styleRowChecked(int row) const {
     case StyleRow::FocusReading:
       return SETTINGS.focusReadingEnabled;
     case StyleRow::Hyphenation:
-      return SETTINGS.hyphenationEnabled;
+      return SETTINGS.hyphenationOn();
     case StyleRow::EmbeddedStyle:
       return SETTINGS.embeddedStyle;
     case StyleRow::AntiAliasing:

@@ -1,5 +1,7 @@
+#include <Epub/TypographyEngine.h>
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <cstring>
 #include <string>
 
@@ -405,6 +407,43 @@ TEST(ReadingPresetsTypographyEngine, APresetWithTheEngineOffIsWrittenAsBefore) {
   EXPECT_EQ(100, back.slots[0].layout.typoCondense);
   EXPECT_EQ(0, back.slots[0].layout.typoHyphenMode);
   EXPECT_EQ(sampleLayout(), back.slots[0].layout);
+}
+
+// What ReadingPresetsStore::applyToSettings does with the engine fields of a preset that was read.
+static typoengine::Config engineOf(const Layout& l) {
+  typoengine::Config c;
+  c.condensePercent = l.typoCondense;
+  c.letterSpacing = l.typoLetterSpacing;
+  c.lockedSpace = l.typoLockedSpace != 0;
+  c.hyphenMode = l.typoHyphenMode;
+  c.minLeft = l.typoMinLeft;
+  c.minRight = l.typoMinRight;
+  c.language = l.typoHyphenLang;
+  return typoengine::sanitized(c);
+}
+
+TEST(ReadingPresetsTypographyEngine, AHandEditedCondenseOutsideTheChoicesLoadsAsOff) {
+  Layout l = sampleLayout();
+  l.typoCondense = 70;
+  PresetList list;
+  ASSERT_TRUE(save(list, 2, l));
+  const std::string json = toJson(list);
+  const size_t at = json.find("\"tcondense\":70");
+  ASSERT_NE(at, std::string::npos);
+  for (const char* edited : {"0", "7", "49", "101", "255", "900"}) {
+    std::string changed = json;
+    changed.replace(at, std::strlen("\"tcondense\":70"), std::string("\"tcondense\":") + edited);
+    PresetList back;
+    ASSERT_TRUE(parse(changed.c_str(), changed.size(), back)) << edited;
+    EXPECT_EQ(100, engineOf(back.slots[2].layout).condensePercent) << edited;
+  }
+  for (const char* kept : {"50", "60", "100"}) {
+    std::string changed = json;
+    changed.replace(at, std::strlen("\"tcondense\":70"), std::string("\"tcondense\":") + kept);
+    PresetList back;
+    ASSERT_TRUE(parse(changed.c_str(), changed.size(), back)) << kept;
+    EXPECT_EQ(std::atoi(kept), engineOf(back.slots[2].layout).condensePercent) << kept;
+  }
 }
 
 TEST(ReadingPresetsTypographyEngine, TenFullPresetsFitTheSaveBuffer) {

@@ -221,6 +221,10 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   };
   forEachBaseSetting(visit);
 
+  // Space condensing is 50..100 %. The list above moves a smaller number up to 50, the strongest; a number outside
+  // the range (0 in a file edited by hand) is read again here and means off.
+  typoCondense = typoengine::sanitizeCondensePercent(doc["typoCondense"] | static_cast<uint8_t>(100));
+
   // The terminal's text size is one of four cell heights: a value between them (a file edited by
   // hand) is moved to one, so the SSH servers list always shows and cycles a real size.
   if (sshTextSize != sshfont::snapHeight(sshTextSize)) {
@@ -424,7 +428,7 @@ ReaderRenderSpec CrossPointSettings::readerRenderSpec(const uint16_t viewportWid
   spec.paragraphAlignment = paragraphAlignment;
   spec.viewportWidth = viewportWidth;
   spec.viewportHeight = viewportHeight;
-  spec.hyphenationEnabled = hyphenationEnabled != 0;
+  spec.hyphenationEnabled = hyphenationOn();  // Hyphenation mode Off is the Hyphenation switch off
   spec.embeddedStyle = embeddedStyle != 0;
   spec.imageRendering = imageRendering;
   spec.focusReadingEnabled = focusReadingEnabled != 0;
@@ -437,8 +441,6 @@ ReaderRenderSpec CrossPointSettings::readerRenderSpec(const uint16_t viewportWid
   typo.minRight = typoMinRight;
   typo.language = typoHyphenLang;
   spec.typographyEngine = typoengine::pack(typo);
-  // Hyphenation mode Off is the Hyphenation switch off.
-  if (typoengine::sanitized(typo).hyphenMode == typoengine::HYPHEN_OFF) spec.hyphenationEnabled = false;
   return spec;
 }
 

@@ -5,6 +5,7 @@ add_executable(ReadingPresetsTest
 
 target_include_directories(ReadingPresetsTest PRIVATE
   ${REPO_ROOT}/lib/ReadingPresets
+  ${REPO_ROOT}/lib/Epub
 )
 
 target_link_libraries(ReadingPresetsTest PRIVATE

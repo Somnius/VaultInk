@@ -96,6 +96,9 @@ class EpubReaderActivity final : public ReaderActivity {
   // use), for enum rows: font size / line spacing / alignment / orientation /
   // auto page turn. Toggle rows stay one-tap toggles, as in Settings.
   OptionPopup overlayPopup;
+  // Set when a pick opened another picker (Typography Engine's list of seven, then one setting's choices): the first
+  // one has to be erased before the second is drawn.
+  bool overlayPopupReplaced = false;
   // True while a clean-page snapshot (renderer.storeBwBuffer) backs the open
   // overlay, letting panel->toolbar steps restore the page without a full
   // re-render. Discarded on close / whenever the page under the overlay changes.

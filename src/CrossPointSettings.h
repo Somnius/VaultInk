@@ -358,6 +358,10 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // E-ink refresh frequency (default 15 pages)
   uint8_t refreshFrequency = REFRESH_15;
   uint8_t hyphenationEnabled = 1;  // on: justified lines without it get wide word gaps
+  // Whether words are hyphenated: the switch above, and Typography Engine's Hyphenation mode not Off. The checkboxes,
+  // the Text settings sample and the dictionary pages ask this, never the switch alone.
+  bool hyphenationOn() const { return typoengine::hyphenationOn(hyphenationEnabled, typoHyphenMode); }
+  void toggleHyphenation() { typoengine::toggleHyphenation(hyphenationEnabled, typoHyphenMode); }
 
   // Reader screen margin settings
   static constexpr uint8_t SCREEN_MARGIN_MIN = 0;  // 0..40 in 1 px steps (kos25k: down to 0)
