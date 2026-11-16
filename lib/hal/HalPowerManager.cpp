@@ -1,6 +1,7 @@
 #include "HalPowerManager.h"
 
 #include <BoardConfig.h>
+#include <HalFrontlight.h>
 #include <Logging.h>
 #include <PowerManager.h>
 #include <WiFi.h>
@@ -10,10 +11,6 @@
 #include <cassert>
 
 #include "HalGPIO.h"
-
-#if FREEINK_DEVICE_EEGO_A4 || FREEINK_DEVICE_PICCO
-#include <HalFrontlight.h>
-#endif
 
 #if FREEINK_DEVICE_PICCO
 #include <driver/gpio.h>
@@ -88,6 +85,9 @@ void HalPowerManager::startDeepSleep(HalGPIO& gpio, const bool wakeOnHeldButton)
   Frontlight.setOn(false);
   gpio.prepareForDeepSleep();
 #endif
+  // X4 Pro: the two frontlight PWM pads LOW and held through the sleep (kos25k #31). Before the serial
+  // teardown below so the line is still printed.
+  if (Frontlight.parkForDeepSleep()) LOG_INF("SLP", "SLP frontlight pads held low");
 #ifdef ENABLE_SERIAL_LOG
   // Tear down HWCDC so the host sees a clean disconnect and the peripheral
   // doesn't hold power domains that interfere with USB-powered GPIO wake.
