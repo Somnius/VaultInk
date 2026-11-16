@@ -28,8 +28,18 @@ enum PunctSpace : uint8_t {
 
 inline constexpr uint8_t CONDENSE_MIN_PERCENT = 50;
 inline constexpr uint8_t CONDENSE_STEP_PERCENT = 10;
-inline constexpr uint8_t LETTER_SPACING_LEVELS = 3;  // off, small (1 px a letter), medium (2 px)
-inline constexpr uint8_t MIN_LETTERS_MAX = 5;        // 0 = the language's own minimum
+// Letter spacing on loose lines: off, small, medium, large, max (at most 1, 2, 3, 4 px a letter; the choice number
+// is the cap in pixels, see letterSpacingCap).
+inline constexpr uint8_t LETTER_SPACING_LEVELS = 5;
+// The narrowest an ordinary word gap may end, as a share of the font's space, after Optical spacing and Space
+// condensing together (0.77.1). Optical spacing alone never goes under this (100 - OPTICAL_MAX_PERCENT), and it is a
+// little under the 2/3 of a space that TeX lets a justified gap shrink to. The space after a punctuation mark in
+// Minimal or None is narrower on purpose and is not held to it.
+inline constexpr uint8_t GAP_FLOOR_PERCENT = 60;
+// Mixed into a packed word that is not 0, so sections cached by an older layout of the same settings are built
+// again. 1 = 0.77.1 (gap floor, letter spacing shares, loose line balancing).
+inline constexpr uint32_t LAYOUT_REVISION = 1;
+inline constexpr uint8_t MIN_LETTERS_MAX = 5;  // 0 = the language's own minimum
 inline constexpr uint8_t LANGUAGE_COUNT = 13;
 inline constexpr uint8_t PUNCT_MINIMAL_PERCENT = 50;  // Space after punctuation, Minimal: this share of a space
 inline constexpr uint8_t OPTICAL_MAX_PERCENT = 40;    // Optical spacing moves a gap by at most this share of a space
@@ -80,7 +90,7 @@ constexpr uint8_t sanitizeCondensePercent(const uint8_t percent) {
 // A Config with every field inside its range, so a damaged settings file cannot ask for something odd.
 constexpr Config sanitized(Config c) {
   c.condensePercent = sanitizeCondensePercent(c.condensePercent);
-  if (c.letterSpacing >= LETTER_SPACING_LEVELS) c.letterSpacing = LETTER_SPACING_LEVELS - 1;
+  if (c.letterSpacing >= LETTER_SPACING_LEVELS) c.letterSpacing = 0;  // not a choice: off, never the strongest
   if (c.hyphenMode >= HYPHEN_MODE_COUNT) c.hyphenMode = HYPHEN_PATTERNS;
   if (c.minLeft > MIN_LETTERS_MAX) c.minLeft = MIN_LETTERS_MAX;
   if (c.minRight > MIN_LETTERS_MAX) c.minRight = MIN_LETTERS_MAX;
@@ -90,22 +100,26 @@ constexpr Config sanitized(Config c) {
 }
 
 // All defaults pack to 0, which is what "the engine is off" means everywhere else. Bits: condensing 0-2, letter
-// spacing 3-4, locked space 5, hyphenation mode 6-7, letters before 8-10 and after 11-13, language 14-17, space after
-// punctuation 18-19, optical spacing 20.
+// spacing 3-4 and 21 (its third bit, for Large and Max), locked space 5, hyphenation mode 6-7, letters before 8-10
+// and after 11-13, language 14-17, space after punctuation 18-19, optical spacing 20, LAYOUT_REVISION 28-30 (only
+// in a word that is not 0).
 constexpr uint32_t pack(const Config& raw) {
   const Config c = sanitized(raw);
   const uint32_t condenseSteps = static_cast<uint32_t>(100 - c.condensePercent) / CONDENSE_STEP_PERCENT;  // 0..5
-  return condenseSteps | (static_cast<uint32_t>(c.letterSpacing) << 3) | (static_cast<uint32_t>(c.lockedSpace) << 5) |
-         (static_cast<uint32_t>(c.hyphenMode) << 6) | (static_cast<uint32_t>(c.minLeft) << 8) |
-         (static_cast<uint32_t>(c.minRight) << 11) | (static_cast<uint32_t>(c.language) << 14) |
-         (static_cast<uint32_t>(c.punctSpace) << 18) | (static_cast<uint32_t>(c.opticalSpacing) << 20);
+  const uint32_t settings = condenseSteps | (static_cast<uint32_t>(c.letterSpacing & 3U) << 3) |
+                            (static_cast<uint32_t>(c.lockedSpace) << 5) | (static_cast<uint32_t>(c.hyphenMode) << 6) |
+                            (static_cast<uint32_t>(c.minLeft) << 8) | (static_cast<uint32_t>(c.minRight) << 11) |
+                            (static_cast<uint32_t>(c.language) << 14) | (static_cast<uint32_t>(c.punctSpace) << 18) |
+                            (static_cast<uint32_t>(c.opticalSpacing) << 20) |
+                            (static_cast<uint32_t>(c.letterSpacing >> 2) << 21);
+  return settings == 0 ? 0 : settings | (LAYOUT_REVISION << 28);
 }
 
 constexpr Config unpack(const uint32_t packed) {
   Config c;
   const uint32_t condenseSteps = packed & 7U;
   c.condensePercent = static_cast<uint8_t>(100 - (condenseSteps > 5 ? 5 : condenseSteps) * CONDENSE_STEP_PERCENT);
-  c.letterSpacing = static_cast<uint8_t>((packed >> 3) & 3U);
+  c.letterSpacing = static_cast<uint8_t>(((packed >> 3) & 3U) | (((packed >> 21) & 1U) << 2));
   c.lockedSpace = ((packed >> 5) & 1U) != 0;
   c.hyphenMode = static_cast<uint8_t>((packed >> 6) & 3U);
   c.minLeft = static_cast<uint8_t>((packed >> 8) & 7U);
@@ -170,6 +184,19 @@ constexpr int condensedGap(const int gap, const int percent) {
 // How many pixels one gap can give up.
 constexpr int gapShrink(const int gap, const int percent) { return gap - condensedGap(gap, percent); }
 
+// The narrowest an ordinary word gap may end when the font's space is `space` pixels wide (rounded up).
+constexpr int gapFloor(const int space) { return condensedGap(space, GAP_FLOOR_PERCENT); }
+
+// How many pixels a word gap that is `gap` wide before condensing (the space, or what Optical spacing made of it)
+// can give up in a condensed line: its condensing share, but never so much that it ends under gapFloor(space). The
+// line breaker and the line builder both ask this, so a line the breaker let run over always fits.
+constexpr int gapAllowance(const int gap, const int space, const int percent) {
+  const int share = gapShrink(gap, percent);
+  const int room = gap - gapFloor(space);
+  if (room <= 0) return 0;
+  return share < room ? share : room;
+}
+
 // A line that is `deficit` pixels too wide takes this much off each of its gaps. Rounded up: the line may end a
 // few pixels short of the edge, never past it.
 constexpr int shrinkPerGap(const int deficit, const size_t gapCount) {
@@ -185,9 +212,20 @@ struct LooseSplit {
   int perGap;     // extra pixels on each word gap
 };
 
+// The most extra pixels between two letters for a Letter spacing choice (0 off, 1 small ... 4 max): the choice
+// number, but no more than a third of the font's space (and 2 px, what Medium always was), so the room between two
+// letters stays well under the narrowest word gap (gapFloor) and the words still read as words.
+constexpr int letterSpacingCap(const uint8_t level, const int space) {
+  const int bound = space / 3 < 2 ? 2 : space / 3;
+  return level < bound ? level : bound;
+}
+
 // Shares the spare pixels of a justified line. While every gap grows by at most `gapLimit` the letters are left
-// alone. Beyond that, the part over the limit goes between the letters, at most `letterCap` each, and the gaps take
-// what is left. Both shares are rounded down: perLetter * letterSlots + perGap * gapCount never exceeds spare.
+// alone. Beyond that the letters come first (0.77.1): every letter slot takes the same whole number of pixels, as
+// many as fit in the spare room and at most `letterCap`, and the gaps take what is left, so they stay near their
+// normal width. (Before, only the part over the limit went to the letters, so a line had to be far looser before
+// Medium's second pixel showed.) Both shares are rounded down: perLetter * letterSlots + perGap * gapCount never
+// exceeds spare.
 constexpr LooseSplit splitLooseLine(const int spare, const size_t gapCount, const size_t letterSlots,
                                     const int gapLimit, const int letterCap) {
   if (spare <= 0 || gapCount == 0) return {0, 0};
@@ -195,8 +233,7 @@ constexpr LooseSplit splitLooseLine(const int spare, const size_t gapCount, cons
   const int plain = spare / gaps;
   if (letterCap <= 0 || letterSlots == 0 || plain <= gapLimit) return {0, plain};
   const int slots = static_cast<int>(letterSlots);
-  const int overLimit = spare - (gapLimit < 0 ? 0 : gapLimit) * gaps;
-  int perLetter = overLimit / slots;
+  int perLetter = spare / slots;
   if (perLetter > letterCap) perLetter = letterCap;
   if (perLetter <= 0) return {0, plain};
   return {perLetter, (spare - perLetter * slots) / gaps};

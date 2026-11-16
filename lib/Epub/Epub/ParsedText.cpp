@@ -1229,10 +1229,11 @@ bool ParsedText::gapSideRoom(const GfxRenderer& renderer, const int fontId, cons
 // left-to-right) it is the font's space with its kerning, scaled by Word spacing, as before.
 int ParsedText::spaceGap(const GfxRenderer& renderer, const int fontId, const std::string_view previousWord,
                          const std::string_view nextWord, const EpdFontFamily::Style previousStyle,
-                         const EpdFontFamily::Style nextStyle) const {
+                         const EpdFontFamily::Style nextStyle, int* fontSpace) const {
   const int space =
       scaleSpace(renderer.getSpaceAdvance(fontId, lastCodepoint(previousWord), firstCodepoint(nextWord), previousStyle),
                  wordSpacingPercent);
+  if (fontSpace != nullptr) *fontSpace = space;
   if (narrowedAfter(previousWord)) return typoengine::punctuationGap(space, punctSpace);
   int room = 0;
   if (opticalSpacing && gapSideRoom(renderer, fontId, previousWord, nextWord, previousStyle, nextStyle, room)) {
@@ -1243,11 +1244,12 @@ int ParsedText::spaceGap(const GfxRenderer& renderer, const int fontId, const st
 
 // Typography Engine: the pixels the ordinary word gap before words[wordIndex] can give up when its line is
 // condensed. 0 when condensing is off for this paragraph, and for a locked gap (after an opening quote or a dash).
-int ParsedText::condensableShrink(const size_t wordIndex, const int gap) const {
+// `space` is the font's space there (see spaceGap): the gap never ends under typoengine::gapFloor of it.
+int ParsedText::condensableShrink(const size_t wordIndex, const int gap, const int space) const {
   if (condensePercent >= 100 || wordIndex == 0) return 0;
   if (narrowedAfter(wordAt(wordIndex - 1))) return 0;
   if (typoengine::current().lockedSpace && typoengine::isLockedSpaceWord(wordAt(wordIndex - 1))) return 0;
-  return typoengine::gapShrink(gap, condensePercent);
+  return typoengine::gapAllowance(gap, space, condensePercent);
 }
 
 std::vector<size_t> ParsedText::computeLineBreaks(const GfxRenderer& renderer, const int fontId, const int pageWidth,
@@ -1299,8 +1301,10 @@ std::vector<size_t> ParsedText::computeLineBreaks(const GfxRenderer& renderer, c
       } else if (j > static_cast<size_t>(i) && noSpaceBeforeVec[j]) {
         gap = blockStyle.characterSpacing;
       } else if (j > static_cast<size_t>(i)) {
-        gap = spaceGap(renderer, fontId, wordAt(j - 1), wordAt(j), getWordStyleAt(j - 1), getWordStyleAt(j));
-        shrink += condensableShrink(j, gap);
+        int fontSpace = 0;
+        gap =
+            spaceGap(renderer, fontId, wordAt(j - 1), wordAt(j), getWordStyleAt(j - 1), getWordStyleAt(j), &fontSpace);
+        shrink += condensableShrink(j, gap, fontSpace);
       }
 
       // Calculate extraStartOffset for the first word on the line (i) (protect left margin)
@@ -1396,9 +1400,54 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
   size_t currentIndex = 0;
   bool isFirstLine = !firstLineConsumed;
 
+  // Typography Engine, loose line balancing (0.77.1): this breaker fills each line as far as it goes, so a long
+  // word that can not be split leaves the line before it with few words and wide gaps. When a justified line's gaps
+  // would each grow by more than a space, the line above gives it its last word (two at most) if that leaves the
+  // looser of the two lines less loose. Only whole words between ordinary spaces move, never a part of a hyphenated
+  // word. A line that is not loose is known from the width the loop below has already added up, so it is not
+  // measured again (a line that ends in a part of a hyphenated word is, once). For plain left-to-right justified
+  // text with Space condensing or Letter spacing on loose lines on, so text with the engine off breaks as before.
+  const bool balance = balanceLooseLines && enginePlainText && blockStyle.alignment == CssTextAlign::Justify &&
+                       (condensePercent < 100 || typoengine::current().letterSpacing > 0);
+  const bool lockedSpaces = balance && typoengine::current().lockedSpace;
+  const int looseStretch =
+      balance ? std::max(1, scaleSpace(renderer.getSpaceAdvance(fontId, 'a', 'a', EpdFontFamily::REGULAR),
+                                       wordSpacingPercent))
+              : 0;
+  // What each gap of words [start, end) on a line `width` wide would grow by when justified: the spare room over the
+  // gaps that stretch. A line with no such gap counts as one gap. `natural` gets the line's unstretched width.
+  const auto gapStretch = [&](const size_t start, const size_t end, const int width, int& natural) {
+    natural = 0;
+    int gaps = 0;
+    for (size_t idx = start; idx < end; ++idx) {
+      natural += wordWidths[idx];
+      if (idx == start) continue;
+      if (continuesVec[idx]) {
+        natural += renderer.getKerning(fontId, lastCodepoint(wordAt(idx - 1)), firstCodepoint(wordAt(idx)),
+                                       getWordStyleAt(idx - 1), blockStyle.characterSpacing);
+      } else if (noSpaceBeforeVec[idx]) {
+        natural += blockStyle.characterSpacing;
+      } else {
+        natural +=
+            spaceGap(renderer, fontId, wordAt(idx - 1), wordAt(idx), getWordStyleAt(idx - 1), getWordStyleAt(idx));
+        if (!narrowedAfter(wordAt(idx - 1)) && !(lockedSpaces && typoengine::isLockedSpaceWord(wordAt(idx - 1)))) {
+          ++gaps;
+        }
+      }
+    }
+    return std::max(0, width - natural) / std::max(1, gaps);
+  };
+  size_t previousStart = 0;
+  int previousPageWidth = 0;
+  bool previousEndsInSplit = false;
+
   while (currentIndex < wordWidths.size() && lineBreakIndices.size() < maxLines) {
     const size_t lineStart = currentIndex;
     size_t lastFittingBreak = lineStart;
+    bool endsInSplit = false;
+    int lineGaps = 0;   // the ordinary spaces of the line so far
+    int fitWidth = -1;  // the line's width and spaces at lastFittingBreak
+    int fitGaps = 0;
     int lineWidth = calculateRubyExtraStartOffset(lineStart, wordWidths.size(), renderer, fontId);
     int lineShrink = 0;  // what the line's word gaps can give up (Typography Engine, space condensing)
 
@@ -1418,9 +1467,11 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
       } else if (!isFirstWord && noSpaceBeforeVec[currentIndex]) {
         spacing = blockStyle.characterSpacing;
       } else if (!isFirstWord) {
+        int fontSpace = 0;
         spacing = spaceGap(renderer, fontId, wordAt(currentIndex - 1), wordAt(currentIndex),
-                           getWordStyleAt(currentIndex - 1), getWordStyleAt(currentIndex));
-        spacingShrink = condensableShrink(currentIndex, spacing);
+                           getWordStyleAt(currentIndex - 1), getWordStyleAt(currentIndex), &fontSpace);
+        spacingShrink = condensableShrink(currentIndex, spacing, fontSpace);
+        ++lineGaps;
       }
       const int candidateWidth = spacing + wordWidths[currentIndex];
       // Condensing: the line may be this much wider than the page, because extractLine takes it back out of the
@@ -1437,6 +1488,8 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
             (currentIndex == wordWidths.size() ||
              TokenBoundary::allowsBreak(continuesVec[currentIndex], noSpaceBeforeVec[currentIndex]))) {
           lastFittingBreak = currentIndex;
+          fitWidth = lineWidth;
+          fitGaps = lineGaps;
         }
         continue;
       }
@@ -1453,6 +1506,7 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
         // Prefix now fits; append it to this line and move to next line
         ++currentIndex;
         lastFittingBreak = currentIndex;
+        endsInSplit = true;
         break;
       }
 
@@ -1472,6 +1526,36 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
       --currentIndex;
     }
 
+    // Loose line balancing (see above). Not for the paragraph's last line, which is not justified.
+    // The width added up above already tells for most lines that they are not loose. (Its count of spaces includes
+    // the ones that do not stretch, so a line may pass as not loose here that the measuring below would call loose.)
+    const bool knownNotLoose = !endsInSplit && fitWidth >= 0 && currentIndex == lastFittingBreak &&
+                               std::max(0, effectivePageWidth - fitWidth) / std::max(1, fitGaps) <= looseStretch;
+    if (balance && !knownNotLoose && !lineBreakIndices.empty() && !previousEndsInSplit &&
+        currentIndex < wordWidths.size()) {
+      for (int moved = 0; moved < 2; ++moved) {
+        const size_t boundary = lineBreakIndices.back();  // the first word of this line
+        // The line above keeps two words at least, and both the gap that becomes its end and the gap that joins the
+        // moved word to this line are ordinary spaces.
+        if (boundary < previousStart + 3 || boundary >= currentIndex || continuesVec[boundary - 1] ||
+            noSpaceBeforeVec[boundary - 1] || continuesVec[boundary] || noSpaceBeforeVec[boundary]) {
+          break;
+        }
+        int natural = 0;
+        const int stretch = gapStretch(boundary, currentIndex, effectivePageWidth, natural);
+        if (stretch <= looseStretch) break;
+        const int movedStretch = gapStretch(boundary - 1, currentIndex, effectivePageWidth, natural);
+        if (natural > effectivePageWidth) break;  // the word does not fit here
+        const int aboveStretch = gapStretch(previousStart, boundary, previousPageWidth, natural);
+        const int aboveMovedStretch = gapStretch(previousStart, boundary - 1, previousPageWidth, natural);
+        if (std::max(movedStretch, aboveMovedStretch) >= std::max(stretch, aboveStretch)) break;
+        lineBreakIndices.back() = boundary - 1;
+      }
+    }
+
+    previousStart = lineBreakIndices.empty() ? 0 : lineBreakIndices.back();
+    previousPageWidth = effectivePageWidth;
+    previousEndsInSplit = endsInSplit && currentIndex == lastFittingBreak;
     lineBreakIndices.push_back(currentIndex);
     isFirstLine = false;
   }
@@ -1723,11 +1807,12 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
     } else if (noSpaceBeforeVec[boundaryIdx]) {
       totalNaturalGaps += blockStyle.characterSpacing;
     } else {
+      int fontSpace = 0;
       const int gap = spaceGap(renderer, fontId, lineWords[wordIdx - 1], lineWords[wordIdx],
-                               lineWordStyles[wordIdx - 1], lineWordStyles[wordIdx]);
+                               lineWordStyles[wordIdx - 1], lineWordStyles[wordIdx], &fontSpace);
       totalNaturalGaps += gap;
       if (!isLockedGap(wordIdx)) {
-        const int allowance = typoengine::gapShrink(gap, condensePercent);
+        const int allowance = typoengine::gapAllowance(gap, fontSpace, condensePercent);
         maxGapShrink = std::max(maxGapShrink, allowance);
         if (condensePercent < 100 && plainLtr) gapAllowances.push_back(allowance);
       }
@@ -1775,10 +1860,10 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
                                                   : std::max(1, naturalSpace);
 
   // Typography Engine, letter spacing on a loose line: when the gaps of a justified line would each grow by more
-  // than half a space, part of the spare room goes between the letters (at most 1 or 2 px each) and the gaps take
-  // the rest. Not on the paragraph's last line, or in text with ruby, CJK gaps, RTL or mixed direction. The words
-  // are measured again with the wider tracking, and a spacing that would not fit is stepped down, so the line never
-  // passes the right edge.
+  // than half a space, the spare room goes between the letters first (as many whole pixels each as fit, at most
+  // typoengine::letterSpacingCap) and the gaps take the rest. Not on the paragraph's last line, or in text with ruby,
+  // CJK gaps, RTL or mixed direction. The words are measured again with the wider tracking, and a spacing that would
+  // not fit is stepped down, so the line never passes the right edge.
   std::vector<uint16_t> spacedWidths;
   if (typo.letterSpacing > 0 && plainLtr && effectiveAlignment == CssTextAlign::Justify && !isLastLine &&
       actualGapCount > 0 && spareSpace > 0) {
@@ -1787,8 +1872,9 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
       const uint32_t letters = countCodepoints(lineWord);
       if (letters > 1) letterSlots += letters - 1;
     }
-    const auto split = typoengine::splitLooseLine(spareSpace, actualGapCount, letterSlots,
-                                                  std::max(1, naturalSpace / 2), typo.letterSpacing);
+    const auto split =
+        typoengine::splitLooseLine(spareSpace, actualGapCount, letterSlots, std::max(1, naturalSpace / 2),
+                                   typoengine::letterSpacingCap(typo.letterSpacing, naturalSpace));
     for (int extra = split.perLetter; extra > 0; --extra) {
       const int spacing = blockStyle.characterSpacing + extra;
       if (spacing > INT8_MAX) continue;
@@ -1832,7 +1918,8 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   if (justifyExtra > maxJustifyExtra) justifyExtra = 0;
   // Typography Engine, space condensing: the line breaker let this line run over by no more than its gaps can give
   // up, so take the overrun back out of them. Every ordinary gap gives up the same number of pixels, but never more
-  // than its own allowance: condenseLevel is the smallest such number that takes the whole overrun out.
+  // than its own allowance (which stops at typoengine::gapFloor): condenseLevel is the smallest such number that
+  // takes the whole overrun out.
   int condenseLevel = 0;
   if (condensePercent < 100 && effectiveAlignment == CssTextAlign::Justify && !isLastLine && spareSpace < 0 &&
       actualGapCount > 0) {
@@ -1848,8 +1935,8 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   }
   // The extra (negative when condensing) one gap of natural width `gap` gets. Gaps that are not ordinary spaces
   // (a no-break space token, a locked gap) keep their width in a condensed line.
-  const auto condensedExtra = [&](const int gap) {
-    return -std::min(condenseLevel, typoengine::gapShrink(gap, condensePercent));
+  const auto condensedExtra = [&](const int gap, const int fontSpace) {
+    return -std::min(condenseLevel, typoengine::gapAllowance(gap, fontSpace, condensePercent));
   };
 
   // BiDi processing: reorder words with UAX#9 in full-line context.
@@ -2069,16 +2156,17 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
           xpos += advance;
         } else {
           int gap = 0;
+          int fontSpace = 0;
           bool nextNoSpace = false;
           if (wordIdx + 1 < lineWordCount) {
             nextNoSpace = noSpaceBeforeVec[lastBreakAt + wordIdx + 1];
             gap = nextNoSpace ? lineSpacing
                               : spaceGap(renderer, fontId, lineWords[wordIdx], lineWords[wordIdx + 1],
-                                         lineWordStyles[wordIdx], lineWordStyles[wordIdx + 1]);
+                                         lineWordStyles[wordIdx], lineWordStyles[wordIdx + 1], &fontSpace);
           }
           if (wordIdx + 1 < lineWordCount && effectiveAlignment == CssTextAlign::Justify && !isLastLine &&
               !isLockedGap(wordIdx + 1)) {
-            gap += condenseLevel > 0 ? (nextNoSpace ? 0 : condensedExtra(gap)) : justifyExtra;
+            gap += condenseLevel > 0 ? (nextNoSpace ? 0 : condensedExtra(gap, fontSpace)) : justifyExtra;
           }
           xpos += lineWidths[wordIdx] + gap;
         }

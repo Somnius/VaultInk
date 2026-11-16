@@ -95,7 +95,7 @@ class ParsedText {
   // text is plain and justified.
   bool enginePlainText = false;
   uint8_t condensePercent = 100;
-  int condensableShrink(size_t wordIndex, int gap) const;
+  int condensableShrink(size_t wordIndex, int gap, int space) const;
   // Space after punctuation (0 = normal) and Optical spacing, both only for plain left-to-right text.
   // opticalAverageRoom is the average side room of the paragraph's word gaps (see typoengine::opticalGap).
   uint8_t punctSpace = 0;
@@ -104,9 +104,10 @@ class ParsedText {
   bool narrowedAfter(std::string_view previousWord) const;
   bool gapSideRoom(const GfxRenderer& renderer, int fontId, std::string_view previousWord, std::string_view nextWord,
                    EpdFontFamily::Style previousStyle, EpdFontFamily::Style nextStyle, int& room) const;
-  // The natural width of the ordinary space between two words on one line.
+  // The natural width of the ordinary space between two words on one line. fontSpace, when asked for, gets the
+  // font's space there before Space after punctuation and Optical spacing (what typoengine::gapFloor is taken from).
   int spaceGap(const GfxRenderer& renderer, int fontId, std::string_view previousWord, std::string_view nextWord,
-               EpdFontFamily::Style previousStyle, EpdFontFamily::Style nextStyle) const;
+               EpdFontFamily::Style previousStyle, EpdFontFamily::Style nextStyle, int* fontSpace = nullptr) const;
   uint8_t paragraphIndentSpaces;
   bool hyphenationEnabled;
   bool focusReadingEnabled;
@@ -160,6 +161,9 @@ class ParsedText {
   // at most half a space, the rest stay ragged.
   // 0 = off, 1 = gaps grow at most half a space, 2 = at most one space.
   static inline uint8_t evenWordGaps = 0;
+  // Typography Engine, loose line balancing (see computeHyphenatedLineBreaks). Always on in the firmware; a test
+  // switches it off to compare the layout and its cost with and without.
+  static inline bool balanceLooseLines = true;
   explicit ParsedText(const bool hyphenationEnabled = false, const bool focusReadingEnabled = false,
                       const BlockStyle& blockStyle = BlockStyle(), const uint8_t paragraphIndentSpaces = 2)
       : blockStyle(blockStyle),
