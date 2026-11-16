@@ -277,6 +277,28 @@ class ReaderApiTest {
         assertTrue(ReaderApi.vaultNames(ReaderApi.parseFiles("[]")).isEmpty())
     }
 
+    @Test
+    fun dotFoldersAreNotVaults() {
+        val entries = listOf(Entry(".", true), Entry("..", true), Entry(".obsidian", true), Entry(".trash", true),
+            Entry("a/b", true), Entry("a\\b", true), Entry(" ", true), Entry("Notes", true), Entry("v1.2", true))
+        assertEquals(listOf("Notes", "v1.2"), ReaderApi.vaultNames(entries))
+        assertFalse(ReaderApi.isVaultName(".."))
+        assertTrue(ReaderApi.isVaultName("Constantinople By Night"))
+    }
+
+    @Test
+    fun aNoteFolderCannotClimbOutOfTheVault() {
+        assertEquals("Inbox", ReaderApi.noteFolder("Inbox"))
+        assertEquals("Inbox/2026", ReaderApi.noteFolder("/Inbox//2026/"))
+        assertEquals("", ReaderApi.noteFolder(".."))
+        assertEquals("", ReaderApi.noteFolder("../.."))
+        assertEquals("Books", ReaderApi.noteFolder("../../Books"))
+        assertEquals("a/b", ReaderApi.noteFolder("a/./b/.."))
+        assertEquals("a/b", ReaderApi.noteFolder("a\\..\\b"))
+        assertEquals("", ReaderApi.noteFolder(""))
+        assertEquals("Σημειώσεις/v1.2", ReaderApi.noteFolder(" Σημειώσεις / v1.2 "))
+    }
+
     @Test(expected = org.json.JSONException::class)
     fun aFileListingThatIsNotJsonIsAnErrorNotAnEmptyList() {
         ReaderApi.parseFiles("Not found")

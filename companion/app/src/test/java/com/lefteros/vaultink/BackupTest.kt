@@ -63,6 +63,25 @@ class BackupTest {
         assertEquals("ftp://example.org", Backup.stripUserInfo(" ftp://me@example.org "))
         assertEquals("https://example.org/a@b", Backup.stripUserInfo("https://example.org/a@b"))
         assertEquals("example.org", Backup.stripUserInfo("example.org"))
+        // Without a scheme too.
+        assertEquals("calibre.local/opds", Backup.stripUserInfo("user:secret@calibre.local/opds"))
+        assertEquals("calibre.local:8080", Backup.stripUserInfo("user@calibre.local:8080"))
+        assertEquals("host/path", Backup.stripUserInfo("https://a:b@c:d@host/path".removePrefix("https://")))
+        assertEquals("https://host/path", Backup.stripUserInfo("https://a:b@c:d@host/path"))
+        assertEquals("example.org/a@b?c=d@e", Backup.stripUserInfo("example.org/a@b?c=d@e"))
+        assertEquals("example.org?mail=a@b", Backup.stripUserInfo("example.org?mail=a@b"))
+    }
+
+    @Test
+    fun anAddressWithoutASchemeLosesItsPasswordInTheFileToo() {
+        val text = Backup.build("0.6.0", "0.77.1", "X4", "2026-11-16T15:30:00+02:00", "[]", null,
+            """[{"index":0,"name":"C","url":"user:opds-secret@calibre.local/opds","username":"user"}]""",
+            """[{"index":0,"name":"N","protocol":"ftp","url":"me:ftp-secret@nas.local","username":"me"}]""")
+        assertFalse(text.contains("opds-secret"))
+        assertFalse(text.contains("ftp-secret"))
+        val file = Backup.parse(text)
+        assertEquals("calibre.local/opds", file.opds!![0].url)
+        assertEquals("nas.local", file.remotes!![0].url)
     }
 
     @Test

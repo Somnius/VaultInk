@@ -4,8 +4,8 @@ The companion is an Android app that talks to the device over Wi-Fi, through the
 device runs while **File Transfer** is open. Its code is in [`companion/`](../companion/) in this
 repo, and it has its own releases, tagged `companion-x.y.z`.
 
-Status: `companion-0.6.0` is built but not released and not yet run on a phone (unit tests and a
-debug build only; see [0.6.0](#060-home-reader-setup-and-a-new-look) below). `companion-0.5.0` is out (needs VaultInk 0.29.0 or newer on the device; typing and sync from the phone need 0.64.0). Download the APK
+Status: `companion-0.6.0` is built but not released: run on a OnePlus phone against a real X4 Pro (Home, the Note tab's vault list, Settings and the Fonts list seen working); backup and restore, uploads, saving in Reader setup and rotation are unit tests only
+(see [0.6.0](#060-home-reader-setup-and-a-new-look) below). `companion-0.5.0` is out (needs VaultInk 0.29.0 or newer on the device; typing and sync from the phone need 0.64.0). Download the APK
 from the [newest companion release](https://github.com/Somnius/VaultInk/releases?q=companion&expanded=true)
 on the phone and open it. After an update the reader shows a QR code that opens this page. It's tested on one phone (Android 16) against the simulator, not yet
 against a real X4 Pro. See "Tested so far" below.
@@ -184,7 +184,9 @@ Passwords and the Setup URI are typed into fields that show dots (with **Show**)
 request and are dropped: the app doesn't log them, doesn't keep them in its preferences or saved
 state, and the reader never sends one back (only `hasPassword`). On an update an empty password
 field is left out of the request, which keeps the one the reader has. They do travel over plain
-HTTP on the local network, like the reader's own Settings page; each screen says so.
+HTTP on the local network, like the reader's own Settings page; each screen says so. The address
+fields of catalogues and servers are not kept over a rotation either, since an address can carry
+`user:password@`.
 
 #### Backup (0.6.0)
 
@@ -210,7 +212,8 @@ one JSON file through Android's save dialog (default name `vaultink-settings-YYY
 fields, so nothing else the reader might send can get in: of the settings only switches, choices
 and numbers (text settings are left out, since one can hold a password or a key), of a network its
 name, of a catalogue its name, address and user name, of a server those plus the protocol and the
-certificate switch. A `user:password@` inside an address is cut out. No LiveSync Setup URI or
+certificate switch. A `user:password@` inside an address is cut out, with or without `http://` in
+front. No LiveSync Setup URI or
 passphrase, no fonts. A list the reader doesn't have (remote servers before firmware 0.74.0) is
 left out of the file.
 
@@ -244,7 +247,16 @@ for a newer `companion-*` release on GitHub, downloads the APK and opens Android
 The update dialog has **Not now** (0.3.0). All of it is on Home since 0.6.0, and **Check for app
 update** is there with or without a reader.
 
-The screenshots below are from 0.1.0 to 0.5.0; 0.6.0 looks different and has none yet.
+0.6.0, on a OnePlus phone against a real X4 Pro:
+
+<p>
+  <img src="images/vaultink/companion-home-0.6.0.png" width="190" alt="Companion 0.6.0: the Home tab with the reader's status">
+  <img src="images/vaultink/companion-note-0.6.0.png" width="190" alt="Companion 0.6.0: the Note tab with the vault list">
+  <img src="images/vaultink/companion-settings-0.6.0.png" width="190" alt="Companion 0.6.0: Settings with Reader setup">
+  <img src="images/vaultink/companion-fonts-0.6.0.png" width="190" alt="Companion 0.6.0: the fonts on the reader's card">
+</p>
+
+The screenshots below are from 0.1.0 to 0.5.0.
 
 <p>
   <img src="images/companion/1-note.png" width="190" alt="The Note tab">
@@ -346,11 +358,20 @@ The byte counting and clipping are in `PhoneText.kt` with JUnit tests (`PhoneTex
 
 ## 0.6.0: Home, Reader setup and a new look
 
-Not released. What was checked: `./gradlew testDebugUnitTest assembleDebug` (70 unit tests, 28 of
-them new in `ReaderApiTest`: the JSON of every endpoint above as documented, the request bodies,
-the name checks, the polling times; 13 in `BackupTest`). **Not run on a phone, in the simulator or against a reader**:
-the look, the fades, the Greek text on screen, the font picker, the polling in the foreground and
-every setup request are unverified until someone tries them.
+Not released. Status: run on a OnePlus phone against a real X4 Pro (Home, the Note tab's vault list, Settings and the Fonts list seen working); backup and restore, uploads, saving in Reader setup and rotation are unit tests only.
+
+Seen working on the phone (2026-11-16, a real X4 Pro): Home with the masthead, the Note tab's
+vault list, Settings and the Fonts list. The phone test also found what the later fixes are for:
+Settings failing on `vaultink.local`, the raw board id in the masthead, the old "File Transfer"
+wording, a stray "2." on the offline screen, and "no vaults" in the Note tab when the listing had
+failed.
+
+Unit tests only (`./gradlew testDebugUnitTest assembleDebug`, 73 tests: `ReaderApiTest` with the
+JSON of every endpoint above as documented, the request bodies, the name checks and the polling
+times; `BackupTest` with the file format and what is kept out of it): backup and restore, every
+upload (fonts, the outbox, shared books), saving and deleting in Reader setup, the LiveSync setup
+request, the polling pause during a transfer, and keeping the open screen over a rotation. The
+Greek text on screen has not been read through on the phone.
 
 - The Home tab, the polling and the offline screen ([Home](#home-060)).
 - Reader setup ([above](#reader-setup-060)) and Backup ([above](#backup-060)).

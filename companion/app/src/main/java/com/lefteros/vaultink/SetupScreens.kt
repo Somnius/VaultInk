@@ -202,7 +202,8 @@ fun OpdsSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(stringRe
     var editName by rememberSaveable { mutableStateOf("") }
     var deleting by remember { mutableStateOf<OpdsServer?>(null) }
     var name by rememberSaveable { mutableStateOf("") }
-    var url by rememberSaveable { mutableStateOf("") }
+    // Not saved over a rotation like the other fields: an address can carry user:password@.
+    var url by remember { mutableStateOf("") }
     var username by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     fun clear() { editIndex = null; editName = ""; name = ""; url = ""; username = ""; password = "" }
@@ -249,7 +250,8 @@ fun RemotesSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(strin
     var deleting by remember { mutableStateOf<RemoteServer?>(null) }
     var name by rememberSaveable { mutableStateOf("") }
     var protocol by rememberSaveable { mutableStateOf("webdav") }
-    var url by rememberSaveable { mutableStateOf("") }
+    // Not saved over a rotation like the other fields: an address can carry user:password@.
+    var url by remember { mutableStateOf("") }
     var username by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var verify by rememberSaveable { mutableStateOf(true) }

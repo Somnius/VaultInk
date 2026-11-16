@@ -694,7 +694,7 @@ Planned:
   `vaultink`. BLE comes with Phase 5.
 - Tabs until 0.5.0: Note (quick note and share target), Files (whole card, transfers with progress),
   Settings (one card per device category), Device (status and app update).
-- Companion 0.6.0 (built, not released; unit tests and builds, not run on a phone). Tabs: Home,
+- Companion 0.6.0 (built, not released; run on a OnePlus phone against a real X4 Pro (Home, the Note tab's vault list, Settings and the Fonts list seen working); backup and restore, uploads, saving in Reader setup and rotation are unit tests only). Tabs: Home,
   Note, Files, Settings (`App.kt`). Home (`HomeScreen.kt`): masthead from `/api/status` (`device`,
   `version`, address, `rssi`, `uptime`, `freeHeap`), LiveSync section (`/api/livesync/status`,
   `liveSyncNow` when `canSync`, the `/.vaultink/sync-request` file when `syncRequest`), outbox count,

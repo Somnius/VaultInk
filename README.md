@@ -406,7 +406,7 @@ Each line links to its guide where there is one; all the guides are listed in [d
 
 **Phone, Bluetooth and languages**
 - **Transfer & Remotes** on the Home screen (it was called File Transfer): file transfer over Wi-Fi (as `vaultink.local`), **USB Drive** (the SD card as a drive over the USB-C cable, no Wi-Fi: Transfer & Remotes → USB Drive) and Calibre, plus the lists of your WebDAV, FTP and SFTP servers and the SSH terminal; a web page for files, notes, settings, LiveSync setup and vault import. [docs/webserver.md](docs/webserver.md)
-- **Android companion app** ([docs/companion.md](docs/companion.md)): quick notes into a vault, share text, pictures, books and comics from other apps, the SD card with uploads and downloads, the reader's settings, a comic converter inside the app, an outbox for when the reader is away, a Google Keep importer, LiveSync status with a sync request, typing into the reader from the phone, and the documentation offline. English and Greek. Tested against the simulator, not a real X4 Pro yet. Companion 0.6.0 (built, not released, not run on a phone yet) adds a Home tab with the reader's status, Reader setup from the phone (Wi-Fi networks, LiveSync, OPDS catalogues, remote servers, fonts) and a new look.
+- **Android companion app** ([docs/companion.md](docs/companion.md)): quick notes into a vault, share text, pictures, books and comics from other apps, the SD card with uploads and downloads, the reader's settings, a comic converter inside the app, an outbox for when the reader is away, a Google Keep importer, LiveSync status with a sync request, typing into the reader from the phone, and the documentation offline. English and Greek. Tested against the simulator, not a real X4 Pro yet. Companion 0.6.0 (not released yet) adds a Home tab with the reader's status, Reader setup from the phone (Wi-Fi networks, LiveSync, OPDS catalogues, remote servers, fonts), a settings backup and a new look; run on a OnePlus phone against a real X4 Pro (Home, the Note tab's vault list, Settings and the Fonts list seen working); backup and restore, uploads, saving in Reader setup and rotation are unit tests only.
 - **Bluetooth**: a page-turner remote, and a Bluetooth keyboard can type into the on-screen keyboard's line (off by default, not tried with a real keyboard). [docs/reading-and-files.md](docs/reading-and-files.md#bluetooth-keyboard-typing-0630)
 - Full **Greek** interface, a Greek and English on-screen keyboard, Greek (monotonic and polytonic) in the built-in fonts and hyphenation. Menus in many more languages from CrossPoint. [docs/translating.md](docs/translating.md)
 
@@ -493,6 +493,17 @@ The [roadmap](ROADMAP.md) has the details and the order. Open items right now:
 - The XTCH refresh choice and a few share-to-reader edge cases wait for device tests.
 
 The companion app lives in `companion/` in this repo and is released separately (guide: [docs/companion.md](docs/companion.md)).
+
+Companion 0.6.0 (not released yet): run on a OnePlus phone against a real X4 Pro (Home, the Note tab's vault list, Settings and the Fonts list seen working); backup and restore, uploads, saving in Reader setup and rotation are unit tests only.
+
+<p>
+  <img src="docs/images/vaultink/companion-home-0.6.0.png" width="190" alt="Companion 0.6.0: the Home tab with the reader's status">
+  <img src="docs/images/vaultink/companion-note-0.6.0.png" width="190" alt="Companion 0.6.0: the Note tab with the vault list">
+  <img src="docs/images/vaultink/companion-settings-0.6.0.png" width="190" alt="Companion 0.6.0: Settings with Reader setup">
+  <img src="docs/images/vaultink/companion-fonts-0.6.0.png" width="190" alt="Companion 0.6.0: the fonts on the reader's card">
+</p>
+
+Until 0.5.0:
 
 <p>
   <img src="docs/images/companion/1-note.png" width="190" alt="Companion: a quick note into a vault">

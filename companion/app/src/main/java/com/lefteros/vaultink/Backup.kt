@@ -64,8 +64,12 @@ object Backup {
 
     fun fileName(date: String): String = "vaultink-settings-${date.take(10)}.json"
 
-    /** An address without a `user:password@` part. */
-    fun stripUserInfo(url: String): String = url.trim().replace(Regex("^([A-Za-z][A-Za-z0-9+.-]*://)[^/?#]*@"), "$1")
+    /**
+     * An address without a `user:password@` part, whether it starts with a scheme or not: everything
+     * up to the last `@` of the host part (before the first `/`, `?` or `#`) goes.
+     */
+    fun stripUserInfo(url: String): String =
+        url.trim().replace(Regex("^((?:[A-Za-z][A-Za-z0-9+.-]*://)?)[^/?#]*@"), "$1")
 
     /**
      * Builds the file's text from the reader's own answers (the bodies of GET /api/settings,

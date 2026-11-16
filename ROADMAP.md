@@ -627,7 +627,7 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   MIT, links, tech-stack pills, credits) and **Help**: the repo's `README.md` and `docs/*.md` copied
   into the APK at build time (no images) with a search and a Kotlin Markdown reader (`Markdown.kt`,
   JUnit tests). Compiled and unit tested only, not yet run on a phone.
-* 🚧 `companion-0.6.0` (built, not released; **unit tests and builds, not run on a phone**): a
+* 🚧 `companion-0.6.0` (built, not released; run on a OnePlus phone against a real X4 Pro (Home, the Note tab's vault list, Settings and the Fonts list seen working); backup and restore, uploads, saving in Reader setup and rotation are unit tests only): a
   **Home** tab in place of Device (tabs: Home / Note / Files / Settings) with a navy masthead from
   `GET /api/status` (board, firmware version, address, Wi-Fi signal in dBm, time since restart, free
   memory, in tabular figures), the LiveSync section with its sync button, the outbox count and the
@@ -652,7 +652,9 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   added without passwords, nothing deleted, and a report of what changed, was added, skipped or
   failed (`Backup.kt`, 13 JUnit tests). All three lists have a `GET`, so none is left out; fonts and
   LiveSync profiles are not part of a backup (💤: font files are large, and a profile is a secret).
-  ⏳ A phone test of all of it; screenshots.
+  Screenshots from the phone are in README and docs/companion.md.
+  ⏳ On the phone: backup and restore, a font upload, saving a network, a catalogue and a server,
+  the LiveSync setup, a rotation with a form open, the Greek text.
 * 💤 Home on the phone: `battery`, `batteryMv`, the open screen and the frontlight in `GET /api/status`
   (firmware), then shown on the companion's Home.
 * 💤 Bring notes in, the rest: Samsung Notes (`.sdocx` export) -> contacts (one note per contact plus a

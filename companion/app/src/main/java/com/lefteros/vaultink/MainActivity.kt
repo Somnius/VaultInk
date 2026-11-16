@@ -197,7 +197,7 @@ fun NoteScreen(client: DeviceClient?, draft: Draft, onDraft: (Draft) -> Unit, on
         scope.launch {
             // Keeps the note (and its pictures) on the phone until the reader is found.
             fun keep(): String {
-                Outbox.addNote(context, vault, folder, title, draft.text, draft.pictures)
+                Outbox.addNote(context, vault, ReaderApi.noteFolder(folder), title, draft.text, draft.pictures)
                 prefs(context).edit().putString("vault", vault).putString("folder", folder).apply()
                 onDraft(Draft())
                 onOutbox()
@@ -207,7 +207,8 @@ fun NoteScreen(client: DeviceClient?, draft: Draft, onDraft: (Draft) -> Unit, on
                 if (client == null) return@withContext keep()
                 runCatching {
                     val vaultPath = "/Vaults/$vault"
-                    val notePath = "$vaultPath/" + folder.trim('/').ifEmpty { "" }
+                    if (!ReaderApi.isVaultName(vault)) throw IllegalArgumentException(vault)
+                    val notePath = "$vaultPath/" + ReaderApi.noteFolder(folder)
                     client.ensureFolder(notePath)
                     // Pictures first, so the note links the names they were saved under.
                     val links = StringBuilder()

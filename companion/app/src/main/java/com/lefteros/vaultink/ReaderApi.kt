@@ -97,9 +97,24 @@ object ReaderApi {
     fun parseFiles(body: String): List<Entry> =
         objects(JSONArray(body)).map { Entry(it.optString("name"), it.optBoolean("isDirectory"), it.optLong("size")) }
 
-    /** The vaults in a listing of /Vaults: every folder directly in it, by name. */
+    /**
+     * The vaults in a listing of /Vaults: every folder directly in it, by name. Names that start
+     * with a dot (hidden folders, and `.` and `..`, which would lead out of /Vaults) and names with
+     * a path separator are not vaults.
+     */
     fun vaultNames(entries: List<Entry>): List<String> =
-        entries.filter { it.isDirectory && it.name.isNotEmpty() }.map { it.name }.sorted()
+        entries.filter { it.isDirectory && isVaultName(it.name) }.map { it.name }.sorted()
+
+    fun isVaultName(name: String): Boolean =
+        name.isNotBlank() && !name.startsWith(".") && '/' !in name && '\\' !in name
+
+    /**
+     * The folder inside a vault a note goes to, as typed, made safe: `\` reads as `/`, and empty
+     * parts, `.` and `..` are dropped, so the path can't climb out of the vault. "" is the vault itself.
+     */
+    fun noteFolder(typed: String): String =
+        typed.replace('\\', '/').split('/').map { it.trim() }.filter { it.isNotEmpty() && it != "." && it != ".." }
+            .joinToString("/")
 
     fun parseLiveSyncStatus(body: String): LiveSyncStatus {
         val o = JSONObject(body)
