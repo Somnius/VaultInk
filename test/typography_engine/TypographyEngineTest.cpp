@@ -6,6 +6,7 @@
 #include <GfxRenderer.h>
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <map>
 #include <memory>
 #include <string>
@@ -20,6 +21,8 @@ using typoengine::Config;
 // codepoints that have metrics. Engine puts both back.
 int fixtureSpace = 4;
 std::map<uint32_t, std::pair<int, int>> fixtureBearings;
+// How often the last layout() asked the font for a space: a measure of the line breaker's work.
+size_t lastSpaceAdvanceCalls = 0;
 
 // Sets the engine for one test and switches it off again after it.
 struct Engine {
@@ -70,6 +73,7 @@ std::vector<Line> layout(const std::vector<const char*>& words, const uint16_t w
                    renderer.getTextAdvanceX(0, line.words.back().c_str(), EpdFontFamily::REGULAR, line.tracking);
     }
   });
+  lastSpaceAdvanceCalls = renderer.spaceAdvanceCalls;
   return lines;
 }
 
@@ -120,8 +124,11 @@ TEST(TypographyEngineConfig, SpaceAfterPunctuationAndOpticalSpacingHaveTheirOwnB
       c.punctSpace = punct;
       c.opticalSpacing = optical;
       const uint32_t packed = typoengine::pack(c);
-      EXPECT_EQ(packed & 0x3FFFFU, others);
-      EXPECT_EQ(packed >> 18, static_cast<uint32_t>(punct) | (optical ? 4U : 0U));
+      // Bits 18-20 are theirs; bit 21 is the third bit of letter spacing and 28-30 the layout revision.
+      const uint32_t theirs = 7U << 18;
+      EXPECT_EQ(packed & ~theirs, others & ~theirs);
+      EXPECT_EQ(others & theirs, 0U);
+      EXPECT_EQ((packed & theirs) >> 18, static_cast<uint32_t>(punct) | (optical ? 4U : 0U));
       const Config back = typoengine::unpack(packed);
       EXPECT_EQ(back.punctSpace, punct);
       EXPECT_EQ(back.opticalSpacing, optical);
@@ -182,7 +189,7 @@ TEST(TypographyEngineConfig, ValuesOutsideTheChoicesAreBroughtBack) {
   c.language = 14;
   const Config s = typoengine::sanitized(c);
   EXPECT_EQ(s.condensePercent, 100);  // below 50 is not a choice: off, not the strongest
-  EXPECT_EQ(s.letterSpacing, 2);
+  EXPECT_EQ(s.letterSpacing, 0);      // not a choice: off, not the strongest
   EXPECT_EQ(s.hyphenMode, typoengine::HYPHEN_PATTERNS);
   EXPECT_EQ(s.minLeft, 5);
   EXPECT_EQ(s.minRight, 5);
@@ -200,6 +207,26 @@ TEST(TypographyEngineConfig, ValuesOutsideTheChoicesAreBroughtBack) {
     ASSERT_LE(u.minRight, typoengine::MIN_LETTERS_MAX);
     ASSERT_LE(u.language, typoengine::LANGUAGE_COUNT);
   }
+}
+
+TEST(TypographyEngineConfig, LetterSpacingHasFiveChoicesAndTheOldOnesKeepTheirBits) {
+  EXPECT_EQ(typoengine::LETTER_SPACING_LEVELS, 5);
+  const uint32_t revision = typoengine::LAYOUT_REVISION << 28;
+  for (uint8_t level = 0; level < typoengine::LETTER_SPACING_LEVELS; ++level) {
+    Config c;
+    c.letterSpacing = level;
+    const uint32_t packed = typoengine::pack(c);
+    EXPECT_EQ(typoengine::unpack(packed).letterSpacing, level);
+    // Off, Small and Medium sit in bits 3-4 as in 0.76.0; Large and Max use bit 21 with them.
+    const uint32_t expected = (static_cast<uint32_t>(level & 3) << 3) | (static_cast<uint32_t>(level >> 2) << 21);
+    EXPECT_EQ(packed, level == 0 ? 0U : expected | revision);
+  }
+  // A word written by 0.76.0 or 0.77.0 (no revision bits) still reads as the same choices.
+  EXPECT_EQ(typoengine::unpack(1U << 3).letterSpacing, 1);
+  EXPECT_EQ(typoengine::unpack(2U << 3).letterSpacing, 2);
+  // and is not the word the same settings pack to now, so a section cached by the older layout is built again.
+  EXPECT_NE(typoengine::pack(typoengine::unpack(2U << 3)), 2U << 3);
+  EXPECT_EQ(typoengine::pack(Config{}), 0U);
 }
 
 TEST(TypographyEngineConfig, ACondensePercentageOutsideFiftyToAHundredIsOff) {
@@ -405,24 +432,27 @@ TEST(SpaceCondensing, OneMoreWordFitsWhenTheGapsMayShrink) {
   for (const bool hyphenation : {false, true}) {
     SCOPED_TRACE(hyphenation);
     Engine engine(condense(50));
-    const auto lines = layout(kThreeAndOne, 100, hyphenation);
+    const auto lines = layout(kThreeAndOne, 102, hyphenation);
     ASSERT_EQ(lines.size(), 2u);
-    // 104 px on a 100 px line: each of the two gaps gives 2 px (4 -> 2), and the line ends at the edge.
+    // 104 px on a 102 px line: each of the two gaps gives 1 px (4 -> 3, the floor of 60% of a space, and not the 2
+    // that 50% alone would allow), and the line ends at the edge.
     EXPECT_EQ(lines[0].words, (std::vector<std::string>{"aaaa", "bbbb", "cccc"}));
-    EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 34, 68}));
-    EXPECT_EQ(lines[0].right, 100);
+    EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 35, 70}));
+    EXPECT_EQ(lines[0].right, 102);
     EXPECT_EQ(lines[1].xpos, (std::vector<int16_t>{0}));
+    // One pixel narrower and the third word no longer fits: no gap goes under the floor.
+    EXPECT_EQ(layout(kThreeAndOne, 101, hyphenation)[0].words, (std::vector<std::string>{"aaaa", "bbbb"}));
   }
 }
 
 TEST(SpaceCondensing, AnOddOverrunRoundsToTheInsideOfThePage) {
   for (const bool hyphenation : {false, true}) {
     Engine engine(condense(50));
-    const auto lines = layout(kThreeAndOne, 101, hyphenation);
+    const auto lines = layout(kThreeAndOne, 103, hyphenation);
     ASSERT_EQ(lines.size(), 2u);
-    // 3 px over, two gaps: 2 px off each, so the line ends 1 px before the edge, not after it.
-    EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 34, 68}));
-    EXPECT_EQ(lines[0].right, 100);
+    // 1 px over, two gaps: 1 px off each, so the line ends 1 px before the edge, not after it.
+    EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 35, 70}));
+    EXPECT_EQ(lines[0].right, 102);
   }
 }
 
@@ -551,7 +581,7 @@ TEST(LooseLineSplit, TheSharesNeverAddUpToMoreThanTheSpareSpace) {
     for (size_t gaps = 0; gaps <= 9; ++gaps) {
       for (const size_t slots : {size_t{0}, size_t{1}, size_t{5}, size_t{23}, size_t{60}}) {
         for (int limit = 0; limit <= 6; ++limit) {
-          for (int cap = 0; cap <= 2; ++cap) {
+          for (int cap = 0; cap <= 4; ++cap) {
             const auto split = typoengine::splitLooseLine(spare, gaps, slots, limit, cap);
             ASSERT_GE(split.perLetter, 0);
             ASSERT_LE(split.perLetter, cap);
@@ -567,7 +597,81 @@ TEST(LooseLineSplit, TheSharesNeverAddUpToMoreThanTheSpareSpace) {
   }
 }
 
+TEST(LooseLineSplit, TheLettersComeFirstSoTheGapsStayNearNormal) {
+  // The line of the report: three gaps that would each grow by 28 px (40 px gaps of a 12 px space), about 40 places
+  // between letters. Up to 0.77.0 only the part over half a space a gap went to the letters ((84 - 18) / 40 = 1 px),
+  // so Medium did what Small does and the gaps were still 12 + 14 px. Now Medium's 2 px fit and a gap grows by 1 px.
+  auto split = typoengine::splitLooseLine(84, 3, 40, 6, 2);
+  EXPECT_EQ(split.perLetter, 2);
+  EXPECT_EQ(split.perGap, 1);
+  split = typoengine::splitLooseLine(84, 3, 40, 6, 1);
+  EXPECT_EQ(split.perLetter, 1);
+  EXPECT_EQ(split.perGap, 14);
+  // A looser line with fewer letters: every step up to Max takes more from the gaps.
+  int previousGap = 60;
+  for (int cap = 1; cap <= 4; ++cap) {
+    split = typoengine::splitLooseLine(120, 2, 28, 6, cap);
+    EXPECT_EQ(split.perLetter, cap);
+    EXPECT_LT(split.perGap, previousGap);
+    previousGap = split.perGap;
+  }
+  EXPECT_EQ(previousGap, 4);
+}
+
+TEST(LooseLineSplit, TheCapIsTheChoiceBoundedByTheFontsSpace) {
+  // A 12 px space (Fira Sans 16 pt on the X4 Pro): 1, 2, 3 and 4 px.
+  for (uint8_t level = 0; level < typoengine::LETTER_SPACING_LEVELS; ++level) {
+    EXPECT_EQ(typoengine::letterSpacingCap(level, 12), level);
+  }
+  EXPECT_EQ(typoengine::letterSpacingCap(4, 9), 3);  // a third of the space
+  EXPECT_EQ(typoengine::letterSpacingCap(3, 6), 2);
+  EXPECT_EQ(typoengine::letterSpacingCap(4, 4), 2);  // Medium's 2 px in any font, as before
+  EXPECT_EQ(typoengine::letterSpacingCap(2, 0), 2);
+  for (int space = 0; space <= 60; ++space) {
+    for (uint8_t level = 0; level < typoengine::LETTER_SPACING_LEVELS; ++level) {
+      const int cap = typoengine::letterSpacingCap(level, space);
+      ASSERT_LE(cap, level);
+      ASSERT_GE(cap, level < 2 ? level : 2);
+      // The room between two letters stays under the narrowest word gap.
+      if (space >= 6) ASSERT_LT(cap, typoengine::gapFloor(space));
+    }
+  }
+}
+
 // --- Letter spacing on loose lines: the positions ---
+
+TEST(LooseLineLetterSpacing, LargeAndMaxSpreadTheLettersFurtherAndKeepTheGapNearNormal) {
+  // A 12 px space. "aaaa bbbb" is 32 + 12 + 32 = 76 px on a 110 px line: the one gap would grow by 34 px, to 46.
+  const std::vector<const char*> words{"aaaa", "bbbb", "xxxxxxxxxxxxx"};
+  int previousGap = 46;
+  for (uint8_t level = 1; level < typoengine::LETTER_SPACING_LEVELS; ++level) {
+    SCOPED_TRACE(int(level));
+    Config c;
+    c.letterSpacing = level;
+    Engine engine(c);
+    fixtureSpace = 12;
+    const auto lines = layout(words, 110);
+    ASSERT_GE(lines.size(), 2u);
+    ASSERT_EQ(lines[0].words, (std::vector<std::string>{"aaaa", "bbbb"}));
+    EXPECT_EQ(lines[0].tracking, level);
+    EXPECT_EQ(lines[0].right, 110);
+    const int wordWidth = 32 + 3 * level;
+    const int gap = lines[0].xpos[1] - wordWidth;
+    EXPECT_EQ(gap, 110 - 2 * wordWidth);
+    EXPECT_LT(gap, previousGap);  // each step leaves the gap nearer to the 12 px space
+    previousGap = gap;
+  }
+  EXPECT_EQ(previousGap, 22);
+  {
+    // The 4 px space of the usual fixture font: Max stops at 2 px a letter.
+    Config c;
+    c.letterSpacing = 4;
+    Engine engine(c);
+    const auto lines = layout({"aaaa", "bbbb", "xxxxxxxxxxxx"}, 100);
+    EXPECT_EQ(lines[0].tracking, 2);
+    EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 62}));
+  }
+}
 
 TEST(LooseLineLetterSpacing, ALooseLineSpreadsItsLetters) {
   // "aaaa bbbb" is 68 px on a 100 px line: the one gap would grow by 32 px.
@@ -683,21 +787,21 @@ TEST(LockedSpace, ALockedGapIsNotCondensedEither) {
     SCOPED_TRACE(hyphenation);
     Config c = condense(50);
     {
-      // Unlocked: three gaps give 6 px, so the line fits 110 px.
+      // Unlocked: three gaps give 3 px (4 -> 3 each), so the line fits 113 px.
       Engine engine(c);
-      const auto lines = layout(words, 110, hyphenation);
+      const auto lines = layout(words, 113, hyphenation);
       EXPECT_EQ(lines[0].words, (std::vector<std::string>{"—", "aaaa", "bbbb", "cccc"}));
-      EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 10, 44, 78}));
-      EXPECT_EQ(lines[0].right, 110);
+      EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 11, 46, 81}));
+      EXPECT_EQ(lines[0].right, 113);
     }
     c.lockedSpace = true;
     Engine engine(c);
-    // Locked: only two gaps give, 4 px. 110 px is too narrow for the fourth word, 112 px is enough.
-    EXPECT_EQ(layout(words, 110, hyphenation)[0].words, (std::vector<std::string>{"—", "aaaa", "bbbb"}));
-    const auto lines = layout(words, 112, hyphenation);
+    // Locked: only two gaps give, 2 px. 113 px is too narrow for the fourth word, 114 px is enough.
+    EXPECT_EQ(layout(words, 113, hyphenation)[0].words, (std::vector<std::string>{"—", "aaaa", "bbbb"}));
+    const auto lines = layout(words, 114, hyphenation);
     EXPECT_EQ(lines[0].words, (std::vector<std::string>{"—", "aaaa", "bbbb", "cccc"}));
-    EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 12, 46, 80}));
-    EXPECT_EQ(lines[0].right, 112);
+    EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 12, 47, 82}));
+    EXPECT_EQ(lines[0].right, 114);
   }
 }
 
@@ -802,19 +906,19 @@ TEST(SpaceAfterPunctuation, NoneStillBreaksTheLineAfterTheMark) {
 }
 
 TEST(SpaceAfterPunctuation, TheGapIsNotCondensedEither) {
-  // "aa, bbbb cccc" with Minimal is 24 + 2 + 32 + 4 + 32 = 94 px. At 50% the ordinary gap gives 2 px and the gap
-  // after the comma nothing: the line fits 92 px and not 91.
+  // "aa, bbbb cccc" with Minimal is 24 + 2 + 32 + 4 + 32 = 94 px. At 50% the ordinary gap gives 1 px (down to its
+  // floor) and the gap after the comma nothing: the line fits 93 px and not 92.
   const std::vector<const char*> words{"aa,", "bbbb", "cccc", "dddddd"};
   for (const bool hyphenation : {false, true}) {
     SCOPED_TRACE(hyphenation);
     Config c = condense(50);
     c.punctSpace = typoengine::PUNCT_SPACE_MINIMAL;
     Engine engine(c);
-    const auto lines = layout(words, 92, hyphenation);
+    const auto lines = layout(words, 93, hyphenation);
     EXPECT_EQ(lines[0].words, (std::vector<std::string>{"aa,", "bbbb", "cccc"}));
-    EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 26, 60}));
-    EXPECT_EQ(lines[0].right, 92);
-    EXPECT_EQ(layout(words, 91, hyphenation)[0].words, (std::vector<std::string>{"aa,", "bbbb"}));
+    EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 26, 61}));
+    EXPECT_EQ(lines[0].right, 93);
+    EXPECT_EQ(layout(words, 92, hyphenation)[0].words, (std::vector<std::string>{"aa,", "bbbb"}));
   }
 }
 
@@ -977,6 +1081,282 @@ TEST(TypographyEngineLayout, NoLinePassesThePageWidth) {
       }
     }
   }
+}
+
+// --- The floor under a word gap (0.77.1) ---
+
+TEST(GapFloor, TheArithmetic) {
+  EXPECT_EQ(typoengine::GAP_FLOOR_PERCENT, 60);
+  EXPECT_EQ(typoengine::gapFloor(12), 8);  // 7.2 px rounds up
+  EXPECT_EQ(typoengine::gapFloor(10), 6);
+  EXPECT_EQ(typoengine::gapFloor(4), 3);
+  // A 12 px space at 50%: the share alone would give 6 px, the floor leaves 4.
+  EXPECT_EQ(typoengine::gapAllowance(12, 12, 50), 4);
+  EXPECT_EQ(typoengine::gapAllowance(12, 12, 80), 2);  // 80% asks for less than the floor allows
+  EXPECT_EQ(typoengine::gapAllowance(12, 12, 100), 0);
+  // The same space after Optical spacing made it 9 px: 50% of that would be 5 px (glued words), now 8.
+  EXPECT_EQ(typoengine::gapAllowance(9, 12, 50), 1);
+  EXPECT_EQ(typoengine::gapAllowance(8, 12, 50), 0);
+  EXPECT_EQ(typoengine::gapAllowance(7, 12, 50), 0);   // already under it: nothing more
+  EXPECT_EQ(typoengine::gapAllowance(16, 12, 50), 8);  // a gap Optical spacing widened gives its whole share
+  for (int space = 0; space <= 40; ++space) {
+    // Optical spacing alone never goes under the floor.
+    for (int room = -40; room <= 40; ++room)
+      ASSERT_GE(typoengine::opticalGap(space, room, 0), typoengine::gapFloor(space));
+    for (int gap = 0; gap <= space * 2; ++gap) {
+      for (const int percent : {50, 60, 70, 80, 90, 100}) {
+        const int allowance = typoengine::gapAllowance(gap, space, percent);
+        ASSERT_GE(allowance, 0);
+        ASSERT_LE(allowance, typoengine::gapShrink(gap, percent));
+        ASSERT_GE(gap - allowance, std::min(gap, typoengine::gapFloor(space)));
+      }
+    }
+  }
+}
+
+TEST(GapFloor, ALineIsCondensedOnlyDownToTheFloor) {
+  for (const bool hyphenation : {false, true}) {
+    SCOPED_TRACE(hyphenation);
+    Engine engine(condense(50));
+    fixtureSpace = 20;
+    // "aaaa bbbb cccc" is 32 + 20 + 32 + 20 + 32 = 136 px. A 20 px gap may go to 12, not to 10: the line fits
+    // 120 px and not 119.
+    const auto lines = layout(kThreeAndOne, 120, hyphenation);
+    EXPECT_EQ(lines[0].words, (std::vector<std::string>{"aaaa", "bbbb", "cccc"}));
+    EXPECT_EQ(lines[0].xpos, (std::vector<int16_t>{0, 44, 88}));
+    EXPECT_EQ(lines[0].right, 120);
+    EXPECT_EQ(layout(kThreeAndOne, 119, hyphenation)[0].words, (std::vector<std::string>{"aaaa", "bbbb"}));
+  }
+}
+
+TEST(GapFloor, CondensingOpticalSpacingAndMinimalPunctuationTogetherLeaveNoGapUnderIt) {
+  // The settings of the report (Space condensing 50%, Optical spacing, Space after punctuation Minimal) on a font
+  // with a 20 px space, so the floor is 12 px. Up to 0.77.0 Optical spacing took a gap to 12 px and condensing took
+  // half of that again.
+  const std::vector<const char*> words{"oooo", "oao", "aoa,", "oooo", "ooo", "aaaa", "oo",  "ooooo", "aoao.",
+                                       "oo",   "ooo", "aaa",  "oooo", "oa",  "ao;",  "ooo", "oooo",  "aaaaa",
+                                       "ooo",  "oo",  "oooo", "aoo",  "ooa", "oooo", "ooo", "oo",    "ooooo"};
+  Config c = condense(50);
+  c.opticalSpacing = true;
+  c.punctSpace = typoengine::PUNCT_SPACE_MINIMAL;
+  Engine engine(c);
+  size_t condensedLines = 0;
+  for (uint16_t width = 150; width <= 420; ++width) {
+    for (const bool hyphenation : {false, true}) {
+      useBearingFont();
+      const auto lines = layout(words, width, hyphenation);
+      for (size_t l = 0; l < lines.size(); ++l) {
+        const auto& line = lines[l];
+        ASSERT_LE(line.right, width) << "width " << width << ", line " << l;
+        bool condensed = false;
+        for (size_t w = 1; w < line.words.size(); ++w) {
+          const std::string& before = line.words[w - 1];
+          const int gap = line.xpos[w] - (line.xpos[w - 1] + 8 * static_cast<int>(before.size()));
+          const char last = before.back();
+          if (last == ',' || last == '.' || last == ';') {
+            ASSERT_EQ(gap, 10) << "width " << width << ", line " << l;  // Minimal: half a space, as designed
+          } else {
+            ASSERT_GE(gap, typoengine::gapFloor(20)) << "width " << width << ", line " << l << ", word " << w;
+            condensed = condensed || gap < 20;
+          }
+        }
+        if (condensed) ++condensedLines;
+      }
+    }
+  }
+  EXPECT_GT(condensedLines, 100u);  // the floor was really reached for, not just never needed
+}
+
+// --- Loose line balancing (0.77.1) ---
+
+namespace {
+
+// Lays the words out with the balancing off, then on.
+struct Balanced {
+  std::vector<Line> off;
+  std::vector<Line> on;
+  size_t offCalls = 0;
+  size_t onCalls = 0;
+};
+
+Balanced balanced(const std::vector<const char*>& words, const uint16_t width, const bool hyphenation = true) {
+  Balanced out;
+  ParsedText::balanceLooseLines = false;
+  out.off = layout(words, width, hyphenation);
+  out.offCalls = lastSpaceAdvanceCalls;
+  ParsedText::balanceLooseLines = true;
+  out.on = layout(words, width, hyphenation);
+  out.onCalls = lastSpaceAdvanceCalls;
+  return out;
+}
+
+// What each gap of a justified line grew by.
+int stretchOf(const Line& line, const int space = 4) {
+  int widest = 0;
+  for (size_t w = 1; w < line.words.size(); ++w) {
+    const int gap = line.xpos[w] - (line.xpos[w - 1] + 8 * static_cast<int>(line.words[w - 1].size()));
+    widest = std::max(widest, gap - space);
+  }
+  return widest;
+}
+
+// A word no pattern can split: it does not fit after "ffff gggg" on a 200 px line and leaves that line loose.
+const std::vector<const char*> kLooseSecondLine{
+    "aaaa", "bbbb", "cccc", "dddd", "eeee", "ffff", "gggg", "xxxxxxxxxxxxxxxxxxxxxx", "hhhh", "iiii", "jjjj"};
+
+}  // namespace
+
+TEST(LooseLineBalancing, TheLineAboveGivesItsLastWordToALooseLine) {
+  // 90% of a 4 px space rounds to 4 px: condensing is on and changes nothing itself.
+  Engine engine(condense(90));
+  const auto result = balanced(kLooseSecondLine, 200);
+  // Filled as far as it goes: five words (176 px), then "ffff gggg" with a gap that grows by 132 px.
+  ASSERT_GE(result.off.size(), 3u);
+  EXPECT_EQ(result.off[0].words, (std::vector<std::string>{"aaaa", "bbbb", "cccc", "dddd", "eeee"}));
+  EXPECT_EQ(result.off[1].words, (std::vector<std::string>{"ffff", "gggg"}));
+  EXPECT_EQ(stretchOf(result.off[1]), 132);
+  // Balanced: "eeee" moves down. The gaps grow by 20 px above and 48 px below. A second word would only swap the
+  // two lines (48 and 20), so it stays.
+  ASSERT_GE(result.on.size(), 3u);
+  EXPECT_EQ(result.on[0].words, (std::vector<std::string>{"aaaa", "bbbb", "cccc", "dddd"}));
+  EXPECT_EQ(result.on[1].words, (std::vector<std::string>{"eeee", "ffff", "gggg"}));
+  EXPECT_EQ(stretchOf(result.on[0]), 20);
+  EXPECT_EQ(stretchOf(result.on[1]), 48);
+  EXPECT_EQ(result.on[0].right, 200);
+  EXPECT_EQ(result.on[1].right, 200);
+  // The lines after them are the same.
+  ASSERT_EQ(result.on.size(), result.off.size());
+  for (size_t l = 2; l < result.on.size(); ++l) EXPECT_EQ(result.on[l].words, result.off[l].words);
+}
+
+TEST(LooseLineBalancing, OnlyWithCondensingOrLetterSpacingOnAndOnlyInJustifiedText) {
+  {
+    // The engine off, and on with a setting that is not about filling lines: the lines break as before.
+    const auto off = balanced(kLooseSecondLine, 200);
+    EXPECT_EQ(wordsOf(off.on), wordsOf(off.off));
+    EXPECT_EQ(off.on[0].words.size(), 5u);
+    Config locked;
+    locked.lockedSpace = true;
+    Engine engine(locked);
+    const auto other = balanced(kLooseSecondLine, 200);
+    EXPECT_EQ(wordsOf(other.on), wordsOf(other.off));
+  }
+  {
+    Config small;
+    small.letterSpacing = 1;
+    Engine engine(small);
+    const auto justified = balanced(kLooseSecondLine, 200);
+    EXPECT_EQ(justified.on[0].words.size(), 4u);
+    ParsedText::balanceLooseLines = true;
+    for (const CssTextAlign alignment : {CssTextAlign::Left, CssTextAlign::Center, CssTextAlign::Right}) {
+      EXPECT_EQ(layout(kLooseSecondLine, 200, true, alignment)[0].words.size(), 5u);
+    }
+    // Without hyphenation the other breaker lays the paragraph out; it already weighs every line's spare room.
+    const auto whole = balanced(kLooseSecondLine, 200, false);
+    EXPECT_EQ(wordsOf(whole.on), wordsOf(whole.off));
+  }
+}
+
+TEST(LooseLineBalancing, ALineThatIsNotLooseAndTheLastLineStayAsTheyAre) {
+  Engine engine(condense(90));
+  // "ffff gggg hhhh iiii" (140 px) is the second line: its gaps grow by 20 px, which is over a space, but moving
+  // "eeee" down does not fit (176 px + 36 px), so nothing moves.
+  const auto full = balanced(
+      {"aaaa", "bbbb", "cccc", "dddd", "eeee", "ffff", "gggg", "hhhh", "iiii", "xxxxxxxxxxxxxxxxxxxxxx", "jjjj"}, 200);
+  EXPECT_EQ(wordsOf(full.on), wordsOf(full.off));
+  // The loose line is the paragraph's last: it is not justified, so it is left alone.
+  const auto last = balanced({"aaaa", "bbbb", "cccc", "dddd", "eeee", "ffff", "gggg"}, 200);
+  EXPECT_EQ(wordsOf(last.on), wordsOf(last.off));
+  EXPECT_EQ(last.on[0].words.size(), 5u);
+}
+
+TEST(LooseLineBalancing, NoWordIsLostNoPartOfAHyphenatedWordMovesAndTheLooserLineNeverGetsLooser) {
+  const std::vector<const char*> words{"It",          "was",
+                                       "the",         "best",
+                                       "of",          "times",
+                                       "it",          "was",
+                                       "the",         "worst",
+                                       "of",          "times",
+                                       "it",          "was",
+                                       "the",         "age",
+                                       "of",          "wisdom",
+                                       "and",         "foolishness",
+                                       "and",         "belief",
+                                       "in",          "an",
+                                       "epoch",       "of",
+                                       "incredulity", "xxxxxxxxxxxxxxxx",
+                                       "season",      "of",
+                                       "light",       "and",
+                                       "darkness",    "everything",
+                                       "before",      "us",
+                                       "nothing",     "xxxxxxxxxxxxxxxxxxxx",
+                                       "we",          "were",
+                                       "all",         "going",
+                                       "direct",      "to"};
+  size_t changed = 0;
+  for (const int percent : {100, 90, 50}) {
+    for (const uint8_t letters : {uint8_t{0}, uint8_t{2}, uint8_t{4}}) {
+      if (percent == 100 && letters == 0) continue;
+      Config c = condense(static_cast<uint8_t>(percent));
+      c.letterSpacing = letters;
+      Engine engine(c);
+      for (uint16_t width = 96; width <= 300; ++width) {
+        Hyphenator::setPreferredLanguage("en");
+        const auto result = balanced(words, width);
+        // The same words in the same order, with the same hyphenated parts: only where lines end may differ.
+        std::vector<std::string> offWords;
+        std::vector<std::string> onWords;
+        for (const auto& line : result.off) offWords.insert(offWords.end(), line.words.begin(), line.words.end());
+        for (const auto& line : result.on) onWords.insert(onWords.end(), line.words.begin(), line.words.end());
+        ASSERT_EQ(onWords, offWords) << "width " << width;
+        ASSERT_EQ(result.on.size(), result.off.size()) << "width " << width;
+        for (size_t l = 0; l < result.on.size(); ++l) {
+          const auto& line = result.on[l];
+          ASSERT_LE(line.right, width) << "width " << width << ", line " << l;
+          // A part of a hyphenated word still ends its line.
+          for (size_t w = 0; w + 1 < line.words.size(); ++w) {
+            ASSERT_NE(line.words[w].back(), '-') << "width " << width << ", line " << l;
+          }
+        }
+        if (wordsOf(result.on) != wordsOf(result.off)) ++changed;
+      }
+    }
+  }
+  EXPECT_GT(changed, 20u);  // the balancing did act on these widths
+}
+
+TEST(LooseLineBalancing, CostsLittleMoreThanFillingTheLines) {
+  // A chapter-long paragraph of long words (a Greek sentence in Latin letters, which no pattern set splits, and one
+  // word that never fits beside another): about 2,400 words.
+  const std::vector<const char*> sentence{
+      "einai",     "simantiko",  "giati",      "katalavainoume",           "perissotera", "apotelesmata",
+      "otan",      "diavazoume", "prosektika", "xxxxxxxxxxxxxxxxxxxxxxxx", "kai",         "anthropistikes",
+      "epistimes", "xoris",      "viasyni",    "parakolouthoume"};
+  std::vector<const char*> words;
+  for (int i = 0; i < 150; ++i) words.insert(words.end(), sentence.begin(), sentence.end());
+  Config c = condense(50);
+  c.letterSpacing = 2;
+  Engine engine(c);
+  fixtureSpace = 12;
+  const auto result = balanced(words, 440);
+  EXPECT_TRUE(wordsOf(result.on) != wordsOf(result.off));  // there were loose lines to balance
+  // Work, counted as questions to the font about a space (one for every gap looked at): at most 15% more, in a
+  // paragraph made to have a loose line every few lines (10% when this was written: 7,776 against 7,051).
+  EXPECT_LE(result.onCalls * 100, result.offCalls * 115) << result.onCalls << " against " << result.offCalls;
+  // Time, for the record only (a computer is not the reader): the whole layout, 20 times each way.
+  const auto timeOf = [&](const bool on) {
+    ParsedText::balanceLooseLines = on;
+    const auto start = std::chrono::steady_clock::now();
+    for (int i = 0; i < 20; ++i) layout(words, 440, true);
+    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+  };
+  const double offMs = timeOf(false);
+  const double onMs = timeOf(true);
+  ParsedText::balanceLooseLines = true;
+  RecordProperty("space_questions_off", static_cast<int>(result.offCalls));
+  RecordProperty("space_questions_on", static_cast<int>(result.onCalls));
+  std::printf("loose line balancing: %zu against %zu space questions, %.1f ms against %.1f ms for 20 layouts\n",
+              result.onCalls, result.offCalls, onMs, offMs);
 }
 
 // --- Hyphenation: mode, minimum letters, language ---

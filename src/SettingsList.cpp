@@ -518,9 +518,10 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   // --- Typography Engine (kos25k #30; on the device: TypographyEngineSettingsActivity) ---
   emit(SettingInfo::Value(StrId::STR_TYPO_CONDENSE, &CrossPointSettings::typoCondense, {50, 100, 10}, "typoCondense",
                           StrId::STR_TYPOGRAPHY_ENGINE));
-  emit(SettingInfo::Enum(StrId::STR_TYPO_LETTER_SPACING, &CrossPointSettings::typoLetterSpacing,
-                         {StrId::STR_STATE_OFF, StrId::STR_TYPO_SMALL, StrId::STR_TYPO_MEDIUM}, "typoLetterSpacing",
-                         StrId::STR_TYPOGRAPHY_ENGINE));
+  emit(SettingInfo::Enum(
+      StrId::STR_TYPO_LETTER_SPACING, &CrossPointSettings::typoLetterSpacing,
+      {StrId::STR_STATE_OFF, StrId::STR_TYPO_SMALL, StrId::STR_TYPO_MEDIUM, StrId::STR_TYPO_LARGE, StrId::STR_TYPO_MAX},
+      "typoLetterSpacing", StrId::STR_TYPOGRAPHY_ENGINE));
   emit(SettingInfo::Toggle(StrId::STR_TYPO_LOCKED_SPACE, &CrossPointSettings::typoLockedSpace, "typoLockedSpace",
                            StrId::STR_TYPOGRAPHY_ENGINE));
   emit(SettingInfo::Enum(StrId::STR_TYPO_PUNCT_SPACE, &CrossPointSettings::typoPunctSpace,

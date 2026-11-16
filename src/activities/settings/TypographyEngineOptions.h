@@ -66,7 +66,7 @@ inline std::vector<std::string> choices(const int row) {
       }
       break;
     case LETTER_SPACING:
-      out = {tr(STR_STATE_OFF), tr(STR_TYPO_SMALL), tr(STR_TYPO_MEDIUM)};
+      out = {tr(STR_STATE_OFF), tr(STR_TYPO_SMALL), tr(STR_TYPO_MEDIUM), tr(STR_TYPO_LARGE), tr(STR_TYPO_MAX)};
       break;
     case LOCKED_SPACE:
     case OPTICAL:

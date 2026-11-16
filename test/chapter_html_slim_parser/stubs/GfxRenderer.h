@@ -102,8 +102,12 @@ class GfxRenderer {
   int getKerning(int, uint32_t left, uint32_t right, EpdFontFamily::Style, int8_t tracking = 0) const {
     return trackingBetween(left, right, tracking);
   }
-  int spaceAdvance = 4;  // a test may widen the fixture space
-  int getSpaceAdvance(int, uint32_t, uint32_t, EpdFontFamily::Style) const { return spaceAdvance; }
+  int spaceAdvance = 4;                  // a test may widen the fixture space
+  mutable size_t spaceAdvanceCalls = 0;  // how often the layout asked for a space: a measure of its work
+  int getSpaceAdvance(int, uint32_t, uint32_t, EpdFontFamily::Style) const {
+    ++spaceAdvanceCalls;
+    return spaceAdvance;
+  }
   // Side bearings a test gives to codepoints (left, right); a codepoint without an entry has no metrics.
   std::map<uint32_t, std::pair<int, int>> sideBearings;
   bool getGlyphSideBearings(int, uint32_t cp, EpdFontFamily::Style, int& left, int& right) const {
