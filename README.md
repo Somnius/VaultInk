@@ -97,7 +97,9 @@ LiveSync now keeps up to four vaults. Each one is a database synced into its own
 
 Vaults are not books any more. Only the folders in /Vaults are vaults, and nothing under /Vaults shows in the Library, Recent, Favourites or Random page (computer tests only). The Library index is rebuilt once after the update.
 
-kos25k asked (#30) for two more Typography Engine settings: **Space after punctuation** (Normal, Minimal or None) and **Optical spacing**. Both are off by default. Computer tests only, I have not seen them on a reader yet. What they do: [docs/reading-and-files.md](docs/reading-and-files.md).
+kos25k asked (#30) for two more Typography Engine settings: **Space after punctuation** (Normal, Minimal or None) and **Optical spacing**. Both are off by default. I tried every mode on my X4 Pro with Fira Sans 16 pt.
+
+![Space after punctuation: Minimal](docs/images/vaultink/typo-punct-minimal-0.77.0.png) What they do: [docs/reading-and-files.md](docs/reading-and-files.md).
 
 Also, on a computer only: the profile setup beyond the two-vault sync, and a reader that no longer sleeps right after a long sync, PDF conversion or download.
 
