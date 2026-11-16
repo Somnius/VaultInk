@@ -40,7 +40,9 @@ struct ResponseInfo {
 
 struct Transport {
   // `path` is relative to the database ("_changes?since=..."); returns the HTTP status (<0 on a
-  // transport error) and fills `response` with the body.
+  // transport error) and fills `response` with the body. A request that got no answer, or not all
+  // of one, is sent a second time by the transport itself where that is safe (see requestCapped):
+  // the engine does not ask again for those, so one dead request is waited on once.
   std::function<int(const char* method, const std::string& path, const std::string& body, std::string& response)>
       request;
   // The same for a request that asks for exactly ONE chunk, with about how long the answer will be
@@ -97,6 +99,10 @@ struct SyncOptions {
   std::function<void(const std::string& path)> onConflictCopy;
   // One line per answer that could not be used and per skipped file (the device logs it as an error).
   std::function<void(const std::string& line)> logError;
+  // Told where the sync is: the state loaded (with the number of files known), every page of the
+  // change list read and applied, every batch of file records. The device logs its free memory
+  // with each, so a log shows at which step it falls.
+  std::function<void(const std::string& stage)> stage;
 };
 
 // The skip list's name in stateDir.
