@@ -274,6 +274,28 @@ class PollPolicy(private val intervalMs: Long = MIN_INTERVAL_MS, private val max
     }
 }
 
+/**
+ * The address to keep talking to once the reader has answered at `host`: the IPv4 address it
+ * reports as `ip` in /api/status, with the port `host` had. A name like vaultink.local can answer
+ * once and then fail to resolve on Android, so the number is used from then on. Null when `ip`
+ * isn't a usable IPv4 address.
+ */
+fun numericHost(host: String, ip: String): String? {
+    val parts = ip.trim().split('.')
+    if (parts.size != 4 || parts.any { it.isEmpty() || it.length > 3 || !it.all(Char::isDigit) || it.toInt() > 255 }) return null
+    val address = parts.joinToString(".") { it.toInt().toString() }
+    if (address == "0.0.0.0") return null
+    // A port only when the host has exactly one colon ("name:8080"); more colons are an IPv6 address.
+    val port = if (host.count { it == ':' } == 1) host.substringAfter(':') else ""
+    return if (port.isNotEmpty() && port.all(Char::isDigit)) "$address:$port" else address
+}
+
+/** The reader's model for people, from the `device` of /api/status; an id that isn't known is shown as it is. */
+fun deviceName(id: String): String = when (id) {
+    "xteink_x4_pro" -> "X4 Pro"
+    else -> id
+}
+
 /** The most a font of unknown size is read into memory before it is sent. */
 const val FONT_MAX_BYTES = 8 * 1024 * 1024
 

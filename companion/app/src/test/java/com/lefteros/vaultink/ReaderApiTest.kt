@@ -246,6 +246,27 @@ class ReaderApiTest {
     }
 
     @Test
+    fun theReadersOwnIpReplacesAName() {
+        assertEquals("10.0.0.57", numericHost("vaultink.local", "10.0.0.57"))
+        assertEquals("10.0.0.57:8080", numericHost("vaultink.local:8080", "10.0.0.57"))
+        assertEquals("192.168.4.1", numericHost("192.168.4.1", "192.168.4.1"))
+        assertEquals("10.0.0.57", numericHost("fe80::1234:80", "10.0.0.57"))  // an IPv6 address has no port to keep
+        assertNull(numericHost("vaultink.local", ""))
+        assertNull(numericHost("vaultink.local", "0.0.0.0"))
+        assertNull(numericHost("vaultink.local", "10.0.0"))
+        assertNull(numericHost("vaultink.local", "10.0.0.256"))
+        assertNull(numericHost("vaultink.local", "evil.example.org"))
+    }
+
+    @Test
+    fun deviceNames() {
+        assertEquals("X4 Pro", deviceName("xteink_x4_pro"))
+        assertEquals("X4", deviceName("X4"))
+        assertEquals("some_new_board", deviceName("some_new_board"))
+        assertEquals("", deviceName(""))
+    }
+
+    @Test
     fun uptimeAndSignal() {
         assertEquals("45 s", uptimeText(45))
         assertEquals("12 min", uptimeText(12 * 60 + 5))

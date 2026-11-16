@@ -268,7 +268,7 @@ interval with the last automatic try. **Sync now** appears only when the reader 
 sync request from there (`canSync`); today's firmware can't, because a sync runs on the reader's
 LiveSync screen and leaving File Transfer restarts the reader, so the card says to start it there.
 
-**Sync when I leave File Transfer** (companion 0.5.0, firmware 0.64.0 or newer, `syncRequest`
+**Sync when I leave File Transfer** (the button reads **Sync when I leave Transfer & Remotes** since 0.6.0; companion 0.5.0, firmware 0.64.0 or newer, `syncRequest`
 in the status): the sync still can't run next to the web server, so the button leaves a small file on
 the card instead (`/.vaultink/sync-request`, uploaded like a note). When you leave File Transfer the
 reader restarts, and at the wake that follows it runs one LiveSync sync as if it were due, then
@@ -295,7 +295,7 @@ The byte counting and clipping are in `PhoneText.kt` with JUnit tests (`PhoneTex
 
 ## 0.6.0: Home, Reader setup and a new look
 
-Not released. What was checked: `./gradlew testDebugUnitTest assembleDebug` (53 unit tests, 24 of
+Not released. What was checked: `./gradlew testDebugUnitTest assembleDebug` (55 unit tests, 26 of
 them new in `ReaderApiTest`: the JSON of every endpoint above as documented, the request bodies,
 the name checks, the polling times). **Not run on a phone, in the simulator or against a reader**:
 the look, the fades, the Greek text on screen, the font picker, the polling in the foreground and

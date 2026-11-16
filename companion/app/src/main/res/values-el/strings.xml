@@ -75,7 +75,7 @@
     <string name="intro_tab_settings">Ρυθμίσεις: Ρύθμιση συσκευής (δίκτυα Wi-Fi, LiveSync, κατάλογοι OPDS, απομακρυσμένοι διακομιστές, γραμματοσειρές) και οι ρυθμίσεις της συσκευής, ανά κατηγορία. Οι αλλαγές ισχύουν αμέσως.</string>
     <string name="intro_tab_comics">Μετατροπή κόμικ (στα Αρχεία): το Banana Comic Converter μέσα στην εφαρμογή· το κόμικ πάει κατευθείαν στον φάκελο Comics της συσκευής.</string>
     <string name="intro_tab_keep">Φέρε σημειώσεις (στη Σημείωση): μια εξαγωγή του Google Keep γίνεται σημειώσεις Markdown στο Vault σου.</string>
-    <string name="intro_tab_type">Γράψε στη συσκευή (στη Σημείωση): το κείμενο που γράφεις εδώ εμφανίζεται πίσω από ένα κουμπί «Από το κινητό» στο επόμενο πεδίο κειμένου της συσκευής. Στην Αρχική, μπορείς να ζητήσεις συγχρονισμό LiveSync όταν κλείσεις τη Μεταφορά αρχείων.</string>
+    <string name="intro_tab_type">Γράψε στη συσκευή (στη Σημείωση): το κείμενο που γράφεις εδώ εμφανίζεται πίσω από ένα κουμπί «Από το κινητό» στο επόμενο πεδίο κειμένου της συσκευής. Στην Αρχική, μπορείς να ζητήσεις συγχρονισμό LiveSync όταν κλείσεις το Μεταφορά &amp; Διακομιστές.</string>
     <string name="intro_tab_help">Βοήθεια (στο μενού ⋮): η τεκμηρίωση του VaultInk, χωρίς ίντερνετ, με αναζήτηση.</string>
     <string name="intro_privacy_title">Τα δεδομένα σου μένουν σε σένα</string>
     <string name="intro_privacy_body">Η εφαρμογή μιλάει μόνο με τη συσκευή στο Wi-Fi σου, και με το GitHub όταν ζητήσεις έλεγχο για ενημέρωση. Ο μετατροπέας κόμικ τρέχει από τη δική του ιστοσελίδα μόνο όταν τον ανοίξεις. Ούτε λογαριασμός, ούτε παρακολούθηση, τίποτα δεν στέλνεται αλλού.</string>
@@ -85,7 +85,7 @@
     <string name="menu_about">Σχετικά</string>
     <string name="back">Πίσω</string>
     <string name="about_version">Έκδοση %1$s</string>
-    <string name="about_what">Η συντροφική εφαρμογή του VaultInk, του firmware για Obsidian Vaults στο e-reader Xteink X4 Pro. Μιλάει με τη συσκευή μέσω Wi-Fi όσο είναι ανοιχτή η Μεταφορά αρχείων: γρήγορες σημειώσεις και κοινή χρήση σε Vault, η κάρτα SD, οι ρυθμίσεις της συσκευής, κόμικ, εισαγωγή από το Keep και η κατάσταση του LiveSync, από το κινητό. Ελεύθερο λογισμικό με άδεια MIT.</string>
+    <string name="about_what">Η συντροφική εφαρμογή του VaultInk, του firmware για Obsidian Vaults στο e-reader Xteink X4 Pro. Μιλάει με τη συσκευή μέσω Wi-Fi όσο είναι ανοιχτό το Μεταφορά &amp; Διακομιστές: γρήγορες σημειώσεις και κοινή χρήση σε Vault, η κάρτα SD, οι ρυθμίσεις της συσκευής, κόμικ, εισαγωγή από το Keep και η κατάσταση του LiveSync, από το κινητό. Ελεύθερο λογισμικό με άδεια MIT.</string>
     <string name="about_links">Σύνδεσμοι</string>
     <string name="about_repo">Πηγαίος κώδικας και issues (GitHub)</string>
     <string name="about_project_page">Σελίδα του έργου</string>
@@ -108,19 +108,19 @@
     <string name="help_no_results">Δεν βρέθηκε τίποτα για \"%1$s\".</string>
     <string name="help_image">[εικόνα: %1$s]</string>
     <string name="help_missing">Αυτό το έγγραφο δεν περιλαμβάνεται στην εφαρμογή: %1$s</string>
-    <string name="connect_checklist">Στη συσκευή πρέπει να είναι ανοιχτή η Μεταφορά αρχείων, και το κινητό στο ίδιο Wi-Fi ή στο hotspot της συσκευής.</string>
-    <string name="not_found_step2">2. Βάλε το κινητό στο ίδιο Wi-Fi, ή σύνδεσέ το στο hotspot της συσκευής.</string>
-    <string name="not_found_step3">Ακόμα τίποτα; Γράψε τη διεύθυνση που δείχνει η συσκευή στο πάνω μέρος της οθόνης Μεταφορά αρχείων.</string>
+    <string name="connect_checklist">Στη συσκευή πρέπει να είναι ανοιχτό το Μεταφορά &amp; Διακομιστές, και το κινητό στο ίδιο Wi-Fi ή στο hotspot της συσκευής.</string>
+    <string name="not_found_step2">Βάλε το κινητό στο ίδιο Wi-Fi, ή σύνδεσέ το στο hotspot της συσκευής.</string>
+    <string name="not_found_step3">Ακόμα τίποτα; Γράψε τη διεύθυνση που δείχνει η συσκευή στο πάνω μέρος της οθόνης Μεταφορά &amp; Διακομιστές &gt; Σύνδεση σε δίκτυο.</string>
     <string name="hint_note">Αποθηκεύεται αμέσως στην κάρτα της συσκευής. Αν έχεις ρυθμίσει το LiveSync, η συσκευή τη στέλνει στον επόμενο συγχρονισμό.</string>
     <string name="hint_files">Η κάρτα SD της συσκευής. Πάτα έναν φάκελο για να τον ανοίξεις, ⋮ σε ένα αρχείο για περισσότερα.</string>
-    <string name="reader_file_transfer">Μεταφορά αρχείων</string>
+    <string name="reader_file_transfer">Μεταφορά &amp; Διακομιστές</string>
     <string name="comics_open">Μετατροπή κόμικ</string>
     <string name="comics_title">Banana Comic Converter</string>
     <string name="comics_credit">Του u/curseofthebanana, ανεξάρτητο εργαλείο. Διάλεξε Xteink X4 / X4 Pro και XTCH.</string>
     <string name="comics_receiving">Λήψη του %1$s από τον μετατροπέα…</string>
     <string name="comics_failed">Δεν πήρα το αρχείο: %1$s</string>
     <string name="comics_ready">%1$s (%2$s)</string>
-    <string name="comics_ready_hint">Στείλ\' το στον φάκελο Comics της συσκευής ή αποθήκευσέ το στο κινητό. Για αποστολή, πρέπει να είναι ανοιχτή η Μεταφορά αρχείων στη συσκευή.</string>
+    <string name="comics_ready_hint">Στείλ\' το στον φάκελο Comics της συσκευής ή αποθήκευσέ το στο κινητό. Για αποστολή, πρέπει να είναι ανοιχτό το Μεταφορά &amp; Διακομιστές στη συσκευή.</string>
     <string name="comics_send">Αποστολή στο VaultInk</string>
     <string name="comics_save">Αποθήκευση στο κινητό</string>
     <string name="share_books_title">Αποστολή στο VaultInk: %1$d αρχείο(α)</string>
@@ -129,8 +129,8 @@
     <string name="share_sent">Στάλθηκε το %1$s στο %2$s.</string>
     <string name="update_later">Όχι τώρα</string>
     <string name="comics_sent">Στάλθηκε στο Comics ως %1$s. Ανοίγει από τη Βιβλιοθήκη ή την Περιήγηση αρχείων.</string>
-    <string name="comics_send_failed">Δεν στάλθηκε: %1$s. Είναι ανοιχτή η Μεταφορά αρχείων στη συσκευή;</string>
-    <string name="comics_no_reader">Σύνδεσε πρώτα τη συσκευή (καρτέλα Αρχική), με ανοιχτή τη Μεταφορά αρχείων.</string>
+    <string name="comics_send_failed">Δεν στάλθηκε: %1$s. Είναι ανοιχτό το Μεταφορά &amp; Διακομιστές στη συσκευή;</string>
+    <string name="comics_no_reader">Σύνδεσε πρώτα τη συσκευή (καρτέλα Αρχική), με ανοιχτό το Μεταφορά &amp; Διακομιστές.</string>
     <string name="comics_too_big">Το αρχείο ξεπερνά το 1 GB, πολύ μεγάλο για τη συσκευή. Χρησιμοποίησε το \"Split into parts\" στον μετατροπέα.</string>
     <string name="comics_unavailable">Το Banana Comic Converter δεν είναι διαθέσιμο αυτή τη στιγμή. Έλεγξε τη σύνδεση του κινητού και δοκίμασε ξανά. Ο μετατροπέας τρέχει από τη δική του ιστοσελίδα, οπότε χρειάζεται ίντερνετ για να ανοίξει εδώ.</string>
     <string name="comics_webview_old">Το Android System WebView του κινητού είναι πολύ παλιό για τον μετατροπέα. Ενημέρωσέ το από το Play Store ή άνοιξε τον μετατροπέα στον browser.</string>
@@ -161,18 +161,18 @@
     <string name="livesync_running">Συγχρονισμός…</string>
     <string name="livesync_auto">Αυτόματος συγχρονισμός κάθε %1$d ώρες στο ξύπνημα· τελευταία αυτόματη προσπάθεια %2$s.</string>
     <string name="livesync_sync_now">Συγχρονισμός τώρα</string>
-    <string name="livesync_no_remote">Ο συγχρονισμός ξεκινά από τη συσκευή (οθόνη LiveSync)· δεν γίνεται όσο είναι ανοιχτή η Μεταφορά αρχείων.</string>
+    <string name="livesync_no_remote">Ο συγχρονισμός ξεκινά από τη συσκευή (οθόνη LiveSync)· δεν γίνεται όσο είναι ανοιχτό το Μεταφορά &amp; Διακομιστές.</string>
     <string name="livesync_failed">Δεν διαβάστηκε η κατάσταση του LiveSync: %1$s</string>
-    <string name="livesync_request">Συγχρονισμός όταν κλείσω τη Μεταφορά αρχείων</string>
-    <string name="livesync_request_hint">Ο συγχρονισμός δεν γίνεται όσο είναι ανοιχτή η Μεταφορά αρχείων. Αυτό αφήνει ένα αίτημα στην κάρτα· η συσκευή κάνει έναν συγχρονισμό όταν ξυπνήσει αφού κλείσεις τη Μεταφορά αρχείων.</string>
-    <string name="livesync_requested">Το αίτημα έμεινε στη συσκευή. Κλείσε εκεί τη Μεταφορά αρχείων· ο συγχρονισμός γίνεται στο επόμενο ξύπνημα.</string>
+    <string name="livesync_request">Συγχρονισμός όταν κλείσω το Μεταφορά &amp; Διακομιστές</string>
+    <string name="livesync_request_hint">Ο συγχρονισμός δεν γίνεται όσο είναι ανοιχτό το Μεταφορά &amp; Διακομιστές. Αυτό αφήνει ένα αίτημα στην κάρτα· η συσκευή κάνει έναν συγχρονισμό όταν ξυπνήσει αφού κλείσεις το Μεταφορά &amp; Διακομιστές.</string>
+    <string name="livesync_requested">Το αίτημα έμεινε στη συσκευή. Κλείσε εκεί το Μεταφορά &amp; Διακομιστές· ο συγχρονισμός γίνεται στο επόμενο ξύπνημα.</string>
     <!-- Type into the reader (firmware 0.64.0) -->
     <string name="phone_text_title">Γράψε στη συσκευή</string>
     <string name="phone_text_hint">Γράψε εδώ, στείλε, και μετά στη συσκευή άνοιξε ένα πεδίο κειμένου (γραμμή σημείωσης, αναζήτηση, όνομα συνήθειας) και πάτα «Από το κινητό» για να μπει το κείμενο. Οι αλλαγές γραμμής γίνονται κενά.</string>
     <string name="phone_text_label">Κείμενο για τη συσκευή</string>
     <string name="phone_text_count">%1$d / %2$d bytes</string>
     <string name="phone_text_send">Στείλε στη συσκευή</string>
-    <string name="phone_text_sent">Στάλθηκε. Στη συσκευή κλείσε τη Μεταφορά αρχείων, άνοιξε το πεδίο κειμένου και πάτα «Από το κινητό».</string>
+    <string name="phone_text_sent">Στάλθηκε. Στη συσκευή κλείσε το Μεταφορά &amp; Διακομιστές, άνοιξε το πεδίο κειμένου και πάτα «Από το κινητό».</string>
     <string name="phone_text_kept">Η συσκευή δεν βρέθηκε. Το κείμενο κρατιέται στο κινητό και στέλνεται μόλις βρεθεί.</string>
     <!-- Bring notes in (0.5.0) -->
     <string name="import_title">Φέρε σημειώσεις</string>

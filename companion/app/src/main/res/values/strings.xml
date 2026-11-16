@@ -76,7 +76,7 @@
     <string name="intro_tab_settings">Settings: Reader setup (Wi-Fi networks, LiveSync, OPDS catalogues, remote servers, fonts) and the reader\'s settings, by category. Changes apply right away.</string>
     <string name="intro_tab_comics">Convert a comic (in Files): Banana Comic Converter inside the app; the converted comic goes straight to the reader\'s Comics folder.</string>
     <string name="intro_tab_keep">Bring notes in (in Note): a Google Keep export becomes Markdown notes in your vault.</string>
-    <string name="intro_tab_type">Type into the reader (in Note): text you write here appears behind a From phone button in the reader\'s next text field. In Home, LiveSync can be asked to sync when you leave File Transfer.</string>
+    <string name="intro_tab_type">Type into the reader (in Note): text you write here appears behind a From phone button in the reader\'s next text field. In Home, LiveSync can be asked to sync when you leave Transfer &amp; Remotes.</string>
     <string name="intro_tab_help">Help (in the ⋮ menu): VaultInk\'s documentation, offline, with a search.</string>
     <string name="intro_privacy_title">Your data stays with you</string>
     <string name="intro_privacy_body">The app talks only to the reader on your Wi-Fi, and to GitHub when you ask it to check for an update. The comic converter runs from its own website only when you open it. No account, no tracking, nothing sent anywhere else.</string>
@@ -86,7 +86,7 @@
     <string name="menu_about">About</string>
     <string name="back">Back</string>
     <string name="about_version">Version %1$s</string>
-    <string name="about_what">The companion app for VaultInk, the Obsidian-vault firmware for the Xteink X4 Pro e-reader. It talks to the reader over Wi-Fi while File Transfer is open: quick notes and shares into a vault, the SD card, the reader\'s settings, comics, Keep imports and the LiveSync status, from the phone. Free software under the MIT licence.</string>
+    <string name="about_what">The companion app for VaultInk, the Obsidian-vault firmware for the Xteink X4 Pro e-reader. It talks to the reader over Wi-Fi while Transfer &amp; Remotes is open: quick notes and shares into a vault, the SD card, the reader\'s settings, comics, Keep imports and the LiveSync status, from the phone. Free software under the MIT licence.</string>
     <string name="about_links">Links</string>
     <string name="about_repo">Source code and issues (GitHub)</string>
     <string name="about_project_page">Project page</string>
@@ -109,19 +109,19 @@
     <string name="help_no_results">Nothing found for \"%1$s\".</string>
     <string name="help_image">[image: %1$s]</string>
     <string name="help_missing">This document isn\'t bundled with the app: %1$s</string>
-    <string name="connect_checklist">On the reader, File Transfer must be open, and the phone on the same Wi-Fi or on the reader\'s hotspot.</string>
-    <string name="not_found_step2">2. Put the phone on the same Wi-Fi, or join the reader\'s hotspot.</string>
-    <string name="not_found_step3">Still nothing? Type the address the reader shows at the top of its File Transfer screen.</string>
+    <string name="connect_checklist">On the reader, Transfer &amp; Remotes must be open, and the phone on the same Wi-Fi or on the reader\'s hotspot.</string>
+    <string name="not_found_step2">Put the phone on the same Wi-Fi, or join the reader\'s hotspot.</string>
+    <string name="not_found_step3">Still nothing? Type the address the reader shows at the top of its Transfer &amp; Remotes &gt; Join a Network screen.</string>
     <string name="hint_note">Saved on the reader\'s card right away. With LiveSync set up, the reader sends it on its next sync.</string>
     <string name="hint_files">The reader\'s SD card. Tap a folder to open it, ⋮ on a file for more.</string>
-    <string name="reader_file_transfer">File Transfer</string>
+    <string name="reader_file_transfer">Transfer &amp; Remotes</string>
     <string name="comics_open">Convert a comic</string>
     <string name="comics_title">Banana Comic Converter</string>
     <string name="comics_credit">By u/curseofthebanana, an independent tool. Pick Xteink X4 / X4 Pro and XTCH.</string>
     <string name="comics_receiving">Getting %1$s from the converter…</string>
     <string name="comics_failed">Couldn\'t get the file: %1$s</string>
     <string name="comics_ready">%1$s (%2$s)</string>
-    <string name="comics_ready_hint">Send it to the reader\'s Comics folder, or save it on the phone. For sending, File Transfer must be open on the reader.</string>
+    <string name="comics_ready_hint">Send it to the reader\'s Comics folder, or save it on the phone. For sending, Transfer &amp; Remotes must be open on the reader.</string>
     <string name="comics_send">Send to VaultInk</string>
     <string name="comics_save">Save to phone</string>
     <string name="share_books_title">Send to VaultInk: %1$d file(s)</string>
@@ -130,8 +130,8 @@
     <string name="share_sent">Sent %1$s to %2$s.</string>
     <string name="update_later">Not now</string>
     <string name="comics_sent">Sent to Comics as %1$s. It opens from Library or Browse Files.</string>
-    <string name="comics_send_failed">Couldn\'t send it: %1$s. Is File Transfer open on the reader?</string>
-    <string name="comics_no_reader">Connect to the reader first (the Home tab), with File Transfer open on it.</string>
+    <string name="comics_send_failed">Couldn\'t send it: %1$s. Is Transfer &amp; Remotes open on the reader?</string>
+    <string name="comics_no_reader">Connect to the reader first (the Home tab), with Transfer &amp; Remotes open on it.</string>
     <string name="comics_too_big">The file is over 1 GB, too big for the reader. Use \"Split into parts\" in the converter.</string>
     <string name="comics_unavailable">Banana Comic Converter can\'t be reached right now. Check the phone\'s connection and try again. The converter runs from its own website, so it needs the internet to open here.</string>
     <string name="comics_webview_old">This phone\'s Android System WebView is too old for the converter here. Update it from the Play Store, or open the converter in the browser.</string>
@@ -162,18 +162,18 @@
     <string name="livesync_running">Syncing…</string>
     <string name="livesync_auto">Automatic sync every %1$d h on wake; last automatic try %2$s.</string>
     <string name="livesync_sync_now">Sync now</string>
-    <string name="livesync_no_remote">A sync starts on the reader (its LiveSync screen); it can\'t run while File Transfer is open.</string>
+    <string name="livesync_no_remote">A sync starts on the reader (its LiveSync screen); it can\'t run while Transfer &amp; Remotes is open.</string>
     <string name="livesync_failed">Couldn\'t read the LiveSync status: %1$s</string>
-    <string name="livesync_request">Sync when I leave File Transfer</string>
-    <string name="livesync_request_hint">A sync can\'t run while File Transfer is open. This leaves a request on the card; the reader runs one sync when it wakes after you leave File Transfer.</string>
-    <string name="livesync_requested">Request left on the reader. Leave File Transfer there; the sync runs at its next wake.</string>
+    <string name="livesync_request">Sync when I leave Transfer &amp; Remotes</string>
+    <string name="livesync_request_hint">A sync can\'t run while Transfer &amp; Remotes is open. This leaves a request on the card; the reader runs one sync when it wakes after you leave Transfer &amp; Remotes.</string>
+    <string name="livesync_requested">Request left on the reader. Leave Transfer &amp; Remotes there; the sync runs at its next wake.</string>
     <!-- Type into the reader (firmware 0.64.0) -->
     <string name="phone_text_title">Type into the reader</string>
     <string name="phone_text_hint">Write here, send, then on the reader open a text field (a note line, a search, a habit name) and tap From phone to put the text in. Line breaks become spaces.</string>
     <string name="phone_text_label">Text for the reader</string>
     <string name="phone_text_count">%1$d / %2$d bytes</string>
     <string name="phone_text_send">Send to the reader</string>
-    <string name="phone_text_sent">Sent. On the reader, leave File Transfer, open the text field and tap From phone.</string>
+    <string name="phone_text_sent">Sent. On the reader, leave Transfer &amp; Remotes, open the text field and tap From phone.</string>
     <string name="phone_text_kept">Couldn\'t reach the reader. The text is kept on the phone and goes to the reader as soon as it\'s found.</string>
     <!-- Bring notes in (0.5.0) -->
     <string name="import_title">Bring notes in</string>

@@ -87,7 +87,7 @@ private fun Masthead(host: String, status: DeviceStatus) {
     Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = MastheadInk, contentColor = MastheadPaper) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
             Text(stringResource(R.string.home_connected), style = MaterialTheme.typography.labelMedium, color = MastheadQuiet)
-            Text(status.device.ifEmpty { stringResource(R.string.app_name) }, style = MaterialTheme.typography.displaySmall,
+            Text(deviceName(status.device).ifEmpty { stringResource(R.string.app_name) }, style = MaterialTheme.typography.displaySmall,
                 maxLines = 2)
             Text(stringResource(R.string.home_version_at, status.version, host),
                 style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = MastheadQuiet)

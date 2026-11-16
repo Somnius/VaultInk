@@ -114,6 +114,15 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
                     if (s != null) found = discovered to s
                 }
             }
+            // What answered may have been a name (vaultink.local) that Android won't resolve the next
+            // time: from here on the reader's own IP is used, once it has answered there too.
+            found?.let { (h, s) ->
+                val numeric = numericHost(h, s.ip)
+                if (numeric != null && numeric != h) {
+                    val again = withContext(Dispatchers.IO) { runCatching { DeviceClient(numeric).status() }.getOrNull() }
+                    if (again != null) found = numeric to again
+                }
+            }
             policy.retry()
             found?.let { (h, s) ->
                 host = h
