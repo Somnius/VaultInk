@@ -567,7 +567,9 @@ static bool joinSavedWifiForSync() {
     delay(50);
     found = WiFi.scanComplete();
   }
+#ifndef SIMULATOR
   if (found == WIFI_SCAN_RUNNING) esp_wifi_scan_stop();
+#endif
   std::vector<wifijoin::Seen> seen;
   for (int16_t i = 0; i < found; i++) seen.push_back({WiFi.SSID(i).c_str(), WiFi.RSSI(i)});
   WiFi.scanDelete();

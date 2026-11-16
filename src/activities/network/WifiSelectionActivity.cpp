@@ -271,13 +271,16 @@ void WifiSelectionActivity::processWifiScanResults() {
   if (lastScan == wifijoin::Scan::Ok) {
     std::vector<wifijoin::Seen> seen;
     seen.reserve(networks.size());
-    for (const auto& network : networks) seen.push_back({network.ssid, network.rssi});
+    std::transform(networks.begin(), networks.end(), std::back_inserter(seen),
+                   [](const auto& network) { return wifijoin::Seen{network.ssid, network.rssi}; });
     autoOrder = wifijoin::savedInRange(
         seen, [](const std::string& ssid) { return WIFI_STORE.hasSavedCredential(ssid); },
         WIFI_STORE.getLastConnectedSsid());
   } else {
     std::vector<std::string> saved;
-    for (const auto& summary : WIFI_STORE.getCredentialSummaries()) saved.push_back(summary.ssid);
+    const auto summaries = WIFI_STORE.getCredentialSummaries();
+    std::transform(summaries.begin(), summaries.end(), std::back_inserter(saved),
+                   [](const auto& summary) { return summary.ssid; });
     autoOrder = wifijoin::blindOrder(saved, WIFI_STORE.getLastConnectedSsid());
   }
   appendActionRows();
