@@ -32,6 +32,12 @@ From kos25k's issues (all checked, open and closed, on 2026-11-01):
 * ✅ Closed after kos25k tested on a real device: #9, #16 (his router), #18, #20, #22, #24. Still open and waiting for him: #19 (needs a close photo of a gap), #1 (separate contrast screen: fine or inline?).
 * ⏳ Needs hardware, cannot be settled here: VaultEUC on a real wheel, Bluetooth keyboard typing with a real keyboard, the XTCH refresh choice.
 
+## Asked by Lef, for a later release (2026-11-16)
+
+* 💤 Dice roller: a history of the last rolls (what was rolled and the result), kept until the
+  roller is closed or saved on the card, and an animation while rolling that lasts at least 1 to
+  1.5 seconds before the result shows (e-ink: a few fast partial refreshes of tumbling dice faces).
+
 ## Next (reviewed by Gemini and Grok, 2026-10-30)
 
 In this order, each also listed in its phase below:
