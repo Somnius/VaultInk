@@ -493,16 +493,16 @@ curl -X POST -H "Content-Type: application/json" \
 ```
 
 - `uri` (required): the Setup URI, or its `%$...` part; 32 KB at most.
-- `vault` (optional, not released yet): the folder under `/Vaults` this profile syncs into. Up to
+- `vault` (optional, 0.77.0): the folder under `/Vaults` this profile syncs into. Up to
   64 bytes of letters (non-Latin too), digits, spaces, `-`, `_`, `.`; no `/`, no dot or space at
   either end. Left out or empty: the database's name (known once the passphrase is typed).
-- `profile` (optional, not released yet): `1` to `4`. Left out: the profile that already waits
+- `profile` (optional, 0.77.0): `1` to `4`. Left out: the profile that already waits
   with this same URI, else the next free one. A profile that is already set up keeps working
   until the new setup is finished on the device.
 
 Answers `200` with `{"ok":true,"profile":2,"vault":"Constantinople By Night","folderExists":false}`
 (before profiles the body was the text `OK`; clients that only look at the status keep working).
-`folderExists` (not released yet) is `true` when that folder is already on the card with files in
+`folderExists` (0.77.0) is `true` when that folder is already on the card with files in
 it: the first sync replaces notes at the same path with the server's version, and files only on
 the card stay. It is a notice, never a refusal; the device asks the same before it finishes the
 setup. Without `vault` the folder isn't known yet (it is the database's name, inside the encrypted
@@ -546,7 +546,7 @@ curl http://vaultink.local/api/livesync/status
 }
 ```
 
-- `profiles` (not released yet): one entry per profile in use (set up, or with a Setup URI
+- `profiles` (0.77.0): one entry per profile in use (set up, or with a Setup URI
   waiting), in order of `index` (1 to 4); profiles not in use are left out. `vault` is the folder
   under `/Vaults` (`""` while a waiting setup has no folder name: it becomes the database's name).
   `lastResult`, `lastAttempt`, `autoHours` and `canPush` are there only when `configured`.

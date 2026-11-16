@@ -708,8 +708,19 @@
 
   <section id="release">
     <div class="wrap">
-      <p class="eyebrow sans">New in 0.76.1</p>
-      <h2>PDFs that open, and a menu for the format</h2>
+      <p class="eyebrow sans">New in 0.77.0</p>
+      <h2>More than one vault, and LiveSync that finishes</h2>
+      <p class="lead">LiveSync now keeps up to four vaults, each a database synced into its own folder under /Vaults, with <strong>Sync all</strong> in Settings &gt; Vaults &gt; LiveSync. On my X4 Pro (2026-11-16) a Sync all of two vaults, about 340 and 75 files with pictures, finished in about 2 minutes with nothing skipped. The first runs stopped on a picture, ran out of internal memory or waited minutes on requests with no answer; those are fixed.</p>
+
+      <ul class="list">
+        <li>A file that can&rsquo;t be fetched is skipped with a reason and tried again by the next sync. The profile setup beyond that two-vault sync is tested on a computer only.</li>
+        <li>Vaults are not books: only the folders in /Vaults are vaults, and nothing under /Vaults shows in the Library, Recent, Favourites or Random page (computer tests only).</li>
+        <li>Typography Engine, asked by kos25k (#30): Space after punctuation (Normal, Minimal, None) and Optical spacing. Both are off by default. Computer tests only, not seen on a reader yet.</li>
+        <li>The reader no longer sleeps right after a long sync, PDF conversion or download (computer tests only).</li>
+        <li>Known: in the earlier runs some requests got no answer and I did not find out why. The GitHub certificate check is still off in release builds.</li>
+      </ul>
+
+      <h3 style="margin-top:2.4rem">From 0.76.1: PDFs that open, and a menu for the format</h3>
       <p class="lead">Two big PDFs of mine crashed the reader on open (&ldquo;System Crash&rdquo;). The crash dump pointed at the PDF text extractor, which ran out of stack on forms inside forms. It now uses about 14 KB of its 24 KB (measured on one run) and far less memory. I converted three PDFs of 24, 58 and 74 MB from scratch on my X4 Pro and all three opened; the first conversion takes 1.5 to 6 minutes.</p>
 
       <div class="features">

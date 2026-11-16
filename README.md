@@ -40,7 +40,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (my code is MIT; the firmware binaries are GPL-3.0-or-later, see [License](#license)). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Still early.** VaultInk is at 0.76.1. Releases from 0.8.2 on have been tested on a real X4 Pro by one
+> **Still early.** VaultInk is at 0.77.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
 > tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Much of the
 > newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
 > the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
@@ -90,6 +90,18 @@ Page background contrast with a preview, Random page!, the Library's format filt
 MOBI and AZW books, the status bar options with the book page number, and Advanced Typography.
 
 More screenshots are in the sections below and in [docs/](docs/).
+
+## New in 0.77.0: more than one vault, and LiveSync that finishes
+
+LiveSync now keeps up to four vaults. Each one is a database synced into its own folder under /Vaults, with a name you choose, and Settings > Vaults > LiveSync has **Sync all**. On my X4 Pro (2026-11-16) a Sync all of two vaults, about 340 and 75 files with pictures, finished in about 2 minutes with nothing skipped, and the free internal memory never went under 90 KB. The first runs did not get that far: one stopped at the third file on a picture, one ran the internal memory down to 104 bytes, one waited minutes on requests with no answer. Those are fixed. A file that still can't be fetched is skipped with a reason and tried again next time. Guide: [docs/livesync.md](docs/livesync.md).
+
+Vaults are not books any more. Only the folders in /Vaults are vaults, and nothing under /Vaults shows in the Library, Recent, Favourites or Random page (computer tests only). The Library index is rebuilt once after the update.
+
+kos25k asked (#30) for two more Typography Engine settings: **Space after punctuation** (Normal, Minimal or None) and **Optical spacing**. Both are off by default. Computer tests only, I have not seen them on a reader yet. What they do: [docs/reading-and-files.md](docs/reading-and-files.md).
+
+Also, on a computer only: the profile setup beyond the two-vault sync, and a reader that no longer sleeps right after a long sync, PDF conversion or download.
+
+Known: in the earlier runs some requests got no answer and I did not find out why. The GitHub certificate check is still off in release builds.
 
 ## New in 0.76.1: PDFs that open, and a menu for the format
 

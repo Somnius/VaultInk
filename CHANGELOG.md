@@ -2,6 +2,25 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.77.0 (2026-11-16)
+
+LiveSync for more than one vault, vaults that stay out of the Library, and two more Typography Engine settings asked for in #30. Each part says whether I checked it on my X4 Pro.
+
+Checked on a real X4 Pro (2026-11-16):
+
+- **LiveSync pulls whole vaults with pictures.** A Sync all of two vaults of mine (about 340 and 75 files) finished in about 2 minutes with nothing skipped, and the free internal memory never went under 90 KB. It took several runs to get there. The first pull stopped at the third file on a picture (the JSON library could not hold a string over 65,535 characters). The next brought about 150 files and then got no answers, and the reader went to sleep. Another left 104 bytes of internal memory, and one skipped three pictures of about 1.5 MB. What changed: a file's pieces are fetched in batches and written batch by batch, a picture stored as one piece is decoded inside the answer's own buffer, a sync keeps its memory in PSRAM, a request is sent whole, and the waits are shorter (10 s for a connection or the start of an answer, a silent server stops the sync after 30 s; one dead request had cost 168 s). Each fix has computer tests; on the reader I checked the result, not each fix on its own.
+
+Tested on a computer only:
+
+- **Up to four vaults in LiveSync** (the two-vault Sync all above ran on the reader; the rest here did not). Each profile is one database synced into its own folder under /Vaults, with a name you choose. Paste the vault's Setup URI on the web page with a Vault folder name, then finish it on the device. Settings > Vaults > LiveSync lists the profiles with Sync all, and the Sync tile and sync on wake go through them one after the other. The setup you have now becomes profile 1. Two profiles can't share a folder, a folder's sync state belongs to its vault, and Finish setup asks before the first sync into a folder that already has files. `scripts/livesync_setup_uri.py` re-encrypts a Setup URI with a new passphrase. Guide: docs/livesync.md.
+- **A file that can't be fetched is skipped**, not the whole sync. It is listed with a reason in /.vaultink/<id>/livesync/skipped.txt, counted in the result line and tried again by the next sync. The sync still stops when the server itself can't be used, after more than 20 failed requests in a row, or when the skip list is full.
+- **Vaults are not books.** Only the folders in /Vaults are vaults; a folder with .obsidian anywhere else is an ordinary folder again. Nothing under /Vaults shows in the Library, Recent, the Continue Reading card, Favourites or Random page. The Library index is rebuilt once after the update. The Vaults screen keeps its own recent notes.
+- **Typography Engine: Space after punctuation and Optical spacing** (kos25k #30). Both are off by default, so nothing changes until you turn one on. Space after punctuation is Normal, Minimal or None: Minimal keeps half a space after , . ; : · ! ? and a closing quote or bracket, and justification leaves it alone; None leaves no space, and the line can still break after the mark. Optical spacing corrects each word gap by the empty room the font leaves beside the two letters around it. Left-to-right text only. Not seen on a reader yet.
+- The reader no longer goes to sleep right after a long job (a sync, a PDF conversion or a download of 5 seconds or more).
+- LiveSync errors say what failed: the certificate hint shows only for a failed TLS handshake, and a server that could not be reached or did not answer says so. WebDAV uploads use the same fixed request code.
+
+Known: in the earlier runs some requests got no answer from the server, and I did not find out why. The last run had none skipped. The GitHub certificate check is still off in release builds.
+
 ## 0.76.1 (2026-11-15)
 
 A fix for PDFs that crashed the reader, and a book menu that shows only what the book's format supports. I found the crash with PDFs of my own: opening two big ones gave "System Crash".

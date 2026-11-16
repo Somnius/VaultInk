@@ -28,7 +28,10 @@ remote is refused with a message, before anything is written.
 The vault goes into `/Vaults/<vault folder>/` when you gave a folder name, else into
 `/Vaults/<database name>/`. A database name the SD card can't store becomes `/Vaults/LiveSync`.
 
-## More than one vault (not released yet)
+## More than one vault
+
+New in 0.77.0. A Sync all of two vaults ran on a real X4 Pro on 2026-11-16; the rest of this section
+is checked with computer tests only.
 
 The reader keeps up to **four LiveSync profiles**. Each profile is one CouchDB database synced into
 its own folder under `/Vaults`, with its own Sync on wake and Check certificate choice. So a
@@ -174,8 +177,7 @@ decide how much memory the sync needs.
   in 1.5 MB.
 - **One answer from the server** can be 2 MB at most when it holds several pieces. A bigger one
   is dropped while it arrives ("Response over ... bytes" in the log) and asked again in halves.
-- **A request for one piece alone** may get a longer answer (written 2026-11-16, unreleased,
-  **computer tests only, not run on a reader**): up to three quarters of the largest free PSRAM
+- **A request for one piece alone** may get a longer answer (0.77.0): up to three quarters of the largest free PSRAM
   block (half, in the first build of that day), 6 MB at most and never less than the 2 MB above.
   A picture that LiveSync stored as one piece is over 2 MB of JSON and was skipped before. Such
   an answer is not parsed into a JSON document (a second copy of it): the buffer is taken once at
