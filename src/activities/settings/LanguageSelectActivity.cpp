@@ -1,5 +1,6 @@
 #include "LanguageSelectActivity.h"
 
+#include <Epub/hyphenation/Hyphenator.h>
 #include <GfxRenderer.h>
 #include <I18n.h>
 
@@ -70,6 +71,7 @@ void LanguageSelectActivity::activateIndex(const int index) {
     RenderLock lock(*this);
     I18N.setLanguage(static_cast<Language>(langIndex));
   }
+  if (langIndex < getLanguageCount()) Hyphenator::setFallbackLanguage(LANGUAGE_CODES[langIndex]);
 
   SETTINGS.language = langIndex;
   SETTINGS.saveToFile();

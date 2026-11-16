@@ -4,6 +4,7 @@
 #include <BoardConfig.h>
 #include <DevLink.h>
 #include <Epub.h>
+#include <Epub/hyphenation/Hyphenator.h>
 #include <FontCacheManager.h>
 #include <FontDecompressor.h>
 #include <Gamepad.h>
@@ -860,6 +861,8 @@ void setup() {
   RECENT_BOOKS.loadFromFile();
   FAVOURITES.load();
   I18N.setLanguage(static_cast<Language>(SETTINGS.language));
+  // The patterns for Latin words of a book that names no language (see Hyphenator::setPreferredLanguage).
+  if (SETTINGS.language < getLanguageCount()) Hyphenator::setFallbackLanguage(LANGUAGE_CODES[SETTINGS.language]);
   KOREADER_STORE.loadFromFile();
   EXPORT_STORE.loadFromFile();
   TRANSLATE_STORE.loadFromFile();

@@ -12,6 +12,9 @@
 #include "LanguageRegistry.h"
 
 const LanguageHyphenator* Hyphenator::cachedHyphenator_ = nullptr;
+bool Hyphenator::bookLanguageUnset_ = true;
+const LanguageHyphenator* Hyphenator::fallbackLatin_ = nullptr;
+const LanguageHyphenator* Hyphenator::fallbackCyrillic_ = nullptr;
 
 namespace {
 
@@ -27,11 +30,8 @@ static constexpr Iso639Mapping kIso639Mappings[] = {
     {"eng", "en"}, {"fra", "fr"}, {"fre", "fr"}, {"deu", "de"}, {"ger", "de"}, {"rus", "ru"}, {"spa", "es"},
     {"ita", "it"}, {"ukr", "uk"}, {"swe", "sv"}, {"fin", "fi"}, {"gre", "el"}, {"ell", "el"}};
 
-// Maps a BCP-47 or ISO 639-2 language tag to a language-specific hyphenator.
-const LanguageHyphenator* hyphenatorForLanguage(const std::string& langTag) {
-  if (langTag.empty()) return nullptr;
-
-  // Extract primary subtag and normalize to lowercase (e.g., "en-US" -> "en", "ENG" -> "en").
+// The primary subtag in lowercase (e.g., "en-US" -> "en", "ENG" -> "eng").
+std::string primarySubtag(const std::string& langTag) {
   std::string primary;
   primary.reserve(langTag.size());
   for (char c : langTag) {
@@ -39,6 +39,27 @@ const LanguageHyphenator* hyphenatorForLanguage(const std::string& langTag) {
     if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
     primary.push_back(c);
   }
+  return primary;
+}
+
+// True when a book's dc:language names no language: empty, one of the "no language" codes (und, mul, zxx, mis), or
+// not a two- or three-letter code at all. A well-formed code the reader has no patterns for ("nl", "ja") is a
+// language the book did name, so it is not unset.
+bool languageTagIsUnset(const std::string& langTag) {
+  const std::string primary = primarySubtag(langTag);
+  if (primary.size() < 2 || primary.size() > 3) return true;
+  for (const char c : primary) {
+    if (c < 'a' || c > 'z') return true;
+  }
+  return primary == "und" || primary == "mul" || primary == "zxx" || primary == "mis";
+}
+
+// Maps a BCP-47 or ISO 639-2 language tag to a language-specific hyphenator.
+const LanguageHyphenator* hyphenatorForLanguage(const std::string& langTag) {
+  if (langTag.empty()) return nullptr;
+
+  // Extract primary subtag and normalize to lowercase (e.g., "en-US" -> "en", "ENG" -> "en").
+  std::string primary = primarySubtag(langTag);
   if (primary.empty()) return nullptr;
 
   // Normalize ISO 639-2 three-letter codes to two-letter equivalents.
@@ -57,20 +78,32 @@ const LanguageHyphenator* hyphenatorForLanguage(const std::string& langTag) {
 // (or no) hyphenator can't break Greek letters. A word with any polytonic letter uses the
 // polytonic patterns, which also cover monotonic letters. Mixed-script words (e.g.
 // "α-helix") keep the book's hyphenator so their Latin or Cyrillic parts still break.
-const LanguageHyphenator* hyphenatorForWord(const std::vector<CodepointInfo>& cps,
-                                            const LanguageHyphenator* preferred) {
+//
+// A book that names no language passes the two fallbacks (nullptr otherwise): a word of Latin letters only or of
+// Cyrillic letters only then takes that script's patterns. A word of mixed scripts stays unbroken, as before.
+const LanguageHyphenator* hyphenatorForWord(const std::vector<CodepointInfo>& cps, const LanguageHyphenator* preferred,
+                                            const LanguageHyphenator* latinFallback,
+                                            const LanguageHyphenator* cyrillicFallback) {
   static const LanguageHyphenator* const greek = getLanguageHyphenatorForPrimaryTag("el");
   static const LanguageHyphenator* const polytonic = getLanguageHyphenatorForPrimaryTag("grc");
   const bool greekBook = preferred == greek || preferred == polytonic;
   bool hasGreek = false;
   bool hasPolytonic = false;
+  bool hasLatin = false;
+  bool hasCyrillic = false;
   for (const auto& cp : cps) {
     if (isGreekLetter(cp.value)) {
       hasGreek = true;
       hasPolytonic = hasPolytonic || isPolytonicGreek(cp.value);
-    } else if (!greekBook && isAlphabetic(cp.value)) {
-      return preferred;
+    } else if (isCyrillicLetter(cp.value)) {
+      hasCyrillic = true;
+    } else if (isLatinLetter(cp.value)) {
+      hasLatin = true;
     }
+  }
+  if (!greekBook && (hasLatin || hasCyrillic)) {
+    if (preferred || hasGreek || (hasLatin && hasCyrillic)) return preferred;
+    return hasCyrillic ? cyrillicFallback : latinFallback;
   }
   if (!hasGreek) return preferred;
   if (hasPolytonic) return polytonic;
@@ -243,7 +276,15 @@ std::vector<Hyphenator::BreakInfo> Hyphenator::breakOffsets(const std::string& w
   // than the line stays, or that word would run off the page.
   const typoengine::Config typo = typoengine::current();
   const LanguageHyphenator* const chosen = overrideHyphenator(typo.language);
-  const auto* hyphenator = chosen ? chosen : hyphenatorForWord(cps, cachedHyphenator_);
+  // A book that names no language (see setPreferredLanguage) breaks its Latin and Cyrillic words by script.
+  static const LanguageHyphenator* const english = getLanguageHyphenatorForPrimaryTag("en");
+  static const LanguageHyphenator* const russian = getLanguageHyphenatorForPrimaryTag("ru");
+  const bool byScript = cachedHyphenator_ == nullptr && bookLanguageUnset_;
+  const LanguageHyphenator* const latinFallback = !byScript ? nullptr : fallbackLatin_ ? fallbackLatin_ : english;
+  const LanguageHyphenator* const cyrillicFallback = !byScript           ? nullptr
+                                                     : fallbackCyrillic_ ? fallbackCyrillic_
+                                                                         : russian;
+  const auto* hyphenator = chosen ? chosen : hyphenatorForWord(cps, cachedHyphenator_, latinFallback, cyrillicFallback);
   const bool softOnly = typo.hyphenMode == typoengine::HYPHEN_SOFT_ONLY;
 
   // Detect apostrophe-like separators early; used by both branches below.
@@ -336,4 +377,17 @@ std::vector<Hyphenator::BreakInfo> Hyphenator::breakOffsets(const std::string& w
   return breaks;
 }
 
-void Hyphenator::setPreferredLanguage(const std::string& lang) { cachedHyphenator_ = hyphenatorForLanguage(lang); }
+void Hyphenator::setPreferredLanguage(const std::string& lang) {
+  cachedHyphenator_ = hyphenatorForLanguage(lang);
+  bookLanguageUnset_ = languageTagIsUnset(lang);
+}
+
+void Hyphenator::setFallbackLanguage(const std::string& lang) {
+  const LanguageHyphenator* const hyphenator = hyphenatorForLanguage(lang);
+  const std::string primary = primarySubtag(lang);
+  const bool cyrillic = primary == "ru" || primary == "rus" || primary == "uk" || primary == "ukr";
+  const bool greek = primary == "el" || primary == "ell" || primary == "gre" || primary == "grc";
+  // nullptr means the default of its script: English, Russian.
+  fallbackCyrillic_ = cyrillic ? hyphenator : nullptr;
+  fallbackLatin_ = cyrillic || greek ? nullptr : hyphenator;
+}

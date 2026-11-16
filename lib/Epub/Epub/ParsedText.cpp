@@ -13,6 +13,8 @@
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <memory>
+#include <new>
 #include <string_view>
 #include <vector>
 
@@ -920,13 +922,19 @@ void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fo
   punctSpace = 0;
   opticalSpacing = false;
   opticalAverageRoom = 0;
-  if (typoengine::storage().load(std::memory_order_relaxed) != 0 && !blockStyle.isRtl && !hasRtlWord &&
-      rubyTexts.empty()) {
+  // The total-fit breaker takes the same plain text, justified, with hyphenation on and no line limit, whether the
+  // engine is on or off.
+  const bool engineOn = typoengine::storage().load(std::memory_order_relaxed) != 0;
+  const bool totalFitWanted = totalFitHyphenation && hyphenationEnabled && maxLines == SIZE_MAX &&
+                              blockStyle.alignment == CssTextAlign::Justify;
+  bool plainText = false;
+  if ((engineOn || totalFitWanted) && !blockStyle.isRtl && !hasRtlWord && rubyTexts.empty()) {
     bool hasZeroWidthGap = false;
     for (size_t i = 0; i < words.size() && !hasZeroWidthGap; ++i) {
       hasZeroWidthGap = wordNoSpaceBefore[i] && !wordContinues[i];
     }
-    enginePlainText = !hasZeroWidthGap;
+    plainText = !hasZeroWidthGap;
+    enginePlainText = engineOn && plainText;
     if (enginePlainText) {
       const typoengine::Config typo = typoengine::current();
       if (blockStyle.alignment == CssTextAlign::Justify) condensePercent = typo.condensePercent;
@@ -956,9 +964,15 @@ void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fo
 
   std::vector<size_t> lineBreakIndices;
   if (hyphenationEnabled || maxLines != SIZE_MAX) {
+    if (totalFitWanted && plainText) {
+      lineBreakIndices =
+          computeTotalFitLineBreaks(renderer, fontId, pageWidth, wordWidths, wordContinues, wordNoSpaceBefore);
+    }
     // Bounded layout must leave words beyond the emitted lines unsplit for a later width.
-    lineBreakIndices = computeHyphenatedLineBreaks(renderer, fontId, pageWidth, wordWidths, wordContinues,
-                                                   wordNoSpaceBefore, maxLines);
+    if (lineBreakIndices.empty()) {
+      lineBreakIndices = computeHyphenatedLineBreaks(renderer, fontId, pageWidth, wordWidths, wordContinues,
+                                                     wordNoSpaceBefore, maxLines);
+    }
   } else {
     lineBreakIndices = computeLineBreaks(renderer, fontId, pageWidth, wordWidths, wordContinues, wordNoSpaceBefore);
   }
@@ -1563,6 +1577,248 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
   return lineBreakIndices;
 }
 
+// Total-fit line breaking for justified text with hyphenation on (kos25k #30), after Knuth and Plass. The breaker
+// above fills each line as far as it goes and splits the word that runs over, so it hyphenates whenever a part of a
+// word fits. This one weighs the whole paragraph: a line may end at a word gap or at a hyphenation point inside a
+// word, every line gets a badness from how far its gaps have to stretch or shrink, a line that ends in a hyphen
+// costs extra, two such lines in a row cost more and more than MAX_HYPHEN_RUN in a row are not allowed, and the
+// breaks with the lowest sum win. The last line is free. A line is never wider than its gaps can give up (the same
+// allowance as the other breakers: Space condensing down to typoengine::gapFloor), and the last line never wider
+// than the page.
+//
+// The parts of a word are measured without touching the word list; only the splits of the chosen breaks are made,
+// after the choice. Memory is two tables from one allocation each, taken without an abort when it fails: 16 bytes a
+// word and 24 bytes a break (a word gap, or one of at most 512 hyphenation points). The search looks back from each
+// break only as far as one line reaches, like computeLineBreaks.
+//
+// Returns no breaks, and leaves the paragraph to computeHyphenatedLineBreaks, when the paragraph has more than
+// TOTAL_FIT_MAX_WORDS words, when a table can not be allocated, when no set of breaks fits (a word wider than the
+// line with no hyphenation point that helps: the other breaker splits it anywhere), or when a split fails.
+std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& renderer, const int fontId,
+                                                          const int pageWidth, std::vector<uint16_t>& wordWidths,
+                                                          const std::vector<bool>& continuesVec,
+                                                          const std::vector<bool>& noSpaceBeforeVec) {
+  const size_t wordCount = words.size();
+  if (wordCount == 0 || wordCount > TOTAL_FIT_MAX_WORDS) return {};
+
+  // sums[i]: the words before word i, and the gaps before each of them.
+  struct Sums {
+    int32_t width;     // the words
+    int32_t gap;       // the gaps at their natural width
+    uint32_t letters;  // the places between two letters (Letter spacing on loose lines)
+    uint16_t shrink;   // what the gaps can give up
+    uint16_t gaps;     // the gaps that stretch when the line is justified
+  };
+  constexpr uint8_t SPLIT = 1;   // inside a word; else at the gap before word `word`
+  constexpr uint8_t HYPHEN = 2;  // the line that ends here shows a hyphen at its end
+  struct Node {
+    uint16_t word;  // SPLIT: the word that is split. Else the first word of the next line.
+    uint16_t prefixWidth;
+    uint16_t suffixWidth;
+    uint8_t offset;
+    uint8_t flags;
+    // One state for each count of hyphenated lines in a row that ends here (a break without a hyphen has one).
+    float cost[MAX_HYPHEN_RUN];
+    uint16_t previous[MAX_HYPHEN_RUN];
+    uint8_t previousState[MAX_HYPHEN_RUN];
+  };
+  constexpr size_t MAX_SPLITS = 512;
+  // In the unit of a line's cost (below): a hyphen costs as much as a line whose gaps each grow by a whole space.
+  constexpr float HYPHEN_DEMERITS = 400.0f;
+  constexpr float CONSECUTIVE_DEMERITS = 400.0f;  // more for a second hyphenated line in a row
+  constexpr float LOOSE_DEMERITS = 400.0f;        // more for a line whose gaps each grow by more than a space
+  constexpr float ORPHAN_DEMERITS = 400.0f;       // the last line is only the end of a hyphenated word
+  const float unreached = std::numeric_limits<float>::infinity();
+
+  const std::unique_ptr<Sums[]> sums(new (std::nothrow) Sums[wordCount + 1]);
+  if (!sums) return {};
+  const typoengine::Config typo = typoengine::current();
+  const bool lockedSpaces = enginePlainText && typo.lockedSpace;
+  sums[0] = Sums{0, 0, 0, 0, 0};
+  for (size_t i = 0; i < wordCount; ++i) {
+    Sums next = sums[i];
+    next.width += wordWidths[i];
+    if (i > 0 && continuesVec[i]) {
+      next.gap += renderer.getKerning(fontId, lastCodepoint(wordAt(i - 1)), firstCodepoint(wordAt(i)),
+                                      getWordStyleAt(i - 1), blockStyle.characterSpacing);
+    } else if (i > 0 && noSpaceBeforeVec[i]) {
+      next.gap += blockStyle.characterSpacing;
+    } else if (i > 0) {
+      int fontSpace = 0;
+      const int gap =
+          spaceGap(renderer, fontId, wordAt(i - 1), wordAt(i), getWordStyleAt(i - 1), getWordStyleAt(i), &fontSpace);
+      next.gap += gap;
+      next.shrink = static_cast<uint16_t>(next.shrink + condensableShrink(i, gap, fontSpace));
+      if (!narrowedAfter(wordAt(i - 1)) && !(lockedSpaces && typoengine::isLockedSpaceWord(wordAt(i - 1)))) {
+        ++next.gaps;
+      }
+    }
+    const uint32_t letters = countCodepoints(wordAt(i));
+    if (letters > 1) next.letters += letters - 1;
+    sums[i + 1] = next;
+  }
+
+  const int firstWidth = pageWidth - resolveFirstLineIndent(true, renderer, fontId);
+  if (sums[wordCount].width + sums[wordCount].gap <= firstWidth) {
+    ++totalFitParagraphs;
+    return {wordCount};  // one line: nothing to weigh, and no word to hyphenate
+  }
+
+  const size_t maxSplits = std::min(MAX_SPLITS, wordCount * 2);
+  const std::unique_ptr<Node[]> nodes(new (std::nothrow) Node[wordCount + 1 + maxSplits]);
+  if (!nodes) return {};
+  size_t nodeCount = 0;
+  size_t splitCount = 0;
+  const auto addNode = [&](const size_t word, const size_t offset, const uint8_t flags, const int prefixWidth,
+                           const int suffixWidth) {
+    Node& node = nodes[nodeCount++];
+    node.word = static_cast<uint16_t>(word);
+    node.offset = static_cast<uint8_t>(offset);
+    node.flags = flags;
+    node.prefixWidth = static_cast<uint16_t>(prefixWidth);
+    node.suffixWidth = static_cast<uint16_t>(suffixWidth);
+    for (uint8_t state = 0; state < MAX_HYPHEN_RUN; ++state) {
+      node.cost[state] = unreached;
+      node.previous[state] = 0;
+      node.previousState[state] = 0;
+    }
+  };
+  addNode(0, 0, 0, 0, 0);  // the start of the paragraph
+  nodes[0].cost[0] = 0.0f;
+  for (size_t w = 0; w < wordCount; ++w) {
+    // The hyphenation points of the word, as hyphenateWordAtIndex finds them (without the every-N-letters fallback).
+    if (splitCount < maxSplits && words[w].len >= 4) {
+      const std::string word{wordAt(w)};  // brace-init: `word(` is an Arduino macro
+      auto breakInfos = hangulLineEndBreaks(word);
+      const auto hyphenBreaks = Hyphenator::breakOffsets(word, /*includeFallback=*/false);
+      breakInfos.insert(breakInfos.end(), hyphenBreaks.begin(), hyphenBreaks.end());
+      // Hangul breaks stay first at the same offset, as in hyphenateWordAtIndex.
+      std::stable_sort(
+          breakInfos.begin(), breakInfos.end(),
+          [](const Hyphenator::BreakInfo& a, const Hyphenator::BreakInfo& b) { return a.byteOffset < b.byteOffset; });
+      const auto style = getWordStyleAt(w);
+      const uint8_t focusBoundary = wordFocusBoundary[w];
+      const int wordFont = wordFontId(w, fontId);
+      const std::string_view view{word};
+      size_t lastOffset = 0;
+      for (const auto& info : breakInfos) {
+        const size_t offset = info.byteOffset;
+        if (offset <= lastOffset || offset >= word.size() || offset > UINT8_MAX || splitCount >= maxSplits) continue;
+        lastOffset = offset;
+        const int prefixWidth = measureFocusWordWidth(
+            renderer, wordFont, view.substr(0, offset), style, focusBoundaryBefore(focusBoundary, offset),
+            blockStyle.characterSpacing, wordSpacingPercent, info.requiresInsertedHyphen);
+        const int suffixWidth = measureFocusWordWidth(renderer, wordFont, view.substr(offset), style,
+                                                      focusBoundaryAfter(focusBoundary, offset),
+                                                      blockStyle.characterSpacing, wordSpacingPercent);
+        addNode(w, offset, info.requiresInsertedHyphen ? SPLIT | HYPHEN : SPLIT, prefixWidth, suffixWidth);
+        ++splitCount;
+      }
+    }
+    if (w + 1 == wordCount) {
+      addNode(wordCount, 0, 0, 0, 0);  // the end of the paragraph
+    } else if (TokenBoundary::allowsBreak(continuesVec[w + 1], noSpaceBeforeVec[w + 1])) {
+      // A break after a hyphen the word already has ("well-" | "known") shows a hyphen at the line end too.
+      const bool afterHyphen = continuesVec[w + 1] && noSpaceBeforeVec[w + 1] && endsWithBreakableHyphen(wordAt(w));
+      addNode(w + 1, 0, afterHyphen ? HYPHEN : 0, 0, 0);
+    }
+  }
+
+  const int space =
+      std::max(1, scaleSpace(renderer.getSpaceAdvance(fontId, 'a', 'a', EpdFontFamily::REGULAR), wordSpacingPercent));
+  const int halfSpace = std::max(1, space / 2);  // what one gap stretches by at a badness of 100
+  const int letterCap =
+      enginePlainText && typo.letterSpacing > 0 ? typoengine::letterSpacingCap(typo.letterSpacing, space) : 0;
+
+  for (size_t b = 1; b < nodeCount; ++b) {
+    Node& to = nodes[b];
+    const bool lastLine = b + 1 == nodeCount;
+    const bool toSplit = (to.flags & SPLIT) != 0;
+    const bool toHyphen = (to.flags & HYPHEN) != 0;
+    const Sums& lineEnd = sums[toSplit ? to.word + 1 : to.word];
+    for (size_t a = b; a-- > 0;) {
+      const Node& from = nodes[a];
+      const bool fromSplit = (from.flags & SPLIT) != 0;
+      if (fromSplit && toSplit && from.word == to.word) continue;  // the middle of a word is not measured
+      const size_t firstWhole = fromSplit ? from.word + 1 : from.word;
+      const Sums& lineStart = sums[from.word + 1];
+      int width = (fromSplit ? from.suffixWidth : 0) + (toSplit ? to.prefixWidth : 0) + (lineEnd.gap - lineStart.gap);
+      if (to.word > firstWhole) width += sums[to.word].width - sums[firstWhole].width;
+      // The last line is not justified, so it has to fit as it is.
+      const int shrink = lastLine ? 0 : lineEnd.shrink - lineStart.shrink;
+      const int target = a == 0 ? firstWidth : pageWidth;
+      if (width - shrink > target) break;  // too wide, and wider still from any earlier break
+
+      // The line's cost: 100 for gaps that each stretch by half a space or shrink all the way, growing with the
+      // square, so the sum is lowest when the lines are evenly loose.
+      float demerits = toHyphen ? HYPHEN_DEMERITS : 0.0f;
+      const int spare = target - width;
+      if (lastLine) {
+        if (fromSplit && firstWhole == wordCount) demerits += ORPHAN_DEMERITS;
+      } else if (spare < 0) {
+        const float ratio = static_cast<float>(-spare) / static_cast<float>(shrink);
+        demerits += 100.0f * ratio * ratio;
+      } else if (spare > 0) {
+        // A line with no gap that stretches counts as one gap, as in the loose line balancing.
+        const int gaps = std::max(1, lineEnd.gaps - lineStart.gaps);
+        const int letterRoom = letterCap > 0 ? letterCap * static_cast<int>(lineEnd.letters - lineStart.letters) : 0;
+        const float ratio = static_cast<float>(spare) / static_cast<float>(gaps * halfSpace + letterRoom);
+        demerits += 100.0f * ratio * ratio;
+        if (spare - letterRoom > gaps * space) demerits += LOOSE_DEMERITS;
+      }
+
+      const bool fromHyphen = (from.flags & HYPHEN) != 0;
+      const uint8_t fromStates = fromHyphen ? MAX_HYPHEN_RUN : 1;
+      for (uint8_t state = 0; state < fromStates; ++state) {
+        if (from.cost[state] == unreached) continue;
+        float cost = from.cost[state] + demerits;
+        uint8_t toState = 0;
+        if (fromHyphen && toHyphen) {
+          if (state + 1 >= MAX_HYPHEN_RUN) continue;  // one hyphenated line too many in a row
+          toState = static_cast<uint8_t>(state + 1);
+          cost += CONSECUTIVE_DEMERITS;
+        }
+        if (cost < to.cost[toState]) {
+          to.cost[toState] = cost;
+          to.previous[toState] = static_cast<uint16_t>(a);
+          to.previousState[toState] = state;
+        }
+      }
+    }
+  }
+
+  if (nodes[nodeCount - 1].cost[0] == unreached) return {};
+
+  // The chosen breaks, last first.
+  std::vector<uint16_t> path;
+  for (size_t at = nodeCount - 1, state = 0; at != 0;) {
+    path.push_back(static_cast<uint16_t>(at));
+    const size_t previous = nodes[at].previous[state];
+    state = nodes[at].previousState[state];
+    at = previous;
+  }
+  // Make the splits in reading order, as the other breaker does. Each one adds a word before the breaks after it.
+  std::vector<size_t> lineBreakIndices;
+  lineBreakIndices.reserve(path.size());
+  size_t added = 0;
+  for (auto it = path.rbegin(); it != path.rend(); ++it) {
+    const Node& node = nodes[*it];
+    if ((node.flags & SPLIT) == 0) {
+      lineBreakIndices.push_back(node.word + added);
+      continue;
+    }
+    const size_t wordIndex = node.word + added;
+    if (!splitWordAt(wordIndex, node.offset, (node.flags & HYPHEN) != 0, node.prefixWidth, renderer, fontId,
+                     wordWidths)) {
+      return {};  // the words split so far stay split; the other breaker takes the list as it is
+    }
+    ++added;
+    lineBreakIndices.push_back(wordIndex + 1);
+  }
+  ++totalFitParagraphs;
+  return lineBreakIndices;
+}
+
 // Splits words[wordIndex] into prefix (adding a hyphen only when needed) and remainder when a legal breakpoint fits the
 // available width.
 bool ParsedText::hyphenateWordAtIndex(const size_t wordIndex, const int availableWidth, const GfxRenderer& renderer,
@@ -1618,6 +1874,18 @@ bool ParsedText::hyphenateWordAtIndex(const size_t wordIndex, const int availabl
     // No hyphenation point produced a prefix that fits in the remaining space.
     return false;
   }
+  return splitWordAt(wordIndex, chosenOffset, chosenNeedsHyphen, chosenWidth, renderer, fontId, wordWidths);
+}
+
+bool ParsedText::splitWordAt(const size_t wordIndex, const size_t chosenOffset, const bool chosenNeedsHyphen,
+                             const int chosenWidth, const GfxRenderer& renderer, const int fontId,
+                             std::vector<uint16_t>& wordWidths) {
+  if (wordIndex >= words.size() || chosenOffset == 0 || chosenOffset >= words[wordIndex].len) {
+    return false;
+  }
+  const std::string word{wordAt(wordIndex)};  // brace-init: `word(` is an Arduino macro
+  const auto style = getWordStyleAt(wordIndex);
+  const uint8_t focusBoundary = wordFocusBoundary[wordIndex];
 
   uint32_t prefixLength = 0;
   const unsigned char* offsetPtr = reinterpret_cast<const unsigned char*>(word.data());
