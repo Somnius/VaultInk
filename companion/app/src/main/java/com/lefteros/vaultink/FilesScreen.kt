@@ -22,11 +22,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,7 +58,7 @@ fun sizeText(bytes: Long): String = when {
     else -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
 }
 
-private fun displayName(context: Context, uri: Uri): Pair<String, Long> {
+internal fun displayName(context: Context, uri: Uri): Pair<String, Long> {
     var name = "file"
     var size = -1L
     context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)
@@ -225,12 +223,12 @@ fun FilesScreen(client: DeviceClient) {
     if (message.isNotEmpty()) Text(message, style = MaterialTheme.typography.bodySmall)
 
     val list = entries
-    OutlinedCard(Modifier.fillMaxWidth()) {
+    Group {
         when {
             list == null -> Text(stringResource(R.string.loading), Modifier.padding(16.dp))
             list.isEmpty() -> Text(stringResource(R.string.empty_folder), Modifier.padding(16.dp))
             else -> list.forEachIndexed { i, e ->
-                if (i > 0) HorizontalDivider()
+                if (i > 0) Hairline()
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = 56.dp)
                         .clickable { if (e.isDirectory) dir = child(dir, e.name) else menuFor = e }

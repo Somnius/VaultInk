@@ -465,6 +465,16 @@
       "verified_from": "~/.gradle/caches/modules-2/files-2.1/androidx.webkit/webkit/1.12.1/*/webkit-1.12.1.pom"
     },
     {
+      "name": "Literata",
+      "version": "3.103",
+      "used_for": "Titles in the companion app (Regular)",
+      "licence": "OFL-1.1",
+      "copyright": "Copyright 2017 The Literata Project Authors",
+      "source": "https://github.com/googlefonts/literata",
+      "used_in": "companion",
+      "verified_from": "companion/app/src/main/assets/licences/Literata-OFL.txt"
+    },
+    {
       "name": "JUnit",
       "version": "4.13.2",
       "used_for": "Unit tests, not part of the app",
@@ -474,6 +484,17 @@
       "used_in": "companion",
       "build_only": true,
       "verified_from": "~/.gradle/caches/modules-2/files-2.1/junit/junit/4.13.2/*/junit-4.13.2.pom"
+    },
+    {
+      "name": "JSON-java (org.json)",
+      "version": "20240303",
+      "used_for": "JSON in unit tests, not part of the app",
+      "licence": "Public Domain",
+      "copyright": "",
+      "source": "https://github.com/stleary/JSON-java",
+      "used_in": "companion",
+      "build_only": true,
+      "verified_from": "~/.gradle/caches/modules-2/files-2.1/org.json/json/20240303/*/json-20240303.pom"
     },
     {
       "name": "Android Gradle plugin",

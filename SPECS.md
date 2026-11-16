@@ -692,8 +692,43 @@ Planned:
   (`/api/status`, `/api/files`, `/upload`, `/download`, `/mkdir`, `/rename`, `/move`, `/delete`,
   `/api/settings`). Finds it by the last address, `vaultink.local`, then mDNS `_http._tcp` named
   `vaultink`. BLE comes with Phase 5.
-- Tabs: Note (quick note and share target), Files (whole card, transfers with progress), Settings
-  (one card per device category), Device (status and app update).
+- Tabs until 0.5.0: Note (quick note and share target), Files (whole card, transfers with progress),
+  Settings (one card per device category), Device (status and app update).
+- Companion 0.6.0 (built, not released; run on a OnePlus phone against a real X4 Pro (Home, the Note tab's vault list, Settings and the Fonts list seen working); backup and restore, uploads, saving in Reader setup and rotation are unit tests only). Tabs: Home,
+  Note, Files, Settings (`App.kt`). Home (`HomeScreen.kt`): masthead from `/api/status` (`device`,
+  `version`, address, `rssi`, `uptime`, `freeHeap`), LiveSync section (`/api/livesync/status`,
+  `liveSyncNow` when `canSync`, the `/.vaultink/sync-request` file when `syncRequest`), outbox count,
+  update check, and an offline screen. No battery, current screen or frontlight: `/api/status`
+  doesn't carry them. Polling: `PollPolicy` (`ReaderApi.kt`), driven from `App` with
+  `repeatOnLifecycle(STARTED)` and only while Home is shown; 10 s minimum between tries, the wait
+  doubles after a miss, two misses in a row stop it (status cleared, offline screen) until
+  `connect()` runs again. Reader setup (`SetupScreens.kt`, opened from the top of Settings):
+  `/api/wifi`, `/api/livesync/setup` (`uri`, `vault`, `profile`; no passphrase, the endpoint has
+  none), `/api/opds`, `/api/remotes`, `/api/fonts` (+ `/upload` as multipart `family` then `file`,
+  `/delete`), with the request and response shapes of docs/webserver-endpoints.md and nothing
+  else. `ReaderApi.kt` holds every parser, request body and name check as pure functions
+  (`ReaderApiTest`, 26 tests; org.json 20240303 is a test-only dependency because android.jar's
+  org.json throws in unit tests). Secrets: `SecretField` state lives in plain `remember`, is
+  cleared when the request is sent, is never logged or written to preferences; an empty password
+  on an update is left out of the body. Look (`Theme.kt`): `InkLight` (primary `#1F3A5F`,
+  background `#F3F1EC`) and `InkDark` (background `#1C1A17`) with every surface tone set, Literata
+  Regular (`res/font/literata_regular.ttf`, version 3.103, OFL text in `assets/licences/`) for
+  display, headline and titleLarge, the default sans below, `Group`/`GroupRow`/`Hairline`/
+  `SectionLabel`/`ValueRow` for lists, tabular figures (`tnum`) for numbers, `Crossfade` with a
+  150 ms tween as the only animation. The Help copy step renames `docs/README.md` to `guides.md`
+  (it collided with the main README and failed the build). Backup (`Backup.kt`, `BackupSection.kt`;
+  unit tests and a build only): file `{format: "vaultink-settings", formatVersion: 1, appVersion,
+  reader: {version, device}, date, settings: {key: int}, options: {key: option text for enums},
+  wifi: [{ssid}], opds: [{name, url, username}], remotes: [{name, protocol, url, username,
+  verifyCert}]}`, built by whitelist from the raw bodies of `GET /api/settings`, `/api/wifi`,
+  `/api/opds`, `/api/remotes` (`DeviceClient.getOrNull`, a 404 leaves the list out); `string`
+  settings and every other field are never copied, URL userinfo is stripped. `Backup.parse`
+  refuses a wrong `format`, a missing `settings` or a `formatVersion` above 1 (`BackupError`);
+  `Backup.plan` against a fresh GET keeps known keys with a valid value that differs (toggle 0/1,
+  value in min..max, enum by option text, else by index when the file has no text), and the list
+  entries the reader lacks (ssid; url; protocol + url + username). Applied with
+  `POST /api/settings` in batches of 16 keys and the normal add calls with an empty password.
+  `BackupTest`, 13 tests.
 - Signed APKs on GitHub releases tagged `companion-x.y.z`, never marked Latest. The app checks those
   releases, downloads the APK and opens Android's install prompt (no silent install).
 - The signing keystore is kept offline by the maintainer, never in the repo.

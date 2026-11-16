@@ -19,28 +19,6 @@ import java.io.OutputStream
 import okio.BufferedSink
 import java.util.concurrent.TimeUnit
 
-/** What /api/status says about the device. */
-data class DeviceStatus(val version: String, val ip: String, val hotspot: Boolean)
-
-/**
- * What /api/livesync/status says (firmware 0.63.0+). `lastResult` is the LiveSync screen's own text;
- * `lastAttempt` is the epoch second of the last automatic try (0 when there was none); `canSync`
- * says whether the device would accept a sync request from here (it doesn't, so far); `syncRequest`
- * (firmware 0.64.0+) says a sync can be asked for with a file the reader picks up at its next wake.
- */
-data class LiveSyncStatus(
-    val configured: Boolean,
-    val pendingSetup: Boolean,
-    val unlocked: Boolean,
-    val running: Boolean,
-    val canSync: Boolean,
-    val syncRequest: Boolean,
-    val vault: String,
-    val lastResult: String,
-    val lastAttempt: Long,
-    val autoHours: Int,
-)
-
 /** One entry of /api/files. */
 data class Entry(val name: String, val isDirectory: Boolean, val size: Long = 0)
 
@@ -81,8 +59,7 @@ class DeviceClient(host: String) {
     fun status(): DeviceStatus {
         val (code, body) = call(Request.Builder().url(url("api/status")).build())
         if (code != 200) throw IOException("HTTP $code")
-        val json = JSONObject(body)
-        return DeviceStatus(json.optString("version"), json.optString("ip"), json.optString("mode") == "AP")
+        return ReaderApi.parseStatus(body)
     }
 
     /** Null when the firmware has no LiveSync status endpoint (older than 0.63.0). */
@@ -90,19 +67,7 @@ class DeviceClient(host: String) {
         val (code, body) = call(Request.Builder().url(url("api/livesync/status")).build())
         if (code == 404) return null
         if (code != 200) throw IOException("HTTP $code")
-        val o = JSONObject(body)
-        return LiveSyncStatus(
-            configured = o.optBoolean("configured"),
-            pendingSetup = o.optBoolean("pendingSetup"),
-            unlocked = o.optBoolean("unlocked"),
-            running = o.optBoolean("running"),
-            canSync = o.optBoolean("canSync"),
-            syncRequest = o.optBoolean("syncRequest"),
-            vault = o.optString("vault"),
-            lastResult = o.optString("lastResult"),
-            lastAttempt = o.optLong("lastAttempt"),
-            autoHours = o.optInt("autoHours"),
-        )
+        return ReaderApi.parseLiveSyncStatus(body)
     }
 
     /** Asks the device to sync now; only offered when `canSync` is true. */
@@ -140,15 +105,11 @@ class DeviceClient(host: String) {
     fun list(path: String): List<Entry> {
         val (code, body) = call(Request.Builder().url(url("api/files", "path" to path)).build())
         if (code != 200) throw IOException("HTTP $code")
-        val array = JSONArray(body)
-        return (0 until array.length()).map {
-            val o = array.getJSONObject(it)
-            Entry(o.optString("name"), o.optBoolean("isDirectory"), o.optLong("size"))
-        }
+        return ReaderApi.parseFiles(body)
     }
 
     /** Folders under /Vaults (the device's vaults). */
-    fun vaults(): List<String> = list("/Vaults").filter { it.isDirectory }.map { it.name }.sorted()
+    fun vaults(): List<String> = ReaderApi.vaultNames(list("/Vaults"))
 
     /** Makes every missing folder of `path` ("/Vaults/Notes/Inbox"). */
     fun ensureFolder(path: String) {
@@ -251,6 +212,83 @@ class DeviceClient(host: String) {
         )
         if (code != 200) throw IOException(text.ifBlank { "HTTP $code" })
     }
+
+    // ---- Reader setup (0.6.0): Wi-Fi networks, LiveSync, OPDS, remote servers, fonts ----
+    // Passwords go out in the request body and nowhere else: not logged, not kept.
+
+    private fun getJson(path: String): String {
+        val (code, body) = call(Request.Builder().url(url(path)).build())
+        if (code != 200) throw Refused(ReaderApi.errorText(code, body))
+        return body
+    }
+
+    private fun postJson(path: String, json: String): String {
+        val (code, body) = call(
+            Request.Builder().url(url(path)).post(json.toRequestBody("application/json".toMediaType())).build(),
+        )
+        if (code != 200) throw Refused(ReaderApi.errorText(code, body))
+        return body
+    }
+
+    /** The body of a GET, or null when this firmware has no such endpoint (404). */
+    fun getOrNull(path: String): String? {
+        val (code, body) = call(Request.Builder().url(url(path)).build())
+        if (code == 404) return null
+        if (code != 200) throw Refused(ReaderApi.errorText(code, body))
+        return body
+    }
+
+    /** Several settings in one POST /api/settings. */
+    fun setSettings(values: Map<String, Int>) {
+        postJson("api/settings", JSONObject().apply { values.forEach { (k, v) -> put(k, v) } }.toString())
+    }
+
+    fun wifiNetworks(): List<WifiNetwork> = ReaderApi.parseWifi(getJson("api/wifi"))
+
+    /** Adds a network, or with `index` updates one (an empty password then keeps the saved one). */
+    fun saveWifi(ssid: String, password: String, index: Int? = null) {
+        postJson("api/wifi", ReaderApi.wifiBody(ssid, password, index))
+    }
+
+    fun deleteWifi(index: Int) { postJson("api/wifi/delete", ReaderApi.indexBody(index)) }
+
+    fun opdsServers(): List<OpdsServer> = ReaderApi.parseOpds(getJson("api/opds"))
+
+    fun saveOpds(name: String, url: String, username: String, password: String, index: Int? = null) {
+        postJson("api/opds", ReaderApi.opdsBody(name, url, username, password, index))
+    }
+
+    fun deleteOpds(index: Int) { postJson("api/opds/delete", ReaderApi.indexBody(index)) }
+
+    /** Firmware 0.74.0+. */
+    fun remotes(): List<RemoteServer> = ReaderApi.parseRemotes(getJson("api/remotes"))
+
+    fun saveRemote(name: String, protocol: String, url: String, username: String, password: String,
+                   verifyCert: Boolean, index: Int? = null) {
+        postJson("api/remotes", ReaderApi.remoteBody(name, protocol, url, username, password, verifyCert, index))
+    }
+
+    fun deleteRemote(index: Int) { postJson("api/remotes/delete", ReaderApi.indexBody(index)) }
+
+    /**
+     * Leaves a LiveSync Setup URI on the reader; the passphrase is typed there, never here. Null
+     * when the firmware (before 0.77.0) only answers `OK`.
+     */
+    fun liveSyncSetup(uri: String, vault: String, profile: Int?): LiveSyncSetupReply? =
+        ReaderApi.parseLiveSyncSetupReply(postJson("api/livesync/setup", ReaderApi.liveSyncSetupBody(uri, vault, profile)))
+
+    fun fonts(): FontList = ReaderApi.parseFonts(getJson("api/fonts"))
+
+    /** Uploads one font file (.ttf, .otf or .cpfont) into `family`. */
+    fun uploadFont(family: String, name: String, length: Long, open: () -> InputStream, progress: Progress) {
+        val form = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("family", family)
+            .addFormDataPart("file", name, StreamBody(length, open, progress)).build()
+        val (code, body) = call(Request.Builder().url(url("api/fonts/upload")).post(form).build())
+        if (code != 200) throw Refused(ReaderApi.errorText(code, body))
+    }
+
+    fun deleteFont(family: String) { postJson("api/fonts/delete", ReaderApi.familyBody(family)) }
 
     /** A request body read from a stream in chunks, so progress follows what has really gone out. */
     private class StreamBody(val length: Long, val open: () -> InputStream, val progress: Progress) : RequestBody() {

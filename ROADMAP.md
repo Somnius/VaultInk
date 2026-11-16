@@ -584,7 +584,8 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
 * ✅ Files tab: browse the whole card, upload and download with a progress bar, new folder,
   rename, move, delete.
 * ✅ Settings tab: the device settings in one card per category, changed live.
-* ✅ Device tab: address, version, in-app update check (GitHub `companion-*` releases).
+* ✅ Device tab: address, version, in-app update check (GitHub `companion-*` releases). Replaced
+  by the Home tab in companion 0.6.0.
 * ✅ Light and dark look following the phone, status bar kept visible.
 * ✅ English and Greek.
 * ✅ First-start intro (what the app is, what the reader needs, the tabs), a clearer connect step,
@@ -626,6 +627,36 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   MIT, links, tech-stack pills, credits) and **Help**: the repo's `README.md` and `docs/*.md` copied
   into the APK at build time (no images) with a search and a Kotlin Markdown reader (`Markdown.kt`,
   JUnit tests). Compiled and unit tested only, not yet run on a phone.
+* 🚧 `companion-0.6.0` (built, not released; run on a OnePlus phone against a real X4 Pro (Home, the Note tab's vault list, Settings and the Fonts list seen working); backup and restore, uploads, saving in Reader setup and rotation are unit tests only): a
+  **Home** tab in place of Device (tabs: Home / Note / Files / Settings) with a navy masthead from
+  `GET /api/status` (board, firmware version, address, Wi-Fi signal in dBm, time since restart, free
+  memory, in tabular figures), the LiveSync section with its sync button, the outbox count and the
+  app update check; a "Reader not reachable" screen that says what to open on the reader; `/api/status`
+  asked again only in the foreground with Home shown, no sooner than every 10 s, 20 s after one miss,
+  stopped after two until **Try again** (`PollPolicy`). **Reader setup** at the top of Settings, on
+  endpoints the reader already has: Wi-Fi networks (`/api/wifi`), LiveSync setup
+  (`/api/livesync/setup`: Setup URI, vault folder, profile), OPDS catalogues (`/api/opds`), remote
+  servers (`/api/remotes`), fonts (`/api/fonts`: list, upload a `.ttf`/`.otf`/`.cpfont` from the
+  system picker, delete); passwords in dotted fields, never logged or kept. New look: navy on
+  paper, a warm charcoal dark theme, Literata for titles (bundled, OFL-1.1, in the licence list),
+  a type scale, settings as grouped lists with thin dividers, one filled button per screen, 150 ms
+  fades. English and Greek. 26 new JUnit tests (endpoint JSON, request bodies, polling times).
+  Asked for but not possible without a firmware change, so left out: battery percent and
+  millivolts, the current screen and the frontlight on Home (`/api/status` has none of them), and a
+  passphrase field in LiveSync setup (the endpoint takes none; it is typed on the reader).
+  Also in 0.6.0, unit tested and built only: **Backup** in Settings. Save the reader's settings
+  (switches, choices, numbers) and its Wi-Fi, OPDS and remote server lists as one JSON file
+  (`vaultink-settings-YYYY-MM-DD.json`, format version 1) through the system save dialog, with no
+  password, passphrase, Setup URI or text setting in it; restore one after a summary and a
+  confirmation: only keys the reader has now, choices by their option text, missing list entries
+  added without passwords, nothing deleted, and a report of what changed, was added, skipped or
+  failed (`Backup.kt`, 13 JUnit tests). All three lists have a `GET`, so none is left out; fonts and
+  LiveSync profiles are not part of a backup (💤: font files are large, and a profile is a secret).
+  Screenshots from the phone are in README and docs/companion.md.
+  ⏳ On the phone: backup and restore, a font upload, saving a network, a catalogue and a server,
+  the LiveSync setup, a rotation with a form open, the Greek text.
+* 💤 Home on the phone: `battery`, `batteryMv`, the open screen and the frontlight in `GET /api/status`
+  (firmware), then shown on the companion's Home.
 * 💤 Bring notes in, the rest: Samsung Notes (`.sdocx` export) -> contacts (one note per contact plus a
   `.vcf` backup) -> formats Obsidian's Importer handles. Other apps' private databases can't be read
   without root, so only exports and sharing.

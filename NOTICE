@@ -71,7 +71,9 @@ Companion app:
 - Compose Material 3 1.4.0 (Material design components): Apache-2.0.
 - AndroidX Activity Compose 1.13.0 (Compose in an Activity): Apache-2.0.
 - AndroidX WebKit 1.12.1 (WebView for the comic converter): Apache-2.0.
+- Literata 3.103 (Titles in the companion app (Regular)): OFL-1.1, Copyright 2017 The Literata Project Authors.
 - JUnit 4.13.2 (Unit tests, not part of the app): EPL-1.0.
+- JSON-java (org.json) 20240303 (JSON in unit tests, not part of the app): Public Domain.
 - Android Gradle plugin 8.13.2 (Build tool, not part of the app): Apache-2.0.
 - Kotlin Gradle and Compose compiler plugins 2.2.20 (Build tools, not part of the app): Apache-2.0.
 - Gradle wrapper 8.13 (Build tool, not part of the app): Apache-2.0, Copyright (c) 2015-2021 the original authors.

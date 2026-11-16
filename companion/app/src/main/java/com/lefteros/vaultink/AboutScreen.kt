@@ -49,6 +49,7 @@ private val APP_LICENCES = listOf(
     "Compose Material 3" to "Apache-2.0",
     "AndroidX Activity Compose" to "Apache-2.0",
     "AndroidX WebKit" to "Apache-2.0",
+    "Literata" to "OFL-1.1",
 )
 
 /** App name and version, what it is, links, the tech stack as pills, the libraries' licences, credits. */

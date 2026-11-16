@@ -22,7 +22,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -93,7 +92,7 @@ class ComicsActivity : ComponentActivity() {
         // here again: the manifest keeps the activity across configuration changes.)
         File(cacheDir, "comics").listFiles()?.forEach { it.delete() }
         setContent {
-            MaterialTheme(colorScheme = if (isSystemInDarkTheme()) InkDark else InkLight) {
+            VaultInkTheme {
                 ComicsScreen(
                     receiver = receiver,
                     current = queue.firstOrNull(),

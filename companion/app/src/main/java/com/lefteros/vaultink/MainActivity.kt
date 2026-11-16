@@ -9,49 +9,26 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Surface
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.TextAutoSize
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,16 +37,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -106,7 +79,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         draft = readShare(intent) ?: Draft()
         setContent {
-            MaterialTheme(colorScheme = if (isSystemInDarkTheme()) InkDark else InkLight) {
+            VaultInkTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     App(draft) { draft = it }
                 }
@@ -159,284 +132,7 @@ class MainActivity : ComponentActivity() {
     }.getOrNull()
 }
 
-// Ink blue on paper, like the device's own look; the dark scheme follows the phone's dark mode.
-internal val InkLight = lightColorScheme(
-    primary = Color(0xFF1F3A5F), onPrimary = Color.White,
-    primaryContainer = Color(0xFFD6E2F0), onPrimaryContainer = Color(0xFF0B1E33),
-    secondaryContainer = Color(0xFFE4E9EF),
-    background = Color(0xFFF3F1EC), surface = Color(0xFFFBFAF7),
-)
-internal val InkDark = darkColorScheme(
-    primary = Color(0xFFA9C7EA), onPrimary = Color(0xFF0B1E33),
-    primaryContainer = Color(0xFF1F3A5F), onPrimaryContainer = Color(0xFFD6E2F0),
-    background = Color(0xFF121416), surface = Color(0xFF1A1D20),
-)
-
-private fun prefs(context: Context) = context.getSharedPreferences("vaultink", Context.MODE_PRIVATE)
-
-@Composable
-fun App(draft: Draft, onDraft: (Draft) -> Unit) {
-    val context = LocalContext.current
-    var host by remember { mutableStateOf(prefs(context).getString("host", "") ?: "") }
-    var status by remember { mutableStateOf<DeviceStatus?>(null) }
-    var searching by remember { mutableStateOf(false) }
-    var tab by remember { mutableIntStateOf(0) }
-    var intro by remember { mutableStateOf(!prefs(context).getBoolean("intro_seen", false)) }
-    val scope = rememberCoroutineScope()
-    // The outbox (notes and shares waiting for the reader) and the last line about it.
-    var waiting by remember { mutableIntStateOf(Outbox.count(context)) }
-    var outboxNote by remember { mutableStateOf("") }
-
-    // Tries the remembered address, then mDNS; remembers what answered.
-    var search by remember { mutableStateOf<Job?>(null) }
-    fun connect(manual: String? = null) {
-        search?.cancel()  // a slow older search must not overwrite a newer result
-        search = scope.launch {
-            searching = true
-            status = null
-            val candidates = listOfNotNull(manual?.trim()?.ifEmpty { null }, host.ifEmpty { null }, "vaultink.local")
-            var found: Pair<String, DeviceStatus>? = null
-            for (h in candidates.distinct()) {
-                val s = withContext(Dispatchers.IO) { runCatching { DeviceClient(h).status() }.getOrNull() }
-                if (s != null) { found = h to s; break }
-            }
-            if (found == null) {
-                val discovered = discoverDevice(context)
-                if (discovered != null) {
-                    val s = withContext(Dispatchers.IO) { runCatching { DeviceClient(discovered).status() }.getOrNull() }
-                    if (s != null) found = discovered to s
-                }
-            }
-            found?.let { (h, s) ->
-                host = h
-                status = s
-                prefs(context).edit().putString("host", h).apply()
-            }
-            searching = false
-            // Reader found: send what waited for it.
-            if (found != null && Outbox.count(context) > 0) {
-                val sent = withContext(Dispatchers.IO) { Outbox.send(context, DeviceClient(found!!.first)) }
-                waiting = Outbox.count(context)
-                if (sent > 0) outboxNote = context.resources.getQuantityString(R.plurals.outbox_sent, sent, sent)
-            }
-        }
-    }
-    LaunchedEffect(Unit) { connect() }
-
-    // The intro, Help and About draw over the tabs; the connection and tab state below stay as they are.
-    var page by remember { mutableStateOf<String?>(null) }  // "help", "about"
-    if (intro) {
-        Box(Modifier.fillMaxSize().safeDrawingPadding()) {
-            IntroScreen(onDone = {
-                prefs(context).edit().putBoolean("intro_seen", true).apply()
-                intro = false
-            })
-        }
-        return
-    }
-    page?.let { p ->
-        Box(Modifier.fillMaxSize().safeDrawingPadding()) {
-            if (p == "help") HelpScreen(onBack = { page = null }) else AboutScreen(onBack = { page = null })
-        }
-        return
-    }
-
-    // The header colour runs up behind the status bar; only the content keeps clear of it.
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primaryContainer).statusBarsPadding()
-        .background(MaterialTheme.colorScheme.background).navigationBarsPadding().imePadding()) {
-        Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer)
-            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.weight(1f))
-            // ⋮ menu: Intro, Help, About.
-            var menu by remember { mutableStateOf(false) }
-            Box {
-                TextButton(onClick = { menu = true }) {
-                    Text("⋮", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.menu_intro)) }, onClick = { menu = false; intro = true })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.menu_help)) }, onClick = { menu = false; page = "help" })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.menu_about)) }, onClick = { menu = false; page = "about" })
-                }
-            }
-        }
-        TabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer) {
-            listOf(R.string.tab_note, R.string.tab_files, R.string.tab_settings, R.string.tab_device).forEachIndexed { i, label ->
-                // One line, shrunk to fit: Greek labels at a large phone font otherwise broke mid-word.
-                Tab(selected = tab == i, onClick = { tab = i }, text = {
-                    val color = LocalContentColor.current
-                    BasicText(stringResource(label), maxLines = 1, color = { color },
-                        style = MaterialTheme.typography.titleSmall,
-                        autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 14.sp))
-                })
-            }
-        }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            val connected = status
-            // Books and comics shared with no reader around go to the outbox at once.
-            if (!searching && connected == null && draft.books.isNotEmpty()) {
-                LaunchedEffect(draft.books) {
-                    val n = withContext(Dispatchers.IO) {
-                        draft.books.count { book ->
-                            shareFolderFor(book.name)?.let { Outbox.addFile(context, it, book); true } ?: false
-                        }
-                    }
-                    onDraft(draft.copy(books = emptyList()))
-                    waiting = Outbox.count(context)
-                    outboxNote = context.resources.getQuantityString(R.plurals.outbox_files_kept, n, n)
-                }
-            }
-            if (outboxNote.isNotEmpty()) Text(outboxNote)
-            if (waiting > 0) Text(pluralStringResource(R.plurals.outbox_waiting, waiting, waiting))
-            when {
-                searching -> Searching()
-                connected == null -> {
-                    DeviceSearch(host, onConnect = { connect(it) }, onSearch = { connect() })
-                    // A note can still be written: it waits in the outbox (needs a vault used before).
-                    if (!prefs(context).getString("vault", "").isNullOrEmpty()) {
-                        Text(stringResource(R.string.offline_note_hint), Modifier.padding(top = 8.dp))
-                        NoteScreen(null, draft, onDraft) { waiting = Outbox.count(context) }
-                    }
-                    PhoneTextSection(null) { waiting = Outbox.count(context) }
-                }
-                else -> {
-                    if (draft.books.isNotEmpty() || draft.refused.isNotEmpty() || draft.unreadable.isNotEmpty()) {
-                        ShareBooksDialog(DeviceClient(host), draft.books, draft.refused, draft.unreadable,
-                            onKept = { waiting = Outbox.count(context) }) {
-                            draft.books.forEach { it.delete() }
-                            onDraft(draft.copy(books = emptyList(), refused = emptyList(), unreadable = emptyList()))
-                        }
-                    }
-                    Hint(listOf(R.string.hint_note, R.string.hint_files, R.string.settings_hint, R.string.hint_device)[tab])
-                    when (tab) {
-                        0 -> {
-                            NoteScreen(DeviceClient(host), draft, onDraft) { waiting = Outbox.count(context) }
-                            PhoneTextSection(remember(host) { DeviceClient(host) }) { waiting = Outbox.count(context) }
-                        }
-                        1 -> FilesScreen(remember(host) { DeviceClient(host) })
-                        2 -> SettingsScreen(remember(host) { DeviceClient(host) })
-                        else -> DeviceScreen(host, connected, onSearch = { connect() }, onIntro = { intro = true })
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun Hint(text: Int) {
-    Text(stringResource(text), style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
-}
-
-@Composable
-fun Searching() {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp)
-        Text(stringResource(R.string.searching))
-    }
-    Hint(R.string.connect_checklist)
-}
-
-@Composable
-fun DeviceSearch(host: String, onConnect: (String) -> Unit, onSearch: () -> Unit) {
-    var address by remember { mutableStateOf(host) }
-    Text(stringResource(R.string.not_found_title), style = MaterialTheme.typography.titleLarge)
-    Text(stringResource(R.string.not_found_step1))
-    Text(stringResource(R.string.not_found_step2))
-    Button(onClick = onSearch) { Text(stringResource(R.string.search_again)) }
-    Text(stringResource(R.string.not_found_step3), style = MaterialTheme.typography.bodySmall)
-    OutlinedTextField(address, { address = it }, label = { Text(stringResource(R.string.address)) },
-        placeholder = { Text(stringResource(R.string.address_hint)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-    OutlinedButton(onClick = { onConnect(address) }) { Text(stringResource(R.string.connect)) }
-    UpdateCheck()  // the app can update itself without a reader
-}
-
-@Composable
-fun DeviceScreen(host: String, status: DeviceStatus, onSearch: () -> Unit, onIntro: () -> Unit) {
-    Text(stringResource(R.string.found, host, status.version))
-    if (status.hotspot) Text(stringResource(R.string.hotspot_warning), color = MaterialTheme.colorScheme.error)
-    LiveSyncCard(remember(host) { DeviceClient(host) })
-    OutlinedButton(onClick = onSearch) { Text(stringResource(R.string.search_again)) }
-    UpdateCheck()
-    TextButton(onClick = onIntro) { Text(stringResource(R.string.intro_show_again)) }
-    Text(stringResource(R.string.credit), style = MaterialTheme.typography.bodySmall)
-}
-
-/**
- * LiveSync as the reader reports it (0.5.0, firmware 0.63.0+). Sync now appears only when the
- * firmware says it can take a sync request from here; today's firmware can't (a sync runs on the
- * LiveSync screen, and leaving File Transfer restarts the reader), so the card explains that.
- */
-@Composable
-fun LiveSyncCard(client: DeviceClient) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var status by remember { mutableStateOf<LiveSyncStatus?>(null) }
-    var supported by remember { mutableStateOf(true) }
-    var message by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
-    suspend fun refresh() {
-        withContext(Dispatchers.IO) { runCatching { client.liveSyncStatus() } }
-            .onSuccess { status = it; supported = it != null }
-            .onFailure { message = context.getString(R.string.livesync_failed, it.message ?: "") }
-    }
-    LaunchedEffect(client) { refresh() }
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(R.string.livesync_title), style = MaterialTheme.typography.titleMedium)
-            val s = status
-            when {
-                !supported -> Text(stringResource(R.string.livesync_unsupported), style = MaterialTheme.typography.bodySmall)
-                s == null -> Text(if (message.isEmpty()) stringResource(R.string.loading) else message)
-                s.pendingSetup && !s.configured -> Text(stringResource(R.string.livesync_pending))
-                !s.configured -> Text(stringResource(R.string.livesync_not_set_up))
-                else -> {
-                    if (s.vault.isNotEmpty()) Text(stringResource(R.string.livesync_vault, s.vault))
-                    Text(if (s.running) stringResource(R.string.livesync_running)
-                         else if (s.lastResult.isEmpty()) stringResource(R.string.livesync_never)
-                         else stringResource(R.string.livesync_last, s.lastResult))
-                    if (s.autoHours > 0) {
-                        val tried = if (s.lastAttempt > 0) java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT,
-                            java.text.DateFormat.SHORT).format(java.util.Date(s.lastAttempt * 1000)) else "–"
-                        Text(stringResource(R.string.livesync_auto, s.autoHours, tried), style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (s.canSync) {
-                        OutlinedButton(enabled = !busy && !s.running, onClick = {
-                            busy = true
-                            scope.launch {
-                                withContext(Dispatchers.IO) { runCatching { client.liveSyncNow() } }
-                                    .onFailure { message = context.getString(R.string.action_failed, it.message ?: "") }
-                                refresh()
-                                busy = false
-                            }
-                        }) { Text(stringResource(R.string.livesync_sync_now)) }
-                    } else if (s.syncRequest) {
-                        // Firmware 0.64.0+: the request is a file the reader picks up at the wake after File Transfer.
-                        OutlinedButton(enabled = !busy, onClick = {
-                            busy = true
-                            scope.launch {
-                                message = withContext(Dispatchers.IO) { runCatching { client.requestLiveSync() } }
-                                    .fold({ context.getString(R.string.livesync_requested) },
-                                          { context.getString(R.string.action_failed, it.message ?: "") })
-                                busy = false
-                            }
-                        }) { Text(stringResource(R.string.livesync_request)) }
-                        Text(stringResource(R.string.livesync_request_hint), style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else {
-                        Text(stringResource(R.string.livesync_no_remote), style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    if (message.isNotEmpty()) Text(message)
-                }
-            }
-        }
-    }
-}
+internal fun prefs(context: Context) = context.getSharedPreferences("vaultink", Context.MODE_PRIVATE)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -448,13 +144,31 @@ fun NoteScreen(client: DeviceClient?, draft: Draft, onDraft: (Draft) -> Unit, on
     var folder by remember { mutableStateOf(prefs(context).getString("folder", "Inbox") ?: "Inbox") }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
-    LaunchedEffect(client) {
+    // A listing that failed is an error with a way to ask again, never "no vaults".
+    var vaultsError by remember { mutableStateOf("") }
+    var asked by remember { mutableIntStateOf(0) }
+    LaunchedEffect(client, asked) {
+        vaultsError = ""
         // Offline the only vault offered is the last one used (its name is all the outbox needs).
-        vaults = if (client == null) listOf(vault).filter { it.isNotEmpty() }
-        else withContext(Dispatchers.IO) { runCatching { client.vaults() }.getOrDefault(emptyList()) }
-        if (vault !in vaults.orEmpty()) vault = vaults.orEmpty().firstOrNull().orEmpty()
+        val found = if (client == null) Result.success(listOf(vault).filter { it.isNotEmpty() })
+        else withContext(Dispatchers.IO) { runCatching { client.vaults() } }
+        found.onSuccess {
+            vaults = it
+            if (vault !in it) vault = it.firstOrNull().orEmpty()
+        }.onFailure {
+            vaults = null
+            vaultsError = context.getString(R.string.vaults_failed, it.message ?: "")
+        }
     }
-    val list = vaults ?: return
+    if (vaultsError.isNotEmpty()) {
+        Text(vaultsError)
+        OutlinedButton(onClick = { asked++ }) { Text(stringResource(R.string.try_again)) }
+        return
+    }
+    val list = vaults ?: run {
+        Text(stringResource(R.string.loading))
+        return
+    }
     if (list.isEmpty()) {
         Text(stringResource(R.string.no_vaults))
         return
@@ -483,7 +197,7 @@ fun NoteScreen(client: DeviceClient?, draft: Draft, onDraft: (Draft) -> Unit, on
         scope.launch {
             // Keeps the note (and its pictures) on the phone until the reader is found.
             fun keep(): String {
-                Outbox.addNote(context, vault, folder, title, draft.text, draft.pictures)
+                Outbox.addNote(context, vault, ReaderApi.noteFolder(folder), title, draft.text, draft.pictures)
                 prefs(context).edit().putString("vault", vault).putString("folder", folder).apply()
                 onDraft(Draft())
                 onOutbox()
@@ -493,7 +207,8 @@ fun NoteScreen(client: DeviceClient?, draft: Draft, onDraft: (Draft) -> Unit, on
                 if (client == null) return@withContext keep()
                 runCatching {
                     val vaultPath = "/Vaults/$vault"
-                    val notePath = "$vaultPath/" + folder.trim('/').ifEmpty { "" }
+                    if (!ReaderApi.isVaultName(vault)) throw IllegalArgumentException(vault)
+                    val notePath = "$vaultPath/" + ReaderApi.noteFolder(folder)
                     client.ensureFolder(notePath)
                     // Pictures first, so the note links the names they were saved under.
                     val links = StringBuilder()
@@ -534,14 +249,13 @@ fun PhoneTextSection(client: DeviceClient?, onOutbox: () -> Unit) {
     var text by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
-    HorizontalDivider(Modifier.padding(top = 8.dp))
-    Text(stringResource(R.string.phone_text_title), style = MaterialTheme.typography.titleMedium)
+    SectionLabel(stringResource(R.string.phone_text_title))
     Text(stringResource(R.string.phone_text_hint), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
     OutlinedTextField(text, { text = PhoneText.clip(it) }, label = { Text(stringResource(R.string.phone_text_label)) },
         supportingText = { Text(stringResource(R.string.phone_text_count, PhoneText.bytes(text), PhoneText.MAX_BYTES)) },
         modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp))
-    Button(enabled = !busy && text.isNotBlank(), onClick = {
+    OutlinedButton(enabled = !busy && text.isNotBlank(), onClick = {
         busy = true
         scope.launch {
             val sending = text
@@ -570,84 +284,10 @@ fun PhoneTextSection(client: DeviceClient?, onOutbox: () -> Unit) {
     if (message.isNotEmpty()) Text(message)
 }
 
-@Composable
-fun SettingsScreen(client: DeviceClient) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var settings by remember { mutableStateOf<List<Setting>?>(null) }
-    var error by remember { mutableStateOf("") }
-    var openGroup by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(client) {
-        withContext(Dispatchers.IO) { runCatching { client.settings() } }
-            .onSuccess { settings = it; openGroup = it.firstOrNull()?.category }
-            .onFailure { error = context.getString(R.string.settings_failed, it.message ?: "") }
-    }
-    if (error.isNotEmpty()) { Text(error); return }
-    val list = settings ?: run { Text(stringResource(R.string.loading)); return }
-    // One card per device category, in the device's order; one open at a time keeps the page short.
-    for ((category, rows) in list.groupBy { it.category }) {
-        val open = openGroup == category
-        OutlinedCard(Modifier.fillMaxWidth()) {
-            Row(Modifier.fillMaxWidth().clickable { openGroup = if (open) null else category }.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(category, style = MaterialTheme.typography.titleMedium)
-                    Text(pluralStringResource(R.plurals.settings_count, rows.size, rows.size),
-                        style = MaterialTheme.typography.bodySmall)
-                }
-                Text(if (open) "▲" else "▼")
-            }
-            if (open) rows.forEach { s ->
-                HorizontalDivider()
-                Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    SettingRow(s) { value ->
-                        scope.launch {
-                            withContext(Dispatchers.IO) { runCatching { client.setSetting(s.key, value) } }
-                                .onSuccess { settings = settings?.map { if (it.key == s.key) it.copy(value = value) else it } }
-                                .onFailure { error = context.getString(R.string.action_failed, it.message ?: "") }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SettingRow(s: Setting, onChange: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(s.name, Modifier.weight(1f))
-        when (s.type) {
-            "toggle" -> Switch(checked = s.value != 0, onCheckedChange = { onChange(if (it) 1 else 0) })
-            "enum" -> {
-                var open by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }, modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(s.options.getOrElse(s.value) { "" }, {}, readOnly = true, singleLine = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
-                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable))
-                    ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                        s.options.forEachIndexed { i, o ->
-                            DropdownMenuItem(text = { Text(o) }, onClick = { open = false; onChange(i) })
-                        }
-                    }
-                }
-            }
-            "value" -> Row(verticalAlignment = Alignment.CenterVertically) {
-                val step = s.step.coerceAtLeast(1)
-                OutlinedButton(enabled = s.value > s.min, onClick = { onChange((s.value - step).coerceAtLeast(s.min)) }) { Text("−") }
-                Text(s.value.toString(), Modifier.padding(horizontal = 12.dp))
-                OutlinedButton(enabled = s.value < s.max, onClick = { onChange((s.value + step).coerceAtMost(s.max)) }) { Text("+") }
-            }
-        }
-    }
-}
-
 /** Shared books and comics: send them to /Books or /Comics on the reader, one after the other. */
 @Composable
 fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<String>, unreadable: List<String>,
-                     onKept: () -> Unit, onDone: () -> Unit) {
+                     onBusy: (Boolean) -> Unit, onKept: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -655,6 +295,8 @@ fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<Stri
     var messages by remember { mutableStateOf(emptyList<String>()) }
     var busy by remember { mutableStateOf(false) }
     var sent by remember { mutableStateOf(false) }
+    // Closed in the middle of an upload (the screen went away): the upload is over for the caller too.
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { if (busy) onBusy(false) } }
     AlertDialog(
         onDismissRequest = { if (!busy) onDone() },
         title = { Text(stringResource(R.string.share_books_title, books.size)) },
@@ -675,6 +317,7 @@ fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<Stri
             if (books.isNotEmpty() && !sent) {
                 TextButton(enabled = !busy, onClick = {
                     busy = true
+                    onBusy(true)
                     scope.launch {
                         val results = mutableListOf<String>()
                         books.forEachIndexed { i, book ->
@@ -695,6 +338,7 @@ fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<Stri
                             messages = results.toList()
                         }
                         busy = false
+                        onBusy(false)
                         sent = true
                     }
                 }) { Text(stringResource(R.string.comics_send)) }
@@ -704,42 +348,3 @@ fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<Stri
     )
 }
 
-/** Check for a newer companion app; works with or without a reader connected. */
-@Composable
-fun UpdateCheck() {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var update by remember { mutableStateOf<AppUpdate?>(null) }
-    var message by remember { mutableStateOf("") }
-    OutlinedButton(onClick = {
-        scope.launch {
-            message = withContext(Dispatchers.IO) {
-                runCatching { Updater.newer(BuildConfig.VERSION_NAME) }.fold(
-                    onSuccess = { found ->
-                        update = found
-                        if (found == null) context.getString(R.string.update_none, BuildConfig.VERSION_NAME) else ""
-                    },
-                    onFailure = { context.getString(R.string.update_failed, it.message ?: "") },
-                )
-            }
-        }
-    }) { Text(stringResource(R.string.check_update)) }
-    if (message.isNotEmpty()) Text(message)
-    update?.let { found ->
-        AlertDialog(
-            onDismissRequest = { update = null },
-            text = { Text(stringResource(R.string.update_found, found.version)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    update = null
-                    scope.launch(Dispatchers.IO) {
-                        runCatching { Updater.install(context, found) }.onFailure {
-                            message = context.getString(R.string.update_failed, it.message ?: "")
-                        }
-                    }
-                }) { Text(stringResource(R.string.update_install)) }
-            },
-            dismissButton = { TextButton(onClick = { update = null }) { Text(stringResource(R.string.update_later)) } },
-        )
-    }
-}
