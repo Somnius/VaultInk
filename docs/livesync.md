@@ -183,8 +183,10 @@ decide how much memory the sync needs.
   times on a reader, see below), the piece is found in it, and it is decrypted and decoded inside
   that same buffer, so the answer is in memory once.
   With a free PSRAM block of 6.5 MB that is an answer of about 3.2 MB, a piece of about 1.8 MB of file
-  data. A piece still bigger than that is skipped as before. Answers up to 2 MB are read the old
-  way.
+  data. A piece still bigger than that is skipped as before. A one-piece answer over 64 KB takes
+  this same in-place way even under 2 MB: parsing a 1.5 MB answer into a JSON document ran out of
+  memory three times on a reader. Tried on Lef's X4 Pro (2026-11-16, both vaults, about 2 minutes,
+  nothing skipped, internal heap never under 90 KB).
 - **One file** can be 32 MB at most.
 - **A file that can't be fetched or decoded is skipped, and the sync goes on.** That covers: over
   32 MB, a name the SD card can't store (`?`, `*`, `:` and the like), an answer that is too big,

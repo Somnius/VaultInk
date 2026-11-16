@@ -492,7 +492,6 @@ void LiveSyncActivity::syncAll() {
 }
 
 bool LiveSyncActivity::syncProfile(const int profileSlot, livesyncdev::Profile& profile) {
-  // cppcheck-suppress unusedVariable
   const SmallBlocksInPsram smallBlocks(0);  // keep the internal heap for Wi-Fi and TLS while the sync runs
   // The vault folder was deleted (or never written): the saved checkpoint would skip everything.
   if (!Storage.exists(livesyncdev::options(profile).vaultDir.c_str())) livesyncdev::resetSyncState(profile);
