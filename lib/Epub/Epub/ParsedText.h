@@ -155,9 +155,10 @@ class ParsedText {
                                                 const std::vector<bool>& noSpaceBeforeVec);
   bool hyphenateWordAtIndex(size_t wordIndex, int availableWidth, const GfxRenderer& renderer, int fontId,
                             std::vector<uint16_t>& wordWidths, bool allowFallbackBreaks);
-  // Splits words[wordIndex] at a byte offset into a prefix `prefixWidth` wide (with a '-' when asked) and the rest.
-  bool splitWordAt(size_t wordIndex, size_t offset, bool needsHyphen, int prefixWidth, const GfxRenderer& renderer,
-                   int fontId, std::vector<uint16_t>& wordWidths);
+  // A split in two steps (see the .cpp): the prefix stored in the arena, which can fail, then the word list changed.
+  bool storeSplitPrefix(size_t wordIndex, size_t offset, bool needsHyphen, WordStore::StoredWord& prefixStored);
+  void splitWordAt(size_t wordIndex, size_t offset, bool needsHyphen, const WordStore::StoredWord& prefixStored,
+                   int prefixWidth, const GfxRenderer& renderer, int fontId, std::vector<uint16_t>& wordWidths);
   void extractLine(size_t breakIndex, int pageWidth, const std::vector<uint16_t>& wordWidths,
                    const std::vector<bool>& continuesVec, const std::vector<bool>& noSpaceBeforeVec,
                    const std::vector<size_t>& lineBreakIndices,
@@ -178,6 +179,10 @@ class ParsedText {
   // paragraphs it laid out, so a test can tell which breaker ran.
   static inline bool totalFitHyphenation = true;
   static inline uint32_t totalFitParagraphs = 0;
+  // For tests only, 0 and false in the firmware: the Nth prefix of the chosen splits fails to store (1 = the
+  // first), and the room for the hyphenator can not be had.
+  static inline uint8_t failSplitForTest = 0;
+  static inline bool failAllocationForTest = false;
   // A paragraph of more words is filled line by line: the tables of the total-fit breaker grow with the paragraph.
   static constexpr size_t TOTAL_FIT_MAX_WORDS = 400;
   // The most lines in a row that may end in a hyphen.

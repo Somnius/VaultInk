@@ -38,8 +38,9 @@ inline constexpr uint8_t LETTER_SPACING_LEVELS = 5;
 inline constexpr uint8_t GAP_FLOOR_PERCENT = 60;
 // Mixed into a packed word that is not 0, so sections cached by an older layout of the same settings are built
 // again. 1 = 0.77.1 (gap floor, letter spacing shares, loose line balancing). 2 = total-fit line breaking for
-// justified text with hyphenation on, and patterns by script for a book that names no language. (That one also
-// changes text laid out with the engine off, whose packed word is 0: SECTION_FILE_VERSION went to 78 with it.)
+// justified text with hyphenation on, and patterns by script for a book that names no language. That one also
+// changes text laid out with the engine off, whose packed word is 0, so the section file keeps the revision in its
+// own header field as well (layoutKey in Section.cpp) and compares it for every section.
 inline constexpr uint32_t LAYOUT_REVISION = 2;
 inline constexpr uint8_t MIN_LETTERS_MAX = 5;  // 0 = the language's own minimum
 inline constexpr uint8_t LANGUAGE_COUNT = 13;

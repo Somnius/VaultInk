@@ -1588,12 +1588,14 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
 //
 // The parts of a word are measured without touching the word list; only the splits of the chosen breaks are made,
 // after the choice. Memory is two tables from one allocation each, taken without an abort when it fails: 16 bytes a
-// word and 24 bytes a break (a word gap, or one of at most 512 hyphenation points). The search looks back from each
-// break only as far as one line reaches, like computeLineBreaks.
+// word and 24 bytes a break (a word gap, or one of at most 512 hyphenation points). The hyphenator's own small
+// allocations are not of that kind, so it only runs while a 4 kB block can still be had. The search looks back from
+// each break only as far as one line reaches, like computeLineBreaks.
 //
 // Returns no breaks, and leaves the paragraph to computeHyphenatedLineBreaks, when the paragraph has more than
 // TOTAL_FIT_MAX_WORDS words, when a table can not be allocated, when no set of breaks fits (a word wider than the
-// line with no hyphenation point that helps: the other breaker splits it anywhere), or when a split fails.
+// line with no hyphenation point that helps: the other breaker splits it anywhere), or when the prefix of a chosen
+// split can not be stored. In each case the word list is exactly as it was.
 std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& renderer, const int fontId,
                                                           const int pageWidth, std::vector<uint16_t>& wordWidths,
                                                           const std::vector<bool>& continuesVec,
@@ -1617,6 +1619,8 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
     uint16_t suffixWidth;
     uint8_t offset;
     uint8_t flags;
+    uint8_t prefixLetters;  // the places between two letters in the prefix with its hyphen, and in the suffix
+    uint8_t suffixLetters;
     // One state for each count of hyphenated lines in a row that ends here (a break without a hyphen has one).
     float cost[MAX_HYPHEN_RUN];
     uint16_t previous[MAX_HYPHEN_RUN];
@@ -1672,6 +1676,7 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
   const auto addNode = [&](const size_t word, const size_t offset, const uint8_t flags, const int prefixWidth,
                            const int suffixWidth) {
     Node& node = nodes[nodeCount++];
+    node.prefixLetters = node.suffixLetters = 0;
     node.word = static_cast<uint16_t>(word);
     node.offset = static_cast<uint8_t>(offset);
     node.flags = flags;
@@ -1685,17 +1690,35 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
   };
   addNode(0, 0, 0, 0, 0);  // the start of the paragraph
   nodes[0].cost[0] = 0.0f;
+  // The hyphenator works on a std::string and returns vectors, whose allocations abort the firmware when they
+  // fail. So the paragraph is only hyphenated word by word while a block of HYPHENATION_HEADROOM bytes can still
+  // be had (it is given back at once: the room is for those small allocations), and one string and one list are
+  // used for every word, so they grow a few times and not once a word.
+  constexpr size_t HYPHENATION_HEADROOM = 4096;
+  if (failAllocationForTest) return {};
+  {
+    const std::unique_ptr<uint8_t[]> headroom(new (std::nothrow) uint8_t[HYPHENATION_HEADROOM]);
+    if (!headroom) return {};
+  }
+  std::string word;
+  // cppcheck-suppress variableScope // not so: one list for every word, see above
+  std::vector<Hyphenator::BreakInfo> breakInfos;
   for (size_t w = 0; w < wordCount; ++w) {
     // The hyphenation points of the word, as hyphenateWordAtIndex finds them (without the every-N-letters fallback).
     if (splitCount < maxSplits && words[w].len >= 4) {
-      const std::string word{wordAt(w)};  // brace-init: `word(` is an Arduino macro
-      auto breakInfos = hangulLineEndBreaks(word);
-      const auto hyphenBreaks = Hyphenator::breakOffsets(word, /*includeFallback=*/false);
-      breakInfos.insert(breakInfos.end(), hyphenBreaks.begin(), hyphenBreaks.end());
-      // Hangul breaks stay first at the same offset, as in hyphenateWordAtIndex.
-      std::stable_sort(
-          breakInfos.begin(), breakInfos.end(),
-          [](const Hyphenator::BreakInfo& a, const Hyphenator::BreakInfo& b) { return a.byteOffset < b.byteOffset; });
+      word.assign(wordAt(w));
+      breakInfos = hangulLineEndBreaks(word);
+      {
+        const auto hyphenBreaks = Hyphenator::breakOffsets(word, /*includeFallback=*/false);
+        breakInfos.insert(breakInfos.end(), hyphenBreaks.begin(), hyphenBreaks.end());
+      }
+      // Hangul breaks stay first at the same offset, as in hyphenateWordAtIndex. (Not std::stable_sort, which
+      // takes a buffer from the heap: the list is a few entries, sorted by insertion.)
+      for (size_t i = 1; i < breakInfos.size(); ++i) {
+        for (size_t k = i; k > 0 && breakInfos[k].byteOffset < breakInfos[k - 1].byteOffset; --k) {
+          std::swap(breakInfos[k], breakInfos[k - 1]);
+        }
+      }
       const auto style = getWordStyleAt(w);
       const uint8_t focusBoundary = wordFocusBoundary[w];
       const int wordFont = wordFontId(w, fontId);
@@ -1703,7 +1726,8 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
       size_t lastOffset = 0;
       for (const auto& info : breakInfos) {
         const size_t offset = info.byteOffset;
-        if (offset <= lastOffset || offset >= word.size() || offset > UINT8_MAX || splitCount >= maxSplits) continue;
+        // An offset over 200 bytes is past what a split can store (see storeSplitPrefix).
+        if (offset <= lastOffset || offset >= word.size() || offset > 200 || splitCount >= maxSplits) continue;
         lastOffset = offset;
         const int prefixWidth = measureFocusWordWidth(
             renderer, wordFont, view.substr(0, offset), style, focusBoundaryBefore(focusBoundary, offset),
@@ -1712,6 +1736,11 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
                                                       focusBoundaryAfter(focusBoundary, offset),
                                                       blockStyle.characterSpacing, wordSpacingPercent);
         addNode(w, offset, info.requiresInsertedHyphen ? SPLIT | HYPHEN : SPLIT, prefixWidth, suffixWidth);
+        // As extractLine counts them: one place less than the letters of each part, the hyphen being a letter.
+        const uint32_t prefixLetters = countCodepoints(view.substr(0, offset)) + (info.requiresInsertedHyphen ? 1 : 0);
+        const uint32_t suffixLetters = countCodepoints(view.substr(offset));
+        nodes[nodeCount - 1].prefixLetters = static_cast<uint8_t>(std::min<uint32_t>(prefixLetters - 1, UINT8_MAX));
+        nodes[nodeCount - 1].suffixLetters = static_cast<uint8_t>(std::min<uint32_t>(suffixLetters - 1, UINT8_MAX));
         ++splitCount;
       }
     }
@@ -1761,7 +1790,10 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
       } else if (spare > 0) {
         // A line with no gap that stretches counts as one gap, as in the loose line balancing.
         const int gaps = std::max(1, lineEnd.gaps - lineStart.gaps);
-        const int letterRoom = letterCap > 0 ? letterCap * static_cast<int>(lineEnd.letters - lineStart.letters) : 0;
+        // The places between two letters of the line's words, whole and split, as extractLine counts them.
+        int letterSlots = (fromSplit ? from.suffixLetters : 0) + (toSplit ? to.prefixLetters : 0);
+        if (to.word > firstWhole) letterSlots += static_cast<int>(sums[to.word].letters - sums[firstWhole].letters);
+        const int letterRoom = letterCap * letterSlots;
         const float ratio = static_cast<float>(spare) / static_cast<float>(gaps * halfSpace + letterRoom);
         demerits += 100.0f * ratio * ratio;
         if (spare - letterRoom > gaps * space) demerits += LOOSE_DEMERITS;
@@ -1797,6 +1829,27 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
     state = nodes[at].previousState[state];
     at = previous;
   }
+  // Every prefix of a chosen split is stored first: that is the one step of a split that can fail, and when one
+  // does the prefixes stored so far are given back and the word list is as it was. Nothing is split by halves.
+  size_t chosenSplits = 0;
+  for (const uint16_t at : path) chosenSplits += (nodes[at].flags & SPLIT) != 0 ? 1 : 0;
+  std::unique_ptr<WordStore::StoredWord[]> prefixes;
+  if (chosenSplits > 0) {
+    prefixes.reset(new (std::nothrow) WordStore::StoredWord[chosenSplits]);
+    if (!prefixes) return {};
+    size_t stored = 0;
+    for (auto it = path.rbegin(); it != path.rend(); ++it) {
+      const Node& node = nodes[*it];
+      if ((node.flags & SPLIT) == 0) continue;
+      // cppcheck-suppress knownConditionTrueFalse // not so: a test sets failSplitForTest
+      if (failSplitForTest == stored + 1 ||
+          !storeSplitPrefix(node.word, node.offset, (node.flags & HYPHEN) != 0, prefixes[stored])) {
+        while (stored > 0) wordStore.release(prefixes[--stored]);
+        return {};
+      }
+      ++stored;
+    }
+  }
   // Make the splits in reading order, as the other breaker does. Each one adds a word before the breaks after it.
   std::vector<size_t> lineBreakIndices;
   lineBreakIndices.reserve(path.size());
@@ -1808,10 +1861,8 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
       continue;
     }
     const size_t wordIndex = node.word + added;
-    if (!splitWordAt(wordIndex, node.offset, (node.flags & HYPHEN) != 0, node.prefixWidth, renderer, fontId,
-                     wordWidths)) {
-      return {};  // the words split so far stay split; the other breaker takes the list as it is
-    }
+    splitWordAt(wordIndex, node.offset, (node.flags & HYPHEN) != 0, prefixes[added], node.prefixWidth, renderer, fontId,
+                wordWidths);
     ++added;
     lineBreakIndices.push_back(wordIndex + 1);
   }
@@ -1874,21 +1925,50 @@ bool ParsedText::hyphenateWordAtIndex(const size_t wordIndex, const int availabl
     // No hyphenation point produced a prefix that fits in the remaining space.
     return false;
   }
-  return splitWordAt(wordIndex, chosenOffset, chosenNeedsHyphen, chosenWidth, renderer, fontId, wordWidths);
-}
-
-bool ParsedText::splitWordAt(const size_t wordIndex, const size_t chosenOffset, const bool chosenNeedsHyphen,
-                             const int chosenWidth, const GfxRenderer& renderer, const int fontId,
-                             std::vector<uint16_t>& wordWidths) {
-  if (wordIndex >= words.size() || chosenOffset == 0 || chosenOffset >= words[wordIndex].len) {
+  WordStore::StoredWord prefixStored;
+  if (!storeSplitPrefix(wordIndex, chosenOffset, chosenNeedsHyphen, prefixStored)) {
+    // OOM: skip the split; the word stays whole and the line breaks without it.
     return false;
   }
-  const std::string word{wordAt(wordIndex)};  // brace-init: `word(` is an Arduino macro
+  splitWordAt(wordIndex, chosenOffset, chosenNeedsHyphen, prefixStored, chosenWidth, renderer, fontId, wordWidths);
+  return true;
+}
+
+// The first half of a split, and the only part that can fail: the prefix of words[wordIndex] up to a byte offset
+// (with its visible hyphen, so it stays NUL-terminated) as a fresh arena entry. Nothing else changes, so a caller
+// that needs several splits can store every prefix first and give them back (wordStore.release) when one fails.
+bool ParsedText::storeSplitPrefix(const size_t wordIndex, const size_t offset, const bool needsHyphen,
+                                  WordStore::StoredWord& prefixStored) {
+  if (wordIndex >= words.size() || offset == 0 || offset >= words[wordIndex].len) {
+    return false;
+  }
+  // Stack buffer, not std::string: this runs mid-pagination, exactly when the
+  // heap is under section-build pressure. The parser caps words at
+  // MAX_WORD_SIZE (200) bytes; anything larger skips the split rather than
+  // overflow (the word then breaks whole, as when no breakpoint fits).
+  char prefixBuf[208];
+  if (offset + 1 > sizeof(prefixBuf)) {
+    return false;
+  }
+  memcpy(prefixBuf, wordAt(wordIndex).data(), offset);
+  size_t prefixLen = offset;
+  if (needsHyphen) {
+    prefixBuf[prefixLen++] = '-';
+  }
+  return wordStore.append(prefixBuf, prefixLen, prefixStored);
+}
+
+// The second half: words[wordIndex] becomes the stored prefix (`chosenWidth` wide) and the rest of the word a new
+// word after it. The remainder aliases the original word's tail bytes and inherits the original entry's release
+// obligation via WordStore::suffix().
+void ParsedText::splitWordAt(const size_t wordIndex, const size_t chosenOffset, const bool chosenNeedsHyphen,
+                             const WordStore::StoredWord& prefixStored, const int chosenWidth,
+                             const GfxRenderer& renderer, const int fontId, std::vector<uint16_t>& wordWidths) {
   const auto style = getWordStyleAt(wordIndex);
   const uint8_t focusBoundary = wordFocusBoundary[wordIndex];
 
   uint32_t prefixLength = 0;
-  const unsigned char* offsetPtr = reinterpret_cast<const unsigned char*>(word.data());
+  const unsigned char* offsetPtr = reinterpret_cast<const unsigned char*>(wordAt(wordIndex).data());
   const unsigned char* splitPtr = offsetPtr + chosenOffset;
   while (offsetPtr < splitPtr) {
     utf8NextCodepoint(&offsetPtr);
@@ -1896,28 +1976,6 @@ bool ParsedText::splitWordAt(const size_t wordIndex, const size_t chosenOffset, 
   }
   const uint32_t remainderOffset = sourceOffsetAfter(visibleOffsetAt(wordIndex), prefixLength);
 
-  // Split the word at the selected breakpoint. The prefix is materialized as a
-  // fresh arena entry (with its visible hyphen, so it stays NUL-terminated);
-  // the remainder aliases the original word's tail bytes and inherits the
-  // original entry's release obligation via WordStore::suffix().
-  // Stack buffer, not std::string: this runs mid-pagination, exactly when the
-  // heap is under section-build pressure. The parser caps words at
-  // MAX_WORD_SIZE (200) bytes; anything larger skips the split rather than
-  // overflow (the word then breaks whole, as when no breakpoint fits).
-  char prefixBuf[208];
-  if (chosenOffset + 1 > sizeof(prefixBuf)) {
-    return false;
-  }
-  memcpy(prefixBuf, word.data(), chosenOffset);
-  size_t prefixLen = chosenOffset;
-  if (chosenNeedsHyphen) {
-    prefixBuf[prefixLen++] = '-';
-  }
-  WordStore::StoredWord prefixStored;
-  if (!wordStore.append(prefixBuf, prefixLen, prefixStored)) {
-    // OOM: skip the split; the word stays whole and the line breaks without it.
-    return false;
-  }
   const WordStore::StoredWord remainderStored = WordStore::suffix(words[wordIndex], chosenOffset);
   words[wordIndex] = prefixStored;
   const auto storedStyle = static_cast<EpdFontFamily::Style>(style & ~EpdFontFamily::SMALL_CAPS);
@@ -1977,7 +2035,6 @@ bool ParsedText::splitWordAt(const size_t wordIndex, const size_t chosenOffset, 
       measureFocusWordWidth(renderer, wordFontId(wordIndex, fontId), wordStore.view(remainderStored), style,
                             wordFocusBoundary[wordIndex + 1], blockStyle.characterSpacing, wordSpacingPercent);
   wordWidths.insert(wordWidths.begin() + wordIndex + 1, remainderWidth);
-  return true;
 }
 
 void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const std::vector<uint16_t>& wordWidths,

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -46,6 +47,11 @@ class Hyphenator {
 
   // The interface language (e.g. "EN", "de"), for the words of a book that names no language. English until set.
   static void setFallbackLanguage(const std::string& lang);
+
+  // Which pattern sets the Latin and the Cyrillic words of a book with this dc:language take by script: 0 when the
+  // book names a language (they take none by script), else a number that changes with the interface language. The
+  // section cache keeps it, so pages hyphenated for another interface language are built again.
+  static uint8_t scriptFallbackSignature(const std::string& bookLanguage);
 
  private:
   static const LanguageHyphenator* cachedHyphenator_;

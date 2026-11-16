@@ -1920,3 +1920,56 @@ TEST(HyphenationLanguageFallback, ABookLanguageAndTheChosenLanguageAreNotOverrid
   EXPECT_EQ(offsets("Quadratkilometer"), english);
   EXPECT_TRUE(offsets("международный").empty());
 }
+
+TEST(TotalFit, AFailedSplitOrNoRoomLeavesTheWordsWholeForTheOtherBreaker) {
+  Engine engine(Config{});
+  Hyphenator::setPreferredLanguage("en");
+  struct Restore {
+    ~Restore() {
+      ParsedText::failSplitForTest = 0;
+      ParsedText::failAllocationForTest = false;
+    }
+  } restore;
+  // 188 px: the total-fit breaker splits several words of kProse.
+  const Fitted whole = fitted(kProse, 188);
+  ASSERT_TRUE(whole.usedTotalFit);
+  ASSERT_GE(hyphenatedLines(whole.total), 3);
+  // The first, the second or the third prefix can not be stored: none of the chosen splits is made, so the other
+  // breaker gets the paragraph as it was and gives exactly its own lines.
+  for (const uint8_t failing : {1, 2, 3}) {
+    ParsedText::failSplitForTest = failing;
+    const Fitted f = fitted(kProse, 188);
+    EXPECT_FALSE(f.usedTotalFit) << static_cast<int>(failing);
+    EXPECT_EQ(wordsOf(f.total), wordsOf(whole.greedy)) << static_cast<int>(failing);
+    EXPECT_EQ(xposOf(f.total), xposOf(whole.greedy)) << static_cast<int>(failing);
+  }
+  ParsedText::failSplitForTest = 0;
+  // No room for the hyphenator's own allocations: the same.
+  ParsedText::failAllocationForTest = true;
+  const Fitted noRoom = fitted(kProse, 188);
+  EXPECT_FALSE(noRoom.usedTotalFit);
+  EXPECT_EQ(wordsOf(noRoom.total), wordsOf(whole.greedy));
+}
+
+TEST(HyphenationLanguageFallback, TheSectionCacheKeyFollowsTheInterfaceLanguageOnlyForABookWithNoLanguage) {
+  FallbackLanguage ui("");
+  const uint8_t english = Hyphenator::scriptFallbackSignature("");
+  EXPECT_NE(english, 0);
+  EXPECT_EQ(Hyphenator::scriptFallbackSignature("und"), english);
+  // A book that names a language, with or without patterns: nothing follows the interface language.
+  for (const char* tag : {"en", "el", "fr-FR", "nl", "ja"}) EXPECT_EQ(Hyphenator::scriptFallbackSignature(tag), 0);
+
+  Hyphenator::setFallbackLanguage("DE");
+  const uint8_t german = Hyphenator::scriptFallbackSignature("");
+  EXPECT_NE(german, english);
+  EXPECT_EQ(Hyphenator::scriptFallbackSignature("en"), 0);
+  Hyphenator::setFallbackLanguage("UK");
+  const uint8_t ukrainian = Hyphenator::scriptFallbackSignature("");
+  EXPECT_NE(ukrainian, english);
+  EXPECT_NE(ukrainian, german);
+  // Interface languages that give the same patterns give the same key: no rebuild for nothing.
+  for (const char* tag : {"NL", "EL", "RU", "EN"}) {
+    Hyphenator::setFallbackLanguage(tag);
+    EXPECT_EQ(Hyphenator::scriptFallbackSignature(""), english) << tag;
+  }
+}

@@ -391,3 +391,16 @@ void Hyphenator::setFallbackLanguage(const std::string& lang) {
   fallbackCyrillic_ = cyrillic ? hyphenator : nullptr;
   fallbackLatin_ = cyrillic || greek ? nullptr : hyphenator;
 }
+
+uint8_t Hyphenator::scriptFallbackSignature(const std::string& bookLanguage) {
+  if (!languageTagIsUnset(bookLanguage) || hyphenatorForLanguage(bookLanguage) != nullptr) return 0;
+  // 1..LANGUAGE_COUNT for a pattern set, in the order of typoengine::LANGUAGE_TAGS.
+  const auto number = [](const LanguageHyphenator* hyphenator, const char* fallbackTag) -> uint8_t {
+    if (hyphenator == nullptr) hyphenator = getLanguageHyphenatorForPrimaryTag(fallbackTag);
+    for (uint8_t i = 0; i < typoengine::LANGUAGE_COUNT; ++i) {
+      if (getLanguageHyphenatorForPrimaryTag(typoengine::LANGUAGE_TAGS[i]) == hyphenator) return i + 1;
+    }
+    return 0;
+  };
+  return static_cast<uint8_t>(number(fallbackLatin_, "en") | (number(fallbackCyrillic_, "ru") << 4));
+}

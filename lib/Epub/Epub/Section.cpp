@@ -79,8 +79,9 @@ namespace {
 // v69: Greek words hyphenate with the Greek patterns whatever the book language says.
 // v70: polytonic Greek words hyphenate with the polytonic patterns.
 // v71: the built-in reading fonts gained Greek, so Greek words change width.
-constexpr uint8_t SECTION_FILE_VERSION =
-    78;  // 78: total-fit line breaking; 77: Typography Engine word; 76: text features; 75: even word gaps
+// 79: layout key in the header (total-fit line breaking); 77: Typography Engine word; 76: text features; 75: even
+// word gaps
+constexpr uint8_t SECTION_FILE_VERSION = 79;
 // Written into the version field while a build is in progress; patched to
 // SECTION_FILE_VERSION only when the build is finalized. An abandoned /
 // crash-interrupted .bin therefore carries version 0, which loadSectionFile rejects
@@ -102,7 +103,15 @@ constexpr uint32_t HEADER_SIZE =
     sizeof(uint8_t) + sizeof(int) + sizeof(float) + sizeof(bool) + sizeof(uint8_t) + sizeof(uint16_t) +
     sizeof(uint16_t) + sizeof(uint16_t) + sizeof(bool) + sizeof(bool) + sizeof(uint8_t) + sizeof(bool) +
     sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(int8_t) +
-    sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint32_t);
+    sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint32_t) + sizeof(uint32_t);
+
+// What changes the line breaks of a section and is no setting: the revision of the layout code (also for text laid
+// out with the Typography Engine off, whose packed word is 0 and carries none) and, for a book that names no
+// language, the pattern sets its words take by script, which follow the interface language. Kept in the section
+// header and compared on every load.
+uint32_t layoutKey(const std::string& bookLanguage) {
+  return (typoengine::LAYOUT_REVISION << 8) | Hyphenator::scriptFallbackSignature(bookLanguage);
+}
 }  // namespace
 
 // Out-of-line so the unique_ptr<ChapterHtmlSlimParser> in BuildContext can be
@@ -145,16 +154,16 @@ void Section::writeSectionFileHeader(const ReaderRenderSpec& spec) {
     LOG_DBG("SCT", "File not open for writing header");
     return;
   }
-  static_assert(HEADER_SIZE == sizeof(SECTION_FILE_VERSION) + sizeof(spec.fontId) + sizeof(spec.lineCompression) +
-                                   sizeof(spec.extraParagraphSpacing) + sizeof(spec.paragraphIndentSpaces) +
-                                   sizeof(spec.paragraphAlignment) + sizeof(spec.viewportWidth) +
-                                   sizeof(spec.viewportHeight) + sizeof(pageCount) + sizeof(spec.hyphenationEnabled) +
-                                   sizeof(spec.embeddedStyle) + sizeof(spec.imageRendering) +
-                                   sizeof(spec.focusReadingEnabled) + sizeof(spec.characterSpacing) +
-                                   sizeof(spec.wordSpacingPercent) + sizeof(spec.evenWordGaps) +
-                                   sizeof(spec.textFeatures) + sizeof(spec.typographyEngine) + sizeof(uint32_t) +
-                                   sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t),
-                "Header size mismatch");
+  static_assert(
+      HEADER_SIZE == sizeof(SECTION_FILE_VERSION) + sizeof(spec.fontId) + sizeof(spec.lineCompression) +
+                         sizeof(spec.extraParagraphSpacing) + sizeof(spec.paragraphIndentSpaces) +
+                         sizeof(spec.paragraphAlignment) + sizeof(spec.viewportWidth) + sizeof(spec.viewportHeight) +
+                         sizeof(pageCount) + sizeof(spec.hyphenationEnabled) + sizeof(spec.embeddedStyle) +
+                         sizeof(spec.imageRendering) + sizeof(spec.focusReadingEnabled) +
+                         sizeof(spec.characterSpacing) + sizeof(spec.wordSpacingPercent) + sizeof(spec.evenWordGaps) +
+                         sizeof(spec.textFeatures) + sizeof(spec.typographyEngine) + sizeof(uint32_t) +
+                         sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t),
+      "Header size mismatch");
   // Written as the incomplete sentinel; finalizeBuild() patches it to
   // SECTION_FILE_VERSION as the last step, committing the file.
   serialization::writePod(file, SECTION_FILE_INCOMPLETE_VERSION);
@@ -174,6 +183,7 @@ void Section::writeSectionFileHeader(const ReaderRenderSpec& spec) {
   serialization::writePod(file, spec.evenWordGaps);
   serialization::writePod(file, spec.textFeatures);
   serialization::writePod(file, spec.typographyEngine);
+  serialization::writePod(file, layoutKey(epub->getLanguage()));
   serialization::writePod(file, pageCount);  // Placeholder for page count (will be initially 0, patched later)
   serialization::writePod(file, static_cast<uint32_t>(0));  // Placeholder for LUT offset (patched later)
   serialization::writePod(file, static_cast<uint32_t>(0));  // Placeholder for anchor map offset (patched later)
@@ -237,6 +247,8 @@ bool Section::loadSectionFile(const ReaderRenderSpec& spec) {
     serialization::readPod(file, fileTextFeatures);
     uint32_t fileTypographyEngine = 0;
     serialization::readPod(file, fileTypographyEngine);
+    uint32_t fileLayoutKey = 0;
+    serialization::readPod(file, fileLayoutKey);
 
     if (spec.fontId != fileFontId || spec.lineCompression != fileLineCompression ||
         spec.extraParagraphSpacing != fileExtraParagraphSpacing ||
@@ -246,7 +258,7 @@ bool Section::loadSectionFile(const ReaderRenderSpec& spec) {
         spec.imageRendering != fileImageRendering || spec.focusReadingEnabled != fileFocusReadingEnabled ||
         spec.characterSpacing != fileCharacterSpacing || spec.wordSpacingPercent != fileWordSpacingPercent ||
         spec.evenWordGaps != fileEvenWordGaps || spec.textFeatures != fileTextFeatures ||
-        spec.typographyEngine != fileTypographyEngine) {
+        spec.typographyEngine != fileTypographyEngine || layoutKey(epub->getLanguage()) != fileLayoutKey) {
       file.close();
       LOG_ERR("SCT", "Deserialization failed: Parameters do not match");
       clearCache();
