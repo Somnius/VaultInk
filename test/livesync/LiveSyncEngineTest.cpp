@@ -186,7 +186,7 @@ TEST(LiveSyncEngine, BatchThatFailsOnceIsAskedAgain) {
   const auto chunks = f.couch.addFile(f.master, "Board/a.png", image, 20 * 1024);
   int failures = 0;
   f.couch.intercept = [&](const std::string& body, std::string&) {
-    if (mentions(body, chunks) && failures == 0) return ++failures, -1;
+    if (mentions(body, chunks) && failures == 0) return ++failures, 503;
     return 0;
   };
   livesync::SyncStats stats;
@@ -196,9 +196,54 @@ TEST(LiveSyncEngine, BatchThatFailsOnceIsAskedAgain) {
   EXPECT_EQ(stats.skipped, 0);
   EXPECT_TRUE(f.sd.files["/Vaults/Demo/Board/a.png"] == image);
   EXPECT_FALSE(f.sd.files.count(f.skipList));
+  EXPECT_EQ(f.logged("chunks:").rfind("chunks: HTTP 503, ", 0), 0u) << f.logged("chunks:");
+}
+
+// A request with no answer at all is the transport's to send again (it does, once, on a new
+// connection): the engine does not repeat it, or a dead server would be waited on twice as long.
+// The server still answers the small request after it, so only this file is left for the next sync.
+TEST(LiveSyncEngine, RequestWithNoAnswerIsNotRepeatedByTheEngine) {
+  Fixture f;
+  const std::string image = noise(300 * 1024, 3);
+  const auto chunks = f.couch.addFile(f.master, "Board/a.png", image, 20 * 1024);
+  int asked = 0;
+  bool broken = true;
+  f.couch.intercept = [&](const std::string& body, std::string&) {
+    if (!mentions(body, chunks)) return 0;
+    ++asked;
+    return broken ? -1 : 0;
+  };
+  livesync::SyncStats stats;
+  std::string error;
+  ASSERT_TRUE(f.sync(stats, error)) << error;
+  EXPECT_EQ(asked, 1);
+  EXPECT_EQ(stats.skipped, 1);
   EXPECT_EQ(f.logged("chunks:"),
             "chunks: no HTTP answer (-1), type application/json, length chunked, got 0 bytes, body ended early, "
             "file \"Board/a.png\"");
+  broken = false;
+  ASSERT_TRUE(f.sync(stats, error)) << error;
+  EXPECT_EQ(stats.skipped, 0);
+  EXPECT_TRUE(f.sd.files["/Vaults/Demo/Board/a.png"] == image);
+}
+
+// The steps of a sync are told (the device logs its free memory with each).
+TEST(LiveSyncEngine, StagesAreTold) {
+  Fixture f;
+  std::vector<std::string> stages;
+  f.options.stage = [&](const std::string& s) { stages.push_back(s); };
+  livesync::SyncStats stats;
+  std::string error;
+  ASSERT_TRUE(f.sync(stats, error)) << error;
+  ASSERT_GE(stages.size(), 4u);
+  EXPECT_EQ(stages.front(), "state loaded, 0 files known, 0 revisions");
+  EXPECT_EQ(stages[1], "change page 1 read, 7 rows");
+  EXPECT_EQ(
+      stages.back().rfind("change page " + std::to_string(stats.pages) + " applied, 13 files known, 0 skipped", 0), 0u)
+      << stages.back();
+  int batches = 0;
+  for (const auto& s : stages) batches += s.rfind("file records ", 0) == 0;
+  EXPECT_GT(batches, 0);
 }
 
 TEST(LiveSyncEngine, FileThatAlwaysFailsIsSkippedAndTriedNextTime) {
@@ -269,7 +314,7 @@ TEST(LiveSyncEngine, AnswerThatIsNotJsonIsLoggedByShape) {
 }
 
 TEST(LiveSyncEngine, TruncatedBodies) {
-  // Cut once, with the transport saying so: logged, asked again, written.
+  // Cut once, with the transport saying so: logged, and written by the next sync.
   {
     Fixture f;
     const std::string image = noise(100 * 1024, 13);
@@ -292,6 +337,11 @@ TEST(LiveSyncEngine, TruncatedBodies) {
     };
     livesync::SyncStats stats;
     std::string error;
+    ASSERT_TRUE(f.sync(stats, error)) << error;
+    // The transport sends such a request again itself; the engine does not repeat it. Here the
+    // transport is a plain function that did not, so the file waits for the next sync.
+    EXPECT_EQ(cuts, 1);
+    EXPECT_EQ(stats.skipped, 1);
     ASSERT_TRUE(f.sync(stats, error)) << error;
     EXPECT_EQ(stats.skipped, 0);
     EXPECT_TRUE(f.sd.files["/Vaults/Demo/Board/a.png"] == image);

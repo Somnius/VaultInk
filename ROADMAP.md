@@ -487,6 +487,18 @@ Order: 1c.1 → 1c.2 (host part now, refresh tuning when the device arrives) →
   answer), a change list not read to its end is not applied, and the result screen tells a failed
   TLS handshake (certificate hint) from a server that could not be reached and from one that did
   not answer (English, Greek).
+* ✅ (written 2026-11-16, unreleased; computer tests and one x4pro-dev build, **not run on a
+  reader**) LiveSync after a reader's log of a "Sync all" of two vaults: the internal memory fell
+  to 4 KB in the first one. Found in the code: blocks of 64 bytes and less stayed in the internal
+  memory during a sync, and the sync's two tables hold about 220 bytes of them for every file of
+  the vault; now every block of a sync comes from the PSRAM. Whether that is all of it is **not
+  known** (the vault's file count is not in the log); the log now has the free memory at every
+  step. The buffer for one piece is taken once at three quarters of the largest free PSRAM block
+  (three files were skipped because a piece was longer than its record suggested). Waits of 10
+  seconds for a connection and for the start of an answer, a request sent twice at most: a silent
+  server stops the sync after 30 seconds (one dead request had cost 168). The progress bar is
+  drawn every 2.5 seconds at most. The requests without an answer are still **not explained**.
+  See docs/livesync.md.
 * ✅ (written 2026-11-16, unreleased; computer tests and builds only, **not run on a reader**)
   LiveSync after a reader's log with the internal memory fine (149 KB free) and requests still
   left without an answer after three pictures were skipped as too big. A picture stored as one

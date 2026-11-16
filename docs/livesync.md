@@ -175,11 +175,13 @@ decide how much memory the sync needs.
 - **One answer from the server** can be 2 MB at most when it holds several pieces. A bigger one
   is dropped while it arrives ("Response over ... bytes" in the log) and asked again in halves.
 - **A request for one piece alone** may get a longer answer (written 2026-11-16, unreleased,
-  **computer tests only, not run on a reader**): up to half of the largest free PSRAM block, 6 MB
-  at most and never less than the 2 MB above. A picture that LiveSync stored as one piece is over
-  2 MB of JSON and was skipped before. Such an answer is not parsed into a JSON document (a second
-  copy of it): the buffer is taken once at the size the file's record gives, the piece is found in
-  it, and it is decrypted and decoded inside that same buffer, so the answer is in memory once.
+  **computer tests only, not run on a reader**): up to three quarters of the largest free PSRAM
+  block (half, in the first build of that day), 6 MB at most and never less than the 2 MB above.
+  A picture that LiveSync stored as one piece is over 2 MB of JSON and was skipped before. Such
+  an answer is not parsed into a JSON document (a second copy of it): the buffer is taken once at
+  that cap (in the first build: at the size the file's record gives, which was too small three
+  times on a reader, see below), the piece is found in it, and it is decrypted and decoded inside
+  that same buffer, so the answer is in memory once.
   With a free PSRAM block of 6.5 MB that is an answer of about 3.2 MB, a piece of about 1.8 MB of file
   data. A piece still bigger than that is skipped as before. Answers up to 2 MB are read the old
   way.
@@ -293,6 +295,48 @@ reader then went to sleep by its 10-minute timer with the result unread.
   for one request instead of two. Computer tests: a new connection that takes a request and never
   answers, and a kept connection that goes silent; in both the next try is answered on another
   connection. **Not run on a reader.**
+- **A reader's log of a "Sync all" of two vaults, later on 2026-11-16, and what was changed**
+  (computer tests and one x4pro-dev build; **not run on a reader**).
+  - *Internal memory.* About 146 KB were free before Wi-Fi, 94 KB with Wi-Fi on. In the first
+    vault, requests that got no answer were logged with 12 KB free (lowest 7.8 KB), later with
+    4 KB, and then the TLS handshake failed and no connection could be made. The PSRAM was fine.
+    The second vault, right after, worked.
+    **Found in the code:** during a sync malloc() gave blocks *over* 64 bytes from the PSRAM, and
+    its rule is "up to and including": a block of exactly 64 bytes stays internal. The sync keeps
+    two tables for the whole vault (file id to path, file id to revision), and on this 32-bit
+    board one entry of such a table is exactly 64 bytes, its path and its revision text are under
+    64 too: about 220 bytes of internal memory for every file the vault has (measured with a
+    32-bit build on a computer), taken when the sync starts and given back when it ends. The
+    text of ids and revisions in the server's JSON answers is in blocks of that size as well.
+    **Not known:** how many files that vault has, so whether this is all of the 80 KB that went
+    missing. (640 files would be 140 KB.) **Changed:** during a sync every block comes from the
+    PSRAM, whatever its size. The log now has a line with the free memory at every step
+    (`LSY MEM state loaded, 612 files known, ...: internal N free, lowest N, largest N; PSRAM N
+    free, largest N`, then for every page of the change list, every 10 file records, every
+    connection made or closed and the end of the session), so the next run shows where it falls,
+    if it still does.
+  - *Requests without an answer.* **Still not explained.** They came when the internal memory
+    was low this time, and the Wi-Fi needs it to receive; but a log earlier that day had them
+    with the memory fine.
+  - *Three files skipped with "not enough memory for the server's answer"* (3.6, 3.1 and 3.1 MB
+    read). Each was a request for one piece, not a batch (a batch stops at 2 MB). The buffer had
+    been taken at the size the file's record suggested, the piece was longer, and a buffer that
+    holds 3 MB cannot grow: a second block of that size and a quarter more was not free. Why
+    the pieces were longer than the record suggested is **not known** (a file in uneven pieces
+    would do it; the log does not say how many pieces they had). **Changed:** the buffer for one
+    piece is taken once at the cap, and the cap is three quarters of the largest free PSRAM
+    block (6 MB at most) instead of half. An answer over that is still skipped ("too big").
+  - *Waiting.* One request without an answer cost 168 seconds: 30 seconds each for the kept
+    connection, a new one, and a third, the whole request once more by the sync, and connections
+    that could not be made took 48 to 60 seconds a try. **Changed:** the wait for the start of
+    an answer (the status line) and the wait for a connection are 10 seconds each (a body that
+    has started may still pause for 30); a request is written twice at most, whoever sends it
+    the second time; the sync itself no longer repeats a request that got no answer; after a
+    request with no answer the next one gets a single try; and a server that cannot be reached
+    is not tried a second time with TLS 1.2. A server that goes silent now stops the sync after
+    30 seconds (three waits of 10), one that cannot be reached after 20.
+  - *The screen.* The progress bar was drawn for every file, about once a second, each a refresh
+    of the e-ink screen. It is now drawn every 2.5 seconds at most.
 - **A sync keeps the reader awake.** The sync runs in one go, and the sleep timer was not fed
   while it ran, so it fired the moment a sync longer than the timeout ended. The end of any job
   that held the reader for 5 seconds or more (a sync, a PDF conversion, a download) now counts as

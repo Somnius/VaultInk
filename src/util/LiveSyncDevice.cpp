@@ -38,14 +38,28 @@ constexpr size_t MAX_STATE_FILE = 2 * 1024 * 1024;  // the id->path map of a big
 constexpr size_t MAX_RESPONSE = 2 * 1024 * 1024;
 // The answer to a request for ONE chunk (a picture stored as one piece is over 2 MB of JSON) may be
 // longer: the engine does not parse it into a document but decrypts and decodes the chunk inside
-// the answer's own buffer, so the answer is held once. Up to half of the largest free PSRAM block
-// (the buffer is taken once at the expected size; the other half is left for everything else),
-// never under MAX_RESPONSE and never over this.
+// the answer's own buffer, so the answer is held once. Up to three quarters of the largest free
+// PSRAM block, never under MAX_RESPONSE and never over this (livesync::oneAnswerCap). The buffer
+// is taken once at that cap, not at the size the file's record suggests: on a reader three files
+// had a piece longer than that guess (3.6, 3.1 and 3.1 MB read when the buffer was full), and a
+// buffer that holds 3 MB cannot grow, a second block of its size and more is not there.
 constexpr size_t MAX_ONE_CHUNK_RESPONSE = 6 * 1024 * 1024;
 
 size_t oneChunkCap() {
-  const size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
-  return std::max(MAX_RESPONSE, std::min(MAX_ONE_CHUNK_RESPONSE, largest / 2));
+  return livesync::oneAnswerCap(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM), MAX_RESPONSE,
+                                MAX_ONE_CHUNK_RESPONSE);
+}
+
+// One line with the free memory, at every step of a sync and every connection made or closed: the
+// internal heap (the Wi-Fi's and the TLS session's) and the PSRAM (the answers'). `lowest` is
+// since boot.
+void logMemory(const char* what) {
+  LOG_INF("LSY", "MEM %s: internal %u free, lowest %u, largest %u; PSRAM %u free, largest %u", what,
+          static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
+          static_cast<unsigned>(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)),
+          static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)),
+          static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)),
+          static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM)));
 }
 
 void wipe(std::string& s) {
@@ -105,6 +119,7 @@ std::unique_ptr<freeink::SecureHttpClient> session;
 livesync::FailureCause failureCause = livesync::FailureCause::None;
 bool sessionWorked = false;   // a request of this session was answered
 uint32_t connectsLogged = 0;  // connections of this session that have their "connect #N" line
+livesync::SecondTry secondTry;
 std::string caPem;
 livesync::ResponseInfo lastInfo;  // of the last answer, for the engine's error log
 
@@ -367,7 +382,11 @@ livesync::Transport transport(const Profile& p) {
       }
       http.setCACert(caPem.empty() ? ca_bundle::PEM : caPem.c_str());
     }
-    http.setTimeout(30000);
+    http.setTimeout(livesync::BODY_TIMEOUT_MS);
+#ifndef SIMULATOR  // the simulator's own HTTP client has the one timeout
+    http.setConnectTimeout(livesync::CONNECT_TIMEOUT_MS);
+    http.setResponseTimeout(livesync::ANSWER_TIMEOUT_MS);
+#endif
     lastInfo = livesync::ResponseInfo{};
     lastInfo.complete = false;
     const auto prepare = [&] {
@@ -386,6 +405,7 @@ livesync::Transport transport(const Profile& p) {
       while (connectsLogged < http.connectionsOpened()) {
         LOG_INF("LSY", "LSY connect #%u (%s)", static_cast<unsigned>(++connectsLogged),
                 tls ? "new TLS session" : "new connection, no TLS");
+        logMemory("connected");
       }
 #else
       (void)http;
@@ -396,10 +416,18 @@ livesync::Transport transport(const Profile& p) {
     // slow server can take up to the timeout.
     livesync::CappedRequest limits;
     limits.cap = oneChunk ? oneChunkCap() : MAX_RESPONSE;
-    limits.expected = expected;
+    // One chunk: the buffer is taken once at the cap (see MAX_ONE_CHUNK_RESPONSE), whatever the
+    // engine expects from the file's record.
+    limits.expected = oneChunk ? limits.cap : expected;
     limits.largestFreeBlock = [] { return heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT); };
-    limits.tick = [] { resetTaskWatchdogIfSubscribed(); };
+    limits.tick = [] {
+      resetTaskWatchdogIfSubscribed();
+      secondTry.piece(lastInfo.received, millis());
+    };
+    bool stalled = false;
+    secondTry.start(millis());
     limits.closed = [&](const bool answerStarted) {
+      stalled = secondTry.bodyStalled(answerStarted, millis());
       logConnects();
       if (answerStarted) {
         LOG_ERR("LSY", "%s: closed after an unfinished answer (%u bytes of it read)", method,
@@ -407,24 +435,27 @@ livesync::Transport transport(const Profile& p) {
       } else {
         LOG_ERR("LSY", "%s: closed after a request with no answer", method);
       }
+      logMemory("closed");
     };
     // A request that only reads is sent once more on a new connection before it counts as failed;
     // one that writes (a note going up) is not, since the first try may have reached the database.
     const bool reads = strcmp(method, "GET") == 0 || path.rfind("_all_docs", 0) == 0;
     limits.again = [&](const int failed) {
+      bool connectFailed = false;
+      int timesWritten = 1;
 #ifndef SIMULATOR
       // No connection could be made at all: the next try would only wait as long again.
-      if (failed < 0 && (http.failure() == freeink::SecureHttpClient::Failure::Connect ||
-                         http.failure() == freeink::SecureHttpClient::Failure::Handshake)) {
-        return false;
-      }
+      connectFailed = failed < 0 && (http.failure() == freeink::SecureHttpClient::Failure::Connect ||
+                                     http.failure() == freeink::SecureHttpClient::Failure::Handshake);
+      timesWritten = http.requestAttempts();
 #endif
-      if (!reads || !prepare()) return false;
+      if (!secondTry.allowed(reads, connectFailed, timesWritten, stalled) || !prepare()) return false;
       LOG_ERR("LSY", "%s: asking again on a new connection (the first try ended with %d)", method, failed);
       return true;
     };
     livesync::CappedResult result;
     const int status = livesync::requestCapped(http, method, body, response, limits, lastInfo, result);
+    secondTry.done(status);
     logConnects();
 #ifndef SIMULATOR  // the simulator's own HTTP client does not report this
     if (status < 0 && !result.tooBig && !result.noMemory) {
@@ -555,6 +586,7 @@ livesync::SyncOptions options(const Profile& p) {
   o.logError = [](const std::string& line) {
     for (size_t at = 0; at < line.size(); at += 200) LOG_ERR("LSY", "%s", line.substr(at, 200).c_str());
   };
+  o.stage = [](const std::string& stage) { logMemory(stage.c_str()); };
   return o;
 }
 
@@ -670,7 +702,9 @@ void endSession() {
   session.reset();  // drops the Authorization header and the TLS state with it
   sessionWorked = false;
   connectsLogged = 0;
+  secondTry = livesync::SecondTry{};
   caPem.clear();
+  logMemory("session ended");
 }
 
 }  // namespace livesyncdev

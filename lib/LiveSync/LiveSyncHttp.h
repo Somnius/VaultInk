@@ -48,6 +48,61 @@ struct CappedResult {
   bool retried = false;  // the request was sent a second time on a new connection
 };
 
+// How long a sync waits on the server. A dead server shows at the connection or right after the
+// request went out, so those two waits are short; a body that has started may pause for longer.
+constexpr uint32_t CONNECT_TIMEOUT_MS = 10000;  // the TCP connection, then the TLS handshake, each
+constexpr uint32_t ANSWER_TIMEOUT_MS = 10000;   // request written whole -> status line and headers
+constexpr uint32_t BODY_TIMEOUT_MS = 30000;     // between two pieces of a body (and of a request going out)
+
+// The most bytes the answer to a request for ONE chunk may have: three quarters of the largest
+// free block (the PSRAM's), never under `floor` (the cap of every other request) and never over
+// `ceiling`. The buffer is taken once at this size (CappedRequest::expected = the cap), which the
+// check in requestCapped allows: the block and a quarter more is the whole of that largest block.
+// The chunk is decrypted and decoded inside the buffer, so nothing else of its size is needed.
+inline size_t oneAnswerCap(const size_t largestFree, const size_t floor, const size_t ceiling) {
+  return std::max(floor, std::min(ceiling, largestFree / 4 * 3));
+}
+
+// Whether a request that ended without a whole answer is sent once more on a new connection
+// (CappedRequest::again). One dead request must not be waited on again and again: it is written
+// twice at most, whoever sent it the second time, and after a request that got no answer at all
+// the next one gets a single try, until one is answered. With the waits above that is 10 s, 10 s
+// and 10 s for the small request the engine sends to see if the server is still there.
+struct SecondTry {
+  bool lastUnanswered = false;  // the request before this one ended with no answer at all
+  size_t seen = 0;              // body bytes of the running request when piece() was last told more
+  uint32_t lastPieceAt = 0;
+
+  // Called while a request runs (CappedRequest::tick), with the body bytes read so far and the
+  // clock: remembers when the last piece of the body came.
+  void piece(const size_t received, const uint32_t nowMs) {
+    if (received == seen) return;
+    seen = received;
+    lastPieceAt = nowMs;
+  }
+  // Before a request is sent.
+  void start(const uint32_t nowMs) {
+    seen = 0;
+    lastPieceAt = nowMs;
+  }
+  // An answer had started and then nothing more came for the whole body wait: the same request
+  // again would most likely wait as long a second time.
+  bool bodyStalled(const bool answerStarted, const uint32_t nowMs) const {
+    return answerStarted && nowMs - lastPieceAt >= BODY_TIMEOUT_MS - 1000;
+  }
+
+  // `reads`: sending it twice changes nothing on the server (a GET, a keys query). `connectFailed`:
+  // no connection (or no TLS session) could be made, the next try would only wait as long again.
+  // `timesWritten`: how often the HTTP client itself wrote this request (2: its own second try,
+  // after a kept connection turned out dead).
+  // `stalled`: bodyStalled() at the close.
+  bool allowed(const bool reads, const bool connectFailed, const int timesWritten, const bool stalled) const {
+    return reads && !connectFailed && timesWritten < 2 && !lastUnanswered && !stalled;
+  }
+  // After every request, with what requestCapped returned.
+  void done(const int status) { lastUnanswered = status < 0 && status != STATUS_TOO_BIG && status != STATUS_NO_MEMORY; }
+};
+
 // Why a request got no usable answer, for the message on the result screen.
 enum class FailureCause : uint8_t {
   None,

@@ -27,11 +27,16 @@ namespace fui = freeink::ui;
 
 namespace {
 
-// A popup with a progress bar the long steps (key derivation, the pull) fill in.
+// A popup with a progress bar the long steps (key derivation, the pull) fill in. The bar is drawn
+// again every REDRAW_MS at most: each drawing is a refresh of the e-ink screen, and a sync told one
+// for every file (about one a second). A full bar is always drawn, and what the step ended with is
+// the screen that follows it.
 struct Progress {
+  static constexpr uint32_t REDRAW_MS = 2500;
   GfxRenderer* renderer = nullptr;
   Rect popup{};
   int last = -1;
+  uint32_t drawnAt = 0;
   void begin(GfxRenderer& r, const char* text) {
     renderer = &r;
     RenderLock lock;
@@ -41,7 +46,10 @@ struct Progress {
   void set(const int percent) {
     resetTaskWatchdogIfSubscribed();
     if (!renderer || percent == last) return;
+    const uint32_t now = millis();
+    if (last >= 0 && percent < 100 && now - drawnAt < REDRAW_MS) return;
     last = percent;
+    drawnAt = now;
     RenderLock lock;
     GUI.fillPopupProgress(*renderer, popup, percent);
   }
@@ -485,7 +493,7 @@ void LiveSyncActivity::syncAll() {
 
 bool LiveSyncActivity::syncProfile(const int profileSlot, livesyncdev::Profile& profile) {
   // cppcheck-suppress unusedVariable
-  const SmallBlocksInPsram smallBlocks;  // keep the internal heap for Wi-Fi and TLS while the sync runs
+  const SmallBlocksInPsram smallBlocks(0);  // keep the internal heap for Wi-Fi and TLS while the sync runs
   // The vault folder was deleted (or never written): the saved checkpoint would skip everything.
   if (!Storage.exists(livesyncdev::options(profile).vaultDir.c_str())) livesyncdev::resetSyncState(profile);
   livesync::SyncStats stats;

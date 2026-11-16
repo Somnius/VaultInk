@@ -595,6 +595,27 @@ Big files and skipped files (2026-11-15, unreleased; computer tests and builds o
   `chunks: HTTP 200, type application/json, length chunked, got 227636 bytes, body complete, JSON
   NoMemory, file "..."`; the first 80 body bytes follow as `starts "..."` (escaped) unless the
   error is NoMemory. No URL and no header that was sent is ever in it.
+- 2026-11-16, later (unreleased; host tests and one x4pro-dev build, not run on a reader).
+  `SmallBlocksInPsram(keepInternal = 64)`: LiveSync passes 0 (`heap_caps_malloc_extmem_enable(0)`;
+  `heap_caps_malloc_default` keeps `size <= limit` internal, and
+  `sizeof(std::_Rb_tree_node<std::pair<const std::string, std::string>>)` is 64 on a 32-bit
+  target: the nodes of `Run::map` and `Run::revs`, their paths and revisions under 64 bytes, about
+  220 bytes of internal heap per known file). PDF conversion keeps 64.
+  `SyncOptions::stage(text)`: "state loaded, N files known, N revisions", "change page N read, N
+  rows", "file records N of N done", "change page N applied, ..."; the device logs
+  `LSY MEM <stage>: internal free/lowest/largest; PSRAM free/largest`, also at "connected",
+  "closed" and "session ended".
+  `livesync::oneAnswerCap(largest, floor, ceiling)` = `max(floor, min(ceiling, largest / 4 * 3))`;
+  the device sets `CappedRequest::expected` to that cap for a one-chunk request (the engine's
+  `expected` is no longer used by it).
+  Waits: `CONNECT_TIMEOUT_MS` 10 s, `ANSWER_TIMEOUT_MS` 10 s, `BODY_TIMEOUT_MS` 30 s
+  (SDK: `SecureHttpClient::setConnectTimeout`, `setResponseTimeout`, `requestAttempts()`;
+  `SecureClient::connect` does not retry with TLS 1.2 when there was no TCP connection).
+  `livesync::SecondTry` decides `CappedRequest::again`: reads only, not after a failed connect,
+  not when the client wrote the request twice itself, not right after a request with no answer.
+  The engine's `fetch` repeats only an answer that came whole and could not be used (bad JSON, an
+  HTTP error); no answer and a cut answer are the transport's to repeat.
+  `Progress::set` in LiveSyncActivity.cpp draws every 2500 ms at most (always for 100).
 - Not verified: the sync on a reader; the real peak of the PSRAM and of the internal heap during
   a multi-MB file; the cause of the failure seen on the X4 Pro (the log line above will say).
 
