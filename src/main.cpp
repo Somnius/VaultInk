@@ -58,6 +58,7 @@
 #include "activities/util/WelcomeGuideActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "network/WifiAutoJoin.h"
 #include "platform/UsbSerialJtagHandoff.h"
 #include "util/AutoWarmthState.h"
 #include "util/BatteryHistory.h"
@@ -541,23 +542,40 @@ static void deliverSleepPluginEvents(const bool allowNetwork) {
   }
 }
 
-// Joins the last saved network for an automatic LiveSync on wake: 10 s at most, nothing on screen
-// to answer. False (and Wi-Fi off again) when there is no saved network, the battery is low, or
-// the network isn't in reach.
+// Joins a saved network for an automatic LiveSync on wake, with nothing on screen to answer: one
+// scan, then the saved networks in reach, strongest first (wifijoin), 10 s each and 20 s in all.
+// False (and Wi-Fi off again, with one log line) when there is no saved network, the battery is
+// low, or no saved network is in reach or connects.
 static bool joinSavedWifiForSync() {
   if (powerManager.getBatteryPercentage() < 20) return false;
   WIFI_STORE.loadFromFile();
-  const auto cred = WIFI_STORE.findCredential(WIFI_STORE.getLastConnectedSsid());
-  if (!cred) return false;
+  if (WIFI_STORE.getCredentialCount() == 0) return false;
+  WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(cred->ssid.c_str(), cred->password.c_str());
-  const unsigned long deadline = millis() + 10000;
-  while (WiFi.status() != WL_CONNECTED && millis() < deadline) delay(100);
-  if (WiFi.status() == WL_CONNECTED) {
-    trustedtime::startSync();
-    return true;
+  const int16_t found = WiFi.scanNetworks();  // blocking
+  std::vector<wifijoin::Seen> seen;
+  for (int16_t i = 0; i < found; i++) seen.push_back({WiFi.SSID(i).c_str(), WiFi.RSSI(i)});
+  WiFi.scanDelete();
+  const std::vector<std::string> order = wifijoin::savedInRange(
+      seen, [](const std::string& ssid) { return WIFI_STORE.hasSavedCredential(ssid); },
+      WIFI_STORE.getLastHiddenSsid());
+  const unsigned long start = millis();
+  for (const auto& ssid : order) {
+    if (millis() - start >= 20000) break;
+    const auto cred = WIFI_STORE.findCredential(ssid);
+    if (!cred) continue;
+    WiFi.begin(cred->ssid.c_str(), cred->password.c_str());
+    const unsigned long tryStart = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - tryStart < 10000) delay(100);
+    if (WiFi.status() == WL_CONNECTED) {
+      trustedtime::startSync();
+      return true;
+    }
+    WiFi.disconnect();
+    delay(100);
   }
-  LOG_DBG("MAIN", "LiveSync on wake: saved network not reached");
+  LOG_INF("MAIN", "LiveSync on wake skipped: no saved network joined (scan %d, %u saved in range)",
+          static_cast<int>(found), static_cast<unsigned>(order.size()));
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
   return false;

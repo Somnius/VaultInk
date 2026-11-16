@@ -8,6 +8,7 @@
 
 #include "activities/Activity.h"
 #include "components/UiAppHost.h"
+#include "network/WifiAutoJoin.h"
 #include "util/ButtonNavigator.h"
 
 struct Rect;
@@ -21,6 +22,7 @@ struct WifiNetworkInfo {
   bool isEncrypted;
   bool hasSavedPassword;             // Whether we have saved credentials for this network
   bool isHiddenPlaceholder = false;  // Synthetic "Add hidden network..." list entry
+  bool isRescanRow = false;          // Synthetic "Scan again" list entry
 };
 
 // WiFi selection states
@@ -54,7 +56,7 @@ class WifiSelectionActivity final : public Activity, private UiAppHost {
   WifiSelectionState state = WifiSelectionState::SCANNING;
   size_t selectedNetworkIndex = 0;
   std::vector<WifiNetworkInfo> networks;
-  // Number of real (scanned) networks, excluding the synthetic hidden-network entry
+  // Number of real (scanned) networks, excluding the synthetic "Scan again" and hidden-network entries
   size_t realNetworkCount = 0;
 
   // Row buffers derived from `networks`, rebuilt only when it changes
@@ -68,6 +70,8 @@ class WifiSelectionActivity final : public Activity, private UiAppHost {
   // Selected network for connection
   std::string selectedSSID;
   bool selectedRequiresPassword = false;
+  // The selected network was typed in through "Add hidden network" (or is the saved hidden one).
+  bool selectedIsHidden = false;
 
   // Connection result
   std::string connectedIP;
@@ -93,6 +97,15 @@ class WifiSelectionActivity final : public Activity, private UiAppHost {
 
   // Saved SSIDs already attempted during the current auto-connect session.
   std::vector<std::string> autoAttemptedSsids;
+
+  // Saved networks of the last scan in the order to try them (wifijoin::savedInRange).
+  std::vector<std::string> autoOrder;
+
+  // Scans started in a row by the current automatic join.
+  int scanTries = 0;
+
+  // Why the list is shown after an automatic join gave up; drawn in the band under the header.
+  wifijoin::Notice listNotice = wifijoin::Notice::None;
 
   // Save/forget prompt selection (0 = Yes, 1 = No)
   int savePromptSelection = 0;
@@ -123,9 +136,9 @@ class WifiSelectionActivity final : public Activity, private UiAppHost {
   void renderConnected(const Rect* screen, const ThemeMetrics* metrics) const;
   void renderConnectionFailed(const Rect* screen, const ThemeMetrics* metrics) const;
 
-  void startWifiScan(bool autoScan = false);
+  void startWifiScan(bool autoScan = false, bool retry = false);
   void processWifiScanResults();
-  void appendHiddenNetworkEntry();
+  void appendActionRows();
   void selectNetwork(int index);
   void promptHiddenSsid();
   void promptPasswordEntry();

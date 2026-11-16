@@ -27,6 +27,8 @@ class WifiCredentialStore : public PersistableStore<WifiCredentialStore> {
  private:
   std::vector<WifiCredential> credentials;
   std::string lastConnectedSsid;
+  // The last connected network was joined through "Add hidden network": a scan never lists it.
+  bool lastConnectedHidden = false;
   // Protects the in-memory strings independently of PersistableStore's file
   // serialization mutex. Readers only hold this briefly and never wait on SD
   // I/O; saveToFile() snapshots under this mutex from toJson().
@@ -59,7 +61,9 @@ class WifiCredentialStore : public PersistableStore<WifiCredentialStore> {
   bool hasSavedCredential(const std::string& ssid) const;
 
   // Last connected network
-  void setLastConnectedSsid(const std::string& ssid);
+  void setLastConnectedSsid(const std::string& ssid, bool hidden = false);
+  // The last connected network when it does not broadcast its name, else empty.
+  std::string getLastHiddenSsid() const;
   std::string getLastConnectedSsid() const;
 };
 

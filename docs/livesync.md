@@ -444,11 +444,14 @@ screen stays open so you can read why.
 
 **Sync on wake** is off until you turn it on, on the LiveSync screen. Tap the row to step through
 Off, every 6 hours and every 24 hours. When the device wakes (or starts) and the chosen time has
-passed since the last try, it joins your last Wi-Fi network by itself (10 seconds at most), pulls
-the changes, and opens what you were reading. It doesn't sync when:
+passed since the last try, it scans once and joins a saved Wi-Fi network that is in range by itself
+(the strongest first, 10 seconds for each, 20 seconds in all), pulls the changes, and opens what you
+were reading. It never shows the Wi-Fi screen or asks anything: with no saved network in range it
+skips the sync with one line in the log. (The scan and the choice among saved networks are
+unreleased: computer tests and an x4pro-dev build, not run on a reader.) It doesn't sync when:
 
 - the last try was less than 6 or 24 hours ago. A try counts even when it failed, so a missing
-  network costs one 10-second wait per interval, not one on every wake;
+  network costs one scan per interval, not one on every wake;
 - the battery is under 20%;
 - there's no saved network, or it isn't in reach (Wi-Fi goes off again). An open network with no
   password isn't saved, so it can't be used for this;
@@ -456,6 +459,11 @@ the changes, and opens what you were reading. It doesn't sync when:
 
 A failed sync on wake doesn't stop you: the device goes back to what you were reading, and the
 reason is on the LiveSync screen under Sync now.
+
+Sync now, Sync all, Finish setup and the Sync tile join Wi-Fi through the usual Wi-Fi screen: a
+saved network in range is joined without asking, and with none in range you get the network list
+(see [the web server guide](webserver.md#join-network-mode)). If you go back from it without a
+connection, the LiveSync screen says "Not synced: no Wi-Fi connection."
 
 ## Not supported (yet)
 

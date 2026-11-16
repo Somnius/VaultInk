@@ -830,6 +830,17 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   file from a server inside the script on the computer's LAN address, FETCH, FLASH with the hash,
   REBOOT, STATUS until the version matches). `x4pro-dev` and `x4pro-dev-verify` only. Still to do: compile it, and every
   item of docs/devlink.md, "What is not checked yet".
+* 🚧 (2026-11-16, unreleased, computer tests and an x4pro-dev build, not run on a reader)
+  Wi-Fi when the saved network is not there (Lef's report: starting LiveSync away from the last
+  network ended at adding a new network). Every job that needs Wi-Fi (LiveSync, OPDS, the update
+  check, font downloads, KOReader sync, lookups, SSH) now scans first and joins a saved network in
+  range without asking, strongest first, then the others. With none in range, none connecting or
+  a scan that failed twice, the network list is shown with the reason under the title, saved
+  networks marked, and a "Scan again" row before "Add hidden network"; Back cancels, and LiveSync
+  then says "Not synced: no Wi-Fi connection." Sync on wake scans and tries the saved networks in
+  range (10 s each, 20 s in all) and skips with a log line otherwise; it never opens the Wi-Fi
+  screen. A saved hidden network is tried by itself only after it was joined once through "Add
+  hidden network" with this firmware. Still to do: all of it on a reader.
 * 🚧 (2026-11-15, unreleased, computer tests and builds only (x4pro-dev-verify flash 87.0 %, x4pro-dev-user 86.8 %, x4pro 86.6 %), nothing run on a reader)
   Testing a checked connection without a date: `CMD:CLOCK UNSET` (`devlink.py clock-unset`) sets
   the system clock to 0 and forgets the latest time this run has seen, so the next checked
