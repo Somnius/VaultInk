@@ -2,6 +2,23 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.77.1 (2026-11-16)
+
+Fixes for two things kos25k reported after 0.77.0 (#30, #15).
+
+Checked on a real X4 Pro (2026-11-16, Fira Sans 16 pt, a Greek test book):
+
+- **Words no longer glue together.** With Space condensing and Optical spacing on, a word gap could shrink to almost nothing. A gap now never goes under 60% of the font's space. Minimal punctuation still leaves its half space.
+- **Letter spacing has five steps**: Off, Small, Medium, Large and Max. On a loose line the spare room goes between the letters first, so the word gaps stay closer to normal. On my test page Large and Max looked about like Medium.
+- **A swipe from the top edge works over an open book menu** (#15). It closes the menu and opens quick settings, with no tap on the page first. Tried over the bottom bar and the Text panel; a swipe in the middle of a panel does not open it.
+
+Tested on a computer only:
+
+- With Hyphenation on, a very loose line can take one or two words from the line above. A line of three long words that can't be split still stretches.
+- The swipe over the classic list menu, and no swipe while a popup is up. A key, a touch or a remote click during the short wait calls the panel off.
+
+Known: a font size is saved as a place in that font's list of sizes, so switching fonts can change the size. The GitHub certificate check is still off in release builds.
+
 ## 0.77.0 (2026-11-16)
 
 LiveSync for more than one vault, vaults that stay out of the Library, and two more Typography Engine settings asked for in #30. Each part says whether I checked it on my X4 Pro.

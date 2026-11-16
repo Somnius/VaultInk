@@ -40,7 +40,7 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (my code is MIT; the firmware binaries are GPL-3.0-or-later, see [License](#license)). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Still early.** VaultInk is at 0.77.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
+> **Still early.** VaultInk is at 0.77.1. Releases from 0.8.2 on have been tested on a real X4 Pro by one
 > tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Much of the
 > newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
 > the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
@@ -90,6 +90,12 @@ Page background contrast with a preview, Random page!, the Library's format filt
 MOBI and AZW books, the status bar options with the book page number, and Advanced Typography.
 
 More screenshots are in the sections below and in [docs/](docs/).
+
+## New in 0.77.1: word gaps and the top swipe
+
+kos25k found two things in 0.77.0. With Space condensing and Optical spacing on, words could glue together (#30): a word gap now never goes under 60% of a space. Letter spacing has five steps now, and on a loose line the letters take the spare room first. And a swipe from the top edge now opens quick settings over an open book menu, with no tap first (#15). I checked both on my X4 Pro with Fira Sans 16 pt; the classic list menu and line balancing are computer tests only.
+
+![Word gaps with condensing, optical and minimal on](docs/images/vaultink/typo-gap-floor-0.77.1.png)
 
 ## New in 0.77.0: more than one vault, and LiveSync that finishes
 

@@ -1,0 +1,12 @@
+Fixes for two things kos25k reported after 0.77.0.
+
+Checked on my X4 Pro (Fira Sans 16 pt):
+- Words no longer glue together with Space condensing and Optical spacing on (#30). A word gap never goes under 60% of a space.
+- Letter spacing has five steps: Off, Small, Medium, Large, Max. On a loose line the letters take the spare room first.
+- A swipe from the top edge opens quick settings over an open book menu, no tap first (#15).
+
+Tests on a computer only:
+- A very loose line can take one or two words from the line above (Hyphenation on).
+- The swipe over the classic list menu; no swipe while a popup is up.
+
+Known: switching fonts can change the font size. The GitHub certificate check is still off in release builds.
