@@ -57,6 +57,10 @@ class Activity {
   // True while the screen shows its own menu or panel: the quick-settings gesture then does nothing,
   // so two menus never stack (and leave a ghost of each other on e-ink).
   virtual bool hasOpenMenu() const { return false; }
+  // Quick settings was pulled down from the top edge over this screen's open menu (kos25k #15): close the menu
+  // and return true, and the panel opens once the page under it is painted again. False leaves the menu as it
+  // is and the swipe goes to the menu as before (an option popup is up, or the screen has no menu to close).
+  virtual bool closeMenuForPanel() { return false; }
   virtual ScreenshotInfo getScreenshotInfo() const { return {}; }
 
   // Start a new activity without destroying the current one

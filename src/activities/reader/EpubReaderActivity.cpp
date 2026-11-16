@@ -3989,6 +3989,19 @@ void EpubReaderActivity::closeOverlayToPage() {
   requestUpdate();  // redraw the clean page
 }
 
+// Quick settings pulled down over the toolbar or a panel (kos25k #15): back to the clean page, and the
+// panel opens once that page is painted. A popup (an option picker, the quick menu) keeps the swipe.
+bool EpubReaderActivity::closeMenuForPanel() {
+  if (overlay == Overlay::None || !usesToolbarMenu() || overlayPopup.isActive() || quickMenuPopup.isActive()) {
+    return false;
+  }
+  closeOverlayToPage();
+  // Boards that put the stored page back at once paint it once more: the panel waits for a frame
+  // finished after the menu closed.
+  requestUpdate();
+  return true;
+}
+
 void EpubReaderActivity::renderOverlay() {
   if (!epub || !section || !toolbarUi) return;
 

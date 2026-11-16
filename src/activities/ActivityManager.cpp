@@ -21,6 +21,7 @@
 #include "CrossPointSettings.h"
 #include "HapticFeedback.h"
 #include "OpdsServerStore.h"
+#include "PanelAfterMenu.h"
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
@@ -108,9 +109,7 @@ void ActivityManager::renderTaskLoop() {
       const uint32_t renderingVisit = screenVisit;
       currentActivity->render(std::move(lock));
       paintedVisit.store(renderingVisit, std::memory_order_release);
-#ifdef VAULTINK_DEVLINK_FULL
       renderCount.fetch_add(1, std::memory_order_release);
-#endif
     }
     // Notify any task blocked in requestUpdateAndWait() that the render is done.
     TaskHandle_t waiter = nullptr;
@@ -182,16 +181,36 @@ void ActivityManager::loop() {
                      !HeaderHomeTapTarget::contains(tx, ty);
     }
     // Only boards whose frontlight was detected get the panel.
-    if (Frontlight.present() && currentActivity->name != "FrontlightPanel" && currentActivity->name != "Lock" &&
-        !currentActivity->hasOpenMenu() && (statusBarTap || mappedInput.wasLightPanelGesture())) {
-      haptic_feedback::touchAction();
-      pushActivity(std::make_unique<FrontlightPanelActivity>(renderer, mappedInput));
-      return;
+    bool menuClosedForPanel = false;
+    if (Frontlight.present() && currentActivity->name != "FrontlightPanel" && currentActivity->name != "Lock") {
+      if (!currentActivity->hasOpenMenu()) {
+        if (statusBarTap || mappedInput.wasLightPanelGesture()) {
+          haptic_feedback::touchAction();
+          panelAfterMenu = false;
+          pushActivity(std::make_unique<FrontlightPanelActivity>(renderer, mappedInput));
+          return;
+        }
+      } else if (!panelAfterMenu && mappedInput.wasLightPanelGesture() && currentActivity->closeMenuForPanel()) {
+        // The pull-down over an open book menu (kos25k #15): one menu at a time still holds. The menu
+        // closes now, and the panel opens once the page under it is on the glass again
+        // (openPanelAfterMenu). The menu does not get this swipe: its loop() is skipped this pass.
+        haptic_feedback::touchAction();
+        {
+          // A frame still being drawn may show the menu: it ends before the count is taken.
+          RenderLock lock;
+          panelAfterMenuRenders = renderCount.load(std::memory_order_acquire);
+        }
+        panelAfterMenuSince = millis();
+        panelAfterMenu = true;
+        menuClosedForPanel = true;
+      }
     }
 
     // Note: do not hold a lock here, the loop() method must be responsible for acquire one if needed
-    currentActivity->loop();
+    if (!menuClosedForPanel) currentActivity->loop();
   }
+
+  if (panelAfterMenu) openPanelAfterMenu();
 
   while (pendingAction != PendingAction::None) {
     // The page turner's radio gives its heap back before the next screen allocates. Its teardown
@@ -290,6 +309,23 @@ void ActivityManager::loop() {
     if (renderTaskHandle) {
       xTaskNotify(renderTaskHandle, 1, eIncrement);
     }
+  }
+}
+
+void ActivityManager::openPanelAfterMenu() {
+  const panelaftermenu::Screen screen{
+      pendingAction != PendingAction::None,
+      requestedUpdate.load(),
+      RenderLock::peek(),
+      renderCount.load(std::memory_order_acquire) != panelAfterMenuRenders,
+      paintedVisit.load(std::memory_order_acquire) == screenVisit,
+      currentActivity && currentActivity->isReaderActivity() && !currentActivity->hasOpenMenu(),
+  };
+  const auto step = panelaftermenu::step(static_cast<uint32_t>(millis()) - panelAfterMenuSince, screen);
+  if (step == panelaftermenu::Step::Wait) return;
+  panelAfterMenu = false;
+  if (step == panelaftermenu::Step::Open) {
+    pushActivity(std::make_unique<FrontlightPanelActivity>(renderer, mappedInput));
   }
 }
 

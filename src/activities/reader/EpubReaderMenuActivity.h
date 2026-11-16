@@ -78,6 +78,7 @@ class EpubReaderMenuActivity final : public UiListActivity {
   bool handleHomeGesture() override;
   bool acceptsRemoteInput() const override { return routingReady(); }
   bool hasOpenMenu() const override { return true; }  // the reading menu itself
+  bool closeMenuForPanel() override;
 
  private:
   // Row storage: menuItems is at most MAX_MENU_ITEMS, so a
@@ -107,6 +108,7 @@ class EpubReaderMenuActivity final : public UiListActivity {
   OptionPopup optionPopup;
   std::string title = "Reader Menu";
   uint8_t pendingOrientation = 0;
+  uint8_t openedOrientation = 0;  // what the book had when the menu opened
   uint8_t selectedPageTurnOption = 0;
   const std::vector<StrId> orientationLabels = {StrId::STR_PORTRAIT, StrId::STR_LANDSCAPE_CW, StrId::STR_INVERTED,
                                                 StrId::STR_LANDSCAPE_CCW};
