@@ -1595,16 +1595,6 @@ int hyphenatedLines(const std::vector<Line>& lines) {
   return count;
 }
 
-int longestHyphenRun(const std::vector<Line>& lines) {
-  int longest = 0;
-  int run = 0;
-  for (const auto& line : lines) {
-    run = endsInHyphen(line) ? run + 1 : 0;
-    longest = std::max(longest, run);
-  }
-  return longest;
-}
-
 // True when the lines hold the source words in order, whole or split with a '-' at a line end (the source words of
 // these tests have no hyphen of their own).
 bool keepsTheText(const std::vector<Line>& lines, const std::vector<const char*>& source) {
@@ -1694,17 +1684,16 @@ TEST(TotalFit, FewerHyphensAndNoLooserLinesThanFillingLineByLine) {
   }
 }
 
-TEST(TotalFit, NeverMoreThanTwoHyphenatedLinesInARowAndNoLinePastTheEdge) {
+TEST(TotalFit, NoMoreLinesThanFillingLineByLineAndNoLinePastTheEdge) {
   Engine engine(Config{});
   Hyphenator::setPreferredLanguage("en");
-  int greedyLongest = 0;
   int used = 0;
   for (uint16_t width = 160; width <= 420; width += 4) {
     const Fitted f = fitted(kProse, width);
-    greedyLongest = std::max(greedyLongest, longestHyphenRun(f.greedy));
     if (!f.usedTotalFit) continue;
     ++used;
-    EXPECT_LE(longestHyphenRun(f.total), static_cast<int>(ParsedText::MAX_HYPHEN_RUN)) << width;
+    // A line costs more than any evening out of the gaps, so the paragraph does not grow.
+    EXPECT_LE(f.total.size(), f.greedy.size()) << width;
     EXPECT_TRUE(keepsTheText(f.total, kProse)) << width;
     for (const auto& line : f.total) EXPECT_LE(line.right, width) << width;
     // Every justified line ends at the right edge (the spare pixels are shared out rounded down: less than one a
@@ -1715,8 +1704,6 @@ TEST(TotalFit, NeverMoreThanTwoHyphenatedLinesInARowAndNoLinePastTheEdge) {
     }
   }
   EXPECT_GT(used, 60);
-  // The limit is not idle: filling line by line gives longer runs on the same text (five at 188 px).
-  EXPECT_GT(greedyLongest, static_cast<int>(ParsedText::MAX_HYPHEN_RUN));
 }
 
 TEST(TotalFit, NoWordIsSplitWhenNoSplitIsChosen) {
@@ -1752,7 +1739,6 @@ TEST(TotalFit, AHugeParagraphIsFilledLineByLine) {
   const Fitted atLimit = fitted(words, 300);
   EXPECT_TRUE(atLimit.usedTotalFit);
   EXPECT_TRUE(keepsTheText(atLimit.total, words));
-  EXPECT_LE(longestHyphenRun(atLimit.total), static_cast<int>(ParsedText::MAX_HYPHEN_RUN));
 
   // What weighing the largest paragraph it takes costs on this computer, next to filling its lines one by one.
   const auto timed = [&words](const bool totalFit) {

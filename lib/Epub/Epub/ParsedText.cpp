@@ -1581,14 +1581,20 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
 // above fills each line as far as it goes and splits the word that runs over, so it hyphenates whenever a part of a
 // word fits. This one weighs the whole paragraph: a line may end at a word gap or at a hyphenation point inside a
 // word, every line gets a badness from how far its gaps have to stretch or shrink, a line that ends in a hyphen
-// costs extra, two such lines in a row cost more and more than MAX_HYPHEN_RUN in a row are not allowed, and the
-// breaks with the lowest sum win. The last line is free. A line is never wider than its gaps can give up (the same
-// allowance as the other breakers: Space condensing down to typoengine::gapFloor), and the last line never wider
-// than the page.
+// costs extra, a second such line in a row a little more, and the breaks with the lowest sum win. A line is never
+// wider than its gaps can give up (the same allowance as the other breakers: Space condensing down to
+// typoengine::gapFloor), and the last line never wider than the page.
+//
+// The paragraph is also kept as short as filling line by line makes it: every line costs far more than any
+// badness, so no line is added to even the gaps out, and the last line costs by its width, so the text is not
+// pushed down into it. The costs were set on simulator pages (Greek and English prose, Fira Sans 16 pt, a 480 px
+// page, with and without Letter spacing on loose lines) so that the mean gap is not wider than line by line. That
+// is also why there is no limit on hyphenated lines in a row: with a limit of two (or four) such a paragraph took
+// one more line, or a longer last line, and its gaps grew.
 //
 // The parts of a word are measured without touching the word list; only the splits of the chosen breaks are made,
 // after the choice. Memory is two tables from one allocation each, taken without an abort when it fails: 16 bytes a
-// word and 24 bytes a break (a word gap, or one of at most 512 hyphenation points). The hyphenator's own small
+// word and 16 bytes a break (a word gap, or one of at most 512 hyphenation points). The hyphenator's own small
 // allocations are not of that kind, so it only runs while a 4 kB block can still be had. The search looks back from
 // each break only as far as one line reaches, like computeLineBreaks.
 //
@@ -1621,17 +1627,20 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
     uint8_t flags;
     uint8_t prefixLetters;  // the places between two letters in the prefix with its hyphen, and in the suffix
     uint8_t suffixLetters;
-    // One state for each count of hyphenated lines in a row that ends here (a break without a hyphen has one).
-    float cost[MAX_HYPHEN_RUN];
-    uint16_t previous[MAX_HYPHEN_RUN];
-    uint8_t previousState[MAX_HYPHEN_RUN];
+    uint16_t previous;
+    float cost;
   };
   constexpr size_t MAX_SPLITS = 512;
   // In the unit of a line's cost (below): a hyphen costs as much as a line whose gaps each grow by a whole space.
+  // Measured on the simulator pages: with 300 there were more hyphens than line by line, with 500 wider gaps.
   constexpr float HYPHEN_DEMERITS = 400.0f;
-  constexpr float CONSECUTIVE_DEMERITS = 400.0f;  // more for a second hyphenated line in a row
+  constexpr float CONSECUTIVE_DEMERITS = 100.0f;  // more for each further hyphenated line in a row
   constexpr float LOOSE_DEMERITS = 400.0f;        // more for a line whose gaps each grow by more than a space
   constexpr float ORPHAN_DEMERITS = 400.0f;       // the last line is only the end of a hyphenated word
+  // Every line, so that the fewest lines always win: more than the badness of a whole paragraph, and small enough
+  // for a float to keep the sum of a paragraph exact to a part of one (80 lines: 1.6 million, steps of 0.125).
+  constexpr float LINE_DEMERITS = 20000.0f;
+  constexpr float LAST_LINE_DEMERITS = 1000.0f;  // the last line, by the part of the page width it fills
   const float unreached = std::numeric_limits<float>::infinity();
 
   const std::unique_ptr<Sums[]> sums(new (std::nothrow) Sums[wordCount + 1]);
@@ -1682,14 +1691,11 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
     node.flags = flags;
     node.prefixWidth = static_cast<uint16_t>(prefixWidth);
     node.suffixWidth = static_cast<uint16_t>(suffixWidth);
-    for (uint8_t state = 0; state < MAX_HYPHEN_RUN; ++state) {
-      node.cost[state] = unreached;
-      node.previous[state] = 0;
-      node.previousState[state] = 0;
-    }
+    node.cost = unreached;
+    node.previous = 0;
   };
   addNode(0, 0, 0, 0, 0);  // the start of the paragraph
-  nodes[0].cost[0] = 0.0f;
+  nodes[0].cost = 0.0f;
   // The hyphenator works on a std::string and returns vectors, whose allocations abort the firmware when they
   // fail. So the paragraph is only hyphenated word by word while a block of HYPHENATION_HEADROOM bytes can still
   // be had (it is given back at once: the room is for those small allocations), and one string and one list are
@@ -1780,9 +1786,10 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
 
       // The line's cost: 100 for gaps that each stretch by half a space or shrink all the way, growing with the
       // square, so the sum is lowest when the lines are evenly loose.
-      float demerits = toHyphen ? HYPHEN_DEMERITS : 0.0f;
+      float demerits = LINE_DEMERITS + (toHyphen ? HYPHEN_DEMERITS : 0.0f);
       const int spare = target - width;
       if (lastLine) {
+        demerits += LAST_LINE_DEMERITS * static_cast<float>(width) / static_cast<float>(target);
         if (fromSplit && firstWhole == wordCount) demerits += ORPHAN_DEMERITS;
       } else if (spare < 0) {
         const float ratio = static_cast<float>(-spare) / static_cast<float>(shrink);
@@ -1799,36 +1806,21 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
         if (spare - letterRoom > gaps * space) demerits += LOOSE_DEMERITS;
       }
 
-      const bool fromHyphen = (from.flags & HYPHEN) != 0;
-      const uint8_t fromStates = fromHyphen ? MAX_HYPHEN_RUN : 1;
-      for (uint8_t state = 0; state < fromStates; ++state) {
-        if (from.cost[state] == unreached) continue;
-        float cost = from.cost[state] + demerits;
-        uint8_t toState = 0;
-        if (fromHyphen && toHyphen) {
-          if (state + 1 >= MAX_HYPHEN_RUN) continue;  // one hyphenated line too many in a row
-          toState = static_cast<uint8_t>(state + 1);
-          cost += CONSECUTIVE_DEMERITS;
-        }
-        if (cost < to.cost[toState]) {
-          to.cost[toState] = cost;
-          to.previous[toState] = static_cast<uint16_t>(a);
-          to.previousState[toState] = state;
-        }
+      if (from.cost == unreached) continue;
+      if (toHyphen && (from.flags & HYPHEN) != 0) demerits += CONSECUTIVE_DEMERITS;
+      const float cost = from.cost + demerits;
+      if (cost < to.cost) {
+        to.cost = cost;
+        to.previous = static_cast<uint16_t>(a);
       }
     }
   }
 
-  if (nodes[nodeCount - 1].cost[0] == unreached) return {};
+  if (nodes[nodeCount - 1].cost == unreached) return {};
 
   // The chosen breaks, last first.
   std::vector<uint16_t> path;
-  for (size_t at = nodeCount - 1, state = 0; at != 0;) {
-    path.push_back(static_cast<uint16_t>(at));
-    const size_t previous = nodes[at].previous[state];
-    state = nodes[at].previousState[state];
-    at = previous;
-  }
+  for (size_t at = nodeCount - 1; at != 0; at = nodes[at].previous) path.push_back(static_cast<uint16_t>(at));
   // Every prefix of a chosen split is stored first: that is the one step of a split that can fail, and when one
   // does the prefixes stored so far are given back and the word list is as it was. Nothing is split by halves.
   size_t chosenSplits = 0;

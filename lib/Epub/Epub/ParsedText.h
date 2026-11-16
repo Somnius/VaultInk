@@ -185,8 +185,6 @@ class ParsedText {
   static inline bool failAllocationForTest = false;
   // A paragraph of more words is filled line by line: the tables of the total-fit breaker grow with the paragraph.
   static constexpr size_t TOTAL_FIT_MAX_WORDS = 400;
-  // The most lines in a row that may end in a hyphen.
-  static constexpr uint8_t MAX_HYPHEN_RUN = 2;
   explicit ParsedText(const bool hyphenationEnabled = false, const bool focusReadingEnabled = false,
                       const BlockStyle& blockStyle = BlockStyle(), const uint8_t paragraphIndentSpaces = 2)
       : blockStyle(blockStyle),
