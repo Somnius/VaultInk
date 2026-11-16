@@ -8,7 +8,7 @@ using panelaftermenu::step;
 
 namespace {
 // The clean page is back: nothing queued, a frame painted after the menu closed, the book in front.
-constexpr Screen kPageBack{false, false, false, true, true, true};
+constexpr Screen kPageBack{false, false, false, true, true, true, false};
 }  // namespace
 
 TEST(PanelAfterMenu, OpensOnceTheCleanPageIsPainted) { EXPECT_EQ(step(200, kPageBack), Step::Open); }
@@ -55,5 +55,18 @@ TEST(PanelAfterMenu, DropsAfterTheWait) {
   s.rendering = true;
   EXPECT_EQ(step(panelaftermenu::WAIT_MS, s), Step::Wait);
   EXPECT_EQ(step(panelaftermenu::WAIT_MS + 1, s), Step::Drop);
-  EXPECT_EQ(step(panelaftermenu::WAIT_MS + 1, kPageBack), Step::Drop);
+}
+
+// The page came back just as the wait ran out: the screen is looked at first, so the panel still opens.
+TEST(PanelAfterMenu, OpensWhenThePageIsBackAtTheEndOfTheWait) {
+  EXPECT_EQ(step(panelaftermenu::WAIT_MS + 1, kPageBack), Step::Open);
+}
+
+// A key, a touch or a turned screen during the wait: the reader acts on it and the panel stays closed.
+TEST(PanelAfterMenu, DropsWhenTheReaderGotInputOrTheScreenWasTurned) {
+  Screen s = kPageBack;
+  s.disturbed = true;
+  EXPECT_EQ(step(10, s), Step::Drop);
+  s.rendering = true;
+  EXPECT_EQ(step(10, s), Step::Drop);
 }

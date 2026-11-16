@@ -367,6 +367,7 @@ does the panel open, so the two are never on the screen together.
 - While a popup is open over the menu (an option picker, the Quick Menu) the swipe is left to the
   popup, and also after you changed the orientation in the classic menu.
 - If the page takes more than 3 seconds to come back, the panel doesn't open; swipe again.
+- A key press or a touch before the panel is up goes to the book and calls the panel off.
 - The other way round is not there: from quick settings a swipe up closes the panel as before and
   does not open the book menu.
 

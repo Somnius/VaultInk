@@ -90,9 +90,11 @@ class ActivityManager {
   // Quick settings pulled down over an open book menu (kos25k #15, PanelAfterMenu.h): the menu was
   // closed and the panel opens once the page is painted again. Main loop only.
   bool panelAfterMenu = false;
-  uint32_t panelAfterMenuSince = 0;    // millis() when the menu closed
-  uint32_t panelAfterMenuRenders = 0;  // renderCount when the menu closed
-  void openPanelAfterMenu();
+  uint32_t panelAfterMenuSince = 0;       // millis() when the menu closed
+  uint32_t panelAfterMenuRenders = 0;     // renderCount when the menu closed
+  uint8_t panelAfterMenuOrientation = 0;  // SETTINGS.orientation when the menu closed
+  // `disturbed`: the reader got a key, a touch or a remote click during the wait.
+  void openPanelAfterMenu(bool disturbed);
 
  public:
   explicit ActivityManager(GfxRenderer& renderer, MappedInputManager& mappedInput);

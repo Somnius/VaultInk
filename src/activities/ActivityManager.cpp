@@ -8,6 +8,7 @@
 #include <Gestures.h>
 #include <HalDisplay.h>
 #include <HalFrontlight.h>
+#include <HalGPIO.h>
 #include <HalPowerManager.h>
 #include <I18n.h>
 #include <MarkupBook.h>
@@ -134,6 +135,7 @@ void ActivityManager::loop() {
     if (requestedUpdate.exchange(false) && renderTaskHandle) {
       xTaskNotify(renderTaskHandle, 1, eIncrement);
     }
+    panelAfterMenu = false;  // no quick settings over a screen that owns the SD card
     return;
   }
 
@@ -201,16 +203,27 @@ void ActivityManager::loop() {
           panelAfterMenuRenders = renderCount.load(std::memory_order_acquire);
         }
         panelAfterMenuSince = millis();
+        panelAfterMenuOrientation = SETTINGS.orientation;
         panelAfterMenu = true;
         menuClosedForPanel = true;
       }
     }
 
+    // Input during the wait goes to the book as always (its loop also finishes chapter builds, so
+    // it is not skipped), and it calls the panel off: no panel over a page turned meanwhile.
+    bool waitDisturbed = false;
+    if (panelAfterMenu && !menuClosedForPanel) {
+      // The swipe itself ended on the pass that closed the menu, so any edge from here on is new.
+      waitDisturbed =
+          mappedInput.hasRemoteClick() || gpio.wasAnyPressed() || gpio.wasAnyReleased() || gpio.wasTouchActivity();
+    }
+
     // Note: do not hold a lock here, the loop() method must be responsible for acquire one if needed
     if (!menuClosedForPanel) currentActivity->loop();
+    if (panelAfterMenu) openPanelAfterMenu(waitDisturbed);
+  } else {
+    panelAfterMenu = false;
   }
-
-  if (panelAfterMenu) openPanelAfterMenu();
 
   while (pendingAction != PendingAction::None) {
     // The page turner's radio gives its heap back before the next screen allocates. Its teardown
@@ -312,7 +325,7 @@ void ActivityManager::loop() {
   }
 }
 
-void ActivityManager::openPanelAfterMenu() {
+void ActivityManager::openPanelAfterMenu(const bool disturbed) {
   const panelaftermenu::Screen screen{
       pendingAction != PendingAction::None,
       requestedUpdate.load(),
@@ -320,6 +333,7 @@ void ActivityManager::openPanelAfterMenu() {
       renderCount.load(std::memory_order_acquire) != panelAfterMenuRenders,
       paintedVisit.load(std::memory_order_acquire) == screenVisit,
       currentActivity && currentActivity->isReaderActivity() && !currentActivity->hasOpenMenu(),
+      disturbed || SETTINGS.orientation != panelAfterMenuOrientation,
   };
   const auto step = panelaftermenu::step(static_cast<uint32_t>(millis()) - panelAfterMenuSince, screen);
   if (step == panelaftermenu::Step::Wait) return;
