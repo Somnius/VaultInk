@@ -233,7 +233,7 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
                                 Hint(R.string.hint_files)
                                 FilesScreen(client)
                             }
-                            else -> SettingsScreen(client, onOpen = { page = it })
+                            else -> SettingsScreen(client, connected, onOpen = { page = it })
                         }
                     }
                 }
@@ -297,12 +297,13 @@ private fun Tabs(tab: Int, onTab: (Int) -> Unit, onIntro: () -> Unit, onPage: (S
  * settings as grouped lists, one group per category in the reader's order.
  */
 @Composable
-fun SettingsScreen(client: DeviceClient, onOpen: (String) -> Unit) {
+fun SettingsScreen(client: DeviceClient, status: DeviceStatus?, onOpen: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var settings by remember { mutableStateOf<List<Setting>?>(null) }
     var error by remember { mutableStateOf("") }
-    LaunchedEffect(client) {
+    var reload by remember { mutableIntStateOf(0) }  // a restore changed things: read the list again
+    LaunchedEffect(client, reload) {
         withContext(Dispatchers.IO) { runCatching { client.settings() } }
             .onSuccess { settings = it }
             .onFailure { error = context.getString(R.string.settings_failed, it.message ?: "") }
@@ -314,6 +315,7 @@ fun SettingsScreen(client: DeviceClient, onOpen: (String) -> Unit) {
             GroupRow(stringResource(title), onClick = { onOpen(key) }) { Chevron() }
         }
     }
+    BackupSection(client, status, onRestored = { reload++ })
     Hint(R.string.settings_hint)
     if (error.isNotEmpty()) Text(error, style = MaterialTheme.typography.bodyMedium)
     val list = settings ?: run {

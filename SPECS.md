@@ -716,7 +716,19 @@ Planned:
   display, headline and titleLarge, the default sans below, `Group`/`GroupRow`/`Hairline`/
   `SectionLabel`/`ValueRow` for lists, tabular figures (`tnum`) for numbers, `Crossfade` with a
   150 ms tween as the only animation. The Help copy step renames `docs/README.md` to `guides.md`
-  (it collided with the main README and failed the build).
+  (it collided with the main README and failed the build). Backup (`Backup.kt`, `BackupSection.kt`;
+  unit tests and a build only): file `{format: "vaultink-settings", formatVersion: 1, appVersion,
+  reader: {version, device}, date, settings: {key: int}, options: {key: option text for enums},
+  wifi: [{ssid}], opds: [{name, url, username}], remotes: [{name, protocol, url, username,
+  verifyCert}]}`, built by whitelist from the raw bodies of `GET /api/settings`, `/api/wifi`,
+  `/api/opds`, `/api/remotes` (`DeviceClient.getOrNull`, a 404 leaves the list out); `string`
+  settings and every other field are never copied, URL userinfo is stripped. `Backup.parse`
+  refuses a wrong `format`, a missing `settings` or a `formatVersion` above 1 (`BackupError`);
+  `Backup.plan` against a fresh GET keeps known keys with a valid value that differs (toggle 0/1,
+  value in min..max, enum by option text, else by index when the file has no text), and the list
+  entries the reader lacks (ssid; url; protocol + url + username). Applied with
+  `POST /api/settings` in batches of 16 keys and the normal add calls with an empty password.
+  `BackupTest`, 13 tests.
 - Signed APKs on GitHub releases tagged `companion-x.y.z`, never marked Latest. The app checks those
   releases, downloads the APK and opens Android's install prompt (no silent install).
 - The signing keystore is kept offline by the maintainer, never in the repo.

@@ -644,6 +644,14 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   Asked for but not possible without a firmware change, so left out: battery percent and
   millivolts, the current screen and the frontlight on Home (`/api/status` has none of them), and a
   passphrase field in LiveSync setup (the endpoint takes none; it is typed on the reader).
+  Also in 0.6.0, unit tested and built only: **Backup** in Settings. Save the reader's settings
+  (switches, choices, numbers) and its Wi-Fi, OPDS and remote server lists as one JSON file
+  (`vaultink-settings-YYYY-MM-DD.json`, format version 1) through the system save dialog, with no
+  password, passphrase, Setup URI or text setting in it; restore one after a summary and a
+  confirmation: only keys the reader has now, choices by their option text, missing list entries
+  added without passwords, nothing deleted, and a report of what changed, was added, skipped or
+  failed (`Backup.kt`, 13 JUnit tests). All three lists have a `GET`, so none is left out; fonts and
+  LiveSync profiles are not part of a backup (💤: font files are large, and a profile is a secret).
   ⏳ A phone test of all of it; screenshots.
 * 💤 Home on the phone: `battery`, `batteryMv`, the open screen and the frontlight in `GET /api/status`
   (firmware), then shown on the companion's Home.

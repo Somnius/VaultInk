@@ -282,4 +282,22 @@
     <string name="setup_fonts_refused_note">Οι συσκευές χωρίς επιπλέον μνήμη (PSRAM) δέχονται μόνο αρχεία .cpfont και απορρίπτουν τα .ttf και .otf.</string>
     <string name="intro_tab_home">Αρχική: το μοντέλο της συσκευής, η έκδοση του firmware και το σήμα Wi-Fi, η κατάσταση του LiveSync, όσα περιμένουν στα εξερχόμενα, και ενημερώσεις της εφαρμογής.</string>
     <string name="setup_fonts_too_big">Η γραμματοσειρά είναι πάνω από 8 MB ή δεν διαβάστηκε.</string>
+    <!-- Settings backup and restore (0.6.0) -->
+    <string name="backup_section">Αντίγραφο ασφαλείας</string>
+    <string name="backup_save">Αποθήκευση αντιγράφου</string>
+    <string name="backup_save_note">Οι ρυθμίσεις της συσκευής και οι λίστες της με δίκτυα Wi-Fi, καταλόγους OPDS και απομακρυσμένους διακομιστές, σε ένα αρχείο στο κινητό.</string>
+    <string name="backup_restore">Επαναφορά από αντίγραφο</string>
+    <string name="backup_restore_note">Διάλεξε ένα αρχείο αντιγράφου. Βλέπεις τι θα αλλάξει πριν σταλεί οτιδήποτε.</string>
+    <string name="backup_no_passwords">Οι κωδικοί δεν περιλαμβάνονται: οι κωδικοί Wi-Fi, καταλόγων και διακομιστών, η ρύθμιση του LiveSync και οι ρυθμίσεις κειμένου μένουν εκτός αρχείου. Όσα επανέρχονται δεν έχουν κωδικό· γράψε τον ξανά στη Ρύθμιση συσκευής.</string>
+    <string name="backup_saved">Το αντίγραφο αποθηκεύτηκε.</string>
+    <string name="backup_not_backup">Αυτό το αρχείο δεν είναι αντίγραφο ρυθμίσεων του VaultInk.</string>
+    <string name="backup_newer">Αυτό το αντίγραφο έγινε με νεότερη έκδοση της εφαρμογής. Ενημέρωσε την εφαρμογή και δοκίμασε ξανά.</string>
+    <string name="backup_restore_title">Επαναφορά αυτού του αντιγράφου;</string>
+    <string name="backup_sum_from">Από %1$s, VaultInk %2$s, αποθηκεύτηκε στις %3$s.</string>
+    <string name="backup_sum_settings">Ρυθμίσεις: %1$d προς αλλαγή, %2$d ήδη ίδιες, %3$d παραλείπονται (η συσκευή δεν τις έχει ή δεν προσφέρει αυτή την τιμή).</string>
+    <string name="backup_sum_lists">Προς προσθήκη: %1$d δίκτυα Wi-Fi, %2$d κατάλογοι, %3$d διακομιστές. Ήδη στη συσκευή: %4$d.</string>
+    <string name="backup_sum_nothing">Η συσκευή έχει ήδη όλα όσα περιέχει αυτό το αντίγραφο.</string>
+    <string name="backup_restore_confirm">Επαναφορά</string>
+    <string name="backup_done">Η επαναφορά τελείωσε. Ρυθμίσεις που άλλαξαν: %1$d. Εγγραφές που προστέθηκαν: %2$d. Υπήρχαν ήδη: %3$d. Παραλείφθηκαν: %4$d. Απέτυχαν: %5$d.</string>
+    <string name="backup_done_skipped">Ρυθμίσεις που παραλείφθηκαν: %1$s</string>
 </resources>

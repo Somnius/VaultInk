@@ -283,4 +283,22 @@
     <string name="setup_fonts_refused_note">Readers without extra memory (PSRAM) take only .cpfont files and refuse .ttf and .otf.</string>
     <string name="intro_tab_home">Home: the reader\'s model, firmware version and Wi-Fi signal, the LiveSync status, what waits in the outbox, and app updates.</string>
     <string name="setup_fonts_too_big">The font is over 8 MB, or it couldn\'t be read.</string>
+    <!-- Settings backup and restore (0.6.0) -->
+    <string name="backup_section">Backup</string>
+    <string name="backup_save">Save a backup</string>
+    <string name="backup_save_note">The reader\'s settings and its lists of Wi-Fi networks, OPDS catalogues and remote servers, as one file on the phone.</string>
+    <string name="backup_restore">Restore from a backup</string>
+    <string name="backup_restore_note">Pick a backup file. You see what will change before anything is sent.</string>
+    <string name="backup_no_passwords">Passwords are not included: Wi-Fi, catalogue and server passwords, the LiveSync setup and text settings stay out of the file. Restored entries come back without a password; type it again in Reader setup.</string>
+    <string name="backup_saved">Backup saved.</string>
+    <string name="backup_not_backup">That file isn\'t a VaultInk settings backup.</string>
+    <string name="backup_newer">That backup was made by a newer version of this app. Update the app, then try again.</string>
+    <string name="backup_restore_title">Restore this backup?</string>
+    <string name="backup_sum_from">From %1$s, VaultInk %2$s, saved on %3$s.</string>
+    <string name="backup_sum_settings">Settings: %1$d to change, %2$d already the same, %3$d skipped (this reader doesn\'t have them or doesn\'t offer that value).</string>
+    <string name="backup_sum_lists">To add: %1$d Wi-Fi networks, %2$d catalogues, %3$d servers. Already on the reader: %4$d.</string>
+    <string name="backup_sum_nothing">The reader already has everything in this backup.</string>
+    <string name="backup_restore_confirm">Restore</string>
+    <string name="backup_done">Restore finished. Settings changed: %1$d. Entries added: %2$d. Already there: %3$d. Skipped: %4$d. Failed: %5$d.</string>
+    <string name="backup_done_skipped">Skipped settings: %1$s</string>
 </resources>

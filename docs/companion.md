@@ -186,6 +186,57 @@ state, and the reader never sends one back (only `hasPassword`). On an update an
 field is left out of the request, which keeps the one the reader has. They do travel over plain
 HTTP on the local network, like the reader's own Settings page; each screen says so.
 
+#### Backup (0.6.0)
+
+Under Reader setup. Unit tested and built, not yet run on a phone.
+
+**Save a backup** reads `GET /api/settings`, `/api/wifi`, `/api/opds` and `/api/remotes` and writes
+one JSON file through Android's save dialog (default name `vaultink-settings-YYYY-MM-DD.json`):
+
+```json
+{
+  "format": "vaultink-settings", "formatVersion": 1, "appVersion": "0.6.0",
+  "reader": {"version": "0.77.1", "device": "xteink_x4_pro"},
+  "date": "2026-11-16T15:30:00+02:00",
+  "settings": {"fontSize": 1, "showHiddenFiles": 1},
+  "options": {"fontSize": "14 pt"},
+  "wifi": [{"ssid": "HomeWiFi"}],
+  "opds": [{"name": "My Catalog", "url": "http://calibre.local:8080/opds", "username": "reader"}],
+  "remotes": [{"name": "Nextcloud", "protocol": "webdav", "url": "https://cloud.example.org/dav", "username": "you", "verifyCert": true}]
+}
+```
+
+**Passwords are not included**, and the screen says so. The file is built from a fixed list of
+fields, so nothing else the reader might send can get in: of the settings only switches, choices
+and numbers (text settings are left out, since one can hold a password or a key), of a network its
+name, of a catalogue its name, address and user name, of a server those plus the protocol and the
+certificate switch. A `user:password@` inside an address is cut out. No LiveSync Setup URI or
+passphrase, no fonts. A list the reader doesn't have (remote servers before firmware 0.74.0) is
+left out of the file.
+
+**Restore from a backup** opens a file (1 MB at most), checks that it is a `vaultink-settings` file
+of a format version this app knows (a newer one is refused with "update the app"), then reads the
+reader's settings and lists again and shows what would happen before anything is sent: how many
+settings would change, how many are already the same, how many are skipped, how many networks,
+catalogues and servers would be added and how many the reader already has, and which reader and
+date the file is from. After **Restore**:
+
+- Settings go out with `POST /api/settings`, 16 keys at a time, and only keys the reader has now,
+  with a value it accepts (a switch 0 or 1, a number inside its `min` to `max`). A choice is
+  restored by the **text** of its option when the file has it, because the reader's number for a
+  font, a size or a dictionary depends on what is on the card; a choice this reader doesn't offer
+  is skipped. Font size options depend on the font family, so when both change a second restore may
+  be needed for the size.
+- Networks (matched by name), catalogues (by address) and servers (by protocol, address and user
+  name) that the reader doesn't have are added **without a password**; type it again in Reader
+  setup. Ones already there are left alone, nothing is deleted or overwritten.
+- The line under the section then says how many settings changed, how many entries were added,
+  were already there, were skipped (with the skipped keys) and failed (with the reader's first
+  error).
+
+The file format, the stripping and the restore plan are `Backup.kt`, pure Kotlin with 13 JUnit
+tests (`BackupTest`).
+
 ### Device (until 0.5.0)
 
 The address and firmware version, **Search again**, and **Check for app update**: the app looks
@@ -295,14 +346,14 @@ The byte counting and clipping are in `PhoneText.kt` with JUnit tests (`PhoneTex
 
 ## 0.6.0: Home, Reader setup and a new look
 
-Not released. What was checked: `./gradlew testDebugUnitTest assembleDebug` (55 unit tests, 26 of
+Not released. What was checked: `./gradlew testDebugUnitTest assembleDebug` (68 unit tests, 26 of
 them new in `ReaderApiTest`: the JSON of every endpoint above as documented, the request bodies,
-the name checks, the polling times). **Not run on a phone, in the simulator or against a reader**:
+the name checks, the polling times; 13 in `BackupTest`). **Not run on a phone, in the simulator or against a reader**:
 the look, the fades, the Greek text on screen, the font picker, the polling in the foreground and
 every setup request are unverified until someone tries them.
 
 - The Home tab, the polling and the offline screen ([Home](#home-060)).
-- Reader setup ([above](#reader-setup-060)).
+- Reader setup ([above](#reader-setup-060)) and Backup ([above](#backup-060)).
 - The look ([Look](#look)).
 - A share from another app switches to the Note tab (Note used to be the first tab).
 - Help: `docs/README.md` (the list of guides) had the same name as the main README, which stopped

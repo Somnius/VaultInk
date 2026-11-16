@@ -234,6 +234,19 @@ class DeviceClient(host: String) {
         return body
     }
 
+    /** The body of a GET, or null when this firmware has no such endpoint (404). */
+    fun getOrNull(path: String): String? {
+        val (code, body) = call(Request.Builder().url(url(path)).build())
+        if (code == 404) return null
+        if (code != 200) throw Refused(ReaderApi.errorText(code, body))
+        return body
+    }
+
+    /** Several settings in one POST /api/settings. */
+    fun setSettings(values: Map<String, Int>) {
+        postJson("api/settings", JSONObject().apply { values.forEach { (k, v) -> put(k, v) } }.toString())
+    }
+
     fun wifiNetworks(): List<WifiNetwork> = ReaderApi.parseWifi(getJson("api/wifi"))
 
     /** Adds a network, or with `index` updates one (an empty password then keeps the saved one). */
