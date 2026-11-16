@@ -50,12 +50,25 @@ While it is on, the reader does not use the SD card: the computer has it. Do not
 ## Join Network Mode
 
 1. Select **Join Network**.
-2. If you have saved Wi-Fi credentials, CrossPoint first tries the last
-   connected network, then other visible saved networks in signal-strength
-   order. Press **Back** to cancel or **Confirm** to stop auto-connect and show
-   the network list.
-3. If the network list is shown, pick a 2.4 GHz Wi-Fi network from the scan
-   results.
+2. If you have saved Wi-Fi networks, the reader scans first and joins a saved
+   network that is in range without asking, the strongest one first, then the
+   others. The last connected network gets one try at the end when the scan
+   does not list it (a network that hides its name is never listed). Press **Back** to
+   cancel or **Confirm** to stop this and show the network list. Every job
+   that needs Wi-Fi uses this same screen (LiveSync, OPDS, the update check,
+   font downloads, KOReader sync, lookups, SSH).
+3. A scan that fails or lists nothing is run once more after a restart of
+   the Wi-Fi radio; if that gives nothing either, the last connected network
+   and up to two more saved ones are tried without having been seen. If no
+   saved network is in range or none of them connects, the network list is
+   shown and the line under the title says why. Saved networks are marked with `+`. Pick a
+   2.4 GHz network, choose **Scan again** (the row under the networks, or the
+   Retry button), or press **Back** to cancel. With no network in range,
+   **Scan again** is the first row, so Confirm scans again and does not open
+   the keyboard for a new network.
+   (Unreleased. Seen on an X4 Pro: the scan, an out-of-range saved network
+   skipped and the home network joined. The rest: computer tests and an
+   x4pro-dev build, not run on a reader.)
 4. Enter the password if prompted.
 5. Save credentials if you want the reader to reconnect automatically next time.
 

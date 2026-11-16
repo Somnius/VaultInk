@@ -121,6 +121,14 @@ void LiveSyncActivity::loop() {
   // The tile's sync starts from the first loop, once the screen is up (not from onEnter).
   if (autoSyncPending) {
     autoSyncPending = false;
+    if (leaveOnError && WiFi.status() != WL_CONNECTED) {
+      // Sync on wake never asks for a network: the join was done before this screen, and when
+      // the connection is gone by now the sync is skipped.
+      LOG_INF("LSY", "Sync on wake skipped: Wi-Fi is not connected");
+      wifiUsed = true;
+      finish();
+      return;
+    }
     if (livesyncdev::hasProfile()) {
       withWifi(&LiveSyncActivity::syncAllFromTile);
       return;
@@ -309,6 +317,7 @@ void LiveSyncActivity::withWifi(void (LiveSyncActivity::*then)()) {
       mbedtls_platform_zeroize(passphrase.data(), passphrase.size());
       passphrase.clear();
       dropStaged();
+      showMessage(tr(STR_LIVESYNC_NO_WIFI));
       return;
     }
     WiFi.setSleep(false);

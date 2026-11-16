@@ -114,6 +114,10 @@ void WifiSelectionActivity::onEnter() {
   autoConnecting = false;
   manualNetworkListRequested = false;
   autoAttemptedSsids.clear();
+  autoOrder.clear();
+  scanTries = 0;
+  listNotice = wifijoin::Notice::None;
+  lastScan = wifijoin::Scan::Ok;
   const size_t savedCredentialCount = WIFI_STORE.getCredentialCount();
   autoAttemptedSsids.reserve(savedCredentialCount);
 
@@ -142,18 +146,11 @@ void WifiSelectionActivity::onEnter() {
   // Trigger first update to show scanning message
   requestUpdate();
 
-  // Attempt to auto-connect to known networks. Try the last successful
-  // network first for speed, then scan and try any visible saved networks by
-  // signal strength. The user can interrupt this and show the scan result.
+  // Join a known network without asking: scan first, then try the saved
+  // networks in reach, strongest first (wifijoin). When none connects the
+  // network list is shown with the reason. The user can interrupt this and
+  // show the scan result.
   if (allowAutoConnect && savedCredentialCount != 0) {
-    const std::string lastSsid = WIFI_STORE.getLastConnectedSsid();
-    if (!lastSsid.empty()) {
-      const auto cred = WIFI_STORE.findCredential(lastSsid);
-      if (cred && tryAutoConnectCredential(*cred)) {
-        return;
-      }
-    }
-
     startWifiScan(true);
     return;
   }
@@ -179,8 +176,11 @@ void WifiSelectionActivity::onExit() {
   LOG_DBG("WIFI", "Free heap at onExit end: %d bytes", ESP.getFreeHeap());
 }
 
-void WifiSelectionActivity::startWifiScan(const bool autoScan) {
+void WifiSelectionActivity::startWifiScan(const bool autoScan, const bool retry) {
   autoConnecting = autoScan;
+  scanTries = retry ? scanTries + 1 : 1;
+  listNotice = wifijoin::Notice::None;
+  autoOrder.clear();
   manualNetworkListRequested = false;
   listNav.reset();
   state = WifiSelectionState::SCANNING;
@@ -189,6 +189,15 @@ void WifiSelectionActivity::startWifiScan(const bool autoScan) {
   networkStatuses.clear();
   networkRowItems.clear();
   requestUpdate();
+
+  if (lastScan != wifijoin::Scan::Ok) {
+    // The scan before this one failed or listed nothing (seen on a reader after
+    // 12 minutes awake, with the home network in range): restart the radio.
+    LOG_INF("WIFI", "Restarting Wi-Fi before the scan");
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+    delay(100);
+  }
 
   // Set WiFi mode to station
   WiFi.mode(WIFI_STA);
@@ -207,21 +216,23 @@ void WifiSelectionActivity::processWifiScanResults() {
     return;
   }
 
-  if (scanResult == WIFI_SCAN_FAILED) {
-    networks.clear();
-    realNetworkCount = 0;
-    appendHiddenNetworkEntry();
-    rebuildNetworkRowItems();
-    autoConnecting = false;
-    state = WifiSelectionState::NETWORK_LIST;
-    selectedNetworkIndex = 0;
-    requestUpdate();
-    return;
+  // A scan that lists nothing is handled like one that failed: scanned once
+  // more, then the saved networks are tried without having been seen.
+  lastScan = scanResult == WIFI_SCAN_FAILED ? wifijoin::Scan::Failed
+             : scanResult == 0              ? wifijoin::Scan::Empty
+                                            : wifijoin::Scan::Ok;
+  if (lastScan != wifijoin::Scan::Ok) {
+    LOG_ERR("WIFI", "Scan %s (try %d)", lastScan == wifijoin::Scan::Failed ? "failed" : "found nothing", scanTries);
+    if (autoConnecting && !manualNetworkListRequested &&
+        wifijoin::nextStep(lastScan, scanTries, autoOrder, autoAttemptedSsids).step == wifijoin::Step::Rescan) {
+      startWifiScan(true, true);
+      return;
+    }
   }
 
   // Scan complete, process results — deduplicate in-place, keeping strongest signal
   networks.clear();
-  networks.reserve(scanResult);
+  networks.reserve(scanResult > 0 ? scanResult : 0);
 
   for (int i = 0; i < scanResult; i++) {
     char ssid[33];
@@ -257,7 +268,19 @@ void WifiSelectionActivity::processWifiScanResults() {
   });
 
   realNetworkCount = networks.size();
-  appendHiddenNetworkEntry();
+  if (lastScan == wifijoin::Scan::Ok) {
+    std::vector<wifijoin::Seen> seen;
+    seen.reserve(networks.size());
+    for (const auto& network : networks) seen.push_back({network.ssid, network.rssi});
+    autoOrder = wifijoin::savedInRange(
+        seen, [](const std::string& ssid) { return WIFI_STORE.hasSavedCredential(ssid); },
+        WIFI_STORE.getLastConnectedSsid());
+  } else {
+    std::vector<std::string> saved;
+    for (const auto& summary : WIFI_STORE.getCredentialSummaries()) saved.push_back(summary.ssid);
+    autoOrder = wifijoin::blindOrder(saved, WIFI_STORE.getLastConnectedSsid());
+  }
+  appendActionRows();
   rebuildNetworkRowItems();
 
   WiFi.scanDelete();
@@ -266,13 +289,24 @@ void WifiSelectionActivity::processWifiScanResults() {
     return;
   }
 
+  if (lastScan == wifijoin::Scan::Failed) listNotice = wifijoin::Notice::ScanFailed;
   autoConnecting = false;
   state = WifiSelectionState::NETWORK_LIST;
   selectedNetworkIndex = 0;
   requestUpdate();
 }
 
-void WifiSelectionActivity::appendHiddenNetworkEntry() {
+void WifiSelectionActivity::appendActionRows() {
+  // "Scan again" comes right after the scanned networks, so with nothing in
+  // reach it is the first row and Confirm rescans instead of opening the
+  // keyboard for a new network.
+  WifiNetworkInfo rescan;
+  rescan.rssi = 0;
+  rescan.isEncrypted = false;
+  rescan.hasSavedPassword = false;
+  rescan.isRescanRow = true;
+  networks.push_back(std::move(rescan));
+
   // Synthetic list entry that lets the user type an SSID that is not broadcast.
   // ESP32 can join hidden APs as long as the SSID is supplied to WiFi.begin().
   WifiNetworkInfo placeholder;
@@ -293,12 +327,14 @@ void WifiSelectionActivity::rebuildNetworkRowItems() {
   networkRowItems.reserve(networks.size());
   for (size_t i = 0; i < networks.size(); i++) {
     const auto& network = networks[i];
-    if (!network.isHiddenPlaceholder) {
+    if (!network.isHiddenPlaceholder && !network.isRescanRow) {
       networkStatuses[i] = std::string(network.hasSavedPassword ? "+ " : "") + (network.isEncrypted ? "* " : "") +
                            getSignalStrengthIndicator(network.rssi);
     }
     fui::ListItem item;
-    item.label = network.isHiddenPlaceholder ? tr(STR_ADD_HIDDEN_NETWORK) : network.ssid.c_str();
+    item.label = network.isRescanRow           ? tr(STR_WIFI_SCAN_AGAIN)
+                 : network.isHiddenPlaceholder ? tr(STR_ADD_HIDDEN_NETWORK)
+                                               : network.ssid.c_str();
     if (!networkStatuses[i].empty()) item.value = networkStatuses[i].c_str();
     item.actionValue = static_cast<int16_t>(i);
     networkRowItems.push_back(item);
@@ -311,6 +347,11 @@ void WifiSelectionActivity::selectNetwork(const int index) {
   }
 
   const auto& network = networks[index];
+
+  if (network.isRescanRow) {
+    startWifiScan();
+    return;
+  }
 
   // Synthetic "Add hidden network..." entry: prompt the user to type the SSID first
   if (network.isHiddenPlaceholder) {
@@ -410,17 +451,23 @@ bool WifiSelectionActivity::tryAutoConnectCredential(const WifiCredential& cred)
 }
 
 bool WifiSelectionActivity::tryNextSavedNetworkFromScan() {
-  for (const auto& network : networks) {
-    if (!network.hasSavedPassword || hasAttemptedAutoSsid(network.ssid)) {
-      continue;
+  // The saved networks of the scan, strongest first (after a scan that gave
+  // nothing: the last connected one and two more, unseen); when none is left
+  // the list is shown with the reason.
+  for (;;) {
+    // The scans of this join are over here, so a scan is never asked for again.
+    const wifijoin::Next next = wifijoin::nextStep(lastScan, wifijoin::MAX_SCAN_TRIES, autoOrder, autoAttemptedSsids);
+    if (next.step != wifijoin::Step::Join) {
+      listNotice = next.notice;
+      LOG_INF("WIFI", "No saved network joined (reason %d)", static_cast<int>(next.notice));
+      return false;
     }
-
-    const auto cred = WIFI_STORE.findCredential(network.ssid);
+    const auto cred = WIFI_STORE.findCredential(next.ssid);
     if (cred && tryAutoConnectCredential(*cred)) {
       return true;
     }
+    if (!hasAttemptedAutoSsid(next.ssid)) autoAttemptedSsids.push_back(next.ssid);
   }
-  return false;
 }
 
 void WifiSelectionActivity::handleAutoConnectFailure() {
@@ -860,9 +907,26 @@ void WifiSelectionActivity::render(RenderLock&&) {
   // safe-area `screen` would inset it twice.
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, renderer.getScreenWidth(), metrics.headerHeight},
                  tr(STR_WIFI_NETWORKS), countStr);
+  // After an automatic join that found nothing to join, the band says why the list is shown.
+  const char* notice = nullptr;
+  if (state == WifiSelectionState::NETWORK_LIST) {
+    switch (listNotice) {
+      case wifijoin::Notice::NoSavedInRange:
+        notice = tr(STR_WIFI_NO_SAVED_IN_RANGE);
+        break;
+      case wifijoin::Notice::SavedFailed:
+        notice = tr(STR_WIFI_SAVED_FAILED);
+        break;
+      case wifijoin::Notice::ScanFailed:
+        notice = tr(STR_WIFI_SCAN_FAILED);
+        break;
+      case wifijoin::Notice::None:
+        break;
+    }
+  }
   GUI.drawSubHeader(renderer,
                     Rect{screen.x, metrics.topPadding + metrics.headerHeight, screen.width, metrics.tabBarHeight},
-                    cachedMacAddress.c_str());
+                    notice ? notice : cachedMacAddress.c_str());
 
   switch (state) {
     case WifiSelectionState::AUTO_CONNECTING:
