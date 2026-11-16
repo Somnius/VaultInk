@@ -24,6 +24,7 @@ EpubReaderMenuActivity::EpubReaderMenuActivity(GfxRenderer& renderer, MappedInpu
     : UiListActivity("EpubReaderMenu", renderer, mappedInput),
       title(title),
       pendingOrientation(currentOrientation),
+      openedOrientation(currentOrientation),
       currentPage(currentPage),
       totalPages(totalPages),
       bookProgressPercent(bookProgressPercent) {
@@ -159,6 +160,15 @@ void EpubReaderMenuActivity::closeCancelled() {
   result.data = MenuResult{-1, pendingOrientation, selectedPageTurnOption};
   setResult(std::move(result));
   finish();
+}
+
+// Quick settings pulled down over the menu (kos25k #15): the menu closes like Back, and the panel opens over
+// the book's page. Not while a popup is up, and not after the menu turned the screen: the book lays its pages
+// out again for the new orientation on the way back, and the panel stays out of that.
+bool EpubReaderMenuActivity::closeMenuForPanel() {
+  if (optionPopup.isActive() || pendingOrientation != openedOrientation) return false;
+  closeCancelled();
+  return true;
 }
 
 bool EpubReaderMenuActivity::handleHomeGesture() {

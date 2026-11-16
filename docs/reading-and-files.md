@@ -23,6 +23,7 @@ The guide to how VaultInk reads books and handles files: page backgrounds, text 
 - [Book map](#book-map-and-page-numbers-in-the-chapter-list)
 - [Hide Status Bar and the book page number](#hide-status-bar-and-the-book-page-number)
 - [The book card in quick settings (0.26.0)](#the-book-card-in-quick-settings-0260)
+- [Quick settings over the book menu (0.77.1)](#quick-settings-over-the-book-menu-0771)
 - [Tap Zones: corners only (0.25.0)](#tap-zones-corners-only-0250)
 - [Gestures and the Quick Menu](#gestures-and-the-quick-menu)
 - [Even Word Gaps (0.24.0, levels in 0.27.0)](#even-word-gaps-0240-levels-in-0270)
@@ -352,6 +353,24 @@ already turns the page.
 When quick settings (swipe down from the top) is opened over a book or note, the card at the top
 with its title and progress can be tapped: a **tap** opens the library (for a note: the note's
 folder in the vault), a **long press** goes to the home screen. The whole card is the target.
+
+## Quick settings over the book menu (0.77.1)
+
+Written for 0.77.1. Computer tests only: built for the X4 Pro, not tried on a reader or in the simulator.
+
+With the book menu open (the toolbar, one of its Contents, Text or More panels, or the classic
+list menu), a swipe down that starts in the top 14 % of the screen closes the menu and opens quick
+settings in one move. Before, the swipe did nothing there and you had to tap the page first
+(kos25k #15). Still one menu at a time: the menu closes, the page is drawn again, and only then
+does the panel open, so the two are never on the screen together.
+
+- A swipe that starts lower, inside the menu, still scrolls or pages the list.
+- While a popup is open over the menu (an option picker, the Quick Menu) the swipe is left to the
+  popup, and also after you changed the orientation in the classic menu.
+- If the page takes more than 3 seconds to come back, the panel doesn't open; swipe again.
+- A key press or a touch before the panel is up goes to the book and calls the panel off.
+- The other way round is not there: from quick settings a swipe up closes the panel as before and
+  does not open the book menu.
 
 ## Tap Zones: corners only (0.25.0)
 

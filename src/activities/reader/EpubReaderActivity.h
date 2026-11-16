@@ -353,6 +353,8 @@ class EpubReaderActivity final : public ReaderActivity {
   bool hasOpenMenu() const override {
     return overlay != Overlay::None || overlayPopup.isActive() || quickMenuPopup.isActive();
   }
+  // Quick settings pulled down over the toolbar or one of its panels (kos25k #15).
+  bool closeMenuForPanel() override;
   bool isVaultNote() const {
     return bookPath.size() > 3 && (bookPath.compare(bookPath.size() - 3, 3, ".md") == 0 ||
                                    bookPath.compare(bookPath.size() - 3, 3, ".MD") == 0);
