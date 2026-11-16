@@ -2,6 +2,20 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.77.2 (2026-11-16)
+
+A fix for Wi-Fi when the last network is not around.
+
+Checked on a real X4 Pro (2026-11-16):
+
+- **Saved networks in range are joined first.** Before, the reader tried the last network it used (a phone hotspot of mine that was off) and then went on from there. Now it scans first and joins the strongest saved network in range without asking. On my reader it skipped the hotspot and joined my home Wi-Fi in about 7 seconds.
+
+Tested on a computer only:
+
+- **No more jump to Add hidden network.** When no saved network is in range, the network list shows why, with Scan again. Cancelling LiveSync says it did not sync for lack of Wi-Fi.
+- **A scan that fails or finds nothing** is tried once more after a restart of the Wi-Fi radio, then up to three saved networks are tried directly. I saw scans come back empty on my reader after about 12 minutes awake; why, I don't know yet.
+- **Sync on wake** scans and joins a saved network in range within 20 seconds in all, and skips the sync quietly if there is none. It never opens the network screen.
+
 ## 0.77.1 (2026-11-16)
 
 Fixes for two things kos25k reported after 0.77.0 (#30, #15).

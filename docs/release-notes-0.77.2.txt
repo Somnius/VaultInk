@@ -1,0 +1,11 @@
+A fix for Wi-Fi when the last network is not around.
+
+Checked on my X4 Pro:
+- The reader scans first and joins the strongest saved network in range without asking. Mine skipped a hotspot that was off and joined my home Wi-Fi in about 7 seconds.
+
+Tests on a computer only:
+- No saved network in range: the network list says why and has Scan again, instead of jumping to Add hidden network. Cancelling LiveSync says it did not sync.
+- A scan that fails or finds nothing is tried again after a radio restart, then up to three saved networks are tried directly.
+- Sync on wake joins a saved network within 20 seconds or skips quietly.
+
+Known: I saw scans find nothing after about 12 minutes awake and don't know why yet. The GitHub certificate check is still off in release builds.

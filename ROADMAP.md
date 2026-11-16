@@ -830,7 +830,7 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   file from a server inside the script on the computer's LAN address, FETCH, FLASH with the hash,
   REBOOT, STATUS until the version matches). `x4pro-dev` and `x4pro-dev-verify` only. Still to do: compile it, and every
   item of docs/devlink.md, "What is not checked yet".
-* 🚧 (2026-11-16, unreleased, computer tests and x4pro-dev builds; on an X4 Pro the first version's Join a Network scanned, skipped an out-of-range saved network and joined the home network in 7 s; the rest not run on a reader)
+* ✅ (0.77.2, 2026-11-16, computer tests and x4pro-dev builds; on an X4 Pro the first version's Join a Network scanned, skipped an out-of-range saved network and joined the home network in 7 s; the rest not run on a reader)
   Wi-Fi when the saved network is not there (Lef's report: starting LiveSync away from the last
   network ended at adding a new network). Every job that needs Wi-Fi (LiveSync, OPDS, the update
   check, font downloads, KOReader sync, lookups, SSH) now scans first and joins a saved network in
