@@ -212,6 +212,7 @@ void ActivityManager::loop() {
     // Input during the wait goes to the book as always (its loop also finishes chapter builds, so
     // it is not skipped), and it calls the panel off: no panel over a page turned meanwhile.
     bool waitDisturbed = false;
+    // cppcheck-suppress knownConditionTrueFalse // not so: set when a board with a frontlight closes the menu
     if (panelAfterMenu && !menuClosedForPanel) {
       // The swipe itself ended on the pass that closed the menu, so any edge from here on is new.
       waitDisturbed =
@@ -219,6 +220,7 @@ void ActivityManager::loop() {
     }
 
     // Note: do not hold a lock here, the loop() method must be responsible for acquire one if needed
+    // cppcheck-suppress knownConditionTrueFalse // not so: see above
     if (!menuClosedForPanel) currentActivity->loop();
     if (panelAfterMenu) openPanelAfterMenu(waitDisturbed);
   } else {
