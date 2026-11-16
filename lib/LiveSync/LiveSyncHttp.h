@@ -70,13 +70,34 @@ inline size_t oneAnswerCap(const size_t largestFree, const size_t floor, const s
 // and 10 s for the small request the engine sends to see if the server is still there.
 struct SecondTry {
   bool lastUnanswered = false;  // the request before this one ended with no answer at all
+  size_t seen = 0;              // body bytes of the running request when piece() was last told more
+  uint32_t lastPieceAt = 0;
+
+  // Called while a request runs (CappedRequest::tick), with the body bytes read so far and the
+  // clock: remembers when the last piece of the body came.
+  void piece(const size_t received, const uint32_t nowMs) {
+    if (received == seen) return;
+    seen = received;
+    lastPieceAt = nowMs;
+  }
+  // Before a request is sent.
+  void start(const uint32_t nowMs) {
+    seen = 0;
+    lastPieceAt = nowMs;
+  }
+  // An answer had started and then nothing more came for the whole body wait: the same request
+  // again would most likely wait as long a second time.
+  bool bodyStalled(const bool answerStarted, const uint32_t nowMs) const {
+    return answerStarted && nowMs - lastPieceAt >= BODY_TIMEOUT_MS - 1000;
+  }
 
   // `reads`: sending it twice changes nothing on the server (a GET, a keys query). `connectFailed`:
   // no connection (or no TLS session) could be made, the next try would only wait as long again.
   // `timesWritten`: how often the HTTP client itself wrote this request (2: its own second try,
   // after a kept connection turned out dead).
-  bool allowed(const bool reads, const bool connectFailed, const int timesWritten) const {
-    return reads && !connectFailed && timesWritten < 2 && !lastUnanswered;
+  // `stalled`: bodyStalled() at the close.
+  bool allowed(const bool reads, const bool connectFailed, const int timesWritten, const bool stalled) const {
+    return reads && !connectFailed && timesWritten < 2 && !lastUnanswered && !stalled;
   }
   // After every request, with what requestCapped returned.
   void done(const int status) { lastUnanswered = status < 0 && status != STATUS_TOO_BIG && status != STATUS_NO_MEMORY; }

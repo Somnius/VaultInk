@@ -371,6 +371,10 @@ class Run {
     return true;
   }
 
+  // A one-chunk answer longer than this is not parsed into a JSON document when the chunk can be
+  // found in it as it is (sliceChunk).
+  static constexpr size_t SLICE_FROM = 64 * 1024;
+
   // One POST _all_docs?include_docs=true {"keys": ids}. False with the answer logged, a short
   // reason in `why`, and `retry` set when the same request may work a second time. With `raw` (one
   // chunk asked for) an answer too long to parse is handed over in it, and `docs` stays empty.
@@ -393,12 +397,16 @@ class Run {
     // already where it may. Asking again here would wait on a dead server twice as long.
     retry = status >= 0 && info.complete;
     sizeTrouble = false;
+    // One chunk asked for, and more than a small answer: the chunk is used inside the answer's own
+    // buffer, with no JSON document beside it. The device takes that buffer at its cap (most of
+    // the free PSRAM), so a document with a second copy of a 1.5 MB chunk had no room left: on a
+    // reader three such answers ended with NoMemory while they were only parsed when over 2 MB.
+    if (status == 200 && info.complete && raw && response.size() > SLICE_FROM && sliceChunk(response, ids[0], *raw)) {
+      raw->text = std::move(response);
+      raw->used = true;
+      return true;
+    }
     if (status == 200 && info.complete && response.size() > o.maxParsedBytes) {
-      if (raw && sliceChunk(response, ids[0], *raw)) {
-        raw->text = std::move(response);
-        raw->used = true;
-        return true;
-      }
       why = "the server's answer was too big";
       retry = false;
       sizeTrouble = true;

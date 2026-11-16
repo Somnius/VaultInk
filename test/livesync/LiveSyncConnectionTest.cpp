@@ -148,13 +148,19 @@ struct Wire {
     limits.cap = !one ? cap : psram ? livesync::oneAnswerCap(psram, cap, capOne) : capOne;
     limits.expected = one ? limits.cap : expected;
     if (psram) limits.largestFreeBlock = [this, &out] { return psram - std::min(psram, out.capacity()); };
-    limits.closed = [this](bool) { ++closes; };
+    bool stalled = false;
+    secondTry.start(fakeNow());
+    limits.tick = [this] { secondTry.piece(info.received, fakeNow()); };
+    limits.closed = [&](const bool answerStarted) {
+      ++closes;
+      stalled = secondTry.bodyStalled(answerStarted, fakeNow());
+    };
     const bool reads = std::string(method) == "GET" || path.rfind("_all_docs", 0) == 0;
     limits.again = [&](const int failed) {
       using Failure = SecureHttpClient::Failure;
       const bool connectFailed =
           failed < 0 && (http->failure() == Failure::Connect || http->failure() == Failure::Handshake);
-      return secondTry.allowed(reads, connectFailed, http->requestAttempts()) && prepare();
+      return secondTry.allowed(reads, connectFailed, http->requestAttempts(), stalled) && prepare();
     };
     livesync::CappedResult result;
     const int status = livesync::requestCapped(*http, method, body, out, limits, info, result);
@@ -280,7 +286,7 @@ TEST(LiveSyncConnection, MissingEndOfAChunkedBodyReplacesTheConnection) {
     FakeNet::get().holdBack = 0;
     ASSERT_EQ(w.request("POST", ALL_DOCS, keysOf({"obsydian_livesync_version"}), out), 200);
     EXPECT_TRUE(w.info.complete);
-    EXPECT_EQ(FakeNet::get().requestConn, (std::vector<int>{0, 1, 2}));  // asked twice, then the next one
+    EXPECT_EQ(FakeNet::get().requestConn, (std::vector<int>{0, 1}));  // a stalled body is asked once, then the next one
     w.expectNothingLeftOpen();
   }
 }
@@ -360,6 +366,10 @@ TEST(LiveSyncConnection, BodyThatStopsAndRequestWithNoAnswer) {
   EXPECT_FALSE(w.info.complete);
   EXPECT_EQ(w.unfinished, 1);
   EXPECT_EQ(FakeNet::get().openNow(), 0);
+  // A body that stalled for the whole wait is not asked for a second time: one wait of 30 seconds.
+  EXPECT_EQ(w.retried, 0);
+  EXPECT_GE(fakeNow(), livesync::BODY_TIMEOUT_MS);
+  EXPECT_LT(fakeNow(), livesync::BODY_TIMEOUT_MS + 1000);
 
   w.framing = Framing{};
   ASSERT_EQ(w.request("GET", "obsydian_livesync_version", "", out), 200);  // kept, on connection 1
@@ -370,16 +380,16 @@ TEST(LiveSyncConnection, BodyThatStopsAndRequestWithNoAnswer) {
   EXPECT_EQ(w.http->failure(), SecureHttpClient::Failure::NoStatusLine);
   EXPECT_EQ(w.unfinished, 1);  // no answer had started: the request's own log line says so
   EXPECT_EQ(FakeNet::get().openNow(), 0);
-  // The cut answer was asked for twice (0, 1). The silent one: on the kept connection, then by the
-  // HTTP client on a new one, and not a third time by the request code: two waits of 10 seconds.
-  EXPECT_EQ(FakeNet::get().requestConn, (std::vector<int>{0, 1, 2, 2, 3}));
-  EXPECT_EQ(w.retried, 1);
+  // The silent one: on the kept connection, then by the HTTP client on a new one, and not a third
+  // time by the request code: two waits of 10 seconds.
+  EXPECT_EQ(FakeNet::get().requestConn, (std::vector<int>{0, 1, 1, 2}));
+  EXPECT_EQ(w.retried, 0);
   EXPECT_GE(fakeNow() - before, 2 * livesync::ANSWER_TIMEOUT_MS);
   EXPECT_LT(fakeNow() - before, 2 * livesync::ANSWER_TIMEOUT_MS + 1000);
 
   FakeNet::get().server = answering;
   ASSERT_EQ(w.request("GET", "obsydian_livesync_version", "", out), 200);
-  EXPECT_EQ(FakeNet::get().requestConn.back(), 4);
+  EXPECT_EQ(FakeNet::get().requestConn.back(), 3);
   w.expectNothingLeftOpen();
 }
 
@@ -468,6 +478,25 @@ TEST(LiveSyncConnection, OnePieceLongerThanTheRecordSuggestedNeedsTheBufferAtThe
   // The cap follows the room there is, between the cap of every other request and 6 MB.
   EXPECT_EQ(livesync::oneAnswerCap(1000 * 1000, 2 * 1024 * 1024, 6 * 1024 * 1024), 2u * 1024 * 1024);
   EXPECT_EQ(livesync::oneAnswerCap(8u * 1024 * 1024, 2 * 1024 * 1024, 6 * 1024 * 1024), 6u * 1024 * 1024);
+  w.expectNothingLeftOpen();
+}
+
+// What the next run on a reader showed: an answer of 1.5 MB for one piece came whole and the JSON
+// parser had no memory for it, the answer's buffer (taken at the cap) held most of the PSRAM. Such
+// an answer is not parsed any more: the piece is used inside the buffer, like the ones over 2 MB.
+TEST(LiveSyncConnection, OnePieceUnderTwoMegabytesIsNotParsedIntoADocument) {
+  Wire w;
+  const std::string image = noise(850 * 1000, 31);
+  w.f.couch.addFile(w.f.master, "Board/mid.png", image, image.size());
+  w.f.options.maxParsedBytes = 64 * 1024;  // a JSON document of this answer would be refused
+  livesync::SyncStats stats;
+  std::string error;
+  ASSERT_TRUE(w.f.sync(stats, error)) << error;
+  EXPECT_GT(w.biggestAnswer, 1400u * 1000u);
+  EXPECT_LT(w.biggestAnswer, w.cap);
+  EXPECT_EQ(stats.skipped, 0);
+  EXPECT_TRUE(w.f.sd.files["/Vaults/Demo/Board/mid.png"] == image);
+  EXPECT_TRUE(w.f.log.empty());
   w.expectNothingLeftOpen();
 }
 

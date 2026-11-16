@@ -420,8 +420,14 @@ livesync::Transport transport(const Profile& p) {
     // engine expects from the file's record.
     limits.expected = oneChunk ? limits.cap : expected;
     limits.largestFreeBlock = [] { return heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT); };
-    limits.tick = [] { resetTaskWatchdogIfSubscribed(); };
+    limits.tick = [] {
+      resetTaskWatchdogIfSubscribed();
+      secondTry.piece(lastInfo.received, millis());
+    };
+    bool stalled = false;
+    secondTry.start(millis());
     limits.closed = [&](const bool answerStarted) {
+      stalled = secondTry.bodyStalled(answerStarted, millis());
       logConnects();
       if (answerStarted) {
         LOG_ERR("LSY", "%s: closed after an unfinished answer (%u bytes of it read)", method,
@@ -443,7 +449,7 @@ livesync::Transport transport(const Profile& p) {
                                      http.failure() == freeink::SecureHttpClient::Failure::Handshake);
       timesWritten = http.requestAttempts();
 #endif
-      if (!secondTry.allowed(reads, connectFailed, timesWritten) || !prepare()) return false;
+      if (!secondTry.allowed(reads, connectFailed, timesWritten, stalled) || !prepare()) return false;
       LOG_ERR("LSY", "%s: asking again on a new connection (the first try ended with %d)", method, failed);
       return true;
     };
