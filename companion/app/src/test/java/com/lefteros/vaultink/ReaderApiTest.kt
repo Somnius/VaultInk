@@ -267,6 +267,22 @@ class ReaderApiTest {
     }
 
     @Test
+    fun vaultsAreTheFoldersDirectlyUnderVaults() {
+        val entries = ReaderApi.parseFiles("""[
+            {"name":"Lefteris-RPG","size":0,"isDirectory":true,"isEpub":false},
+            {"name":"readme.md","size":120,"isDirectory":false,"isEpub":false},
+            {"name":"Constantinople By Night","size":0,"isDirectory":true,"isEpub":false}]""")
+        assertEquals(Entry("readme.md", false, 120), entries[1])
+        assertEquals(listOf("Constantinople By Night", "Lefteris-RPG"), ReaderApi.vaultNames(entries))
+        assertTrue(ReaderApi.vaultNames(ReaderApi.parseFiles("[]")).isEmpty())
+    }
+
+    @Test(expected = org.json.JSONException::class)
+    fun aFileListingThatIsNotJsonIsAnErrorNotAnEmptyList() {
+        ReaderApi.parseFiles("Not found")
+    }
+
+    @Test
     fun uptimeAndSignal() {
         assertEquals("45 s", uptimeText(45))
         assertEquals("12 min", uptimeText(12 * 60 + 5))

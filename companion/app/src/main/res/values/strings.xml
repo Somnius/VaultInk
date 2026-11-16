@@ -301,4 +301,5 @@
     <string name="backup_restore_confirm">Restore</string>
     <string name="backup_done">Restore finished. Settings changed: %1$d. Entries added: %2$d. Already there: %3$d. Skipped: %4$d. Failed: %5$d.</string>
     <string name="backup_done_skipped">Skipped settings: %1$s</string>
+    <string name="vaults_failed">Couldn\'t read the vaults from the reader: %1$s</string>
 </resources>

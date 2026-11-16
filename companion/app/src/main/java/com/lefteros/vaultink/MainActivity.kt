@@ -32,6 +32,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -143,13 +144,31 @@ fun NoteScreen(client: DeviceClient?, draft: Draft, onDraft: (Draft) -> Unit, on
     var folder by remember { mutableStateOf(prefs(context).getString("folder", "Inbox") ?: "Inbox") }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
-    LaunchedEffect(client) {
+    // A listing that failed is an error with a way to ask again, never "no vaults".
+    var vaultsError by remember { mutableStateOf("") }
+    var asked by remember { mutableIntStateOf(0) }
+    LaunchedEffect(client, asked) {
+        vaultsError = ""
         // Offline the only vault offered is the last one used (its name is all the outbox needs).
-        vaults = if (client == null) listOf(vault).filter { it.isNotEmpty() }
-        else withContext(Dispatchers.IO) { runCatching { client.vaults() }.getOrDefault(emptyList()) }
-        if (vault !in vaults.orEmpty()) vault = vaults.orEmpty().firstOrNull().orEmpty()
+        val found = if (client == null) Result.success(listOf(vault).filter { it.isNotEmpty() })
+        else withContext(Dispatchers.IO) { runCatching { client.vaults() } }
+        found.onSuccess {
+            vaults = it
+            if (vault !in it) vault = it.firstOrNull().orEmpty()
+        }.onFailure {
+            vaults = null
+            vaultsError = context.getString(R.string.vaults_failed, it.message ?: "")
+        }
     }
-    val list = vaults ?: return
+    if (vaultsError.isNotEmpty()) {
+        Text(vaultsError)
+        OutlinedButton(onClick = { asked++ }) { Text(stringResource(R.string.try_again)) }
+        return
+    }
+    val list = vaults ?: run {
+        Text(stringResource(R.string.loading))
+        return
+    }
     if (list.isEmpty()) {
         Text(stringResource(R.string.no_vaults))
         return

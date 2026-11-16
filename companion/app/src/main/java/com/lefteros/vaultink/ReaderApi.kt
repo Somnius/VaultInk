@@ -93,6 +93,14 @@ object ReaderApi {
         )
     }
 
+    /** GET /api/files: `[{"name","size","isDirectory","isEpub"}]`. */
+    fun parseFiles(body: String): List<Entry> =
+        objects(JSONArray(body)).map { Entry(it.optString("name"), it.optBoolean("isDirectory"), it.optLong("size")) }
+
+    /** The vaults in a listing of /Vaults: every folder directly in it, by name. */
+    fun vaultNames(entries: List<Entry>): List<String> =
+        entries.filter { it.isDirectory && it.name.isNotEmpty() }.map { it.name }.sorted()
+
     fun parseLiveSyncStatus(body: String): LiveSyncStatus {
         val o = JSONObject(body)
         val profiles = o.optJSONArray("profiles")

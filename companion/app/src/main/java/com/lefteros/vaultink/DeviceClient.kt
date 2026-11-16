@@ -105,15 +105,11 @@ class DeviceClient(host: String) {
     fun list(path: String): List<Entry> {
         val (code, body) = call(Request.Builder().url(url("api/files", "path" to path)).build())
         if (code != 200) throw IOException("HTTP $code")
-        val array = JSONArray(body)
-        return (0 until array.length()).map {
-            val o = array.getJSONObject(it)
-            Entry(o.optString("name"), o.optBoolean("isDirectory"), o.optLong("size"))
-        }
+        return ReaderApi.parseFiles(body)
     }
 
     /** Folders under /Vaults (the device's vaults). */
-    fun vaults(): List<String> = list("/Vaults").filter { it.isDirectory }.map { it.name }.sorted()
+    fun vaults(): List<String> = ReaderApi.vaultNames(list("/Vaults"))
 
     /** Makes every missing folder of `path` ("/Vaults/Notes/Inbox"). */
     fun ensureFolder(path: String) {

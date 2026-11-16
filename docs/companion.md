@@ -346,7 +346,7 @@ The byte counting and clipping are in `PhoneText.kt` with JUnit tests (`PhoneTex
 
 ## 0.6.0: Home, Reader setup and a new look
 
-Not released. What was checked: `./gradlew testDebugUnitTest assembleDebug` (68 unit tests, 26 of
+Not released. What was checked: `./gradlew testDebugUnitTest assembleDebug` (70 unit tests, 28 of
 them new in `ReaderApiTest`: the JSON of every endpoint above as documented, the request bodies,
 the name checks, the polling times; 13 in `BackupTest`). **Not run on a phone, in the simulator or against a reader**:
 the look, the fades, the Greek text on screen, the font picker, the polling in the foreground and
