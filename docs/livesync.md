@@ -444,8 +444,9 @@ screen stays open so you can read why.
 
 **Sync on wake** is off until you turn it on, on the LiveSync screen. Tap the row to step through
 Off, every 6 hours and every 24 hours. When the device wakes (or starts) and the chosen time has
-passed since the last try, it scans once and joins a saved Wi-Fi network that is in range by itself
-(the strongest first, 10 seconds for each, 20 seconds in all), pulls the changes, and opens what you
+passed since the last try, it scans once (5 seconds at most) and joins a saved Wi-Fi network that is in range by itself
+(the strongest first, 10 seconds for each, 20 seconds in all with the scan; after a scan that
+lists nothing, the last connected network and up to two more are tried anyway), pulls the changes, and opens what you
 were reading. It never shows the Wi-Fi screen or asks anything: with no saved network in range it
 skips the sync with one line in the log. (The scan and the choice among saved networks are
 unreleased: computer tests and an x4pro-dev build, not run on a reader.) It doesn't sync when:

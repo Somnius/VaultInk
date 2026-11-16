@@ -117,7 +117,7 @@ void WifiSelectionActivity::onEnter() {
   autoOrder.clear();
   scanTries = 0;
   listNotice = wifijoin::Notice::None;
-  selectedIsHidden = false;
+  lastScan = wifijoin::Scan::Ok;
   const size_t savedCredentialCount = WIFI_STORE.getCredentialCount();
   autoAttemptedSsids.reserve(savedCredentialCount);
 
@@ -190,6 +190,15 @@ void WifiSelectionActivity::startWifiScan(const bool autoScan, const bool retry)
   networkRowItems.clear();
   requestUpdate();
 
+  if (lastScan != wifijoin::Scan::Ok) {
+    // The scan before this one failed or listed nothing (seen on a reader after
+    // 12 minutes awake, with the home network in range): restart the radio.
+    LOG_INF("WIFI", "Restarting Wi-Fi before the scan");
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+    delay(100);
+  }
+
   // Set WiFi mode to station
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
@@ -207,28 +216,23 @@ void WifiSelectionActivity::processWifiScanResults() {
     return;
   }
 
-  if (scanResult == WIFI_SCAN_FAILED) {
-    LOG_ERR("WIFI", "Scan failed (try %d)", scanTries);
+  // A scan that lists nothing is handled like one that failed: scanned once
+  // more, then the saved networks are tried without having been seen.
+  lastScan = scanResult == WIFI_SCAN_FAILED ? wifijoin::Scan::Failed
+             : scanResult == 0              ? wifijoin::Scan::Empty
+                                            : wifijoin::Scan::Ok;
+  if (lastScan != wifijoin::Scan::Ok) {
+    LOG_ERR("WIFI", "Scan %s (try %d)", lastScan == wifijoin::Scan::Failed ? "failed" : "found nothing", scanTries);
     if (autoConnecting && !manualNetworkListRequested &&
-        wifijoin::nextStep(true, scanTries, autoOrder, autoAttemptedSsids).step == wifijoin::Step::Rescan) {
+        wifijoin::nextStep(lastScan, scanTries, autoOrder, autoAttemptedSsids).step == wifijoin::Step::Rescan) {
       startWifiScan(true, true);
       return;
     }
-    networks.clear();
-    realNetworkCount = 0;
-    appendActionRows();
-    rebuildNetworkRowItems();
-    listNotice = wifijoin::Notice::ScanFailed;
-    autoConnecting = false;
-    state = WifiSelectionState::NETWORK_LIST;
-    selectedNetworkIndex = 0;
-    requestUpdate();
-    return;
   }
 
   // Scan complete, process results — deduplicate in-place, keeping strongest signal
   networks.clear();
-  networks.reserve(scanResult);
+  networks.reserve(scanResult > 0 ? scanResult : 0);
 
   for (int i = 0; i < scanResult; i++) {
     char ssid[33];
@@ -264,13 +268,17 @@ void WifiSelectionActivity::processWifiScanResults() {
   });
 
   realNetworkCount = networks.size();
-  {
+  if (lastScan == wifijoin::Scan::Ok) {
     std::vector<wifijoin::Seen> seen;
     seen.reserve(networks.size());
     for (const auto& network : networks) seen.push_back({network.ssid, network.rssi});
     autoOrder = wifijoin::savedInRange(
         seen, [](const std::string& ssid) { return WIFI_STORE.hasSavedCredential(ssid); },
-        WIFI_STORE.getLastHiddenSsid());
+        WIFI_STORE.getLastConnectedSsid());
+  } else {
+    std::vector<std::string> saved;
+    for (const auto& summary : WIFI_STORE.getCredentialSummaries()) saved.push_back(summary.ssid);
+    autoOrder = wifijoin::blindOrder(saved, WIFI_STORE.getLastConnectedSsid());
   }
   appendActionRows();
   rebuildNetworkRowItems();
@@ -281,6 +289,7 @@ void WifiSelectionActivity::processWifiScanResults() {
     return;
   }
 
+  if (lastScan == wifijoin::Scan::Failed) listNotice = wifijoin::Notice::ScanFailed;
   autoConnecting = false;
   state = WifiSelectionState::NETWORK_LIST;
   selectedNetworkIndex = 0;
@@ -351,7 +360,6 @@ void WifiSelectionActivity::selectNetwork(const int index) {
   }
 
   selectedSSID = network.ssid;
-  selectedIsHidden = false;
   selectedRequiresPassword = network.isEncrypted;
   usedSavedPassword = false;
   enteredPassword.clear();
@@ -397,7 +405,6 @@ void WifiSelectionActivity::promptPasswordEntry() {
 void WifiSelectionActivity::promptHiddenSsid() {
   selectedSSID.clear();
   selectedRequiresPassword = true;  // Hidden networks are usually encrypted; empty password still joins open APs
-  selectedIsHidden = true;
   usedSavedPassword = false;
   enteredPassword.clear();
   autoConnecting = false;
@@ -435,7 +442,6 @@ bool WifiSelectionActivity::tryAutoConnectCredential(const WifiCredential& cred)
   selectedSSID = cred.ssid;
   enteredPassword = cred.password;
   selectedRequiresPassword = !cred.password.empty();
-  selectedIsHidden = cred.ssid == WIFI_STORE.getLastHiddenSsid();
   usedSavedPassword = true;
   autoConnecting = true;
   manualNetworkListRequested = false;
@@ -445,14 +451,15 @@ bool WifiSelectionActivity::tryAutoConnectCredential(const WifiCredential& cred)
 }
 
 bool WifiSelectionActivity::tryNextSavedNetworkFromScan() {
-  // The saved networks of the scan, strongest first; when none is left the
-  // list is shown with the reason (none in reach, or none connected).
+  // The saved networks of the scan, strongest first (after a scan that gave
+  // nothing: the last connected one and two more, unseen); when none is left
+  // the list is shown with the reason.
   for (;;) {
-    const wifijoin::Next next = wifijoin::nextStep(false, scanTries, autoOrder, autoAttemptedSsids);
+    // The scans of this join are over here, so a scan is never asked for again.
+    const wifijoin::Next next = wifijoin::nextStep(lastScan, wifijoin::MAX_SCAN_TRIES, autoOrder, autoAttemptedSsids);
     if (next.step != wifijoin::Step::Join) {
       listNotice = next.notice;
-      LOG_INF("WIFI", "No saved network joined (%s)",
-              next.notice == wifijoin::Notice::NoSavedInRange ? "none in range" : "none connected");
+      LOG_INF("WIFI", "No saved network joined (reason %d)", static_cast<int>(next.notice));
       return false;
     }
     const auto cred = WIFI_STORE.findCredential(next.ssid);
@@ -577,7 +584,7 @@ void WifiSelectionActivity::checkConnectionStatus() {
     // we use SPI for both
     {
       RenderLock lock(*this);
-      WIFI_STORE.setLastConnectedSsid(selectedSSID, selectedIsHidden);
+      WIFI_STORE.setLastConnectedSsid(selectedSSID);
     }
 
     // Every station join is a window where plugin senders are deliverable, so

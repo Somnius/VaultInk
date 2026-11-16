@@ -543,30 +543,53 @@ static void deliverSleepPluginEvents(const bool allowNetwork) {
 }
 
 // Joins a saved network for an automatic LiveSync on wake, with nothing on screen to answer: one
-// scan, then the saved networks in reach, strongest first (wifijoin), 10 s each and 20 s in all.
-// False (and Wi-Fi off again, with one log line) when there is no saved network, the battery is
-// low, or no saved network is in reach or connects.
+// scan of 5 s at most, then the saved networks in reach, strongest first (wifijoin), 10 s each,
+// 20 s in all with the scan. After a scan that failed or listed nothing the last connected network
+// and up to two more are tried unseen. False (and Wi-Fi off again, with one log line) when there
+// is no saved network, the battery is low, or no saved network connects in that time.
 static bool joinSavedWifiForSync() {
+  constexpr unsigned long BUDGET_MS = 20000;
+  constexpr unsigned long SCAN_MS = 5000;
+  constexpr unsigned long TRY_MS = 10000;
   if (powerManager.getBatteryPercentage() < 20) return false;
   WIFI_STORE.loadFromFile();
   if (WIFI_STORE.getCredentialCount() == 0) return false;
+  const unsigned long start = millis();
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
-  const int16_t found = WiFi.scanNetworks();  // blocking
+  // All channels, so a network that hides its name can be joined (as the Wi-Fi screen does).
+  WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
+  // Not the blocking scan: that one waits up to the library's 60 s scan timeout.
+  WiFi.scanNetworks(true);
+  int16_t found = WiFi.scanComplete();
+  while (found == WIFI_SCAN_RUNNING && millis() - start < SCAN_MS) {
+    delay(50);
+    found = WiFi.scanComplete();
+  }
+  if (found == WIFI_SCAN_RUNNING) esp_wifi_scan_stop();
   std::vector<wifijoin::Seen> seen;
   for (int16_t i = 0; i < found; i++) seen.push_back({WiFi.SSID(i).c_str(), WiFi.RSSI(i)});
   WiFi.scanDelete();
-  const std::vector<std::string> order = wifijoin::savedInRange(
-      seen, [](const std::string& ssid) { return WIFI_STORE.hasSavedCredential(ssid); },
-      WIFI_STORE.getLastHiddenSsid());
-  const unsigned long start = millis();
+  std::vector<std::string> order;
+  if (!seen.empty()) {
+    order = wifijoin::savedInRange(
+        seen, [](const std::string& ssid) { return WIFI_STORE.hasSavedCredential(ssid); },
+        WIFI_STORE.getLastConnectedSsid());
+  } else {
+    std::vector<std::string> saved;
+    for (const auto& summary : WIFI_STORE.getCredentialSummaries()) saved.push_back(summary.ssid);
+    order = wifijoin::blindOrder(saved, WIFI_STORE.getLastConnectedSsid());
+  }
   for (const auto& ssid : order) {
-    if (millis() - start >= 20000) break;
+    const unsigned long spent = millis() - start;
+    if (spent >= BUDGET_MS) break;
+    const unsigned long tryMs = std::min(TRY_MS, BUDGET_MS - spent);
     const auto cred = WIFI_STORE.findCredential(ssid);
     if (!cred) continue;
     WiFi.begin(cred->ssid.c_str(), cred->password.c_str());
     const unsigned long tryStart = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - tryStart < 10000) delay(100);
+    while (WiFi.status() != WL_CONNECTED && millis() - tryStart < tryMs) delay(100);
     if (WiFi.status() == WL_CONNECTED) {
       trustedtime::startSync();
       return true;
@@ -574,8 +597,8 @@ static bool joinSavedWifiForSync() {
     WiFi.disconnect();
     delay(100);
   }
-  LOG_INF("MAIN", "LiveSync on wake skipped: no saved network joined (scan %d, %u saved in range)",
-          static_cast<int>(found), static_cast<unsigned>(order.size()));
+  LOG_INF("MAIN", "LiveSync on wake skipped: no saved network joined (scan %d, %u to try)", static_cast<int>(found),
+          static_cast<unsigned>(order.size()));
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
   return false;

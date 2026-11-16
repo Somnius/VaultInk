@@ -70,8 +70,6 @@ class WifiSelectionActivity final : public Activity, private UiAppHost {
   // Selected network for connection
   std::string selectedSSID;
   bool selectedRequiresPassword = false;
-  // The selected network was typed in through "Add hidden network" (or is the saved hidden one).
-  bool selectedIsHidden = false;
 
   // Connection result
   std::string connectedIP;
@@ -98,11 +96,15 @@ class WifiSelectionActivity final : public Activity, private UiAppHost {
   // Saved SSIDs already attempted during the current auto-connect session.
   std::vector<std::string> autoAttemptedSsids;
 
-  // Saved networks of the last scan in the order to try them (wifijoin::savedInRange).
+  // Saved networks to try after the last scan, in order (wifijoin::savedInRange, or blindOrder
+  // when the scan failed or listed nothing).
   std::vector<std::string> autoOrder;
 
   // Scans started in a row by the current automatic join.
   int scanTries = 0;
+
+  // What the last scan gave; a scan after one that failed or listed nothing restarts the radio first.
+  wifijoin::Scan lastScan = wifijoin::Scan::Ok;
 
   // Why the list is shown after an automatic join gave up; drawn in the band under the header.
   wifijoin::Notice listNotice = wifijoin::Notice::None;

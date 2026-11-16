@@ -43,49 +43,79 @@ TEST(WifiAutoJoinTest, EqualStrengthKeepsScanOrder) {
   EXPECT_EQ(order({{"B", -60}, {"A", -60}}, {"A", "B"}), (Names{"B", "A"}));
 }
 
-TEST(WifiAutoJoinTest, SavedHiddenNetworkIsTriedLast) {
+TEST(WifiAutoJoinTest, LastConnectedNetworkNotInTheScanGetsOneTryAtTheEnd) {
+  // A network that hides its name is never listed; an old wifi.json does not say which one does.
   EXPECT_EQ(order({{"Home", -70}}, {"Home", "Secret"}, "Secret"), (Names{"Home", "Secret"}));
-  EXPECT_EQ(order({}, {"Secret"}, "Secret"), (Names{"Secret"}));
+  EXPECT_EQ(order({{"Cafe", -40}}, {"Secret"}, "Secret"), (Names{"Secret"}));
 }
 
-TEST(WifiAutoJoinTest, HiddenNetworkOnlyWhenStillSavedAndNotListedTwice) {
+TEST(WifiAutoJoinTest, LastConnectedOnlyWhenStillSavedAndNotListedTwice) {
   EXPECT_TRUE(order({}, {"Home"}, "Forgotten").empty());
-  EXPECT_EQ(order({{"Secret", -50}}, {"Secret"}, "Secret"), (Names{"Secret"}));
+  EXPECT_EQ(order({{"Secret", -50}, {"Home", -40}}, {"Secret", "Home"}, "Secret"), (Names{"Home", "Secret"}));
+}
+
+TEST(WifiAutoJoinTest, BlindOrderStartsWithTheLastConnected) {
+  EXPECT_EQ(wifijoin::blindOrder({"A", "B", "Home"}, "Home"), (Names{"Home", "A", "B"}));
+  EXPECT_EQ(wifijoin::blindOrder({"A", "B"}, ""), (Names{"A", "B"}));
+  EXPECT_EQ(wifijoin::blindOrder({"A", "B"}, "Forgotten"), (Names{"A", "B"}));
+  EXPECT_TRUE(wifijoin::blindOrder({}, "Home").empty());
+}
+
+TEST(WifiAutoJoinTest, BlindOrderIsCapped) {
+  const Names order = wifijoin::blindOrder({"A", "B", "C", "D", "Home"}, "Home");
+  EXPECT_EQ(order.size(), wifijoin::MAX_BLIND_TRIES);
+  EXPECT_EQ(order, (Names{"Home", "A", "B"}));
 }
 
 TEST(WifiAutoJoinTest, JoinsTheFirstNetworkNotTriedYet) {
   const Names inRange{"Work", "Home"};
-  auto next = wifijoin::nextStep(false, 1, inRange, {});
+  auto next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, inRange, {});
   EXPECT_EQ(next.step, wifijoin::Step::Join);
   EXPECT_EQ(next.ssid, "Work");
 
-  next = wifijoin::nextStep(false, 1, inRange, {"Work"});
+  next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, inRange, {"Work"});
   EXPECT_EQ(next.step, wifijoin::Step::Join);
   EXPECT_EQ(next.ssid, "Home");
 }
 
 TEST(WifiAutoJoinTest, NoSavedNetworkInRangeShowsTheListNotAKeyboard) {
-  const auto next = wifijoin::nextStep(false, 1, {}, {});
+  const auto next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, {}, {});
   EXPECT_EQ(next.step, wifijoin::Step::List);
   EXPECT_EQ(next.notice, wifijoin::Notice::NoSavedInRange);
   EXPECT_TRUE(next.ssid.empty());
 }
 
 TEST(WifiAutoJoinTest, EverySavedNetworkTriedShowsTheListWithThatReason) {
-  const auto next = wifijoin::nextStep(false, 1, {"Work", "Home"}, {"Home", "Work"});
+  const auto next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, {"Work", "Home"}, {"Home", "Work"});
   EXPECT_EQ(next.step, wifijoin::Step::List);
   EXPECT_EQ(next.notice, wifijoin::Notice::SavedFailed);
 }
 
-TEST(WifiAutoJoinTest, AFailedScanIsRepeatedOnceThenShown) {
-  EXPECT_EQ(wifijoin::nextStep(true, 1, {}, {}).step, wifijoin::Step::Rescan);
-  const auto next = wifijoin::nextStep(true, wifijoin::MAX_SCAN_TRIES, {}, {});
-  EXPECT_EQ(next.step, wifijoin::Step::List);
-  EXPECT_EQ(next.notice, wifijoin::Notice::ScanFailed);
+TEST(WifiAutoJoinTest, AScanThatFailedOrFoundNothingIsRepeatedOnce) {
+  EXPECT_EQ(wifijoin::nextStep(wifijoin::Scan::Failed, 1, {"Home"}, {}).step, wifijoin::Step::Rescan);
+  EXPECT_EQ(wifijoin::nextStep(wifijoin::Scan::Empty, 1, {"Home"}, {}).step, wifijoin::Step::Rescan);
+  EXPECT_NE(wifijoin::nextStep(wifijoin::Scan::Empty, wifijoin::MAX_SCAN_TRIES, {"Home"}, {}).step,
+            wifijoin::Step::Rescan);
 }
 
-TEST(WifiAutoJoinTest, AFailedScanNeverJoinsFromAnOlderList) {
-  const auto next = wifijoin::nextStep(true, wifijoin::MAX_SCAN_TRIES, {"Home"}, {});
+TEST(WifiAutoJoinTest, AfterTwoUselessScansSavedNetworksAreTriedUnseen) {
+  // The reader's scan listed nothing with the home network in range: it is tried anyway.
+  const Names blind = wifijoin::blindOrder({"Work", "Home"}, "Home");
+  for (const auto scan : {wifijoin::Scan::Empty, wifijoin::Scan::Failed}) {
+    auto next = wifijoin::nextStep(scan, wifijoin::MAX_SCAN_TRIES, blind, {});
+    EXPECT_EQ(next.step, wifijoin::Step::Join);
+    EXPECT_EQ(next.ssid, "Home");
+    next = wifijoin::nextStep(scan, wifijoin::MAX_SCAN_TRIES, blind, {"Home"});
+    EXPECT_EQ(next.step, wifijoin::Step::Join);
+    EXPECT_EQ(next.ssid, "Work");
+  }
+}
+
+TEST(WifiAutoJoinTest, UnseenTriesOverShowTheListWithTheScansReason) {
+  auto next = wifijoin::nextStep(wifijoin::Scan::Failed, wifijoin::MAX_SCAN_TRIES, {"Home"}, {"Home"});
   EXPECT_EQ(next.step, wifijoin::Step::List);
-  EXPECT_TRUE(next.ssid.empty());
+  EXPECT_EQ(next.notice, wifijoin::Notice::ScanFailed);
+  next = wifijoin::nextStep(wifijoin::Scan::Empty, wifijoin::MAX_SCAN_TRIES, {"Home"}, {"Home"});
+  EXPECT_EQ(next.step, wifijoin::Step::List);
+  EXPECT_EQ(next.notice, wifijoin::Notice::NoSavedInRange);
 }
