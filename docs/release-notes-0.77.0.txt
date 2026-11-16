@@ -1,13 +1,13 @@
 LiveSync for up to four vaults, vaults kept out of the Library, and two more Typography Engine settings.
 
 Checked on my X4 Pro (2026-11-16):
-- LiveSync: Sync all pulled two vaults (about 340 and 75 files) in about 2 minutes, nothing skipped. Free internal memory stayed over 90 KB. Earlier runs stopped on pictures, ran out of internal memory or waited minutes on requests with no answer.
+- LiveSync with two profiles: Sync all pulled two vaults (about 340 and 75 files) in about 2 minutes, nothing skipped. Free internal memory stayed over 90 KB. Earlier runs stopped on pictures, ran out of internal memory or waited minutes on requests with no answer.
+- Typography Engine (kos25k #30): Space after punctuation (Normal, Minimal, None) and Optical spacing, every mode with Fira Sans 16 pt. Both are off by default.
 
 Tests on a computer only:
-- Up to four LiveSync profiles, each database into its own folder under /Vaults with a name you choose. Set them up on the web page; Settings > Vaults > LiveSync lists them with Sync all. Your current setup becomes profile 1.
+- Profiles are set up on the web page, each database into its own folder under /Vaults. Your current setup becomes profile 1.
 - A file that cannot be fetched is skipped, listed in skipped.txt and tried again next sync.
 - The reader no longer sleeps right after a long sync, PDF conversion or download.
 - Only folders in /Vaults are vaults. Nothing under /Vaults shows in the Library, Recent, Favourites or Random page. The Library index is rebuilt once.
-- Typography Engine (kos25k #30): Space after punctuation (Normal, Minimal, None) and Optical spacing. Both are off by default. I tried all modes on my X4 Pro with Fira Sans 16 pt.
 
 Known: I did not find why some requests got no answer in the earlier runs. The GitHub certificate check is still off in release builds.
