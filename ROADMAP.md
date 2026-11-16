@@ -640,7 +640,7 @@ comes with Phase 5). Kotlin, Android only. Guide: [docs/companion.md](docs/compa
   system picker, delete); passwords in dotted fields, never logged or kept. New look: navy on
   paper, a warm charcoal dark theme, Literata for titles (bundled, OFL-1.1, in the licence list),
   a type scale, settings as grouped lists with thin dividers, one filled button per screen, 150 ms
-  fades. English and Greek. 23 new JUnit tests (endpoint JSON, request bodies, polling times).
+  fades. English and Greek. 24 new JUnit tests (endpoint JSON, request bodies, polling times).
   Asked for but not possible without a firmware change, so left out: battery percent and
   millivolts, the current screen and the frontlight on Home (`/api/status` has none of them), and a
   passphrase field in LiveSync setup (the endpoint takes none; it is typed on the reader).

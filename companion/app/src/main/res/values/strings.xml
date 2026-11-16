@@ -282,4 +282,5 @@
     <string name="setup_fonts_not_font">%1$s isn\'t a font the reader takes (.ttf, .otf or .cpfont).</string>
     <string name="setup_fonts_refused_note">Readers without extra memory (PSRAM) take only .cpfont files and refuse .ttf and .otf.</string>
     <string name="intro_tab_home">Home: the reader\'s model, firmware version and Wi-Fi signal, the LiveSync status, what waits in the outbox, and app updates.</string>
+    <string name="setup_fonts_too_big">The font is over 8 MB, or it couldn\'t be read.</string>
 </resources>

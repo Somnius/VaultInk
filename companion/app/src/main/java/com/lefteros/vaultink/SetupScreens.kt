@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -156,24 +157,26 @@ private fun passwordNote(hasPassword: Boolean) =
 fun WifiSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(stringResource(R.string.setup_wifi), onBack) {
     val context = LocalContext.current
     val (state, scope) = rememberRemote(client) { wifiNetworks() }
-    var editing by remember { mutableStateOf<WifiNetwork?>(null) }
+    // The entry being changed, by its index on the reader; kept over a rotation with the typed fields.
+    var editIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var editName by rememberSaveable { mutableStateOf("") }
     var deleting by remember { mutableStateOf<WifiNetwork?>(null) }
-    var ssid by remember { mutableStateOf("") }
+    var ssid by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    fun clear() { editing = null; ssid = ""; password = "" }
+    fun clear() { editIndex = null; editName = ""; ssid = ""; password = "" }
     Hint(R.string.setup_wifi_hint)
     ListGroup(state, R.string.setup_wifi_none) { n ->
         val last = if (n.isLastConnected) " · " + stringResource(R.string.setup_wifi_last) else ""
-        GroupRow(n.ssid, passwordNote(n.hasPassword) + last, onClick = { editing = n; ssid = n.ssid; password = "" }) {
+        GroupRow(n.ssid, passwordNote(n.hasPassword) + last, onClick = { editIndex = n.index; editName = n.ssid; ssid = n.ssid; password = "" }) {
             TextButton(enabled = !state.busy, onClick = { deleting = n }) { Text(stringResource(R.string.delete)) }
         }
     }
-    SectionLabel(editing?.let { stringResource(R.string.setup_change, it.ssid) } ?: stringResource(R.string.setup_wifi_add))
+    SectionLabel(editIndex?.let { stringResource(R.string.setup_change, editName) } ?: stringResource(R.string.setup_wifi_add))
     Field(ssid, { ssid = it }, R.string.setup_wifi_ssid)
     SecretField(password, { password = it }, stringResource(R.string.setup_password),
-        if (editing != null) stringResource(R.string.setup_password_keep) else null)
-    SaveRow(!state.busy && ssid.isNotBlank(), editing != null, ::clear) {
-        val (s, p, index) = Triple(ssid, password, editing?.index)
+        if (editIndex != null) stringResource(R.string.setup_password_keep) else null)
+    SaveRow(!state.busy && ssid.isNotBlank(), editIndex != null, ::clear) {
+        val (s, p, index) = Triple(ssid, password, editIndex)
         password = ""
         state.run(scope, context, context.getString(R.string.saved), { client.saveWifi(s, p, index) }, ::clear)
     }
@@ -182,7 +185,7 @@ fun WifiSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(stringRe
     deleting?.let { n ->
         ConfirmDelete(n.ssid, { deleting = null }) {
             deleting = null
-            if (editing?.index != null) clear()  // the indexes move when one goes
+            if (editIndex != null) clear()  // the indexes move when one goes
             state.run(scope, context, context.getString(R.string.deleted), { client.deleteWifi(n.index) })
         }
     }
@@ -194,30 +197,32 @@ fun WifiSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(stringRe
 fun OpdsSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(stringResource(R.string.setup_opds), onBack) {
     val context = LocalContext.current
     val (state, scope) = rememberRemote(client) { opdsServers() }
-    var editing by remember { mutableStateOf<OpdsServer?>(null) }
+    // The entry being changed, by its index on the reader; kept over a rotation with the typed fields.
+    var editIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var editName by rememberSaveable { mutableStateOf("") }
     var deleting by remember { mutableStateOf<OpdsServer?>(null) }
-    var name by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
+    var name by rememberSaveable { mutableStateOf("") }
+    var url by rememberSaveable { mutableStateOf("") }
+    var username by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    fun clear() { editing = null; name = ""; url = ""; username = ""; password = "" }
+    fun clear() { editIndex = null; editName = ""; name = ""; url = ""; username = ""; password = "" }
     Hint(R.string.setup_opds_hint)
     ListGroup(state, R.string.setup_opds_none) { s ->
-        GroupRow(s.name.ifEmpty { s.url }, s.url, onClick = { editing = s; name = s.name; url = s.url; username = s.username; password = "" }) {
+        GroupRow(s.name.ifEmpty { s.url }, s.url, onClick = { editIndex = s.index; editName = s.name.ifEmpty { s.url }; name = s.name; url = s.url; username = s.username; password = "" }) {
             TextButton(enabled = !state.busy, onClick = { deleting = s }) { Text(stringResource(R.string.delete)) }
         }
     }
-    SectionLabel(editing?.let { stringResource(R.string.setup_change, it.name.ifEmpty { it.url }) }
+    SectionLabel(editIndex?.let { stringResource(R.string.setup_change, editName) }
         ?: stringResource(R.string.setup_opds_add))
     Field(name, { name = it }, R.string.setup_name)
     Field(url, { url = it }, R.string.setup_url, KeyboardType.Uri)
     Field(username, { username = it }, R.string.setup_username)
     SecretField(password, { password = it }, stringResource(R.string.setup_password),
-        if (editing != null) stringResource(R.string.setup_password_keep) else null)
-    SaveRow(!state.busy && url.isNotBlank(), editing != null, ::clear) {
+        if (editIndex != null) stringResource(R.string.setup_password_keep) else null)
+    SaveRow(!state.busy && url.isNotBlank(), editIndex != null, ::clear) {
         val p = password
         val (n, u, user) = Triple(name, url, username)
-        val index = editing?.index
+        val index = editIndex
         password = ""
         state.run(scope, context, context.getString(R.string.saved), { client.saveOpds(n, u, user, p, index) }, ::clear)
     }
@@ -226,7 +231,7 @@ fun OpdsSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(stringRe
     deleting?.let { s ->
         ConfirmDelete(s.name.ifEmpty { s.url }, { deleting = null }) {
             deleting = null
-            if (editing != null) clear()
+            if (editIndex != null) clear()
             state.run(scope, context, context.getString(R.string.deleted), { client.deleteOpds(s.index) })
         }
     }
@@ -238,26 +243,28 @@ fun OpdsSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(stringRe
 fun RemotesSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(stringResource(R.string.setup_remotes), onBack) {
     val context = LocalContext.current
     val (state, scope) = rememberRemote(client) { remotes() }
-    var editing by remember { mutableStateOf<RemoteServer?>(null) }
+    // The entry being changed, by its index on the reader; kept over a rotation with the typed fields.
+    var editIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var editName by rememberSaveable { mutableStateOf("") }
     var deleting by remember { mutableStateOf<RemoteServer?>(null) }
-    var name by remember { mutableStateOf("") }
-    var protocol by remember { mutableStateOf("webdav") }
-    var url by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
+    var name by rememberSaveable { mutableStateOf("") }
+    var protocol by rememberSaveable { mutableStateOf("webdav") }
+    var url by rememberSaveable { mutableStateOf("") }
+    var username by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var verify by remember { mutableStateOf(true) }
-    fun clear() { editing = null; name = ""; protocol = "webdav"; url = ""; username = ""; password = ""; verify = true }
+    var verify by rememberSaveable { mutableStateOf(true) }
+    fun clear() { editIndex = null; editName = ""; name = ""; protocol = "webdav"; url = ""; username = ""; password = ""; verify = true }
     Hint(R.string.setup_remotes_hint)
     ListGroup(state, R.string.setup_remotes_none) { s ->
         val plain = if (s.plain) " · " + stringResource(R.string.setup_remote_plain) else ""
         GroupRow(s.name.ifEmpty { s.url }, s.protocol.uppercase() + " · " + s.url + plain, onClick = {
-            editing = s; name = s.name; protocol = if (s.protocol == "ftp") "ftp" else "webdav"; url = s.url
+            editIndex = s.index; editName = s.name.ifEmpty { s.url }; name = s.name; protocol = if (s.protocol == "ftp") "ftp" else "webdav"; url = s.url
             username = s.username; password = ""; verify = s.verifyCert
         }) {
             TextButton(enabled = !state.busy, onClick = { deleting = s }) { Text(stringResource(R.string.delete)) }
         }
     }
-    SectionLabel(editing?.let { stringResource(R.string.setup_change, it.name.ifEmpty { it.url }) }
+    SectionLabel(editIndex?.let { stringResource(R.string.setup_change, editName) }
         ?: stringResource(R.string.setup_remotes_add))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilterChip(protocol == "webdav", { protocol = "webdav" }, label = { Text("WebDAV") })
@@ -267,7 +274,7 @@ fun RemotesSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(strin
     Field(url, { url = it }, R.string.setup_url, KeyboardType.Uri)
     Field(username, { username = it }, R.string.setup_username)
     SecretField(password, { password = it }, stringResource(R.string.setup_password),
-        if (editing != null) stringResource(R.string.setup_password_keep) else null)
+        if (editIndex != null) stringResource(R.string.setup_password_keep) else null)
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.setup_remote_verify), Modifier.weight(1f))
         Switch(verify, { verify = it })
@@ -276,10 +283,10 @@ fun RemotesSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(strin
         Text(stringResource(R.string.setup_remote_plain_note), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error)
     }
-    SaveRow(!state.busy && url.isNotBlank(), editing != null, ::clear) {
+    SaveRow(!state.busy && url.isNotBlank(), editIndex != null, ::clear) {
         val p = password
         val (n, u, user) = Triple(name, url, username)
-        val (proto, check, index) = Triple(protocol, verify, editing?.index)
+        val (proto, check, index) = Triple(protocol, verify, editIndex)
         password = ""
         state.run(scope, context, context.getString(R.string.saved),
             { client.saveRemote(n, proto, u, user, p, check, index) }, ::clear)
@@ -289,7 +296,7 @@ fun RemotesSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(strin
     deleting?.let { s ->
         ConfirmDelete(s.name.ifEmpty { s.url }, { deleting = null }) {
             deleting = null
-            if (editing != null) clear()
+            if (editIndex != null) clear()
             state.run(scope, context, context.getString(R.string.deleted), { client.deleteRemote(s.index) })
         }
     }
@@ -302,8 +309,8 @@ fun LiveSyncSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(stri
     val context = LocalContext.current
     val (state, scope) = rememberRemote(client) { liveSyncStatus()?.profiles ?: emptyList() }
     var uri by remember { mutableStateOf("") }
-    var vault by remember { mutableStateOf("") }
-    var profile by remember { mutableStateOf<Int?>(null) }
+    var vault by rememberSaveable { mutableStateOf("") }
+    var profile by rememberSaveable { mutableStateOf<Int?>(null) }
     Hint(R.string.setup_livesync_hint)
     ListGroup(state, R.string.setup_livesync_none) { p ->
         GroupRow(stringResource(R.string.home_profile, p.index, p.vault.ifEmpty { "–" }), when {
@@ -356,11 +363,12 @@ fun FontsSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(stringR
     val context = LocalContext.current
     val (state, scope) = rememberRemote(client) { fonts().families }
     var deleting by remember { mutableStateOf<FontFamilyInfo?>(null) }
-    var picked by remember { mutableStateOf<android.net.Uri?>(null) }
-    var fileName by remember { mutableStateOf("") }
-    var fileSize by remember { mutableStateOf(-1L) }
-    var family by remember { mutableStateOf("") }
+    var picked by rememberSaveable { mutableStateOf<android.net.Uri?>(null) }
+    var fileName by rememberSaveable { mutableStateOf("") }
+    var fileSize by rememberSaveable { mutableStateOf(-1L) }
+    var family by rememberSaveable { mutableStateOf("") }
     var progress by remember { mutableStateOf<Float?>(null) }
+    val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val (name, size) = displayName(context, uri)
@@ -396,10 +404,19 @@ fun FontsSetupScreen(client: DeviceClient, onBack: () -> Unit) = SubPage(stringR
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(enabled = !state.busy && familyOk, onClick = {
                 val (fam, name, size) = Triple(family, fileName, fileSize)
-                progress = if (size > 0) 0f else null
+                progress = 0f
                 state.run(scope, context, context.getString(R.string.setup_fonts_sent, name), {
-                    client.uploadFont(fam, name, size, { context.contentResolver.openInputStream(uri)!! }) { done, total ->
-                        if (total > 0) progress = done.toFloat() / total
+                    var length = size
+                    var open: () -> java.io.InputStream = { context.contentResolver.openInputStream(uri)!! }
+                    if (length <= 0) {
+                        // The picker didn't say how big it is: read it first, so the reader gets a body with a length.
+                        val bytes = open().use { readCapped(it, FONT_MAX_BYTES) }
+                            ?: throw java.io.IOException(context.getString(R.string.setup_fonts_too_big))
+                        length = bytes.size.toLong()
+                        open = { bytes.inputStream() }
+                    }
+                    client.uploadFont(fam, name, length, open) { done, total ->
+                        if (total > 0) main.post { progress = done.toFloat() / total }
                     }
                 }) { picked = null }
             }) { Text(stringResource(R.string.setup_fonts_send)) }

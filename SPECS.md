@@ -707,7 +707,7 @@ Planned:
   none), `/api/opds`, `/api/remotes`, `/api/fonts` (+ `/upload` as multipart `family` then `file`,
   `/delete`), with the request and response shapes of docs/webserver-endpoints.md and nothing
   else. `ReaderApi.kt` holds every parser, request body and name check as pure functions
-  (`ReaderApiTest`, 23 tests; org.json 20240303 is a test-only dependency because android.jar's
+  (`ReaderApiTest`, 24 tests; org.json 20240303 is a test-only dependency because android.jar's
   org.json throws in unit tests). Secrets: `SecretField` state lives in plain `remember`, is
   cleared when the request is sent, is never logged or written to preferences; an empty password
   on an update is left out of the body. Look (`Theme.kt`): `InkLight` (primary `#1F3A5F`,

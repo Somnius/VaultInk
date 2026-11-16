@@ -267,7 +267,7 @@ fun PhoneTextSection(client: DeviceClient?, onOutbox: () -> Unit) {
 /** Shared books and comics: send them to /Books or /Comics on the reader, one after the other. */
 @Composable
 fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<String>, unreadable: List<String>,
-                     onKept: () -> Unit, onDone: () -> Unit) {
+                     onBusy: (Boolean) -> Unit, onKept: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -275,6 +275,8 @@ fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<Stri
     var messages by remember { mutableStateOf(emptyList<String>()) }
     var busy by remember { mutableStateOf(false) }
     var sent by remember { mutableStateOf(false) }
+    // Closed in the middle of an upload (the screen went away): the upload is over for the caller too.
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { if (busy) onBusy(false) } }
     AlertDialog(
         onDismissRequest = { if (!busy) onDone() },
         title = { Text(stringResource(R.string.share_books_title, books.size)) },
@@ -295,6 +297,7 @@ fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<Stri
             if (books.isNotEmpty() && !sent) {
                 TextButton(enabled = !busy, onClick = {
                     busy = true
+                    onBusy(true)
                     scope.launch {
                         val results = mutableListOf<String>()
                         books.forEachIndexed { i, book ->
@@ -315,6 +318,7 @@ fun ShareBooksDialog(client: DeviceClient, books: List<File>, refused: List<Stri
                             messages = results.toList()
                         }
                         busy = false
+                        onBusy(false)
                         sent = true
                     }
                 }) { Text(stringResource(R.string.comics_send)) }

@@ -281,4 +281,5 @@
     <string name="setup_fonts_not_font">Το %1$s δεν είναι γραμματοσειρά που δέχεται η συσκευή (.ttf, .otf ή .cpfont).</string>
     <string name="setup_fonts_refused_note">Οι συσκευές χωρίς επιπλέον μνήμη (PSRAM) δέχονται μόνο αρχεία .cpfont και απορρίπτουν τα .ttf και .otf.</string>
     <string name="intro_tab_home">Αρχική: το μοντέλο της συσκευής, η έκδοση του firmware και το σήμα Wi-Fi, η κατάσταση του LiveSync, όσα περιμένουν στα εξερχόμενα, και ενημερώσεις της εφαρμογής.</string>
+    <string name="setup_fonts_too_big">Η γραμματοσειρά είναι πάνω από 8 MB ή δεν διαβάστηκε.</string>
 </resources>

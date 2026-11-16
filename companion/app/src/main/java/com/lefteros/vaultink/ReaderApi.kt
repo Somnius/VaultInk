@@ -274,6 +274,21 @@ class PollPolicy(private val intervalMs: Long = MIN_INTERVAL_MS, private val max
     }
 }
 
+/** The most a font of unknown size is read into memory before it is sent. */
+const val FONT_MAX_BYTES = 8 * 1024 * 1024
+
+/** Everything `input` holds, or null when that is more than `max` bytes. */
+fun readCapped(input: java.io.InputStream, max: Int): ByteArray? {
+    val out = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(16 * 1024)
+    while (true) {
+        val n = input.read(buffer)
+        if (n < 0) return out.toByteArray()
+        if (out.size() + n > max) return null
+        out.write(buffer, 0, n)
+    }
+}
+
 /** "3 h 12 min", "12 min", "45 s": the reader's uptime. */
 fun uptimeText(seconds: Long, day: String = "d", hour: String = "h", minute: String = "min", second: String = "s"): String {
     val s = seconds.coerceAtLeast(0)

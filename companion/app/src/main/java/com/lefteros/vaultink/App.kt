@@ -37,6 +37,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +55,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** The last /api/status answer as a list, so it survives the activity being made again. */
+private val StatusSaver = listSaver<DeviceStatus?, Any>(
+    save = { s -> if (s == null) emptyList() else listOf(s.version, s.ip, s.hotspot, s.device, s.rssi, s.uptime, s.freeHeap) },
+    restore = { l ->
+        if (l.size != 7) null
+        else DeviceStatus(l[0] as String, l[1] as String, l[2] as Boolean, l[3] as String, l[4] as Int, l[5] as Long, l[6] as Long)
+    },
+)
+
 private const val TAB_HOME = 0
 private const val TAB_NOTE = 1
 private const val TAB_FILES = 2
@@ -62,17 +73,22 @@ private const val TAB_SETTINGS = 3
 fun App(draft: Draft, onDraft: (Draft) -> Unit) {
     val context = LocalContext.current
     var host by remember { mutableStateOf(prefs(context).getString("host", "") ?: "") }
-    var status by remember { mutableStateOf<DeviceStatus?>(null) }
+    // Kept over a rotation or a light/dark switch, so the open screen doesn't fall back to a new search.
+    var status by rememberSaveable(stateSaver = StatusSaver) { mutableStateOf<DeviceStatus?>(null) }
     var searching by remember { mutableStateOf(false) }
-    var tab by remember { mutableIntStateOf(TAB_HOME) }
+    var tab by rememberSaveable { mutableIntStateOf(TAB_HOME) }
     var intro by remember { mutableStateOf(!prefs(context).getBoolean("intro_seen", false)) }
     // What draws over the tabs: "help", "about", or one of SETUP_PAGES.
-    var page by remember { mutableStateOf<String?>(null) }
+    var page by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     // The outbox (notes and shares waiting for the reader) and the last line about it.
     var waiting by remember { mutableIntStateOf(Outbox.count(context)) }
     var outboxNote by remember { mutableStateOf("") }
-    val policy = remember { PollPolicy() }
+    // A status that came back with the screen counts as just asked: the next try is 10 s away.
+    val policy = remember { PollPolicy().apply { if (status != null) record(SystemClock.elapsedRealtime(), true) } }
+    // Uploads running right now (the outbox, shared books). The reader's web server does one thing
+    // at a time, so /api/status isn't asked meanwhile, and a poll cut short by one is not a miss.
+    var transfers by remember { mutableIntStateOf(0) }
     // One client per address; null while there is none to talk to.
     val client = remember(host, status != null) {
         if (status == null || host.isEmpty()) null else runCatching { DeviceClient(host) }.getOrNull()
@@ -108,13 +124,18 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
             searching = false
             // Reader found: send what waited for it.
             if (found != null && Outbox.count(context) > 0) {
-                val sent = withContext(Dispatchers.IO) { Outbox.send(context, DeviceClient(found!!.first)) }
+                transfers++
+                val sent = try {
+                    withContext(Dispatchers.IO) { Outbox.send(context, DeviceClient(found!!.first)) }
+                } finally {
+                    transfers--
+                }
                 waiting = Outbox.count(context)
                 if (sent > 0) outboxNote = context.resources.getQuantityString(R.plurals.outbox_sent, sent, sent)
             }
         }
     }
-    LaunchedEffect(Unit) { connect() }
+    LaunchedEffect(Unit) { if (status == null) connect() }
 
     // Something shared from another app opens in the Note tab.
     LaunchedEffect(draft.text, draft.pictures) {
@@ -126,7 +147,7 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
     // at a time, so the other tabs (a transfer in Files) are left alone. When the reader stops
     // answering, polling stops and Home says how to open the connection again; Try again starts over.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val polling = client != null && tab == TAB_HOME && !intro && page == null
+    val polling = client != null && tab == TAB_HOME && !intro && page == null && transfers == 0
     LaunchedEffect(client, polling) {
         val c = client
         if (!polling || c == null) return@LaunchedEffect
@@ -171,6 +192,7 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
                 }
                 if (client != null && (draft.books.isNotEmpty() || draft.refused.isNotEmpty() || draft.unreadable.isNotEmpty())) {
                     ShareBooksDialog(client, draft.books, draft.refused, draft.unreadable,
+                        onBusy = { if (it) transfers++ else transfers-- },
                         onKept = { waiting = Outbox.count(context) }) {
                         draft.books.forEach { it.delete() }
                         onDraft(draft.copy(books = emptyList(), refused = emptyList(), unreadable = emptyList()))
@@ -209,8 +231,11 @@ fun App(draft: Draft, onDraft: (Draft) -> Unit) {
             }
             else -> Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
                 // A setup screen needs the reader; if it went away, back to the tabs.
-                if (client != null) SetupScreen(shown, client, onBack = { page = null })
-                else LaunchedEffect(Unit) { page = null }
+                when {
+                    client != null -> SetupScreen(shown, client, onBack = { page = null })
+                    searching -> Column(Modifier.padding(16.dp)) { Searching() }
+                    else -> LaunchedEffect(Unit) { page = null }
+                }
             }
         }
     }

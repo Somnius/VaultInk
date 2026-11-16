@@ -205,8 +205,10 @@ fun LiveSyncSection(client: DeviceClient) {
                 }
             }
         }
-        // More than one vault (firmware 0.77.0+): the others, since the lines above are about the first.
-        if (s != null && s.profiles.size > 1) s.profiles.forEach { p ->
+        // More than one vault (firmware 0.77.0+): the others. The lines above are already about the
+        // first profile that is set up, so that one is not listed again.
+        val above = if (s != null && s.configured) s.profiles.firstOrNull { it.configured }?.index else null
+        if (s != null && s.profiles.size > 1) s.profiles.filter { it.index != above }.forEach { p ->
             Hairline()
             GroupRow(stringResource(R.string.home_profile, p.index, p.vault.ifEmpty { "–" }), when {
                 p.configured -> p.lastResult.ifEmpty { stringResource(R.string.livesync_never) }
@@ -254,15 +256,13 @@ fun UpdateCheck() {
     var message by remember { mutableStateOf("") }
     GroupRow(stringResource(R.string.check_update), message.ifEmpty { null }, onClick = {
         scope.launch {
-            message = withContext(Dispatchers.IO) {
-                runCatching { Updater.newer(BuildConfig.VERSION_NAME) }.fold(
-                    onSuccess = { found ->
-                        update = found
-                        if (found == null) context.getString(R.string.update_none, BuildConfig.VERSION_NAME) else ""
-                    },
-                    onFailure = { context.getString(R.string.update_failed, it.message ?: "") },
-                )
-            }
+            // The check runs in the background; what it found is written here, on the main thread.
+            withContext(Dispatchers.IO) { runCatching { Updater.newer(BuildConfig.VERSION_NAME) } }
+                .onSuccess { found ->
+                    update = found
+                    message = if (found == null) context.getString(R.string.update_none, BuildConfig.VERSION_NAME) else ""
+                }
+                .onFailure { message = context.getString(R.string.update_failed, it.message ?: "") }
         }
     })
     update?.let { found ->
@@ -272,10 +272,9 @@ fun UpdateCheck() {
             confirmButton = {
                 TextButton(onClick = {
                     update = null
-                    scope.launch(Dispatchers.IO) {
-                        runCatching { Updater.install(context, found) }.onFailure {
-                            message = context.getString(R.string.update_failed, it.message ?: "")
-                        }
+                    scope.launch {
+                        withContext(Dispatchers.IO) { runCatching { Updater.install(context, found) } }
+                            .onFailure { message = context.getString(R.string.update_failed, it.message ?: "") }
                     }
                 }) { Text(stringResource(R.string.update_install)) }
             },

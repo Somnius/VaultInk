@@ -238,6 +238,14 @@ class ReaderApiTest {
     }
 
     @Test
+    fun readCappedStopsAtTheLimit() {
+        assertEquals(100, readCapped(ByteArray(100).inputStream(), 100)!!.size)
+        assertNull(readCapped(ByteArray(101).inputStream(), 100))
+        assertEquals(0, readCapped(ByteArray(0).inputStream(), 100)!!.size)
+        assertEquals(40_000, readCapped(ByteArray(40_000) { it.toByte() }.inputStream(), FONT_MAX_BYTES)!!.size)
+    }
+
+    @Test
     fun uptimeAndSignal() {
         assertEquals("45 s", uptimeText(45))
         assertEquals("12 min", uptimeText(12 * 60 + 5))
