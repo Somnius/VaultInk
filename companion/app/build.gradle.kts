@@ -22,8 +22,8 @@ android {
         applicationId = "com.lefteros.vaultink"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.5.0"
+        versionCode = 6
+        versionName = "0.6.0"
         // Shown as pills on the About screen.
         buildConfigField("int", "MIN_SDK", "$minSdk")
         buildConfigField("int", "TARGET_SDK", "$targetSdk")
@@ -68,7 +68,11 @@ kotlin {
 val helpDocsDir = layout.buildDirectory.dir("generated/helpdocs")
 val copyHelpDocs by tasks.registering(Copy::class) {
     from(rootProject.file("../README.md"))
-    from(rootProject.file("../docs")) { include("*.md") }
+    // docs/README.md (the list of guides) would collide with the main README: it goes in as guides.md.
+    from(rootProject.file("../docs")) {
+        include("*.md")
+        rename { if (it == "README.md") "guides.md" else it }
+    }
     into(helpDocsDir.map { it.dir("help") })
     doLast {
         val dir = helpDocsDir.get().dir("help").asFile
@@ -94,4 +98,6 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     testImplementation("junit:junit:4.13.2")
+    // The org.json in android.jar is a stub that throws in unit tests; this is the real one, for tests only.
+    testImplementation("org.json:json:20240303")
 }

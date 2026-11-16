@@ -60,8 +60,8 @@ fun IntroScreen(onDone: () -> Unit) {
                     2 -> {
                         Text(stringResource(R.string.intro_tabs_title), style = MaterialTheme.typography.headlineSmall)
                         Spacer(Modifier.height(16.dp))
-                        listOf("✏️" to R.string.intro_tab_note, "📁" to R.string.intro_tab_files,
-                            "⚙️" to R.string.intro_tab_settings, "📟" to R.string.intro_tab_device,
+                        listOf("📟" to R.string.intro_tab_home, "✏️" to R.string.intro_tab_note,
+                            "📁" to R.string.intro_tab_files, "⚙️" to R.string.intro_tab_settings,
                             "📚" to R.string.intro_tab_comics, "📥" to R.string.intro_tab_keep,
                             "⌨️" to R.string.intro_tab_type, "❔" to R.string.intro_tab_help).forEach { (icon, text) ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

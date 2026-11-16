@@ -4,7 +4,8 @@ The companion is an Android app that talks to the device over Wi-Fi, through the
 device runs while **File Transfer** is open. Its code is in [`companion/`](../companion/) in this
 repo, and it has its own releases, tagged `companion-x.y.z`.
 
-Status: `companion-0.5.0` is out (needs VaultInk 0.29.0 or newer on the device; typing and sync from the phone need 0.64.0). Download the APK
+Status: `companion-0.6.0` is built but not released and not yet run on a phone (unit tests and a
+debug build only; see [0.6.0](#060-home-reader-setup-and-a-new-look) below). `companion-0.5.0` is out (needs VaultInk 0.29.0 or newer on the device; typing and sync from the phone need 0.64.0). Download the APK
 from the [newest companion release](https://github.com/Somnius/VaultInk/releases?q=companion&expanded=true)
 on the phone and open it. After an update the reader shows a QR code that opens this page. It's tested on one phone (Android 16) against the simulator, not yet
 against a real X4 Pro. See "Tested so far" below.
@@ -16,13 +17,13 @@ needs (File Transfer open, with **Join a Network** or **Create Hotspot**), what 
 four tabs, the comic converter, Bring notes in, Type into the reader, the LiveSync status, Help), and a privacy note (the
 app talks only to the reader on your Wi-Fi, to GitHub when you check for an update, and to the
 comic converter's site when you open it). **Skip** or **Start** goes to the connect step, Back goes
-to the previous page. **Intro** in the ⋮ menu of the header (or **Show the intro again** on the
-Device tab) brings it back without losing the connection or the open tab. Each tab then has a
-one-line hint at the top.
+to the previous page. **Intro** in the ⋮ menu of the header brings it back without losing the
+connection or the open tab (until 0.5.0 there was also **Show the intro again** on the Device tab).
+The Note, Files and Settings tabs have a one-line hint at the top.
 
 ## The ⋮ menu: Intro, Help, About (0.5.0)
 
-At the right of the blue header:
+At the right of the header:
 
 - **Intro**: the first-start pages again.
 - **Help**: VaultInk's documentation inside the app, offline. At build time Gradle copies the
@@ -59,6 +60,29 @@ anyone who joins the device's Wi-Fi can read and change the card; the app warns 
 
 ## Tabs
 
+Home, Note, Files, Settings (0.6.0). Until 0.5.0 they were Note, Files, Settings, Device.
+
+### Home (0.6.0)
+
+The first tab, in place of Device. With a reader it shows a navy masthead with what
+`GET /api/status` says: the board (`device`), the firmware version and the address, the Wi-Fi signal
+in dBm with a word for it (strong, good, fair, weak; a dash in hotspot mode), the time since the
+reader restarted (`uptime`) and its free memory (`freeHeap`), in figures of one width so a changing
+number doesn't move the line. Under it: the hotspot warning, the **LiveSync** section (below), the
+**Outbox** count, and **This app** (version, **Check for app update**, **Search again**).
+
+Not shown, because `/api/status` doesn't have them: the battery (percent and millivolts), the
+screen the reader is on, and the frontlight. They need new fields in the firmware first.
+
+The figures are kept fresh by asking `/api/status` again, only while the app is in the foreground
+and Home is the tab shown, and never sooner than 10 seconds after the last try. One missed answer
+doubles the wait (20 s); a second miss in a row stops the asking, and Home changes to **Reader not
+reachable** with what to do on the reader (*Transfer & Remotes > Join a Network, and keep that
+screen open*), **Try again**, and the address field. Nothing is asked again until you tap **Try
+again** (or **Connect**). The other tabs don't poll, so a transfer in Files isn't interrupted by it
+(the reader's web server does one thing at a time). The timing is `PollPolicy` in `ReaderApi.kt`,
+with JUnit tests.
+
 ### Note
 
 Pick a vault (the folders in `/Vaults`) and a folder (default `Inbox`), write a title and text,
@@ -81,8 +105,8 @@ companion read is named too, so nothing disappears without a word.
 
 ### When the reader isn't there (0.4.0)
 
-With no reader found you can still write a note: under the "No VaultInk found" steps there's the
-note form, with the vaults the app saw last time. **Send to VaultInk** then keeps the note on the
+With no reader found you can still write a note: the Note tab keeps its form (0.6.0; before, it was
+under the "No VaultInk found" steps), with the vaults the app saw last time. **Send to VaultInk** then keeps the note on the
 phone ("kept, it goes to the reader when it's found"). Books and comics shared with no reader, or
 whose upload breaks off, are kept the same way. The kept items survive closing the app; the top of
 the Note tab says how many are waiting. The next time the app finds the reader it sends them,
@@ -126,15 +150,50 @@ screenshots: [comics.md](comics.md).
 
 ### Settings
 
-The device's settings, one card per category (Display, Reader, ...). Tap a card's title to open or
-close it. Switches, choices and numbers change on the device straight away.
+**Reader setup** comes first (0.6.0, below), then the device's settings as grouped lists: a label
+per category (Display, Reader, ...) over one group of rows with thin lines between them (0.6.0;
+before, one card per category that opened and closed). Switches, choices (tap the value for the
+list) and numbers (− and +) change on the device straight away.
 
-### Device
+#### Reader setup (0.6.0)
+
+Five screens for the lists the reader's own Settings web page edits. Each reads its list from the
+reader, shows it as one group, and has one form with one **Save**. Fields and answers are the ones
+in [webserver-endpoints.md](webserver-endpoints.md); nothing was added to the firmware.
+
+- **Wi-Fi networks** (`GET`/`POST /api/wifi`, `POST /api/wifi/delete`): the saved networks, with
+  "password saved" and "last connected". Add one, tap one to change its password, delete one.
+- **LiveSync setup** (`POST /api/livesync/setup`): paste the Setup URI, optionally name the vault
+  folder and pick a profile (Automatic, or 1 to 4), **Send to the reader**. The answer's profile
+  and folder are shown, with the notice when the folder already has files (`folderExists`). The
+  profiles the reader lists (`profiles` of `/api/livesync/status`, firmware 0.77.0) are above the
+  form. There is no passphrase field: the endpoint doesn't take one, it is typed on the reader's
+  LiveSync screen, and the screen says so.
+- **OPDS catalogues** (`GET`/`POST /api/opds`, `POST /api/opds/delete`): name, address, user name,
+  password.
+- **Remote servers** (`GET`/`POST /api/remotes`, `POST /api/remotes/delete`, firmware 0.74.0):
+  WebDAV or FTP, name, address, user name, password, **Check the server's certificate**; a server
+  the reader marks `plain` is labelled "not encrypted", and the form warns for FTP and `http://`.
+- **Fonts** (`GET /api/fonts`, `POST /api/fonts/upload`, `POST /api/fonts/delete`): the families
+  on the card with their sizes. **Pick a font file** opens the system picker; a `.ttf`, `.otf` or
+  `.cpfont` is uploaded into the family you name (suggested from the file name; the name is cleaned
+  to the letters, digits, `-` and `_` the reader accepts). A reader without PSRAM takes only
+  `.cpfont` and answers "Invalid font file" for the others; the screen says so.
+
+Passwords and the Setup URI are typed into fields that show dots (with **Show**), go out in the
+request and are dropped: the app doesn't log them, doesn't keep them in its preferences or saved
+state, and the reader never sends one back (only `hasPassword`). On an update an empty password
+field is left out of the request, which keeps the one the reader has. They do travel over plain
+HTTP on the local network, like the reader's own Settings page; each screen says so.
+
+### Device (until 0.5.0)
 
 The address and firmware version, **Search again**, and **Check for app update**: the app looks
 for a newer `companion-*` release on GitHub, downloads the APK and opens Android's install prompt.
-The update dialog has **Not now** (0.3.0). **Check for app update** is also on the "No VaultInk
-found" screen (0.3.0), so the app can update itself without a reader.
+The update dialog has **Not now** (0.3.0). All of it is on Home since 0.6.0, and **Check for app
+update** is there with or without a reader.
+
+The screenshots below are from 0.1.0 to 0.5.0; 0.6.0 looks different and has none yet.
 
 <p>
   <img src="images/companion/1-note.png" width="190" alt="The Note tab">
@@ -145,8 +204,16 @@ found" screen (0.3.0), so the app can update itself without a reader.
 
 ## Look
 
-The app follows the phone's light or dark mode, with an ink-blue header. The status bar (clock,
-notifications, battery) stays visible in both.
+The app follows the phone's light or dark mode. The status bar (clock, notifications, battery)
+stays visible in both.
+
+Since 0.6.0: navy ink (`#1F3A5F`) on paper (`#F3F1EC`) in the light theme, and a warm charcoal
+(`#1C1A17`, not black) in the dark one, with every Material surface tone set so no default tint
+shows in menus and dialogs. Titles are in Literata (the Regular weight is in the APK, OFL-1.1, its
+licence text in `assets/licences/`), everything else in the phone's own sans, on a type scale
+defined in `Theme.kt`. Lists are groups of rows with thin dividers under a small label, each
+screen has one filled button, and the only motion is a 150 ms fade between tabs and screens.
+Until 0.5.0 the header was an ink-blue bar and everything sat in outlined cards.
 
 ## Languages
 
@@ -191,9 +258,9 @@ notes wait in the outbox like a quick note and are sent the next time the reader
 The conversion is in `KeepImport.kt` with JUnit tests (`app/src/test`): run them with
 `./gradlew testDebugUnitTest`.
 
-### LiveSync card (0.5.0)
+### LiveSync card (0.5.0; a section of Home since 0.6.0)
 
-The Device tab has a LiveSync card read from the reader (`GET /api/livesync/status`, firmware
+Home has a LiveSync section (a card on the Device tab until 0.5.0) read from the reader (`GET /api/livesync/status`, firmware
 0.63.0 or newer; older firmware shows "doesn't report LiveSync yet"). It says whether LiveSync is
 set up, whether a pasted Setup URI still waits for its passphrase on the reader, the vault, the
 last sync's result text as the reader's own LiveSync screen shows it, and the automatic-sync
@@ -225,6 +292,21 @@ reader is found. An upload to `/.vaultink` makes that folder when it is missing 
 0.64.0), so this works on a brand-new card too; an older firmware answers with an error.
 
 The byte counting and clipping are in `PhoneText.kt` with JUnit tests (`PhoneTextTest`).
+
+## 0.6.0: Home, Reader setup and a new look
+
+Not released. What was checked: `./gradlew testDebugUnitTest assembleDebug` (52 unit tests, 23 of
+them new in `ReaderApiTest`: the JSON of every endpoint above as documented, the request bodies,
+the name checks, the polling times). **Not run on a phone, in the simulator or against a reader**:
+the look, the fades, the Greek text on screen, the font picker, the polling in the foreground and
+every setup request are unverified until someone tries them.
+
+- The Home tab, the polling and the offline screen ([Home](#home-060)).
+- Reader setup ([above](#reader-setup-060)).
+- The look ([Look](#look)).
+- A share from another app switches to the Note tab (Note used to be the first tab).
+- Help: `docs/README.md` (the list of guides) had the same name as the main README, which stopped
+  the build's copy step; it goes into the APK as `guides.md`.
 
 ## Releases
 

@@ -311,7 +311,11 @@ curl -X POST \
 ```
 
 The handler validates the family name, `.cpfont` filename, and `CPFONT` magic
-bytes before accepting the file.
+bytes before accepting the file. On a board with PSRAM it also takes a `.ttf`
+or `.otf` file (`handleFontUploadData`); a board without PSRAM answers `400`
+`{"error":"Invalid font file"}` for those. The family name and the file's base
+name may hold ASCII letters, digits, `-` and `_` only, and `family` must come
+before `file` in the form.
 
 Successful response:
 
