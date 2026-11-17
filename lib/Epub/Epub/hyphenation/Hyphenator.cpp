@@ -79,8 +79,17 @@ const LanguageHyphenator* hyphenatorForLanguage(const std::string& langTag) {
 // polytonic patterns, which also cover monotonic letters. Mixed-script words (e.g.
 // "α-helix") keep the book's hyphenator so their Latin or Cyrillic parts still break.
 //
+// A letter of a script that is not Latin, Greek or Cyrillic (Hebrew, Arabic, Indic, CJK, Hangul and so on); not
+// punctuation, digits, symbols or emoji.
+bool isOtherScriptLetter(const uint32_t cp) {
+  return (cp >= 0x0530 && cp < 0x2000) || (cp >= 0x2C00 && cp < 0x2DE0) || (cp >= 0x2E80 && cp <= 0xD7FF) ||
+         (cp >= 0xF900 && cp <= 0xFAFF) || (cp >= 0xFB1D && cp <= 0xFDFF) || (cp >= 0xFE70 && cp < 0xFEFF) ||
+         (cp >= 0xFF66 && cp <= 0xFFDC) || (cp >= 0x10000 && cp < 0x1F000) || (cp >= 0x20000 && cp <= 0x323AF);
+}
+
 // A book that names no language passes the two fallbacks (nullptr otherwise): a word of Latin letters only or of
-// Cyrillic letters only then takes that script's patterns. A word of mixed scripts stays unbroken, as before.
+// Cyrillic letters only then takes that script's patterns. A word of mixed scripts (Latin with Cyrillic, or either
+// with Greek, Hebrew, Arabic, CJK or any other script) stays unbroken, as before.
 const LanguageHyphenator* hyphenatorForWord(const std::vector<CodepointInfo>& cps, const LanguageHyphenator* preferred,
                                             const LanguageHyphenator* latinFallback,
                                             const LanguageHyphenator* cyrillicFallback) {
@@ -91,6 +100,7 @@ const LanguageHyphenator* hyphenatorForWord(const std::vector<CodepointInfo>& cp
   bool hasPolytonic = false;
   bool hasLatin = false;
   bool hasCyrillic = false;
+  bool hasOther = false;
   for (const auto& cp : cps) {
     if (isGreekLetter(cp.value)) {
       hasGreek = true;
@@ -99,10 +109,12 @@ const LanguageHyphenator* hyphenatorForWord(const std::vector<CodepointInfo>& cp
       hasCyrillic = true;
     } else if (isLatinLetter(cp.value)) {
       hasLatin = true;
+    } else if (isOtherScriptLetter(cp.value)) {
+      hasOther = true;
     }
   }
   if (!greekBook && (hasLatin || hasCyrillic)) {
-    if (preferred || hasGreek || (hasLatin && hasCyrillic)) return preferred;
+    if (preferred || hasGreek || hasOther || (hasLatin && hasCyrillic)) return preferred;
     return hasCyrillic ? cyrillicFallback : latinFallback;
   }
   if (!hasGreek) return preferred;
@@ -394,7 +406,8 @@ void Hyphenator::setFallbackLanguage(const std::string& lang) {
 
 uint8_t Hyphenator::scriptFallbackSignature(const std::string& bookLanguage) {
   if (!languageTagIsUnset(bookLanguage) || hyphenatorForLanguage(bookLanguage) != nullptr) return 0;
-  // 1..LANGUAGE_COUNT for a pattern set, in the order of typoengine::LANGUAGE_TAGS.
+  // 1..LANGUAGE_COUNT for a pattern set, in the order of typoengine::LANGUAGE_TAGS. Two of them in one byte.
+  static_assert(typoengine::LANGUAGE_COUNT <= 15, "a pattern set number has to fit in four bits");
   const auto number = [](const LanguageHyphenator* hyphenator, const char* fallbackTag) -> uint8_t {
     if (hyphenator == nullptr) hyphenator = getLanguageHyphenatorForPrimaryTag(fallbackTag);
     for (uint8_t i = 0; i < typoengine::LANGUAGE_COUNT; ++i) {

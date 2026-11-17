@@ -179,10 +179,10 @@ class ParsedText {
   // paragraphs it laid out, so a test can tell which breaker ran.
   static inline bool totalFitHyphenation = true;
   static inline uint32_t totalFitParagraphs = 0;
-  // For tests only, 0 and false in the firmware: the Nth prefix of the chosen splits fails to store (1 = the
-  // first), and the room for the hyphenator can not be had.
+  // For tests only, 0 in the firmware: the Nth prefix of the chosen splits fails to store (1 = the first), and the
+  // room can not be had (1 = for the hyphenator, 2 = for the breaks and the splits, after the prefixes are stored).
   static inline uint8_t failSplitForTest = 0;
-  static inline bool failAllocationForTest = false;
+  static inline uint8_t failAllocationForTest = 0;
   // A paragraph of more words is filled line by line: the tables of the total-fit breaker grow with the paragraph.
   static constexpr size_t TOTAL_FIT_MAX_WORDS = 400;
   explicit ParsedText(const bool hyphenationEnabled = false, const bool focusReadingEnabled = false,

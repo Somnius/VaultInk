@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <climits>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <limits>
@@ -1585,23 +1586,34 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
 // wider than its gaps can give up (the same allowance as the other breakers: Space condensing down to
 // typoengine::gapFloor), and the last line never wider than the page.
 //
-// The paragraph is also kept as short as filling line by line makes it: every line costs far more than any
-// badness, so no line is added to even the gaps out, and the last line costs by its width, so the text is not
-// pushed down into it. The costs were set on simulator pages (Greek and English prose, Fira Sans 16 pt, a 480 px
-// page, with and without Letter spacing on loose lines) so that the mean gap is not wider than line by line. That
-// is also why there is no limit on hyphenated lines in a row: with a limit of two (or four) such a paragraph took
-// one more line, or a longer last line, and its gaps grew.
+// The paragraph is also kept as short as filling line by line makes it: the breaks are compared by the number of
+// lines first and by the sum of the costs only among those with the same number, so no line is added to even the
+// gaps out, however loose a line is. The last line costs by its width, so the text is not pushed down into it. The
+// costs were set on simulator pages (Greek and English prose, Fira Sans 16 pt, a 480 px page, with and without Letter
+// spacing on loose lines) so that the mean gap is not wider than line by line. That is also why there is no limit on
+// hyphenated lines in a row: with a limit of two (or four) such a paragraph took one more line, or a longer last line,
+// and its gaps grew.
 //
 // The parts of a word are measured without touching the word list; only the splits of the chosen breaks are made,
 // after the choice. Memory is two tables from one allocation each, taken without an abort when it fails: 16 bytes a
-// word and 16 bytes a break (a word gap, or one of at most 512 hyphenation points). The hyphenator's own small
-// allocations are not of that kind, so it only runs while a 4 kB block can still be had. The search looks back from
-// each break only as far as one line reaches, like computeLineBreaks.
+// word and 16 bytes a break (a word gap or a hyphenation point). The table of breaks starts with room for one
+// hyphenation point a word and grows by half as the points are found (realloc: in place when the heap allows, no
+// abort), up to 1600 points: 32 kB for the largest paragraph of 400 words with four points a word, 16 kB for 400
+// words with 600 points. A paragraph gets every point of every word or is not laid out here at all: when the
+// table can not grow, or the points pass 1600, it goes to the other breaker, so the end of a long paragraph is
+// never left without its hyphenation points.
+//
+// What the standard library allocates aborts the firmware when it fails (no exceptions), so each such step is only
+// taken while a block of the size it needs, and more, can still be had: before the paragraph (4 kB and 16 bytes a
+// word), before the hyphenator runs on each word (4 kB for its small lists), and before the splits (the list of
+// breaks and the growth of the word lists, which are then reserved in one step). The check and the allocation are
+// two steps, so this is a margin and not a promise. Left as it is in the line-by-line breaker too: the word deque
+// (and the ruby one) takes a block of about 512 bytes now and then as words are inserted.
 //
 // Returns no breaks, and leaves the paragraph to computeHyphenatedLineBreaks, when the paragraph has more than
-// TOTAL_FIT_MAX_WORDS words, when a table can not be allocated, when no set of breaks fits (a word wider than the
-// line with no hyphenation point that helps: the other breaker splits it anywhere), or when the prefix of a chosen
-// split can not be stored. In each case the word list is exactly as it was.
+// TOTAL_FIT_MAX_WORDS words, when a table can not be allocated or the room is not there, when no set of breaks
+// fits (a word wider than the line with no hyphenation point that helps: the other breaker splits it anywhere), or
+// when the prefix of a chosen split can not be stored. In each case the word list is exactly as it was.
 std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& renderer, const int fontId,
                                                           const int pageWidth, std::vector<uint16_t>& wordWidths,
                                                           const std::vector<bool>& continuesVec,
@@ -1617,29 +1629,34 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
     uint16_t shrink;   // what the gaps can give up
     uint16_t gaps;     // the gaps that stretch when the line is justified
   };
-  constexpr uint8_t SPLIT = 1;   // inside a word; else at the gap before word `word`
-  constexpr uint8_t HYPHEN = 2;  // the line that ends here shows a hyphen at its end
+  constexpr uint8_t SPLIT = 1;          // inside a word; else at the gap before word `word`
+  constexpr uint8_t HYPHEN = 2;         // the line that ends here shows a hyphen at its end
+  constexpr uint32_t MAX_LINES = 1023;  // what Node::lines holds; a paragraph of more lines counts as this many
   struct Node {
-    uint16_t word;  // SPLIT: the word that is split. Else the first word of the next line.
+    uint32_t word : 9;  // SPLIT: the word that is split. Else the first word of the next line.
+    uint32_t flags : 2;
+    uint32_t previous : 11;  // the break before this one on the best way here; after the search, the one after
+    uint32_t lines : 10;     // the lines on the best way here
     uint16_t prefixWidth;
     uint16_t suffixWidth;
     uint8_t offset;
-    uint8_t flags;
     uint8_t prefixLetters;  // the places between two letters in the prefix with its hyphen, and in the suffix
     uint8_t suffixLetters;
-    uint16_t previous;
-    float cost;
+    float cost;  // the sum of the lines' costs on the best way here
   };
-  constexpr size_t MAX_SPLITS = 512;
+  constexpr size_t MAX_SPLITS = 1600;
+  static_assert(sizeof(Node) == 16, "a break is 16 bytes");
+  static_assert(TOTAL_FIT_MAX_WORDS < (1u << 9), "Node::word");
+  static_assert(TOTAL_FIT_MAX_WORDS + 1 + MAX_SPLITS <= (1u << 11), "Node::previous");
   // In the unit of a line's cost (below): a hyphen costs as much as a line whose gaps each grow by a whole space.
   // Measured on the simulator pages: with 300 there were more hyphens than line by line, with 500 wider gaps.
   constexpr float HYPHEN_DEMERITS = 400.0f;
   constexpr float CONSECUTIVE_DEMERITS = 100.0f;  // more for each further hyphenated line in a row
   constexpr float LOOSE_DEMERITS = 400.0f;        // more for a line whose gaps each grow by more than a space
   constexpr float ORPHAN_DEMERITS = 400.0f;       // the last line is only the end of a hyphenated word
-  // Every line, so that the fewest lines always win: more than the badness of a whole paragraph, and small enough
-  // for a float to keep the sum of a paragraph exact to a part of one (80 lines: 1.6 million, steps of 0.125).
-  constexpr float LINE_DEMERITS = 20000.0f;
+  // The most a line's gaps cost: gaps that each grow by ten spaces. Past that every line is as bad, and a float
+  // keeps the sum of a paragraph exact to a whole number up to 16.7 million: 400 lines at this cost.
+  constexpr float MAX_BADNESS = 40000.0f;
   constexpr float LAST_LINE_DEMERITS = 1000.0f;  // the last line, by the part of the page width it fills
   const float unreached = std::numeric_limits<float>::infinity();
 
@@ -1648,8 +1665,15 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
   const typoengine::Config typo = typoengine::current();
   const bool lockedSpaces = enginePlainText && typo.lockedSpace;
   sums[0] = Sums{0, 0, 0, 0, 0};
+  // The search stops looking back from a break once the line is too wide, since a line that starts earlier is
+  // wider still. That holds while every gap is wider than what it can give up; a gap that is not (kerning under
+  // zero between two parts of a word, negative letter spacing) is summed here, and the search looks back that far
+  // past the first line that is too wide. 0 for nearly every paragraph.
+  int backSlack = 0;
   for (size_t i = 0; i < wordCount; ++i) {
     Sums next = sums[i];
+    const int32_t gapBefore = next.gap;
+    const uint16_t shrinkBefore = next.shrink;
     next.width += wordWidths[i];
     if (i > 0 && continuesVec[i]) {
       next.gap += renderer.getKerning(fontId, lastCodepoint(wordAt(i - 1)), firstCodepoint(wordAt(i)),
@@ -1668,6 +1692,7 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
     }
     const uint32_t letters = countCodepoints(wordAt(i));
     if (letters > 1) next.letters += letters - 1;
+    backSlack += std::min(0, static_cast<int>(next.gap - gapBefore) - (next.shrink - shrinkBefore));
     sums[i + 1] = next;
   }
 
@@ -1677,43 +1702,70 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
     return {wordCount};  // one line: nothing to weigh, and no word to hyphenate
   }
 
-  const size_t maxSplits = std::min(MAX_SPLITS, wordCount * 2);
-  const std::unique_ptr<Node[]> nodes(new (std::nothrow) Node[wordCount + 1 + maxSplits]);
-  if (!nodes) return {};
+  // Is a block of this size still there? Given back at once: the room is for the small allocations that follow.
+  const auto roomFor = [](const size_t bytes) {
+    const std::unique_ptr<uint8_t[]> probe(new (std::nothrow) uint8_t[bytes]);
+    return probe != nullptr;
+  };
+  constexpr size_t HYPHENATION_HEADROOM = 4096;
+  if (failAllocationForTest == 1) return {};
+
+  // The table of breaks. Grown with realloc, which gives nullptr and keeps the block when it fails.
+  struct NodeTable {
+    Node* at = nullptr;
+    size_t capacity = 0;
+    NodeTable() = default;
+    NodeTable(const NodeTable&) = delete;
+    NodeTable& operator=(const NodeTable&) = delete;
+    ~NodeTable() { free(at); }
+    bool grow(const size_t wanted) {
+      void* const grown = realloc(at, wanted * sizeof(Node));
+      if (grown == nullptr) return false;
+      at = static_cast<Node*>(grown);
+      capacity = wanted;
+      return true;
+    }
+  } table;
+  const size_t maxNodes = wordCount + 1 + MAX_SPLITS;
+  if (!table.grow(std::min(maxNodes, 2 * wordCount + 1))) return {};
+  // With the tables taken: the room for the hyphenator, and for the result (a break and the entries of a split
+  // word in the word lists are under 16 bytes a word together).
+  if (!roomFor(HYPHENATION_HEADROOM + wordCount * 16)) return {};
   size_t nodeCount = 0;
-  size_t splitCount = 0;
+  // False when the table is full and can not grow.
   const auto addNode = [&](const size_t word, const size_t offset, const uint8_t flags, const int prefixWidth,
                            const int suffixWidth) {
-    Node& node = nodes[nodeCount++];
+    if (nodeCount == table.capacity &&
+        (nodeCount == maxNodes || !table.grow(std::min(maxNodes, nodeCount + nodeCount / 2 + 16)))) {
+      return false;
+    }
+    Node& node = table.at[nodeCount++];
     node.prefixLetters = node.suffixLetters = 0;
-    node.word = static_cast<uint16_t>(word);
+    node.word = static_cast<uint32_t>(word);
     node.offset = static_cast<uint8_t>(offset);
     node.flags = flags;
     node.prefixWidth = static_cast<uint16_t>(prefixWidth);
     node.suffixWidth = static_cast<uint16_t>(suffixWidth);
     node.cost = unreached;
+    node.lines = MAX_LINES;
     node.previous = 0;
+    return true;
   };
-  addNode(0, 0, 0, 0, 0);  // the start of the paragraph
-  nodes[0].cost = 0.0f;
+  if (!addNode(0, 0, 0, 0, 0)) return {};  // the start of the paragraph
+  table.at[0].cost = 0.0f;
+  table.at[0].lines = 0;
   // The hyphenator works on a std::string and returns vectors, whose allocations abort the firmware when they
-  // fail. So the paragraph is only hyphenated word by word while a block of HYPHENATION_HEADROOM bytes can still
-  // be had (it is given back at once: the room is for those small allocations), and one string and one list are
-  // used for every word, so they grow a few times and not once a word.
-  constexpr size_t HYPHENATION_HEADROOM = 4096;
-  if (failAllocationForTest) return {};
-  {
-    const std::unique_ptr<uint8_t[]> headroom(new (std::nothrow) uint8_t[HYPHENATION_HEADROOM]);
-    if (!headroom) return {};
-  }
+  // fail. So a word is only hyphenated while a block of HYPHENATION_HEADROOM bytes can still be had. The string is
+  // one for every word and holds the longest word the parser makes from the start (a longer one is left whole);
+  // the lists are new ones for each word (a few entries, given back before the next word).
   std::string word;
-  // cppcheck-suppress variableScope // not so: one list for every word, see above
-  std::vector<Hyphenator::BreakInfo> breakInfos;
+  word.reserve(208);
   for (size_t w = 0; w < wordCount; ++w) {
     // The hyphenation points of the word, as hyphenateWordAtIndex finds them (without the every-N-letters fallback).
-    if (splitCount < maxSplits && words[w].len >= 4) {
+    if (words[w].len >= 4 && words[w].len <= 200) {
+      if (!roomFor(HYPHENATION_HEADROOM)) return {};
       word.assign(wordAt(w));
-      breakInfos = hangulLineEndBreaks(word);
+      std::vector<Hyphenator::BreakInfo> breakInfos = hangulLineEndBreaks(word);
       {
         const auto hyphenBreaks = Hyphenator::breakOffsets(word, /*includeFallback=*/false);
         breakInfos.insert(breakInfos.end(), hyphenBreaks.begin(), hyphenBreaks.end());
@@ -1730,10 +1782,11 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
       const int wordFont = wordFontId(w, fontId);
       const std::string_view view{word};
       size_t lastOffset = 0;
+      int widthAfter = wordWidths[w];  // of the word from the point before: it only gets narrower
       for (const auto& info : breakInfos) {
         const size_t offset = info.byteOffset;
         // An offset over 200 bytes is past what a split can store (see storeSplitPrefix).
-        if (offset <= lastOffset || offset >= word.size() || offset > 200 || splitCount >= maxSplits) continue;
+        if (offset <= lastOffset || offset >= word.size() || offset > 200) continue;
         lastOffset = offset;
         const int prefixWidth = measureFocusWordWidth(
             renderer, wordFont, view.substr(0, offset), style, focusBoundaryBefore(focusBoundary, offset),
@@ -1741,23 +1794,27 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
         const int suffixWidth = measureFocusWordWidth(renderer, wordFont, view.substr(offset), style,
                                                       focusBoundaryAfter(focusBoundary, offset),
                                                       blockStyle.characterSpacing, wordSpacingPercent);
-        addNode(w, offset, info.requiresInsertedHyphen ? SPLIT | HYPHEN : SPLIT, prefixWidth, suffixWidth);
+        if (!addNode(w, offset, info.requiresInsertedHyphen ? SPLIT | HYPHEN : SPLIT, prefixWidth, suffixWidth)) {
+          return {};
+        }
+        backSlack += std::min(0, widthAfter - suffixWidth);
+        widthAfter = suffixWidth;
         // As extractLine counts them: one place less than the letters of each part, the hyphen being a letter.
         const uint32_t prefixLetters = countCodepoints(view.substr(0, offset)) + (info.requiresInsertedHyphen ? 1 : 0);
         const uint32_t suffixLetters = countCodepoints(view.substr(offset));
-        nodes[nodeCount - 1].prefixLetters = static_cast<uint8_t>(std::min<uint32_t>(prefixLetters - 1, UINT8_MAX));
-        nodes[nodeCount - 1].suffixLetters = static_cast<uint8_t>(std::min<uint32_t>(suffixLetters - 1, UINT8_MAX));
-        ++splitCount;
+        table.at[nodeCount - 1].prefixLetters = static_cast<uint8_t>(std::min<uint32_t>(prefixLetters - 1, UINT8_MAX));
+        table.at[nodeCount - 1].suffixLetters = static_cast<uint8_t>(std::min<uint32_t>(suffixLetters - 1, UINT8_MAX));
       }
     }
     if (w + 1 == wordCount) {
-      addNode(wordCount, 0, 0, 0, 0);  // the end of the paragraph
+      if (!addNode(wordCount, 0, 0, 0, 0)) return {};  // the end of the paragraph
     } else if (TokenBoundary::allowsBreak(continuesVec[w + 1], noSpaceBeforeVec[w + 1])) {
       // A break after a hyphen the word already has ("well-" | "known") shows a hyphen at the line end too.
       const bool afterHyphen = continuesVec[w + 1] && noSpaceBeforeVec[w + 1] && endsWithBreakableHyphen(wordAt(w));
-      addNode(w + 1, 0, afterHyphen ? HYPHEN : 0, 0, 0);
+      if (!addNode(w + 1, 0, afterHyphen ? HYPHEN : 0, 0, 0)) return {};
     }
   }
+  Node* const nodes = table.at;
 
   const int space =
       std::max(1, scaleSpace(renderer.getSpaceAdvance(fontId, 'a', 'a', EpdFontFamily::REGULAR), wordSpacingPercent));
@@ -1765,28 +1822,35 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
   const int letterCap =
       enginePlainText && typo.letterSpacing > 0 ? typoengine::letterSpacingCap(typo.letterSpacing, space) : 0;
 
+  const int widestTarget = std::max(firstWidth, pageWidth);  // the first line is the wider one with a hanging indent
   for (size_t b = 1; b < nodeCount; ++b) {
     Node& to = nodes[b];
     const bool lastLine = b + 1 == nodeCount;
     const bool toSplit = (to.flags & SPLIT) != 0;
     const bool toHyphen = (to.flags & HYPHEN) != 0;
-    const Sums& lineEnd = sums[toSplit ? to.word + 1 : to.word];
+    const size_t toWord = to.word;
+    const Sums& lineEnd = sums[toSplit ? toWord + 1 : toWord];
     for (size_t a = b; a-- > 0;) {
       const Node& from = nodes[a];
       const bool fromSplit = (from.flags & SPLIT) != 0;
-      if (fromSplit && toSplit && from.word == to.word) continue;  // the middle of a word is not measured
-      const size_t firstWhole = fromSplit ? from.word + 1 : from.word;
-      const Sums& lineStart = sums[from.word + 1];
+      const size_t fromWord = from.word;
+      if (fromSplit && toSplit && fromWord == toWord) continue;  // the middle of a word is not measured
+      const size_t firstWhole = fromSplit ? fromWord + 1 : fromWord;
+      const Sums& lineStart = sums[fromWord + 1];
       int width = (fromSplit ? from.suffixWidth : 0) + (toSplit ? to.prefixWidth : 0) + (lineEnd.gap - lineStart.gap);
-      if (to.word > firstWhole) width += sums[to.word].width - sums[firstWhole].width;
+      if (toWord > firstWhole) width += sums[toWord].width - sums[firstWhole].width;
       // The last line is not justified, so it has to fit as it is.
       const int shrink = lastLine ? 0 : lineEnd.shrink - lineStart.shrink;
       const int target = a == 0 ? firstWidth : pageWidth;
-      if (width - shrink > target) break;  // too wide, and wider still from any earlier break
+      if (width - shrink > target) {
+        // Too wide. A line from an earlier break is wider still, but for backSlack and a wider first line.
+        if (width - shrink + backSlack > widestTarget) break;
+        continue;
+      }
 
       // The line's cost: 100 for gaps that each stretch by half a space or shrink all the way, growing with the
-      // square, so the sum is lowest when the lines are evenly loose.
-      float demerits = LINE_DEMERITS + (toHyphen ? HYPHEN_DEMERITS : 0.0f);
+      // square (up to MAX_BADNESS), so the sum is lowest when the lines are evenly loose.
+      float demerits = toHyphen ? HYPHEN_DEMERITS : 0.0f;
       const int spare = target - width;
       if (lastLine) {
         demerits += LAST_LINE_DEMERITS * static_cast<float>(width) / static_cast<float>(target);
@@ -1799,55 +1863,91 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
         const int gaps = std::max(1, lineEnd.gaps - lineStart.gaps);
         // The places between two letters of the line's words, whole and split, as extractLine counts them.
         int letterSlots = (fromSplit ? from.suffixLetters : 0) + (toSplit ? to.prefixLetters : 0);
-        if (to.word > firstWhole) letterSlots += static_cast<int>(sums[to.word].letters - sums[firstWhole].letters);
+        if (toWord > firstWhole) letterSlots += static_cast<int>(sums[toWord].letters - sums[firstWhole].letters);
         const int letterRoom = letterCap * letterSlots;
         const float ratio = static_cast<float>(spare) / static_cast<float>(gaps * halfSpace + letterRoom);
-        demerits += 100.0f * ratio * ratio;
+        demerits += std::min(100.0f * ratio * ratio, MAX_BADNESS);
         if (spare - letterRoom > gaps * space) demerits += LOOSE_DEMERITS;
       }
 
       if (from.cost == unreached) continue;
       if (toHyphen && (from.flags & HYPHEN) != 0) demerits += CONSECUTIVE_DEMERITS;
+      // Fewer lines first, then the lower cost: no badness, however large, buys a line.
+      const uint32_t lines = std::min<uint32_t>(from.lines + 1u, MAX_LINES);
       const float cost = from.cost + demerits;
-      if (cost < to.cost) {
+      if (lines < to.lines || (lines == to.lines && cost < to.cost)) {
+        to.lines = lines;
         to.cost = cost;
-        to.previous = static_cast<uint16_t>(a);
+        to.previous = static_cast<uint32_t>(a);
       }
     }
   }
 
   if (nodes[nodeCount - 1].cost == unreached) return {};
 
-  // The chosen breaks, last first.
-  std::vector<uint16_t> path;
-  for (size_t at = nodeCount - 1; at != 0; at = nodes[at].previous) path.push_back(static_cast<uint16_t>(at));
+  // The chosen breaks: the way back from the end is turned round in the table itself (`previous` becomes the break
+  // after), so no list of them is allocated.
+  size_t lineCount = 0;
+  size_t chosenSplits = 0;
+  for (size_t at = nodeCount - 1, after = 0; at != 0;) {
+    const size_t before = nodes[at].previous;
+    nodes[at].previous = static_cast<uint32_t>(after);
+    ++lineCount;
+    chosenSplits += (nodes[at].flags & SPLIT) != 0 ? 1 : 0;
+    after = at;
+    at = before;
+    if (at == 0) nodes[0].previous = static_cast<uint32_t>(after);
+  }
   // Every prefix of a chosen split is stored first: that is the one step of a split that can fail, and when one
   // does the prefixes stored so far are given back and the word list is as it was. Nothing is split by halves.
-  size_t chosenSplits = 0;
-  for (const uint16_t at : path) chosenSplits += (nodes[at].flags & SPLIT) != 0 ? 1 : 0;
   std::unique_ptr<WordStore::StoredWord[]> prefixes;
+  const auto releasePrefixes = [&](size_t stored) {
+    while (stored > 0) wordStore.release(prefixes[--stored]);
+  };
+  size_t stored = 0;
   if (chosenSplits > 0) {
     prefixes.reset(new (std::nothrow) WordStore::StoredWord[chosenSplits]);
     if (!prefixes) return {};
-    size_t stored = 0;
-    for (auto it = path.rbegin(); it != path.rend(); ++it) {
-      const Node& node = nodes[*it];
+    for (size_t at = nodes[0].previous; at != 0; at = nodes[at].previous) {
+      const Node& node = nodes[at];
       if ((node.flags & SPLIT) == 0) continue;
       // cppcheck-suppress knownConditionTrueFalse // not so: a test sets failSplitForTest
       if (failSplitForTest == stored + 1 ||
           !storeSplitPrefix(node.word, node.offset, (node.flags & HYPHEN) != 0, prefixes[stored])) {
-        while (stored > 0) wordStore.release(prefixes[--stored]);
+        releasePrefixes(stored);
         return {};
       }
       ++stored;
     }
   }
-  // Make the splits in reading order, as the other breaker does. Each one adds a word before the breaks after it.
+  // The list of breaks and the word lists grow next, and that can not fail softly. So first: is there room for all
+  // of it at once, and as much again? Then the lists that are one block each are grown in one step, and a split
+  // moves their entries without allocating. (The word deque and the ruby deque grow by a block of about 512 bytes
+  // now and then; that is as in the line-by-line breaker.)
+  const size_t wordsAfterSplits = wordCount + chosenSplits;
+  const size_t growth = lineCount * sizeof(size_t) +
+                        wordsAfterSplits * (sizeof(uint16_t) + sizeof(EpdFontFamily::Style) + 3 * sizeof(uint8_t) + 1) +
+                        chosenSplits * (sizeof(WordStore::StoredWord) + sizeof(std::string));
+  // cppcheck-suppress knownConditionTrueFalse // not so: a test sets failAllocationForTest
+  if (failAllocationForTest == 2 || !roomFor(2 * growth + 1024)) {
+    releasePrefixes(stored);
+    return {};
+  }
   std::vector<size_t> lineBreakIndices;
-  lineBreakIndices.reserve(path.size());
+  lineBreakIndices.reserve(lineCount);
+  if (chosenSplits > 0) {
+    wordWidths.reserve(wordWidths.size() + chosenSplits);
+    wordStyles.reserve(wordStyles.size() + chosenSplits);
+    wordFocusBoundary.reserve(wordFocusBoundary.size() + chosenSplits);
+    wordLinkIds.reserve(wordLinkIds.size() + chosenSplits);
+    wordSizeSlots.reserve(wordSizeSlots.size() + chosenSplits);
+    wordContinues.reserve(wordContinues.size() + chosenSplits);
+    wordNoSpaceBefore.reserve(wordNoSpaceBefore.size() + chosenSplits);
+  }
+  // Make the splits in reading order, as the other breaker does. Each one adds a word before the breaks after it.
   size_t added = 0;
-  for (auto it = path.rbegin(); it != path.rend(); ++it) {
-    const Node& node = nodes[*it];
+  for (size_t at = nodes[0].previous; at != 0; at = nodes[at].previous) {
+    const Node& node = nodes[at];
     if ((node.flags & SPLIT) == 0) {
       lineBreakIndices.push_back(node.word + added);
       continue;
