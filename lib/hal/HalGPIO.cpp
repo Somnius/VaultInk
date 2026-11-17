@@ -1,4 +1,5 @@
 #include <BatteryMonitor.h>
+#include <HalDisplay.h>
 #include <HalGPIO.h>
 #include <Logging.h>
 #include <PowerManager.h>
@@ -91,6 +92,9 @@ HalGPIO::DeviceType detectDeviceTypeWithFingerprint() {
 }  // namespace
 
 void HalGPIO::begin() {
+  // The X4 Pro's display SPI pads are held through deep sleep and the hold is still there after the wake;
+  // release before the controller probe (setupDisplayAndFonts) and EpdBus::begin drive them.
+  HalDisplay::releaseBusHolds();
 #if FREEINK_MCU_C3
   _deviceType = detectDeviceTypeWithFingerprint();
   BoardConfig::selectDevice(deviceIsX3() ? BoardConfig::Board::XteinkX3 : BoardConfig::Board::XteinkX4);
