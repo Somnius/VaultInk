@@ -10,6 +10,7 @@
 
 #include <cassert>
 
+#include "HalDisplay.h"
 #include "HalGPIO.h"
 
 #if FREEINK_DEVICE_PICCO
@@ -88,6 +89,9 @@ void HalPowerManager::startDeepSleep(HalGPIO& gpio, const bool wakeOnHeldButton)
   // X4 Pro: the two frontlight PWM pads LOW and held through the sleep (kos25k #31). Before the serial
   // teardown below so the line is still printed.
   if (Frontlight.parkForDeepSleep()) LOG_INF("SLP", "SLP frontlight pads held low");
+  // X4 Pro: the panel's SPI pads at their idle levels and held (kos25k #31), on every sleep path. On the normal
+  // path display.deepSleep() has already sent the panel command, the last use of the bus.
+  if (HalDisplay::parkBusForDeepSleep()) LOG_INF("SLP", "SLP display SPI pads held (CS/DC high, SCLK/MOSI low)");
 #ifdef ENABLE_SERIAL_LOG
   // Tear down HWCDC so the host sees a clean disconnect and the peripheral
   // doesn't hold power domains that interfere with USB-powered GPIO wake.

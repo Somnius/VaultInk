@@ -176,9 +176,8 @@ bool HalDisplay::isInverted() const { return einkDisplay.isInverted(); }
 
 void HalDisplay::deepSleep() {
   einkDisplay.deepSleep();
-  // X4 Pro: the panel's SPI pads at their idle levels and held through the sleep (kos25k #31). After the
-  // deep-sleep command above, which is the last use of the bus.
-  if (parkBusForDeepSleep()) LOG_INF("SLP", "SLP display SPI pads held (CS/DC high, SCLK/MOSI low)");
+  // The X4 Pro's SPI pads are parked later, in HalPowerManager::startDeepSleep(), so the ghost-wake sleep that
+  // skips this command parks them too.
 }
 
 uint8_t* HalDisplay::getFrameBuffer() const { return einkDisplay.getFrameBuffer(); }
