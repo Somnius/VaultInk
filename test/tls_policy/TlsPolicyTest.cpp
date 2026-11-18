@@ -84,7 +84,7 @@ TEST(TlsPolicy, PublicHostsAlwaysVerifyWhateverTheUserSet) {
   for (const bool userVerify : {false, true}) {
     for (const bool ca : {false, true}) {
       EXPECT_EQ(choose("https://el.wikipedia.org/api/rest_v1/page/summary/x", userVerify, ca), Mode::Verify);
-      // GitHub is checked only once VERIFY_GITHUB is on; until then it keeps its old encrypted-but-unchecked mode
+      // GitHub is checked only with VERIFY_GITHUB on; without it, it keeps its old encrypted-but-unchecked mode
       // unless the user asked for the check on that server.
       const Mode github =
           VERIFY_GITHUB ? Mode::Verify : (userVerify ? (ca ? Mode::CustomCa : Mode::Verify) : Mode::Insecure);
@@ -288,7 +288,7 @@ TEST(TlsPolicy, MyMemoryIsAlwaysCheckedAgainstEveryBuiltInRootAndALibreTranslate
   EXPECT_EQ(choose("http://192.168.1.20:5000/translate", true, true), Mode::Plain);
 }
 
-// The switch is a build flag (-DVAULTINK_VERIFY_GITHUB=1, env:x4pro-dev-verify). CMake builds this file both ways:
+// The switch is a build flag (-DVAULTINK_VERIFY_GITHUB=1, the X4 Pro envs). CMake builds this file both ways:
 // TlsPolicyTest with the default and TlsPolicyVerifyGithubTest with the flag.
 TEST(TlsPolicy, GithubIsAlwaysCheckedOnlyWithTheSwitchOn) {
   EXPECT_EQ(alwaysChecked("api.github.com"), VERIFY_GITHUB);
@@ -299,7 +299,7 @@ TEST(TlsPolicy, GithubIsAlwaysCheckedOnlyWithTheSwitchOn) {
 #if VAULTINK_VERIFY_GITHUB
   EXPECT_TRUE(VERIFY_GITHUB);
 #else
-  EXPECT_FALSE(VERIFY_GITHUB);  // the default, which every shipped build gets
+  EXPECT_FALSE(VERIFY_GITHUB);  // the default, which every board but the X4 Pro gets
 #endif
 }
 

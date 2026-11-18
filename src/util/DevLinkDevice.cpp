@@ -122,7 +122,7 @@ void replyStatus(const unsigned long msSinceInput, const uint32_t droppedLines) 
 #else
       .addString("build", "dev-user")  // the read-only link (x4pro-dev-user)
 #endif
-      .addBool("verify_github", tlspolicy::VERIFY_GITHUB)  // true only in x4pro-dev-verify
+      .addBool("verify_github", tlspolicy::VERIFY_GITHUB)  // true in the X4 Pro builds since 0.78.1
       .addUnsigned("uptime_ms", millis())
       .addUnsigned("heap_free", heap.freeBytes)
       .addUnsigned("heap_min_free", heap.minFreeBytes)

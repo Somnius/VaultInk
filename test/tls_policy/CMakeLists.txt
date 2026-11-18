@@ -14,7 +14,7 @@ target_link_libraries(TlsPolicyTest PRIVATE
 
 gtest_discover_tests(TlsPolicyTest)
 
-# The same tests with GitHub's check switched on, as env:x4pro-dev-verify builds it.
+# The same tests with GitHub's check switched on, as the X4 Pro envs build it.
 add_executable(TlsPolicyVerifyGithubTest
   TlsPolicyTest.cpp
   ${REPO_ROOT}/lib/TlsPolicy/TlsPolicy.cpp
