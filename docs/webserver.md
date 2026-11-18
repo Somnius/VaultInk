@@ -66,9 +66,16 @@ While it is on, the reader does not use the SD card: the computer has it. Do not
    Retry button), or press **Back** to cancel. With no network in range,
    **Scan again** is the first row, so Confirm scans again and does not open
    the keyboard for a new network.
-   (Unreleased. Seen on an X4 Pro: the scan, an out-of-range saved network
+   (Seen on an X4 Pro: the scan, an out-of-range saved network
    skipped and the home network joined. The rest: computer tests and an
    x4pro-dev build, not run on a reader.)
+   A saved network whose try got no answer within 7 seconds is tried once more
+   before the list is shown (unreleased, computer tests and builds only). On
+   2026-11-18 an X4 Pro showed "Saved network didn't join" with the home network
+   first in the list at full signal: its one try had run out of time, and
+   Confirm on the row joined it in under 4 seconds. Why that try was slow is not
+   known; the log now has the radio's reason for it (see "Join gave up" in the
+   debug log).
 4. Enter the password if prompted.
 5. Save credentials if you want the reader to reconnect automatically next time.
 

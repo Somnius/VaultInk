@@ -119,3 +119,47 @@ TEST(WifiAutoJoinTest, UnseenTriesOverShowTheListWithTheScansReason) {
   EXPECT_EQ(next.step, wifijoin::Step::List);
   EXPECT_EQ(next.notice, wifijoin::Notice::NoSavedInRange);
 }
+
+TEST(WifiAutoJoinTest, ANetworkWhoseTryTimedOutIsTriedOnceMore) {
+  // 2026-11-18 on an X4 Pro: the one 7 s try of the home network timed out, the list came up with
+  // "Saved network didn't join" and the home network first at full signal.
+  auto next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, {"Home"}, {"Home"}, {"Home"});
+  EXPECT_EQ(next.step, wifijoin::Step::Join);
+  EXPECT_EQ(next.ssid, "Home");
+
+  next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, {"Home"}, {"Home", "Home"}, {"Home"});
+  EXPECT_EQ(next.step, wifijoin::Step::List);
+  EXPECT_EQ(next.notice, wifijoin::Notice::SavedFailed);
+}
+
+TEST(WifiAutoJoinTest, ARefusedOrMissingNetworkIsNotTriedAgain) {
+  // "Away" answered (wrong password, or no such network): a second try would only cost time.
+  const auto next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, {"Away", "Home"}, {"Away", "Home"}, {});
+  EXPECT_EQ(next.step, wifijoin::Step::List);
+  EXPECT_EQ(next.notice, wifijoin::Notice::SavedFailed);
+}
+
+TEST(WifiAutoJoinTest, SecondTriesComeAfterEveryFirstTry) {
+  const Names inRange{"Work", "Home"};
+  auto next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, inRange, {"Work"}, {"Work"});
+  EXPECT_EQ(next.ssid, "Home");  // Home's first try before Work's second
+  next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, inRange, {"Work", "Home"}, {"Work"});
+  EXPECT_EQ(next.step, wifijoin::Step::Join);
+  EXPECT_EQ(next.ssid, "Work");
+  next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, inRange, {"Work", "Home", "Work"}, {"Work"});
+  EXPECT_EQ(next.step, wifijoin::Step::List);
+}
+
+TEST(WifiAutoJoinTest, ATimedOutUnseenNetworkIsTriedOnceMoreToo) {
+  const Names blind = wifijoin::blindOrder({"Home"}, "Home");
+  auto next = wifijoin::nextStep(wifijoin::Scan::Empty, wifijoin::MAX_SCAN_TRIES, blind, {"Home"}, {"Home"});
+  EXPECT_EQ(next.step, wifijoin::Step::Join);
+  next = wifijoin::nextStep(wifijoin::Scan::Empty, wifijoin::MAX_SCAN_TRIES, blind, {"Home", "Home"}, {"Home"});
+  EXPECT_EQ(next.step, wifijoin::Step::List);
+  EXPECT_EQ(next.notice, wifijoin::Notice::NoSavedInRange);
+}
+
+TEST(WifiAutoJoinTest, ATimedOutNameThatIsNoCandidateIsIgnored) {
+  const auto next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, {"Home"}, {"Home"}, {"Other"});
+  EXPECT_EQ(next.step, wifijoin::Step::List);
+}

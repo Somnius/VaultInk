@@ -9,6 +9,7 @@
 #include <esp_mac.h>
 
 #include <algorithm>
+#include <atomic>
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
@@ -24,6 +25,10 @@ namespace {
 constexpr fui::ActionId ACTION_ROW = 1;
 constexpr fui::ActionId ACTION_SCAN = 2;
 constexpr fui::ActionId ACTION_PROMPT = 3;
+
+// The radio's reason for its last disconnect (wifi_err_reason_t), written from the Wi-Fi event
+// task while the screen is up; 0 = none since the current try started.
+std::atomic<uint8_t> lastDisconnectReason{0};
 }  // namespace
 
 WifiSelectionActivity::WifiSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
@@ -114,12 +119,20 @@ void WifiSelectionActivity::onEnter() {
   autoConnecting = false;
   manualNetworkListRequested = false;
   autoAttemptedSsids.clear();
+  autoTimedOutSsids.clear();
   autoOrder.clear();
   scanTries = 0;
   listNotice = wifijoin::Notice::None;
   lastScan = wifijoin::Scan::Ok;
   const size_t savedCredentialCount = WIFI_STORE.getCredentialCount();
   autoAttemptedSsids.reserve(savedCredentialCount);
+  lastDisconnectReason.store(0);
+  if (disconnectEventId == 0) {
+    disconnectEventId = static_cast<int>(
+        WiFi.onEvent([](arduino_event_id_t,
+                        arduino_event_info_t info) { lastDisconnectReason.store(info.wifi_sta_disconnected.reason); },
+                     ARDUINO_EVENT_WIFI_STA_DISCONNECTED));
+  }
 
   // Read the hardware-derived station MAC directly. WiFi.macAddress() depends
   // on the STA netif already existing, but this screen is entered while WiFi
@@ -164,6 +177,11 @@ void WifiSelectionActivity::onExit() {
 
   LOG_DBG("WIFI", "Free heap at onExit start: %d bytes", ESP.getFreeHeap());
 
+  if (disconnectEventId != 0) {
+    WiFi.removeEvent(static_cast<wifi_event_id_t>(disconnectEventId));
+    disconnectEventId = 0;
+  }
+
   // Stop any ongoing WiFi scan
   LOG_DBG("WIFI", "Deleting WiFi scan...");
   WiFi.scanDelete();
@@ -205,6 +223,7 @@ void WifiSelectionActivity::startWifiScan(const bool autoScan, const bool retry)
   delay(100);
 
   // Start async scan
+  scanStartTime = millis();
   WiFi.scanNetworks(true);  // true = async scan
 }
 
@@ -222,7 +241,9 @@ void WifiSelectionActivity::processWifiScanResults() {
              : scanResult == 0              ? wifijoin::Scan::Empty
                                             : wifijoin::Scan::Ok;
   if (lastScan != wifijoin::Scan::Ok) {
-    LOG_ERR("WIFI", "Scan %s (try %d)", lastScan == wifijoin::Scan::Failed ? "failed" : "found nothing", scanTries);
+    LOG_ERR("WIFI", "Scan %s (try %d, result %d, after %lu ms, up %lu s, free heap %u)",
+            lastScan == wifijoin::Scan::Failed ? "failed" : "found nothing", scanTries, static_cast<int>(scanResult),
+            millis() - scanStartTime, millis() / 1000UL, static_cast<unsigned>(ESP.getFreeHeap()));
     if (autoConnecting && !manualNetworkListRequested &&
         wifijoin::nextStep(lastScan, scanTries, autoOrder, autoAttemptedSsids).step == wifijoin::Step::Rescan) {
       startWifiScan(true, true);
@@ -250,11 +271,13 @@ void WifiSelectionActivity::processWifiScanResults() {
       WifiNetworkInfo network;
       network.ssid = ssid;
       network.rssi = rssi;
+      network.channel = WiFi.channel(i);
       network.isEncrypted = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
       network.hasSavedPassword = WIFI_STORE.hasSavedCredential(network.ssid);
       networks.push_back(std::move(network));
     } else if (rssi > it->rssi) {
       it->rssi = rssi;
+      it->channel = WiFi.channel(i);
       it->isEncrypted = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
     }
   }
@@ -283,6 +306,9 @@ void WifiSelectionActivity::processWifiScanResults() {
                    [](const auto& summary) { return summary.ssid; });
     autoOrder = wifijoin::blindOrder(saved, WIFI_STORE.getLastConnectedSsid());
   }
+  LOG_INF("WIFI", "Scan: %d access points, %u names, %u saved to try, %lu ms (try %d)", static_cast<int>(scanResult),
+          static_cast<unsigned>(realNetworkCount), static_cast<unsigned>(autoOrder.size()), millis() - scanStartTime,
+          scanTries);
   appendActionRows();
   rebuildNetworkRowItems();
 
@@ -431,17 +457,16 @@ void WifiSelectionActivity::promptHiddenSsid() {
                          });
 }
 
-bool WifiSelectionActivity::hasAttemptedAutoSsid(const std::string& ssid) const {
-  return std::find(autoAttemptedSsids.begin(), autoAttemptedSsids.end(), ssid) != autoAttemptedSsids.end();
-}
-
-bool WifiSelectionActivity::tryAutoConnectCredential(const WifiCredential& cred) {
-  if (hasAttemptedAutoSsid(cred.ssid)) {
-    return false;
-  }
-
-  LOG_DBG("WIFI", "Attempting saved network: %s", cred.ssid.c_str());
+void WifiSelectionActivity::tryAutoConnectCredential(const WifiCredential& cred) {
   autoAttemptedSsids.push_back(cred.ssid);
+  const auto seen = std::find_if(networks.begin(), networks.end(), [&cred](const WifiNetworkInfo& n) {
+    return !n.isHiddenPlaceholder && !n.isRescanRow && n.ssid == cred.ssid;
+  });
+  LOG_INF("WIFI", "Attempting saved network: %s (try %d, scan RSSI %d dBm, channel %d; 0 = not in the scan)",
+          cred.ssid.c_str(),
+          static_cast<int>(std::count(autoAttemptedSsids.begin(), autoAttemptedSsids.end(), cred.ssid)),
+          seen != networks.end() ? static_cast<int>(seen->rssi) : 0,
+          seen != networks.end() ? static_cast<int>(seen->channel) : 0);
   selectedSSID = cred.ssid;
   enteredPassword = cred.password;
   selectedRequiresPassword = !cred.password.empty();
@@ -450,31 +475,46 @@ bool WifiSelectionActivity::tryAutoConnectCredential(const WifiCredential& cred)
   manualNetworkListRequested = false;
   attemptConnection();
   requestUpdate();
-  return true;
 }
 
 bool WifiSelectionActivity::tryNextSavedNetworkFromScan() {
   // The saved networks of the scan, strongest first (after a scan that gave
-  // nothing: the last connected one and two more, unseen); when none is left
-  // the list is shown with the reason.
+  // nothing: the last connected one and two more, unseen), then one more try
+  // for those whose try ran out of time; when none is left the list is shown
+  // with the reason.
   for (;;) {
     // The scans of this join are over here, so a scan is never asked for again.
-    const wifijoin::Next next = wifijoin::nextStep(lastScan, wifijoin::MAX_SCAN_TRIES, autoOrder, autoAttemptedSsids);
+    const wifijoin::Next next =
+        wifijoin::nextStep(lastScan, wifijoin::MAX_SCAN_TRIES, autoOrder, autoAttemptedSsids, autoTimedOutSsids);
     if (next.step != wifijoin::Step::Join) {
       listNotice = next.notice;
-      LOG_INF("WIFI", "No saved network joined (reason %d)", static_cast<int>(next.notice));
+      LOG_INF("WIFI", "No saved network joined (reason %d: 1 none in range, 2 saved failed, 3 scan failed; %u tries)",
+              static_cast<int>(next.notice), static_cast<unsigned>(autoAttemptedSsids.size()));
       return false;
     }
     const auto cred = WIFI_STORE.findCredential(next.ssid);
-    if (cred && tryAutoConnectCredential(*cred)) {
+    if (cred) {
+      tryAutoConnectCredential(*cred);
       return true;
     }
-    if (!hasAttemptedAutoSsid(next.ssid)) autoAttemptedSsids.push_back(next.ssid);
+    // No credential after all: count it as a try so the next step moves on.
+    autoAttemptedSsids.push_back(next.ssid);
   }
 }
 
-void WifiSelectionActivity::handleAutoConnectFailure() {
-  LOG_DBG("WIFI", "Saved network failed: %s", selectedSSID.c_str());
+void WifiSelectionActivity::logJoinGaveUp(const char* why, const int status) const {
+  // Enough to tell a slow handshake from a refused one the next time: the radio's last disconnect
+  // reason (wifi_err_reason_t, 0 = none reported) and how long the try ran.
+  LOG_INF("WIFI", "Join gave up: %s, %s after %lu ms (status %d, disconnect reason %u, %s)", selectedSSID.c_str(), why,
+          millis() - connectionStartTime, status, static_cast<unsigned>(lastDisconnectReason.load()),
+          autoConnecting ? "automatic" : "by hand");
+}
+
+void WifiSelectionActivity::handleAutoConnectFailure(const bool timedOut) {
+  if (timedOut &&
+      std::find(autoTimedOutSsids.begin(), autoTimedOutSsids.end(), selectedSSID) == autoTimedOutSsids.end()) {
+    autoTimedOutSsids.push_back(selectedSSID);
+  }
   WiFi.disconnect();
 
   if (!networks.empty()) {
@@ -511,6 +551,7 @@ void WifiSelectionActivity::showNetworkListFromAutoConnect() {
 void WifiSelectionActivity::attemptConnection() {
   state = autoConnecting ? WifiSelectionState::AUTO_CONNECTING : WifiSelectionState::CONNECTING;
   connectionStartTime = millis();
+  lastDisconnectReason.store(0);
   connectedIP.clear();
   connectionError.clear();
   requestUpdate();
@@ -616,8 +657,9 @@ void WifiSelectionActivity::checkConnectionStatus() {
     if (status == WL_NO_SSID_AVAIL) {
       connectionError = tr(STR_ERROR_NETWORK_NOT_FOUND);
     }
+    logJoinGaveUp(status == WL_NO_SSID_AVAIL ? "network not found" : "refused", static_cast<int>(status));
     if (autoConnecting) {
-      handleAutoConnectFailure();
+      handleAutoConnectFailure(false);
       return;
     }
     state = WifiSelectionState::CONNECTION_FAILED;
@@ -628,10 +670,11 @@ void WifiSelectionActivity::checkConnectionStatus() {
   // Check for timeout
   const unsigned long timeoutMs = autoConnecting ? AUTO_CONNECTION_TIMEOUT_MS : CONNECTION_TIMEOUT_MS;
   if (millis() - connectionStartTime > timeoutMs) {
+    logJoinGaveUp("timed out", static_cast<int>(status));
     WiFi.disconnect();
     connectionError = tr(STR_ERROR_CONNECTION_TIMEOUT);
     if (autoConnecting) {
-      handleAutoConnectFailure();
+      handleAutoConnectFailure(true);
       return;
     }
     state = WifiSelectionState::CONNECTION_FAILED;

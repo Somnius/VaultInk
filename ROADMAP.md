@@ -871,6 +871,20 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   range (a scan of 5 s at most, 10 s each, 20 s in all) and skips with a log line otherwise; it
   never opens the Wi-Fi screen. Still to do on a reader: a failed or empty scan, a hidden
   network, the list with its reason line, LiveSync's cancel message, sync on wake.
+* ✅ (0.78.1, 2026-11-18, unreleased, computer tests and x4pro builds, not run on a reader)
+  "Saved network didn't join" with the home network first in the list at full signal (Lef's X4 Pro,
+  0.77.2-x4pro-dev, 09:46). The debug log of that start shows the cause: the home network was in
+  the scan and got its one try, which ended after 7,010 ms, the 7 s limit of an automatic try
+  (other joins of the same network in the same logs took 3.7 to 4.2 s); the list came up, and
+  Confirm on the row joined it in 3.7 s. A network whose try runs out of time now gets one more try
+  after every other saved network had its first (`MAX_JOIN_TRIES` 2); a network that refuses or
+  is not found is still tried once. Not known: why that one try got no answer in 7 s; the log had
+  no status or reason. It has now: "Join gave up: <name>, timed out / refused / network not found
+  after N ms (status, disconnect reason, automatic or by hand)", the try number with the scan's
+  RSSI and channel on "Attempting saved network", a summary line per scan, and a failed or empty
+  scan logs its result code, duration, uptime and free heap. The empty scans after 12 minutes awake
+  are not in these logs and not explained; only their log line changed. Still to do on a reader:
+  a join that times out once (hard to cause on purpose), and reading the new lines.
 * 🚧 (2026-11-15, unreleased, computer tests and builds only (x4pro-dev-verify flash 87.0 %, x4pro-dev-user 86.8 %, x4pro 86.6 %), nothing run on a reader)
   Testing a checked connection without a date: `CMD:CLOCK UNSET` (`devlink.py clock-unset`) sets
   the system clock to 0 and forgets the latest time this run has seen, so the next checked

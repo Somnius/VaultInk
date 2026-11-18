@@ -21,6 +21,11 @@ constexpr int MAX_SCAN_TRIES = 2;
 // Saved networks tried without having been seen, after a scan that failed or found nothing.
 constexpr size_t MAX_BLIND_TRIES = 3;
 
+// Tries a saved network gets in one automatic join when its first try ran out of time. One 7 s try
+// timed out on a reader with the home network listed at full signal (2026-11-18, joins there take
+// about 3.7 s), and the join by hand right after connected.
+constexpr int MAX_JOIN_TRIES = 2;
+
 // What one scan gave.
 enum class Scan : uint8_t {
   Ok,      // at least one network
@@ -91,9 +96,11 @@ struct Next {
 
 // The next step of an automatic join. `scanTries` counts the scans started so far; `candidates`
 // comes from savedInRange() after a scan that listed networks and from blindOrder() otherwise;
-// `attempted` holds the names already tried in this session.
+// `attempted` holds the names already tried in this session, one entry per try; `timedOut` the
+// names whose try ended without an answer from the network (not refused, not "no such network").
+// Those get tries up to MAX_JOIN_TRIES, after every candidate had its first.
 inline Next nextStep(const Scan scan, const int scanTries, const std::vector<std::string>& candidates,
-                     const std::vector<std::string>& attempted) {
+                     const std::vector<std::string>& attempted, const std::vector<std::string>& timedOut = {}) {
   Next next;
   if (scan != Scan::Ok && scanTries < MAX_SCAN_TRIES) {
     next.step = Step::Rescan;
@@ -101,6 +108,14 @@ inline Next nextStep(const Scan scan, const int scanTries, const std::vector<std
   }
   for (const auto& ssid : candidates) {
     if (std::find(attempted.begin(), attempted.end(), ssid) == attempted.end()) {
+      next.step = Step::Join;
+      next.ssid = ssid;
+      return next;
+    }
+  }
+  for (const auto& ssid : candidates) {
+    if (std::find(timedOut.begin(), timedOut.end(), ssid) != timedOut.end() &&
+        std::count(attempted.begin(), attempted.end(), ssid) < MAX_JOIN_TRIES) {
       next.step = Step::Join;
       next.ssid = ssid;
       return next;
