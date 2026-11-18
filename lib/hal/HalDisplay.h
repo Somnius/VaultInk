@@ -73,7 +73,16 @@ class HalDisplay {
   bool isInverted() const;
 
   // Power management
+  // Sends the panel's deep-sleep command. On the X4 Pro, parkBusForDeepSleep() below then drives the panel's
+  // SPI pads to their idle levels (CS and DC HIGH, SCLK and MOSI LOW) and holds them, so the sleep isolation
+  // does not leave the inputs of the still-powered panel floating (kos25k #31). BUSY and RST are not touched.
   void deepSleep();
+  // Releases those holds, which outlive the wake reset. HalGPIO::begin() calls it on every boot, before the
+  // controller probe and the SPI setup use the pads. Does nothing on other boards.
+  static void releaseBusHolds();
+  // Drives those pads to their idle levels and holds them. HalPowerManager::startDeepSleep() calls it on every
+  // sleep path, the ghost-wake sleep included, which never sends the panel command. Returns false on other boards.
+  static bool parkBusForDeepSleep();
 
   // Access to frame buffer
   uint8_t* getFrameBuffer() const;

@@ -1,5 +1,9 @@
 #include <HalDisplay.h>
 #include <HalGPIO.h>
+#include <Logging.h>
+#if FREEINK_DEVICE_X4PRO
+#include <driver/gpio.h>
+#endif
 
 // Global HalDisplay instance
 HalDisplay display;
@@ -10,6 +14,69 @@ HalDisplay::HalDisplay() : einkDisplay(EPD_SCLK, EPD_MOSI, EPD_CS, EPD_DC, EPD_R
 
 HalDisplay::~HalDisplay() {}
 
+namespace {
+// The panel's SPI pads on the X4 Pro, whose panel rail stays powered through deep sleep. False on other boards.
+#if FREEINK_DEVICE_X4PRO
+bool x4ProBusPads(const BoardConfig::DisplayPins*& pins) {
+  if (BoardConfig::ACTIVE.board != BoardConfig::Board::XteinkX4Pro) return false;
+  const auto& d = BoardConfig::ACTIVE.display;
+  if (d.sclk < 0 || d.mosi < 0 || d.cs < 0 || d.dc < 0) return false;
+  pins = &d;
+  return true;
+}
+#endif
+
+const char* controllerName(const BoardConfig::DisplayController c) {
+  switch (c) {
+    case BoardConfig::DisplayController::SSD1677:
+      return "SSD1677";
+    case BoardConfig::DisplayController::UC8179:
+      return "UC8179";
+    case BoardConfig::DisplayController::UC8279:
+      return "UC8279";
+    case BoardConfig::DisplayController::UC8253:
+      return "UC8253";
+    default:
+      return "other";
+  }
+}
+}  // namespace
+
+void HalDisplay::releaseBusHolds() {
+#if FREEINK_DEVICE_X4PRO
+  const BoardConfig::DisplayPins* d = nullptr;
+  if (!x4ProBusPads(d)) return;
+  for (const int8_t pin : {d->cs, d->dc, d->sclk, d->mosi}) gpio_hold_dis(static_cast<gpio_num_t>(pin));
+#endif
+}
+
+bool HalDisplay::parkBusForDeepSleep() {
+#if FREEINK_DEVICE_X4PRO
+  const BoardConfig::DisplayPins* d = nullptr;
+  if (!x4ProBusPads(d)) return false;
+  // CS first, so the panel stays deselected while the other pads change. CS and DC idle HIGH (EpdBus leaves
+  // both HIGH after every command), the SPI mode 0 clock and the data line idle LOW. BUSY stays an input and
+  // RST is left to powerDownRailsForSleep(), which holds it HIGH.
+  const struct {
+    int8_t pin;
+    uint8_t level;
+  } pads[] = {{d->cs, HIGH}, {d->dc, HIGH}, {d->sclk, LOW}, {d->mosi, LOW}};
+  for (const auto& pad : pads) {
+    const auto g = static_cast<gpio_num_t>(pad.pin);
+    // A held pad ignores the drive below, so release a hold that is still there first.
+    gpio_hold_dis(g);
+    // The output latch first, so the pad comes up at this level when pinMode takes SCLK/MOSI off the SPI bus.
+    gpio_set_level(g, pad.level);
+    pinMode(pad.pin, OUTPUT);
+    digitalWrite(pad.pin, pad.level);
+    gpio_hold_en(g);
+  }
+  return true;
+#else
+  return false;
+#endif
+}
+
 HalDisplay::Controller HalDisplay::getController() const { return BoardConfig::ACTIVE.displayController; }
 
 void HalDisplay::begin(bool seamless) {
@@ -19,6 +86,14 @@ void HalDisplay::begin(bool seamless) {
   }
 
   einkDisplay.begin();
+
+  // Which driver runs, once per boot: it decides which deepSleep() command the panel gets.
+  static bool controllerLogged = false;
+  if (!controllerLogged) {
+    controllerLogged = true;
+    LOG_INF("EPD", "Display driver: %s (variant %02X)", controllerName(BoardConfig::ACTIVE.displayController),
+            BoardConfig::ACTIVE.displayControllerVariant);
+  }
 
   if (seamless) {
     // Defuse the SDK's X3 _x3InitialFullSyncsRemaining counter (no-op on X4)
@@ -99,7 +174,11 @@ bool HalDisplay::toggleInverted() { return einkDisplay.toggleInverted(); }
 
 bool HalDisplay::isInverted() const { return einkDisplay.isInverted(); }
 
-void HalDisplay::deepSleep() { einkDisplay.deepSleep(); }
+void HalDisplay::deepSleep() {
+  einkDisplay.deepSleep();
+  // The X4 Pro's SPI pads are parked later, in HalPowerManager::startDeepSleep(), so the ghost-wake sleep that
+  // skips this command parks them too.
+}
 
 uint8_t* HalDisplay::getFrameBuffer() const { return einkDisplay.getFrameBuffer(); }
 

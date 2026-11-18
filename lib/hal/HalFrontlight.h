@@ -16,6 +16,11 @@ class HalFrontlight {
   void setBrightness(uint8_t percent);
   void setWarmth(uint8_t warmPercent);
   void setOn(bool on);
+  // Before deep sleep on a board whose light is two ESP PWM pads (X4 Pro, GPIO8 cool / GPIO9 warm): stop the
+  // PWM on them, drive both LOW (the light is active-high, so LOW is off) and hold the pads, so the sleep
+  // isolation does not leave them floating (kos25k #31). Does nothing on other boards. begin() releases the
+  // holds. Returns true when the pads were held.
+  bool parkForDeepSleep();
 
   uint8_t brightness() const { return lastBrightness; }
   uint8_t warmth() const { return manager.colorTemperature(); }
