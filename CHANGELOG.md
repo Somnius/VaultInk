@@ -2,6 +2,22 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.78.0 (2026-11-18)
+
+More even word spacing, a smaller firmware, and fixes from CrossPoint 2.0.0.
+
+Checked on a real X4 Pro (2026-11-18):
+
+- **Even word gaps with hyphenation on.** Justified text with hyphenation is now broken a whole paragraph at a time, weighing each hyphen against loose lines, instead of filling one line after another. The big holes between words are gone, and a paragraph never takes more lines than before. Building a short chapter took about 0.17 s longer on my reader; a big chapter showed no difference.
+
+Tested on a computer only:
+
+- **Gap numbers.** In the simulator, Fira Sans 16 pt justified, the widest word gap went from 94 to 48 px on my Greek test text and from 134 to 65 px on English. English gets a few more hyphens than before.
+- **Hyphenation by script.** In a book with no language set, Latin words take the patterns of the interface language (or English) and Cyrillic words take Russian ones.
+- **35 KB smaller firmware.** A debug trace in the TLS library is compiled out (from CrossPoint #4213).
+- **From CrossPoint 2.0.0:** a crash on the OPDS book details screen is fixed (#4165), .dict.dz dictionaries unpack in 8 KB pieces so they need less free memory (#3826), and some debug-only work is skipped in release builds (#4250).
+- **Sleep.** The frontlight and display pins are held at a fixed level while the reader sleeps. Whether that lowers the drain is not measured yet.
+
 ## 0.77.2 (2026-11-16)
 
 A fix for Wi-Fi when the last network is not around.
