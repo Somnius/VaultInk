@@ -20,6 +20,7 @@ using typoengine::Config;
 // The fixture font of the next layout() calls: the width of its space and the side bearings (left, right) of the
 // codepoints that have metrics. Engine puts both back.
 int fixtureSpace = 4;
+int fixtureTextIndent = 0;  // CSS text-indent of the paragraph, in pixels
 std::map<uint32_t, std::pair<int, int>> fixtureBearings;
 // How often the last layout() asked the font for a space: a measure of the line breaker's work.
 size_t lastSpaceAdvanceCalls = 0;
@@ -31,6 +32,7 @@ struct Engine {
     typoengine::set(0);
     Hyphenator::setPreferredLanguage("");
     fixtureSpace = 4;
+    fixtureTextIndent = 0;
     fixtureBearings.clear();
   }
 };
@@ -58,6 +60,7 @@ std::vector<Line> layout(const std::vector<const char*>& words, const uint16_t w
   BlockStyle style;
   style.alignment = alignment;
   style.textIndentDefined = true;
+  style.textIndent = static_cast<decltype(style.textIndent)>(fixtureTextIndent);
   ParsedText text(hyphenation, false, style, 0);
   for (const char* word : words) text.addWord(word, EpdFontFamily::REGULAR);
   std::vector<Line> lines;
@@ -1181,6 +1184,11 @@ struct Balanced {
 
 Balanced balanced(const std::vector<const char*>& words, const uint16_t width, const bool hyphenation = true) {
   Balanced out;
+  // The balancing belongs to the line-by-line breaker, which now lays out what the total-fit breaker leaves to it.
+  ParsedText::totalFitHyphenation = false;
+  struct Restore {
+    ~Restore() { ParsedText::totalFitHyphenation = true; }
+  } restore;
   ParsedText::balanceLooseLines = false;
   out.off = layout(words, width, hyphenation);
   out.offCalls = lastSpaceAdvanceCalls;
@@ -1556,5 +1564,493 @@ TEST(HyphenationLanguage, EveryChoiceHasAPatternSet) {
     c.language = static_cast<uint8_t>(i + 1);
     typoengine::set(typoengine::pack(c));
     EXPECT_FALSE(offsets(samples[i].second).empty()) << samples[i].first;
+  }
+}
+
+// --- Total-fit line breaking (justified text with hyphenation on) ---
+
+namespace {
+
+// Lays the words out with the line-by-line breaker, then with the total-fit one.
+struct Fitted {
+  std::vector<Line> greedy;
+  std::vector<Line> total;
+  bool usedTotalFit = false;
+};
+
+Fitted fitted(const std::vector<const char*>& words, const uint16_t width,
+              const CssTextAlign alignment = CssTextAlign::Justify) {
+  Fitted out;
+  ParsedText::totalFitHyphenation = false;
+  out.greedy = layout(words, width, true, alignment);
+  ParsedText::totalFitHyphenation = true;
+  const uint32_t before = ParsedText::totalFitParagraphs;
+  out.total = layout(words, width, true, alignment);
+  out.usedTotalFit = ParsedText::totalFitParagraphs != before;
+  return out;
+}
+
+bool endsInHyphen(const Line& line) { return !line.words.empty() && line.words.back().back() == '-'; }
+
+int hyphenatedLines(const std::vector<Line>& lines) {
+  int count = 0;
+  for (const auto& line : lines) count += endsInHyphen(line) ? 1 : 0;
+  return count;
+}
+
+// True when the lines hold the source words in order, whole or split with a '-' at a line end (the source words of
+// these tests have no hyphen of their own).
+bool keepsTheText(const std::vector<Line>& lines, const std::vector<const char*>& source) {
+  std::string all;
+  for (const auto& line : lines) {
+    for (const auto& word : line.words) all += word;
+  }
+  all.erase(std::remove(all.begin(), all.end(), '-'), all.end());
+  std::string expected;
+  for (const char* word : source) expected += word;
+  return all == expected;
+}
+
+const std::vector<const char*> kProse{"the",
+                                      "international",
+                                      "committee",
+                                      "for",
+                                      "understanding",
+                                      "information",
+                                      "has",
+                                      "published",
+                                      "another",
+                                      "remarkable",
+                                      "collection",
+                                      "of",
+                                      "observations",
+                                      "about",
+                                      "the",
+                                      "hyphenation",
+                                      "of",
+                                      "ordinary",
+                                      "sentences",
+                                      "in",
+                                      "narrow",
+                                      "columns",
+                                      "where",
+                                      "every",
+                                      "line",
+                                      "matters",
+                                      "and",
+                                      "nothing",
+                                      "is",
+                                      "forgiven",
+                                      "by",
+                                      "the",
+                                      "reader",
+                                      "who",
+                                      "notices",
+                                      "everything",
+                                      "immediately",
+                                      "and",
+                                      "remembers",
+                                      "it",
+                                      "afterwards",
+                                      "without",
+                                      "any",
+                                      "particular",
+                                      "difficulty",
+                                      "whatsoever"};
+
+// The widest any gap of the justified lines (all but the last) grew by.
+int worstStretch(const std::vector<Line>& lines, const int space = 4) {
+  int worst = 0;
+  for (size_t i = 0; i + 1 < lines.size(); ++i) worst = std::max(worst, stretchOf(lines[i], space));
+  return worst;
+}
+
+std::vector<std::string> flat(const std::vector<Line>& lines) {
+  std::vector<std::string> out;
+  for (const auto& line : lines) out.insert(out.end(), line.words.begin(), line.words.end());
+  return out;
+}
+
+}  // namespace
+
+TEST(TotalFit, FewerHyphensAndNoLooserLinesThanFillingLineByLine) {
+  Engine engine(Config{});
+  Hyphenator::setPreferredLanguage("en");
+  // Found by laying kProse out at every width: at these two the line-by-line breaker splits a word that the
+  // paragraph as a whole does not need split.
+  for (const uint16_t width : {176, 336}) {
+    const Fitted f = fitted(kProse, width);
+    ASSERT_TRUE(f.usedTotalFit) << width;
+    EXPECT_LT(hyphenatedLines(f.total), hyphenatedLines(f.greedy)) << width;
+    EXPECT_LT(worstStretch(f.total), worstStretch(f.greedy)) << width;
+    EXPECT_TRUE(keepsTheText(f.total, kProse)) << width;
+  }
+}
+
+TEST(TotalFit, NoMoreLinesThanFillingLineByLineAndNoLinePastTheEdge) {
+  Engine engine(Config{});
+  Hyphenator::setPreferredLanguage("en");
+  int used = 0;
+  for (uint16_t width = 160; width <= 420; width += 4) {
+    const Fitted f = fitted(kProse, width);
+    if (!f.usedTotalFit) continue;
+    ++used;
+    // A line costs more than any evening out of the gaps, so the paragraph does not grow.
+    EXPECT_LE(f.total.size(), f.greedy.size()) << width;
+    EXPECT_TRUE(keepsTheText(f.total, kProse)) << width;
+    for (const auto& line : f.total) EXPECT_LE(line.right, width) << width;
+    // Every justified line ends at the right edge (the spare pixels are shared out rounded down: less than one a
+    // gap is left over).
+    for (size_t i = 0; i + 1 < f.total.size(); ++i) {
+      const int words = static_cast<int>(f.total[i].words.size());
+      if (words > 1) EXPECT_GT(f.total[i].right, width - words + 1) << width << " line " << i;
+    }
+  }
+  EXPECT_GT(used, 60);
+}
+
+TEST(TotalFit, NoWordIsSplitWhenNoSplitIsChosen) {
+  Engine engine(Config{});
+  Hyphenator::setPreferredLanguage("en");
+  const std::vector<std::string> source(kProse.begin(), kProse.end());
+  int unsplit = 0;
+  for (uint16_t width = 160; width <= 520; width += 4) {
+    const Fitted f = fitted(kProse, width);
+    if (!f.usedTotalFit) continue;
+    // One split word shows as two words, the first with a '-': the word list grows by one for each hyphenated
+    // line and by nothing else, though every hyphenation point of the paragraph was measured.
+    EXPECT_EQ(flat(f.total).size(), source.size() + hyphenatedLines(f.total)) << width;
+    if (hyphenatedLines(f.total) == 0) {
+      ++unsplit;
+      EXPECT_EQ(flat(f.total), source) << width;
+    }
+  }
+  EXPECT_GT(unsplit, 0);
+
+  // A paragraph of one line is not weighed at all.
+  const uint32_t before = ParsedText::totalFitParagraphs;
+  const auto oneLine = layout({"international", "understanding"}, 400, true);
+  EXPECT_EQ(ParsedText::totalFitParagraphs, before + 1);
+  EXPECT_EQ(wordsOf(oneLine), (std::vector<std::vector<std::string>>{{"international", "understanding"}}));
+}
+
+TEST(TotalFit, AHugeParagraphIsFilledLineByLine) {
+  Engine engine(Config{});
+  Hyphenator::setPreferredLanguage("en");
+  std::vector<const char*> words;
+  while (words.size() < ParsedText::TOTAL_FIT_MAX_WORDS) words.push_back(kProse[words.size() % kProse.size()]);
+  const Fitted atLimit = fitted(words, 300);
+  EXPECT_TRUE(atLimit.usedTotalFit);
+  EXPECT_TRUE(keepsTheText(atLimit.total, words));
+
+  // What weighing the largest paragraph it takes costs on this computer, next to filling its lines one by one.
+  const auto timed = [&words](const bool totalFit) {
+    ParsedText::totalFitHyphenation = totalFit;
+    const auto start = std::chrono::steady_clock::now();
+    for (int i = 0; i < 20; ++i) layout(words, 300, true);
+    ParsedText::totalFitHyphenation = true;
+    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+  };
+  const double greedyMs = timed(false);
+  const double totalMs = timed(true);
+  printf("total fit: %.1f ms against %.1f ms line by line for 20 layouts of %zu words\n", totalMs, greedyMs,
+         words.size());
+
+  words.push_back("more");
+  const Fitted over = fitted(words, 300);
+  EXPECT_FALSE(over.usedTotalFit);
+  EXPECT_EQ(wordsOf(over.total), wordsOf(over.greedy));
+  EXPECT_EQ(xposOf(over.total), xposOf(over.greedy));
+}
+
+TEST(TotalFit, OnlyForJustifiedTextAndAWordWiderThanTheLineGoesToTheOtherBreaker) {
+  Engine engine(Config{});
+  Hyphenator::setPreferredLanguage("en");
+  const Fitted left = fitted(kProse, 240, CssTextAlign::Left);
+  EXPECT_FALSE(left.usedTotalFit);
+  EXPECT_EQ(wordsOf(left.total), wordsOf(left.greedy));
+
+  // 30 letters no pattern splits are 240 px: wider than the line, so no set of breaks fits and the line-by-line
+  // breaker splits the word wherever it has to.
+  const std::vector<const char*> wide{"aaaa", "bbbb", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "cccc", "dddd"};
+  const Fitted f = fitted(wide, 200);
+  EXPECT_FALSE(f.usedTotalFit);
+  EXPECT_EQ(wordsOf(f.total), wordsOf(f.greedy));
+  for (const auto& line : f.total) EXPECT_LE(line.right, 200);
+
+  // Hyphenation off: the older total-fit breaker, as before.
+  const uint32_t before = ParsedText::totalFitParagraphs;
+  layout(kProse, 240, false);
+  EXPECT_EQ(ParsedText::totalFitParagraphs, before);
+}
+
+TEST(TotalFit, ACondensedLineNeverGoesUnderTheGapFloor) {
+  Engine engine(condense(50));
+  Hyphenator::setPreferredLanguage("en");
+  fixtureSpace = 10;
+  const int floor = typoengine::gapFloor(10);
+  ASSERT_EQ(floor, 6);
+  int condensedLines = 0;
+  for (uint16_t width = 200; width <= 420; width += 4) {
+    const Fitted f = fitted(kProse, width);
+    if (!f.usedTotalFit) continue;
+    EXPECT_TRUE(keepsTheText(f.total, kProse)) << width;
+    for (size_t i = 0; i < f.total.size(); ++i) {
+      const Line& line = f.total[i];
+      EXPECT_LE(line.right, width) << width << " line " << i;
+      bool condensed = false;
+      for (size_t w = 1; w < line.words.size(); ++w) {
+        const int gap = line.xpos[w] - (line.xpos[w - 1] + 8 * static_cast<int>(line.words[w - 1].size()));
+        EXPECT_GE(gap, floor) << width << " line " << i;
+        condensed = condensed || gap < 10;
+      }
+      // The last line is not justified, so it is never condensed.
+      if (i + 1 == f.total.size()) EXPECT_FALSE(condensed) << width;
+      condensedLines += condensed ? 1 : 0;
+    }
+  }
+  EXPECT_GT(condensedLines, 0);
+}
+
+// --- Hyphenation patterns for a book that names no language ---
+
+namespace {
+
+struct FallbackLanguage {
+  explicit FallbackLanguage(const char* tag) { Hyphenator::setFallbackLanguage(tag); }
+  ~FallbackLanguage() {
+    Hyphenator::setFallbackLanguage("");
+    Hyphenator::setPreferredLanguage("");
+  }
+};
+
+// What the patterns of `tag` give for the word, with the book tagged as that language.
+std::vector<size_t> offsetsIn(const char* tag, const std::string& word) {
+  Hyphenator::setPreferredLanguage(tag);
+  return offsets(word);
+}
+
+}  // namespace
+
+TEST(HyphenationLanguageFallback, ABookWithNoLanguageBreaksWordsByScript) {
+  Engine engine(Config{});
+  FallbackLanguage ui("");
+  const auto english = offsetsIn("en", "international");
+  const auto russian = offsetsIn("ru", "международный");
+  const auto greek = offsetsIn("el", "καλημέρα");
+  ASSERT_FALSE(english.empty());
+  ASSERT_FALSE(russian.empty());
+  ASSERT_FALSE(greek.empty());
+  for (const char* none : {"", "und", "UND", "mul", "zxx", "mis", "-", "x", "english", "e1"}) {
+    Hyphenator::setPreferredLanguage(none);
+    EXPECT_EQ(offsets("international"), english) << none;
+    EXPECT_EQ(offsets("международный"), russian) << none;
+    EXPECT_EQ(offsets("καλημέρα"), greek) << none;
+    // A word of two scripts has no pattern set of its own.
+    EXPECT_TRUE(offsets("interнародный").empty()) << none;
+  }
+}
+
+TEST(HyphenationLanguageFallback, LatinWordsTakeTheInterfaceLanguageWhenItHasPatterns) {
+  Engine engine(Config{});
+  const auto german = offsetsIn("de", "Quadratkilometer");
+  const auto english = offsetsIn("en", "Quadratkilometer");
+  const auto russian = offsetsIn("ru", "международный");
+  const auto ukrainian = offsetsIn("uk", "міжнародний");
+  ASSERT_FALSE(german.empty());
+  ASSERT_NE(german, english);
+  {
+    FallbackLanguage ui("DE");  // the codes of the interface languages are upper case
+    Hyphenator::setPreferredLanguage("");
+    EXPECT_EQ(offsets("Quadratkilometer"), german);
+    EXPECT_EQ(offsets("международный"), russian);
+  }
+  // An interface language with no patterns, or with patterns of another script: English for Latin words.
+  for (const char* tag : {"NL", "EL", "RU", "UK", "JA", ""}) {
+    FallbackLanguage ui(tag);
+    Hyphenator::setPreferredLanguage("");
+    EXPECT_EQ(offsets("Quadratkilometer"), english) << tag;
+  }
+  {
+    FallbackLanguage ui("UK");  // a Ukrainian interface: Ukrainian patterns for Cyrillic words
+    Hyphenator::setPreferredLanguage("");
+    EXPECT_EQ(offsets("міжнародний"), ukrainian);
+  }
+}
+
+TEST(HyphenationLanguageFallback, ABookLanguageAndTheChosenLanguageAreNotOverridden) {
+  Engine engine(Config{});
+  FallbackLanguage ui("DE");
+  const auto german = offsetsIn("de", "Quadratkilometer");
+  const auto english = offsetsIn("en", "Quadratkilometer");
+  const auto french = offsetsIn("fr", "Quadratkilometer");
+  ASSERT_NE(german, english);
+
+  // A book that names its language keeps it, whatever the interface language.
+  Hyphenator::setPreferredLanguage("en-GB");
+  EXPECT_EQ(offsets("Quadratkilometer"), english);
+  Hyphenator::setPreferredLanguage("fra");
+  EXPECT_EQ(offsets("Quadratkilometer"), french);
+  // A language the book names and the reader has no patterns for: its words stay whole, as before.
+  for (const char* tag : {"nl", "ja", "bg", "nld", "ko-KR"}) {
+    Hyphenator::setPreferredLanguage(tag);
+    EXPECT_TRUE(offsets("Quadratkilometer").empty()) << tag;
+    EXPECT_TRUE(offsets("международный").empty()) << tag;
+    EXPECT_FALSE(offsets("καλημέρα").empty()) << tag;  // Greek words break in every book
+  }
+
+  // The Hyphenation language setting is used for every word, with or without a book language.
+  Config c;
+  for (uint8_t i = 0; i < typoengine::LANGUAGE_COUNT; ++i) {
+    if (std::string(typoengine::LANGUAGE_TAGS[i]) == "en") c.language = static_cast<uint8_t>(i + 1);
+  }
+  typoengine::set(typoengine::pack(c));
+  Hyphenator::setPreferredLanguage("");
+  EXPECT_EQ(offsets("Quadratkilometer"), english);
+  EXPECT_TRUE(offsets("международный").empty());
+}
+
+TEST(TotalFit, AFailedSplitOrNoRoomLeavesTheWordsWholeForTheOtherBreaker) {
+  Engine engine(Config{});
+  Hyphenator::setPreferredLanguage("en");
+  struct Restore {
+    ~Restore() {
+      ParsedText::failSplitForTest = 0;
+      ParsedText::failAllocationForTest = 0;
+    }
+  } restore;
+  // 188 px: the total-fit breaker splits several words of kProse.
+  const Fitted whole = fitted(kProse, 188);
+  ASSERT_TRUE(whole.usedTotalFit);
+  ASSERT_GE(hyphenatedLines(whole.total), 3);
+  // The first, the second or the third prefix can not be stored: none of the chosen splits is made, so the other
+  // breaker gets the paragraph as it was and gives exactly its own lines.
+  for (const uint8_t failing : {1, 2, 3}) {
+    ParsedText::failSplitForTest = failing;
+    const Fitted f = fitted(kProse, 188);
+    EXPECT_FALSE(f.usedTotalFit) << static_cast<int>(failing);
+    EXPECT_EQ(wordsOf(f.total), wordsOf(whole.greedy)) << static_cast<int>(failing);
+    EXPECT_EQ(xposOf(f.total), xposOf(whole.greedy)) << static_cast<int>(failing);
+  }
+  ParsedText::failSplitForTest = 0;
+  // No room for the hyphenator's own allocations: the same.
+  // And no room for the list of breaks and the splits, found after the prefixes were stored.
+  for (const uint8_t stage : {1, 2}) {
+    ParsedText::failAllocationForTest = stage;
+    const Fitted noRoom = fitted(kProse, 188);
+    EXPECT_FALSE(noRoom.usedTotalFit) << static_cast<int>(stage);
+    EXPECT_EQ(wordsOf(noRoom.total), wordsOf(whole.greedy)) << static_cast<int>(stage);
+    EXPECT_EQ(xposOf(noRoom.total), xposOf(whole.greedy)) << static_cast<int>(stage);
+  }
+}
+
+TEST(TotalFit, AVeryLooseLineDoesNotBuyAnotherLine) {
+  Engine engine(Config{});
+  Hyphenator::setPreferredLanguage("en");
+  // 400 px. Line by line: sixteen words of two letters and one of nine fill the first line (392 px), "x" and a word
+  // of 40 letters make the second with 68 px to spare in its one gap (17 spaces: the word before "x" is too wide to
+  // come down, the one after too wide to come up), the rest is the last line. Breaking the first line in two and
+  // putting the long word with the one after it has no line that loose, at the price of a line more: the paragraph
+  // must not take it. (A word with a digit has no hyphenation points.)
+  std::vector<const char*> words(16, "aa");
+  for (const char* word : {"z3zzzzzzz", "x", "b1bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "c2ccccccc", "dd", "dd"}) {
+    words.push_back(word);
+  }
+  const Fitted f = fitted(words, 400);
+  ASSERT_TRUE(f.usedTotalFit);
+  ASSERT_EQ(f.greedy.size(), 3u);
+  EXPECT_EQ(f.total.size(), 3u);
+  EXPECT_TRUE(keepsTheText(f.total, words));
+  for (const auto& line : f.total) EXPECT_LE(line.right, 400);
+}
+
+TEST(TotalFit, TheEndOfALongParagraphStillHasItsHyphenationPoints) {
+  Engine engine(Config{});
+  Hyphenator::setPreferredLanguage("en");
+  const size_t points = offsets("internationalization").size();
+  ASSERT_GE(points, 5u);
+  // Every word has several hyphenation points: far more than one or two a word. The last quarter of the lines must
+  // be hyphenated like the first, and the paragraph no longer than line by line.
+  for (const size_t count : {60u, 200u}) {
+    ASSERT_LT(count * points, 1600u);
+    const std::vector<const char*> words(count, "internationalization");
+    const Fitted f = fitted(words, 220);
+    ASSERT_TRUE(f.usedTotalFit) << count;
+    EXPECT_TRUE(keepsTheText(f.total, words)) << count;
+    EXPECT_LE(f.total.size(), f.greedy.size()) << count;
+    const size_t quarter = f.total.size() / 4;
+    int first = 0;
+    int last = 0;
+    for (size_t i = 0; i < quarter; ++i) {
+      first += endsInHyphen(f.total[i]) ? 1 : 0;
+      last += endsInHyphen(f.total[f.total.size() - 1 - quarter + i]) ? 1 : 0;
+    }
+    EXPECT_GT(first, 0) << count;
+    EXPECT_GE(last, first - 1) << count;
+  }
+  // More points than the table of breaks may hold (1600): the whole paragraph goes to the other breaker, and none
+  // of it is laid out with a part of its points.
+  const std::vector<const char*> many(400, "internationalization");
+  ASSERT_GT(many.size() * points, 1600u);
+  const Fitted f = fitted(many, 220);
+  EXPECT_FALSE(f.usedTotalFit);
+  EXPECT_EQ(wordsOf(f.total), wordsOf(f.greedy));
+}
+
+TEST(TotalFit, AHangingFirstLineWiderThanTheOthersIsStillReached) {
+  Engine engine(Config{});
+  Hyphenator::setPreferredLanguage("en");
+  // text-indent -40 px on a 100 px page: the first line is 140 px. "aa" and the word of 13 letters (124 px) fit
+  // only there; the long word alone (104 px) fits no other line. Looking back from the break after it, the search
+  // must not stop at the line that starts with the long word, which is too wide for an ordinary line.
+  fixtureTextIndent = -40;
+  const std::vector<const char*> words{"aa", "bbbbbbbbbbbbb", "cc", "dd", "ee", "ff", "gg", "hh", "ii", "jj", "kk",
+                                       "ll"};
+  const Fitted f = fitted(words, 100);
+  ASSERT_TRUE(f.usedTotalFit);
+  ASSERT_GE(f.total.size(), 2u);
+  EXPECT_EQ(f.total[0].words, (std::vector<std::string>{"aa", "bbbbbbbbbbbbb"}));
+  EXPECT_TRUE(keepsTheText(f.total, words));
+  EXPECT_LE(f.total.size(), f.greedy.size());
+}
+
+TEST(HyphenationLanguageFallback, AWordOfLatinAndAnotherScriptStaysWhole) {
+  Engine engine(Config{});
+  FallbackLanguage ui("");
+  const auto english = offsetsIn("en", "international");
+  ASSERT_FALSE(english.empty());
+  for (const char* none : {"", "und"}) {
+    Hyphenator::setPreferredLanguage(none);
+    // Hebrew, Arabic, Han, Hangul, Devanagari after or before the Latin letters: no pattern set fits the word.
+    for (const char* word : {"internationalשלום", "internationalسلام", "international中文", "international한국",
+                             "internationalनमस्ते", "שלוםinternational", "международныйשלום"}) {
+      EXPECT_TRUE(offsets(word).empty()) << word;
+    }
+    // Quotes round a word are not another script.
+    EXPECT_EQ(offsets("international"), english) << none;
+    EXPECT_EQ(offsets("\u201Cinternational\u201D").size(), english.size()) << none;
+  }
+}
+
+TEST(HyphenationLanguageFallback, TheSectionCacheKeyFollowsTheInterfaceLanguageOnlyForABookWithNoLanguage) {
+  FallbackLanguage ui("");
+  const uint8_t english = Hyphenator::scriptFallbackSignature("");
+  EXPECT_NE(english, 0);
+  EXPECT_EQ(Hyphenator::scriptFallbackSignature("und"), english);
+  // A book that names a language, with or without patterns: nothing follows the interface language.
+  for (const char* tag : {"en", "el", "fr-FR", "nl", "ja"}) EXPECT_EQ(Hyphenator::scriptFallbackSignature(tag), 0);
+
+  Hyphenator::setFallbackLanguage("DE");
+  const uint8_t german = Hyphenator::scriptFallbackSignature("");
+  EXPECT_NE(german, english);
+  EXPECT_EQ(Hyphenator::scriptFallbackSignature("en"), 0);
+  Hyphenator::setFallbackLanguage("UK");
+  const uint8_t ukrainian = Hyphenator::scriptFallbackSignature("");
+  EXPECT_NE(ukrainian, english);
+  EXPECT_NE(ukrainian, german);
+  // Interface languages that give the same patterns give the same key: no rebuild for nothing.
+  for (const char* tag : {"NL", "EL", "RU", "EN"}) {
+    Hyphenator::setFallbackLanguage(tag);
+    EXPECT_EQ(Hyphenator::scriptFallbackSignature(""), english) << tag;
   }
 }

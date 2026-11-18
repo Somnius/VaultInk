@@ -147,8 +147,18 @@ class ParsedText {
   std::vector<size_t> computeHyphenatedLineBreaks(const GfxRenderer& renderer, int fontId, int pageWidth,
                                                   std::vector<uint16_t>& wordWidths, std::vector<bool>& continuesVec,
                                                   std::vector<bool>& noSpaceBeforeVec, size_t maxLines);
+  // The total-fit breaker for hyphenated justified text (see the .cpp). Empty when it did not lay the paragraph
+  // out, and computeHyphenatedLineBreaks then does.
+  std::vector<size_t> computeTotalFitLineBreaks(const GfxRenderer& renderer, int fontId, int pageWidth,
+                                                std::vector<uint16_t>& wordWidths,
+                                                const std::vector<bool>& continuesVec,
+                                                const std::vector<bool>& noSpaceBeforeVec);
   bool hyphenateWordAtIndex(size_t wordIndex, int availableWidth, const GfxRenderer& renderer, int fontId,
                             std::vector<uint16_t>& wordWidths, bool allowFallbackBreaks);
+  // A split in two steps (see the .cpp): the prefix stored in the arena, which can fail, then the word list changed.
+  bool storeSplitPrefix(size_t wordIndex, size_t offset, bool needsHyphen, WordStore::StoredWord& prefixStored);
+  void splitWordAt(size_t wordIndex, size_t offset, bool needsHyphen, const WordStore::StoredWord& prefixStored,
+                   int prefixWidth, const GfxRenderer& renderer, int fontId, std::vector<uint16_t>& wordWidths);
   void extractLine(size_t breakIndex, int pageWidth, const std::vector<uint16_t>& wordWidths,
                    const std::vector<bool>& continuesVec, const std::vector<bool>& noSpaceBeforeVec,
                    const std::vector<size_t>& lineBreakIndices,
@@ -164,6 +174,17 @@ class ParsedText {
   // Typography Engine, loose line balancing (see computeHyphenatedLineBreaks). Always on in the firmware; a test
   // switches it off to compare the layout and its cost with and without.
   static inline bool balanceLooseLines = true;
+  // Total-fit line breaking for justified text with hyphenation on (see computeTotalFitLineBreaks). Always on in
+  // the firmware; a test switches it off to compare with the line-by-line breaker. totalFitParagraphs counts the
+  // paragraphs it laid out, so a test can tell which breaker ran.
+  static inline bool totalFitHyphenation = true;
+  static inline uint32_t totalFitParagraphs = 0;
+  // For tests only, 0 in the firmware: the Nth prefix of the chosen splits fails to store (1 = the first), and the
+  // room can not be had (1 = for the hyphenator, 2 = for the breaks and the splits, after the prefixes are stored).
+  static inline uint8_t failSplitForTest = 0;
+  static inline uint8_t failAllocationForTest = 0;
+  // A paragraph of more words is filled line by line: the tables of the total-fit breaker grow with the paragraph.
+  static constexpr size_t TOTAL_FIT_MAX_WORDS = 400;
   explicit ParsedText(const bool hyphenationEnabled = false, const bool focusReadingEnabled = false,
                       const BlockStyle& blockStyle = BlockStyle(), const uint8_t paragraphIndentSpaces = 2)
       : blockStyle(blockStyle),
