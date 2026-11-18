@@ -35,6 +35,7 @@
 #include "util/FileOps.h"
 #include "util/FileTime.h"
 #include "util/FileTypeIcons.h"
+#include "util/HeaderButtonsLayout.h"
 #include "util/RowFit.h"
 #include "util/TaskWatchdog.h"
 #include "util/ZipExtract.h"
@@ -857,26 +858,31 @@ void FileBrowserActivity::buildScreen(UiScreen& screen) {
   if (mode == Mode::Books && mappedInput.hasTouch()) {
     // Search files at the header's right edge, away from the home button at the top centre (kos25k #13):
     // GUI.drawHeader has no slot for it, so it is drawn by hand like Search in Book's gear.
-    const int16_t size = static_cast<int16_t>(metrics.headerHeight - 24);
-    const int16_t x = static_cast<int16_t>(renderer.getScreenWidth() - metrics.contentSidePadding - 8 - size);
+    // The places come from headerbuttons, which drawChrome also asks where the folder name has to end.
+    const int screenWidth = renderer.getScreenWidth();
+    const auto size = static_cast<int16_t>(headerbuttons::size(metrics.headerHeight));
+    const auto x =
+        static_cast<int16_t>(headerbuttons::searchX(screenWidth, metrics.contentSidePadding, metrics.headerHeight));
     // The sort gear a little left of the magnifier, not touching it.
     fui::ButtonProps gear;
     gear.icon = fui::bitmapFromIcon(icon_settings_32);
     gear.action = ACTION_SORT;
     gear.minTouchSize = 44;
-    fui::button(
-        screen.frame(),
-        fui::Rect{static_cast<int16_t>(x - size - 22), static_cast<int16_t>(metrics.topPadding + 22), size, size},
-        gear);
+    fui::button(screen.frame(),
+                fui::Rect{static_cast<int16_t>(
+                              headerbuttons::gearX(screenWidth, metrics.contentSidePadding, metrics.headerHeight)),
+                          static_cast<int16_t>(metrics.topPadding + 22), size, size},
+                gear);
     // Refresh: the folder is read again, a little left of the gear.
     fui::ButtonProps refresh;
     refresh.icon = fui::bitmapFromIcon(icon_refresh_cw_32);
     refresh.action = ACTION_REFRESH;
     refresh.minTouchSize = 44;
-    fui::button(
-        screen.frame(),
-        fui::Rect{static_cast<int16_t>(x - 2 * (size + 22)), static_cast<int16_t>(metrics.topPadding + 22), size, size},
-        refresh);
+    fui::button(screen.frame(),
+                fui::Rect{static_cast<int16_t>(
+                              headerbuttons::refreshX(screenWidth, metrics.contentSidePadding, metrics.headerHeight)),
+                          static_cast<int16_t>(metrics.topPadding + 22), size, size},
+                refresh);
     fui::ButtonProps search;
     search.icon = fui::bitmapFromIcon(icon_search_32);
     search.action = ACTION_SEARCH;
@@ -974,7 +980,14 @@ void FileBrowserActivity::drawChrome() {
           : ((basepath == "/") ? std::string(tr(STR_SD_CARD)) : basepath.substr(basepath.rfind('/') + 1));
   // Header via GUI.drawHeader (already FreeInkUI-themed) for the battery
   // indicator; the rest of the screen renders through the app.
-  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, folderName.c_str());
+  // A long folder name ran under the refresh and gear buttons (seen on an X4 Pro, 2026-11-18): it ends
+  // with "..." a little before the first button, under the same condition buildScreen draws them.
+  const int titleMaxRight =
+      (mode == Mode::Books && mappedInput.hasTouch())
+          ? headerbuttons::titleMaxRight(pageWidth, metrics.contentSidePadding, metrics.headerHeight)
+          : 0;
+  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, folderName.c_str(), nullptr,
+                 true, titleMaxRight);
 }
 
 void FileBrowserActivity::drawFooter() {

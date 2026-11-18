@@ -494,6 +494,9 @@ with a Project Gutenberg MOBI in the simulator, and kos25k opened a MOBI, an AZW
 
 ## Format filter (0.58.0)
 
+In the file browser a folder name too long for the space left of the header's buttons ends with
+"..." (unreleased; before, it ran on under the refresh and gear buttons).
+
 A **gear** button in the Library header (left of search and refresh, on touch screens) opens a short
 list of formats: EPUB, PDF, TXT, Markdown, XTC / XTCH, CBZ and (0.67.0) MOBI / PRC (kos25k #18). Untick the ones you
 don't want in the Recent, Title and Author lists; at least one stays on. The Folders tab still
@@ -879,7 +882,7 @@ depends on the server:
 
 | Where | Checked? |
 | --- | --- |
-| GitHub: the update check, firmware downloads, the font list | Not checked yet (encrypted only), as before. The check is written (`VERIFY_GITHUB` in lib/TlsPolicy) and will be switched on, with no off switch, after a real device has done an update check and a download with it. (The font files themselves come over plain http after GitHub's redirect and are checked by their CRC.) |
+| GitHub: the update check, firmware downloads, the font list | On the X4 Pro: always, against root certificates built into the firmware, with no off switch (unreleased, after 0.78.0; up to 0.78.0 it was encrypted only). An X4 Pro did the update check, the font list and a firmware download with the check on in a developer build on 2026-11-14 and 15. With the check on the reader needs the date: with none it syncs the time first, and if that fails the screen says "Date not set: can't check the server" and nothing is downloaded (that case has not been tried on a reader). If an update over Wi-Fi ever fails for this reason, the [web installer](https://somnius.github.io/VaultInk/) and an update from the SD card still work. Builds for other boards: not checked (encrypted only), no device has run the test. (The font files themselves come over plain http after GitHub's redirect and are checked by their CRC.) |
 | Wikipedia (the lookup in the [dictionary](dictionary.md#wikipedia-when-the-dictionary-has-no-entry)) | Always, the same way. |
 | KOReader sync and clipping sync | Only with **Check certificate** on (Settings → Connectivity → CrossPoint Sync, or the web settings page). Off by default, so a setup that worked before still works. |
 | Readwise ([highlight exports](exports.md)) | Always, against all the built-in root certificates. Not tried on a device yet. |

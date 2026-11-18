@@ -37,8 +37,9 @@ pio run -e x4pro-dev -t upload
   start off, unless Settings → System → Debug Logs is on.
 - `debug_tool = esp-builtin` for JTAG (below).
 
-A second build, `x4pro-dev-verify`, is `x4pro-dev` with GitHub's certificate checked. It is for one
-test: [Live test: GitHub's certificate](#live-test-githubs-certificate).
+`x4pro-dev-verify` was `x4pro-dev` with GitHub's certificate checked, for one test:
+[Live test: GitHub's certificate](#live-test-githubs-certificate). Since 0.78.1 (unreleased) every
+X4 Pro build checks it, so the name is now a second name for `x4pro-dev`.
 
 ## The build users may install
 
@@ -116,7 +117,7 @@ So that a developer build is never taken for a release:
   `User-Agent` of its requests and the update screen all show it.
 - `STATUS` has `"version":"0.74.0-x4pro-dev"` and `"build":"dev"` (`"0.74.0-dev"` and
   `"build":"dev-user"` for `x4pro-dev-user`). `"verify_github":true` means GitHub's certificate is
-  checked (only `x4pro-dev-verify`); every other build says `false`.
+  checked: every X4 Pro build since 0.78.1 (unreleased), only `x4pro-dev-verify` before.
 - **The update check.** It compares the three numbers only, as in every build. A release with the
   same numbers is not offered (0.74.0 over 0.74.0-x4pro-dev: "no update"). A release with higher
   numbers is offered, and installing it replaces the developer build with the release build, so the
@@ -756,7 +757,8 @@ a cable. So:
 - What injected input shows on screen can be photographed with `SCREENSHOT`, in every build as
   before. A developer reader with an open vault on screen shows that vault to the cable. Keep the
   developer build off a reader that holds things you would not show.
-- `x4pro-dev-verify` checks more than a release does, not less. It is still a developer build.
+- Until 0.78.0 `x4pro-dev-verify` checked more than a release did (GitHub's certificate). Since
+  0.78.1 (unreleased) the X4 Pro release checks it too.
 
 **Next slice, not built:** read and change settings; a Home key and two-finger gestures for the
 input queue. Those stay in `x4pro-dev` (`VAULTINK_DEVLINK_FULL`): nothing that reads files or
@@ -784,9 +786,14 @@ serial port does. Write down what happened in `notes/`: this has not been tried.
 
 ## Live test: GitHub's certificate
 
-Releases do not check GitHub's certificate yet (`tlspolicy::VERIFY_GITHUB` is false; ROADMAP,
-Release B gate). `x4pro-dev-verify` is the build that does, so the check can be seen working on a
-reader before it is switched on for everyone:
+Up to 0.78.0 releases did not check GitHub's certificate (`tlspolicy::VERIFY_GITHUB` was false;
+ROADMAP, Release B gate) and `x4pro-dev-verify` was the one build that did, so the check could be
+seen working on a reader first. It was: on 2026-11-14 an X4 Pro did the update check, the font list
+and a firmware download with it on (after SHA-384 went into the TLS library), and the update check
+and font list again on 2026-11-15. Since 0.78.1 (unreleased) every X4 Pro build sets the flag, the
+release included; the builds for other boards do not, because none of them has run this test. The
+steps below are still the test to run on a reader before a release, now with any X4 Pro developer
+build, and the two runs under [Testing without a date](#testing-without-a-date) have not been done:
 
 ```sh
 pio run -e x4pro-dev-verify -t upload
@@ -794,8 +801,9 @@ scripts/devlink.py cmd LOG 2          # debug lines on, or Settings → System �
 pio device monitor -e x4pro-dev-verify
 ```
 
-It is `x4pro-dev` plus `-DVAULTINK_VERIFY_GITHUB=1`. No other build sets that flag, and without it
-the constant is false as before.
+The flag is `-DVAULTINK_VERIFY_GITHUB=1` (platformio.ini: `[x4pro_flags]`, `x4pro-gh_release`,
+`x4pro-gh_release_rc`, `x4pro-dev-user`); without it the constant is false. `STATUS` says which a
+build has (`verify_github`).
 
 Then, with the log on screen:
 
@@ -816,7 +824,7 @@ What to look for (tags: `OTA`, `HTTP`, `TLS`, `FONT`):
 | `[DBG] [OTA] Parser results: tag=yes firmware=yes` | **pass**: the answer arrived over the checked connection |
 | `[INF] [OTA] Developer build ..., latest release ...` | the result of the check |
 | `[ERR] [TLS] The date could not be set, so the server's certificate cannot be checked. (api.github.com)` | **fail before the handshake**: the clock is not set and the time sync failed |
-| `[ERR] [HTTP] no answer (reason N): https://...`, then `[ERR] [HTTP] wolfSSL request failed: status -1: https://...` and `[ERR] [OTA] Release check fetch failed` | **fail**: no answer. `N` is what the screen says under "Update failed": 1 Wi-Fi not connected, 2 no date, 3 the server did not take a connection, 4 the certificate was not accepted, 5 something else. 4 is worked out, not read: the TLS client gives no handshake code, so it means "port 443 takes a connection and the checked handshake still failed". To be sure, repeat the step on `x4pro-dev` (same build, check off): if it works there, the certificate check is what failed |
+| `[ERR] [HTTP] no answer (reason N): https://...`, then `[ERR] [HTTP] wolfSSL request failed: status -1: https://...` and `[ERR] [OTA] Release check fetch failed` | **fail**: no answer. `N` is what the screen says under "Update failed": 1 Wi-Fi not connected, 2 no date, 3 the server did not take a connection, 4 the certificate was not accepted, 5 something else. 4 is worked out, not read: the TLS client gives no handshake code, so it means "port 443 takes a connection and the checked handshake still failed". To be sure, repeat the step on a build with the check off (take `-DVAULTINK_VERIFY_GITHUB=1` out of `[x4pro_flags]` for that one build; `STATUS` then says `"verify_github":false`): if it works there, the certificate check is what failed |
 | `[SecureClient] wolfSSL_connect failed (...): <code>` | the TLS library's own code for a failed handshake, printed by the SDK when it prints at all (not seen on a reader) |
 | `[ERR] [FONT] Failed to fetch manifest from ...` | the font list failed, read the `HTTP` line above it |
 | a restart during the request | not seen yet, so not known what it prints; ROADMAP names too little heap for the P-384 handshake as the risk. Note the heap numbers of the `wolfSSL GET` line before it |
@@ -866,7 +874,8 @@ What each screen says when a request gets no answer (the line under its own "fai
 | The certificate was not accepted | "Server certificate not accepted" | that TCP connection works, the checked handshake did not. Worked out, see the log table above |
 | An HTTP error, a failed redirect target, anything else | no extra line (the font screen: "Failed to fetch font list", "Download failed: <file>") | |
 
-With the check off (every build but `x4pro-dev-verify`) GitHub needs no date, so only the first
+With the check off (the builds for other boards, and X4 Pro builds up to 0.78.0 other than
+`x4pro-dev-verify`) GitHub needs no date, so only the first
 line and the generic one can appear there. None of this has run on a reader: the texts, the 8
 seconds and the TCP probe are read from the source and covered by `test/tls_policy` only.
 

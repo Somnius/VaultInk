@@ -30,6 +30,7 @@
 #include "components/icons/statusIcons.h"
 #include "fontIds.h"
 #include "util/BookPageNumber.h"
+#include "util/HeaderButtonsLayout.h"
 
 void BaseTheme::setCheckboxRow(freeink::ui::ListItem& item, const bool checked) {
   item.value = nullptr;
@@ -479,7 +480,7 @@ freeink::ui::Rect BaseTheme::headerBand(const GfxRenderer& renderer, const freei
 }
 
 void BaseTheme::drawHeader(const GfxRenderer& renderer, Rect rect, const char* title, const char* subtitle,
-                           const bool backButton) const {
+                           const bool backButton, const int titleMaxRight) const {
   // Every activity header renders through the FreeInkUI header + battery
   // indicator components, styled by the active theme's tokens (padding,
   // centering, underline). Non-interactive frame: no hit rects registered.
@@ -536,6 +537,19 @@ void BaseTheme::drawHeader(const GfxRenderer& renderer, Rect rect, const char* t
   props.subtitleText = tokens.smallText;
   props.styles = tokens.popup;
   props.sidePadding = tokens.headerSidePadding;
+  if (titleMaxRight > 0 && title != nullptr) {
+    // A centred title (the default theme) that ends before the limit stays centred in the whole
+    // band; a reserve would centre it in the narrower box. One that would reach the limit is drawn
+    // from the left, after the back button, and cut there. A left-aligned title only gets the cut.
+    const bool centred = props.titleText.align == fui::TextAlign::Center;
+    const int titleWidth = centred ? ui.target.measureText(props.titleText.font, title, props.titleText).width : 0;
+    if (!centred || !headerbuttons::centredTitleFits(band.x, band.width, titleWidth, titleMaxRight)) {
+      props.titleText.align = fui::TextAlign::Left;
+      // fui::header ends the text at the band's right edge less the side padding (6 when unset).
+      props.rightReserve = static_cast<int16_t>(headerbuttons::titleReserve(
+          band.x + band.width - (props.sidePadding < 0 ? 6 : props.sidePadding), titleMaxRight));
+    }
+  }
   // Underline only under a titled header: an untitled band (Lyra home screen)
   // historically drew no rule, and the old themes keyed the line on the title.
   if (title != nullptr && props.styles.normal.border.kind == fui::PaintKind::None && tokens.headerUnderline > 0) {

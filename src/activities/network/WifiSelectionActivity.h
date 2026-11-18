@@ -19,6 +19,7 @@ struct WifiCredential;
 struct WifiNetworkInfo {
   std::string ssid;
   int32_t rssi;
+  int32_t channel = 0;  // of the strongest access point with this name; for the log
   bool isEncrypted;
   bool hasSavedPassword;             // Whether we have saved credentials for this network
   bool isHiddenPlaceholder = false;  // Synthetic "Add hidden network..." list entry
@@ -96,6 +97,9 @@ class WifiSelectionActivity final : public Activity, private UiAppHost {
   // Saved SSIDs already attempted during the current auto-connect session.
   std::vector<std::string> autoAttemptedSsids;
 
+  // Saved SSIDs whose automatic try ran out of time; wifijoin::nextStep gives those one more try.
+  std::vector<std::string> autoTimedOutSsids;
+
   // Saved networks to try after the last scan, in order (wifijoin::savedInRange, or blindOrder
   // when the scan failed or listed nothing).
   std::vector<std::string> autoOrder;
@@ -117,6 +121,14 @@ class WifiSelectionActivity final : public Activity, private UiAppHost {
   static constexpr unsigned long CONNECTION_TIMEOUT_MS = 15000;
   static constexpr unsigned long AUTO_CONNECTION_TIMEOUT_MS = 7000;
   unsigned long connectionStartTime = 0;
+  unsigned long scanStartTime = 0;
+  // When the current automatic join started (its first scan); second tries are held to
+  // wifijoin::SECOND_TRY_BUDGET_MS from here.
+  unsigned long autoJoinStartTime = 0;
+
+  // Records the radio's reason for each disconnect while this screen is up, for the log line of a
+  // join that gave up. 0 = not registered.
+  int disconnectEventId = 0;
 
   // The UiAppHost app hosts the network list and the save/forget prompts
   // (themed rows and dialogs, touch routing); every other state keeps its
@@ -146,11 +158,11 @@ class WifiSelectionActivity final : public Activity, private UiAppHost {
   void promptPasswordEntry();
   void attemptConnection();
   void checkConnectionStatus();
-  bool tryAutoConnectCredential(const WifiCredential& cred);
+  void tryAutoConnectCredential(const WifiCredential& cred);
   bool tryNextSavedNetworkFromScan();
-  void handleAutoConnectFailure();
+  void handleAutoConnectFailure(bool retryable);
+  void logJoinGaveUp(const char* why, int status) const;
   void showNetworkListFromAutoConnect();
-  bool hasAttemptedAutoSsid(const std::string& ssid) const;
   static std::string getSignalStrengthIndicator(int32_t rssi);
 
   void onComplete(bool connected);

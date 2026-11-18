@@ -24,12 +24,12 @@
 // This file has no platform code; TlsPolicyDevice.h applies a decision to a SecureHttpClient.
 namespace tlspolicy {
 
-// GitHub (the update check, the firmware and font downloads) is NOT always checked in 0.74.0: nobody has seen a
-// real handshake with its P-384 chains on a device yet, and a failure there would stop Wi-Fi updates for everyone.
-// The code for it is all here: turn this on after a device has done an update check, a font download and a
-// Wikipedia lookup (ROADMAP, Release B gate). Wikipedia is new, so it is always checked.
-// A build can turn it on with -DVAULTINK_VERIFY_GITHUB=1. Only env:x4pro-dev-verify does (the developer build for
-// that live test, docs/devlink.md); every other build leaves the macro alone and gets false.
+// GitHub (the update check, the firmware and font downloads) is checked in a build that sets
+// -DVAULTINK_VERIFY_GITHUB=1. Since 0.78.1 every X4 Pro build does (platformio.ini: [x4pro_flags], x4pro-gh_release,
+// x4pro-gh_release_rc, x4pro-dev-user): an X4 Pro did the update check, the font list and a firmware download with
+// it on (2026-11-14 and 15, after SHA-384 went into wolfSSL). The other boards leave the macro alone and get false:
+// none of them has done a handshake with GitHub's P-384 chains, and a failure there would stop their Wi-Fi updates
+// (ROADMAP, Release B gate). Wikipedia is always checked, in every build.
 #ifndef VAULTINK_VERIFY_GITHUB
 #define VAULTINK_VERIFY_GITHUB 0
 #endif
@@ -54,7 +54,7 @@ bool isHttps(std::string_view url);
 // A host of GitHub (github.com, api.github.com, *.githubusercontent.com) or Wikipedia.
 bool isPublicHost(std::string_view host);
 // The hosts that are always checked: Wikipedia, Readwise (readwise.io), MyMemory (api.mymemory.translated.net, the
-// translation lookup), and GitHub once VERIFY_GITHUB is on.
+// translation lookup), and GitHub in a build with VERIFY_GITHUB on.
 bool alwaysChecked(std::string_view host);
 
 // The mode for `url`. `userVerify`: the user turned the check on for this server. `caFileExists`:
