@@ -38,6 +38,28 @@ From kos25k's issues (all checked, open and closed, on 2026-11-01):
   roller is closed or saved on the card, and an animation while rolling that lasts at least 1 to
   1.5 seconds before the result shows (e-ink: a few fast partial refreshes of tumbling dice faces).
 
+## Taken from CrossPoint 2.0.0 (2026-11-18, not released yet)
+
+Five upstream changes ported by hand (no shared history). Host tests pass and `x4pro-dev` builds;
+none of it has run on a reader.
+
+* ✅ CrossPoint #4213: the wolfSSL debug trace is compiled out (`scripts/patch_wolfssl.py`), unless
+  a build sets `FREEINK_WOLFSSL_DEBUG` for all sources. `x4pro-dev` flash use went from 7,327,914 to
+  7,292,338 bytes (35,576 less).
+* ✅ CrossPoint #4165: the OPDS crash on the book details screen. The browser changes its entries,
+  rows and SD font caches under the render lock; the details page keeps its properties off the
+  render task's stack.
+* ✅ CrossPoint #4250: the library list's page log and the dictionary's heap query are built only
+  when debug logs are (`LOG_LEVEL >= 2`). No change for `x4pro` and `x4pro-dev`, which have them.
+* ✅ CrossPoint #4214: `scripts/patch_pioarduino_cache.py` rebuilds the Arduino core when
+  `custom_component_add` or `custom_component_remove` change; the CI cache keys include the script.
+  Only for builds with `custom_sdkconfig`; `x4pro-dev` asks for none, so nothing was rebuilt here.
+* ✅ CrossPoint #3826: a dictionary lookup in a `.dict.dz` file takes its 32 KB inflate window as
+  four 8 KB blocks, so it no longer needs one free 32 KB block (`lib/uzlib`, `lib/InflateReader`,
+  `src/util/DictZip.cpp`). EPUB unzip uses the same inflate code with one block, as before. New host
+  test `test/inflate_reader` (needs zlib). Still to do: a dictionary lookup and an EPUB open on a
+  reader.
+
 ## Next (reviewed by Gemini and Grok, 2026-10-30)
 
 In this order, each also listed in its phase below:
