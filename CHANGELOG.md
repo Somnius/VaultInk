@@ -2,6 +2,20 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.78.1 (2026-11-18)
+
+Fixes for Wi-Fi, the file browser header and GitHub downloads.
+
+Checked on a real X4 Pro (2026-11-18):
+
+- **GitHub's certificate is checked.** The update check, the font list and font downloads now check GitHub's certificate in the release too. They all worked on my reader, also after it had lost the date and had to set it first.
+- **Long folder names in the file browser** end with "…" before the refresh, settings and search buttons, instead of running under them.
+- **Wi-Fi log.** Each join now logs the scan, the try and, when it gives up, why. My saved network joined on the first try in all 5 joins.
+
+Tested on a computer only:
+
+- **A saved network that ran out of time gets a second try** before the list is shown, as long as it fits in 30 seconds. A wrong password or a missing network still gets one try. On my reader the timeout ("Saved network didn't join") did not happen again during the test, so the second try itself has not run there yet.
+
 ## 0.78.0 (2026-11-18)
 
 More even word spacing, a smaller firmware, and fixes from CrossPoint 2.0.0.
