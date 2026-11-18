@@ -1,6 +1,8 @@
 #include <HalDisplay.h>
 #include <HalGPIO.h>
 #include <Logging.h>
+
+#include <utility>
 #if FREEINK_DEVICE_X4PRO
 #include <driver/gpio.h>
 #endif
@@ -89,8 +91,7 @@ void HalDisplay::begin(bool seamless) {
 
   // Which driver runs, once per boot: it decides which deepSleep() command the panel gets.
   static bool controllerLogged = false;
-  if (!controllerLogged) {
-    controllerLogged = true;
+  if (!std::exchange(controllerLogged, true)) {
     LOG_INF("EPD", "Display driver: %s (variant %02X)", controllerName(BoardConfig::ACTIVE.displayController),
             BoardConfig::ACTIVE.displayControllerVariant);
   }

@@ -1708,6 +1708,7 @@ std::vector<size_t> ParsedText::computeTotalFitLineBreaks(const GfxRenderer& ren
     return probe != nullptr;
   };
   constexpr size_t HYPHENATION_HEADROOM = 4096;
+  // cppcheck-suppress knownConditionTrueFalse // set by the host tests
   if (failAllocationForTest == 1) return {};
 
   // The table of breaks. Grown with realloc, which gives nullptr and keeps the block when it fails.

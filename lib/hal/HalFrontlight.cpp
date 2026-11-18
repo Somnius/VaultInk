@@ -27,6 +27,7 @@ bool pwmPads(int8_t pads[2]) {
 
 bool HalFrontlight::parkForDeepSleep() {
   int8_t pads[2];
+  // cppcheck-suppress knownConditionTrueFalse // board-dependent: true only on the X4 Pro build
   if (!pwmPads(pads)) return false;
   if (manager.present()) {
     lit = false;
@@ -53,6 +54,7 @@ void HalFrontlight::begin(const uint8_t brightness, const uint8_t warmth, const 
   // parkForDeepSleep() held the PWM pads LOW and that hold is still there after the wake, when nothing in RAM
   // remembers it; a held pad ignores the PWM, so release always (a no-op on a pad that is not held).
   int8_t pads[2];
+  // cppcheck-suppress knownConditionTrueFalse // board-dependent: true only on the X4 Pro build
   if (pwmPads(pads)) {
     for (const int8_t pin : pads) gpio_hold_dis(static_cast<gpio_num_t>(pin));
   }
