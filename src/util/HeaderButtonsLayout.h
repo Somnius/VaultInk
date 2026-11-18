@@ -36,4 +36,10 @@ constexpr int titleReserve(const int textRight, const int maxRight) {
   return maxRight > 0 ? std::max(0, textRight - maxRight) : 0;
 }
 
+// Whether a title of `titleWidth` centred in the band ends before `maxRight`. A centred title
+// that does keeps the whole band and its place; one that does not is drawn from the left and cut.
+constexpr bool centredTitleFits(const int bandX, const int bandWidth, const int titleWidth, const int maxRight) {
+  return maxRight <= 0 || bandX + (bandWidth + titleWidth + 1) / 2 <= maxRight;
+}
+
 }  // namespace headerbuttons

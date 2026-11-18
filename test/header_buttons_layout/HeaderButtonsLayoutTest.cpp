@@ -46,3 +46,19 @@ TEST(HeaderButtonsLayoutTest, NoLimitOrALimitBeyondTheTextReservesNothing) {
   EXPECT_EQ(headerbuttons::titleReserve(460, 470), 0);  // never negative
   EXPECT_EQ(headerbuttons::titleReserve(460, 460), 0);
 }
+
+TEST(HeaderButtonsLayoutTest, AShortCentredTitleKeepsTheWholeBand) {
+  // The default theme centres titles: "Books" (say 90 px) centred in 480 ends at 285, past the
+  // limit of 220, so it is drawn from the left; a 40 px one would too (260). With the limit at
+  // 300 the 90 px title stays centred, a 140 px one (310) does not.
+  const int limit = headerbuttons::titleMaxRight(W, PAD, H);
+  EXPECT_FALSE(headerbuttons::centredTitleFits(0, W, 90, limit));
+  EXPECT_TRUE(headerbuttons::centredTitleFits(0, W, 90, 300));
+  EXPECT_TRUE(headerbuttons::centredTitleFits(0, W, 120, 300));
+  EXPECT_FALSE(headerbuttons::centredTitleFits(0, W, 121, 300));
+  EXPECT_FALSE(headerbuttons::centredTitleFits(0, W, 140, 300));
+  // The band's own offset counts.
+  EXPECT_FALSE(headerbuttons::centredTitleFits(30, W - 20, 120, 300));
+  // No limit: every title fits, as on every other screen.
+  EXPECT_TRUE(headerbuttons::centredTitleFits(0, W, 1000, 0));
+}

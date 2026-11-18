@@ -878,7 +878,9 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   (other joins of the same network in the same logs took 3.7 to 4.2 s); the list came up, and
   Confirm on the row joined it in 3.7 s. A network whose try runs out of time now gets one more try
   after every other saved network had its first (`MAX_JOIN_TRIES` 2); a network that refuses or
-  is not found is still tried once. Not known: why that one try got no answer in 7 s; the log had
+  is not found is still tried once, and so is one whose try ran out of time with a password or
+  security reason from the radio. A second try only starts while it can end within 30 s of the
+  start of the join. Not known: why that one try got no answer in 7 s; the log had
   no status or reason. It has now: "Join gave up: <name>, timed out / refused / network not found
   after N ms (status, disconnect reason, automatic or by hand)", the try number with the scan's
   RSSI and channel on "Attempting saved network", a summary line per scan, and a failed or empty
