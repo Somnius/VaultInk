@@ -799,6 +799,10 @@ reports AES key recovery on the S3 with voltage fault injection.
 
 - Host unit tests for every `lib/Vault` module (GTest, existing `test/` setup), with small synthetic
   vaults in `test/` written for VaultInk. No real vault content in the repo.
+- Inflate (from CrossPoint #3826, 2026-11-18): `test/inflate_reader` decodes raw deflate data made
+  with zlib (so the host tests need zlib's headers) through `InflateReader` in its three modes: the
+  window as four separate 8 KB segments (`initWithSegments`, used by `src/util/DictZip.cpp`), one
+  32 KB ring (`init(true)`) and one-shot, with back-references up to 32767 bytes.
 - Simulator runs for every screen in X4 Pro mode, English and Greek UI.
 - LiveSync tests against the local Docker CouchDB, plus recorded test vectors for decryption.
 - Builds: shipped firmware is built on Lef's machine (CPU limits: nice, capped jobs) and uploaded by
