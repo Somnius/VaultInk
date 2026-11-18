@@ -259,8 +259,11 @@ class BaseTheme {
   // SETTINGS.clockShowInHeader and an RTC is present. On touch boards a
   // tappable back button leads the band (see HeaderBackTapTarget); root
   // screens that own their stack bottom pass backButton = false.
+  // titleMaxRight: screen x the title must end before, for a screen that draws its own buttons at
+  // the header's right (the file browser's refresh, gear and search); the title is cut with "..."
+  // there like any title too long for the band. 0 = the whole band.
   virtual void drawHeader(const GfxRenderer& renderer, Rect rect, const char* title, const char* subtitle = nullptr,
-                          bool backButton = true) const;
+                          bool backButton = true, int titleMaxRight = 0) const;
   // Fill the battery/clock status chrome (settings + theme metrics) into
   // header props, so FUI-native screens drawing their own interactive header
   // carry the same band as drawHeader. Status text is styled with the

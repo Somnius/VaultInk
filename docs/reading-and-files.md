@@ -494,6 +494,9 @@ with a Project Gutenberg MOBI in the simulator, and kos25k opened a MOBI, an AZW
 
 ## Format filter (0.58.0)
 
+In the file browser a folder name too long for the space left of the header's buttons ends with
+"..." (unreleased; before, it ran on under the refresh and gear buttons).
+
 A **gear** button in the Library header (left of search and refresh, on touch screens) opens a short
 list of formats: EPUB, PDF, TXT, Markdown, XTC / XTCH, CBZ and (0.67.0) MOBI / PRC (kos25k #18). Untick the ones you
 don't want in the Recent, Title and Author lists; at least one stays on. The Folders tab still

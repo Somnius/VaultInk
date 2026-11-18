@@ -885,6 +885,11 @@ and no network. Design in `.work/flashcards-design.md`, reviewed by Gemini and G
   scan logs its result code, duration, uptime and free heap. The empty scans after 12 minutes awake
   are not in these logs and not explained; only their log line changed. Still to do on a reader:
   a join that times out once (hard to cause on purpose), and reading the new lines.
+* ✅ (0.78.1, 2026-11-18, unreleased, computer tests and x4pro builds, not seen on a reader or in the simulator)
+  File browser: a long folder name in the header ran under the refresh and gear buttons (Lef's
+  screenshot of "Wilderness Survival & Foraging" on the X4 Pro). The header got the whole band for
+  its title while the screen drew its three buttons on top. The title now ends with "..." 8 px
+  before the first button. Still to do on a reader: look at it with a long and a short folder name.
 * 🚧 (2026-11-15, unreleased, computer tests and builds only (x4pro-dev-verify flash 87.0 %, x4pro-dev-user 86.8 %, x4pro 86.6 %), nothing run on a reader)
   Testing a checked connection without a date: `CMD:CLOCK UNSET` (`devlink.py clock-unset`) sets
   the system clock to 0 and forgets the latest time this run has seen, so the next checked
