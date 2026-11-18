@@ -505,8 +505,9 @@ bool WifiSelectionActivity::tryNextSavedNetworkFromScan() {
 void WifiSelectionActivity::logJoinGaveUp(const char* why, const int status) const {
   // Enough to tell a slow handshake from a refused one the next time: the radio's last disconnect
   // reason (wifi_err_reason_t, 0 = none reported) and how long the try ran.
+  [[maybe_unused]] const unsigned long elapsedMs = millis() - connectionStartTime;
   LOG_INF("WIFI", "Join gave up: %s, %s after %lu ms (status %d, disconnect reason %u, %s)", selectedSSID.c_str(), why,
-          millis() - connectionStartTime, status, static_cast<unsigned>(lastDisconnectReason.load()),
+          elapsedMs, status, static_cast<unsigned>(lastDisconnectReason.load()),
           autoConnecting ? "automatic" : "by hand");
 }
 
@@ -551,7 +552,6 @@ void WifiSelectionActivity::showNetworkListFromAutoConnect() {
 void WifiSelectionActivity::attemptConnection() {
   state = autoConnecting ? WifiSelectionState::AUTO_CONNECTING : WifiSelectionState::CONNECTING;
   connectionStartTime = millis();
-  lastDisconnectReason.store(0);
   connectedIP.clear();
   connectionError.clear();
   requestUpdate();
@@ -578,6 +578,8 @@ void WifiSelectionActivity::attemptConnection() {
     LOG_ERR("WIFI", "Failed to read station MAC for hostname (err=%d)", static_cast<int>(macResult));
   }
 
+  // From here on a disconnect reason belongs to this try (the disconnect above reports one too).
+  lastDisconnectReason.store(0);
   if (selectedRequiresPassword && !enteredPassword.empty()) {
     WiFi.begin(selectedSSID.c_str(), enteredPassword.c_str());
   } else {
