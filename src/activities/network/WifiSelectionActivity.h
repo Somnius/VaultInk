@@ -122,6 +122,9 @@ class WifiSelectionActivity final : public Activity, private UiAppHost {
   static constexpr unsigned long AUTO_CONNECTION_TIMEOUT_MS = 7000;
   unsigned long connectionStartTime = 0;
   unsigned long scanStartTime = 0;
+  // When the current automatic join started (its first scan); second tries are held to
+  // wifijoin::SECOND_TRY_BUDGET_MS from here.
+  unsigned long autoJoinStartTime = 0;
 
   // Records the radio's reason for each disconnect while this screen is up, for the log line of a
   // join that gave up. 0 = not registered.
@@ -157,7 +160,7 @@ class WifiSelectionActivity final : public Activity, private UiAppHost {
   void checkConnectionStatus();
   void tryAutoConnectCredential(const WifiCredential& cred);
   bool tryNextSavedNetworkFromScan();
-  void handleAutoConnectFailure(bool timedOut);
+  void handleAutoConnectFailure(bool retryable);
   void logJoinGaveUp(const char* why, int status) const;
   void showNetworkListFromAutoConnect();
   static std::string getSignalStrengthIndicator(int32_t rssi);

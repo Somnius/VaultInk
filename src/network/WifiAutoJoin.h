@@ -26,6 +26,50 @@ constexpr size_t MAX_BLIND_TRIES = 3;
 // about 3.7 s), and the join by hand right after connected.
 constexpr int MAX_JOIN_TRIES = 2;
 
+// A second try starts only while it can end within this time from the start of the automatic join
+// (scans included). First tries are not cut by it: every saved network in range gets one, as
+// before. So with one saved network that never answers the list is up after two 7 s tries plus
+// the scan, about 17 s; second tries never run past 30 s; and when the first tries alone take
+// 23 s or more (four networks that all time out) there is no second try at all.
+constexpr uint32_t SECOND_TRY_BUDGET_MS = 30000;
+
+inline bool secondTryFits(const uint32_t elapsedMs, const uint32_t tryMs) {
+  return elapsedMs <= SECOND_TRY_BUDGET_MS && tryMs <= SECOND_TRY_BUDGET_MS - elapsedMs;
+}
+
+// The radio's reasons for a disconnect (wifi_err_reason_t) that this file acts on.
+constexpr uint8_t REASON_ASSOC_LEAVE = 8;  // the reader left by itself, as before every try
+constexpr uint8_t REASON_MIC_FAILURE = 14;
+constexpr uint8_t REASON_4WAY_HANDSHAKE_TIMEOUT = 15;
+constexpr uint8_t REASON_IE_IN_4WAY_DIFFERS = 17;
+constexpr uint8_t REASON_CIPHER_SUITE_REJECTED = 24;
+constexpr uint8_t REASON_802_1X_AUTH_FAILED = 23;
+constexpr uint8_t REASON_BAD_CIPHER_OR_AKM = 29;
+constexpr uint8_t REASON_NO_AP_FOUND = 201;
+constexpr uint8_t REASON_AUTH_FAIL = 202;
+constexpr uint8_t REASON_HANDSHAKE_TIMEOUT = 204;
+
+// Whether a try that ran out of time with this disconnect reason is worth a second one. No for
+// the reasons that say the network answered and the password or its security settings did not
+// fit (a wrong password can sit at "disconnected" until the 7 s are over, so the status does not
+// tell), and for "no such network". Yes for no reason at all (0, the case seen on the reader is
+// not known to have had one) and for the ones that also mean the access point just did not
+// answer in time: authentication expired (2), association failed (203), beacon timeout (200).
+constexpr bool retryAfterTimeout(const uint8_t reason) {
+  return !(reason == REASON_MIC_FAILURE || reason == REASON_4WAY_HANDSHAKE_TIMEOUT ||
+           (reason >= REASON_IE_IN_4WAY_DIFFERS && reason <= REASON_CIPHER_SUITE_REJECTED) ||
+           reason == REASON_BAD_CIPHER_OR_AKM || reason == REASON_NO_AP_FOUND || reason == REASON_AUTH_FAIL ||
+           reason == REASON_HANDSHAKE_TIMEOUT);
+}
+
+// The reason to keep for the current try when the radio reports `incoming`: the reader's own
+// leave is ignored (it is the disconnect that prepares the try and can arrive after the try's
+// reason was cleared), and a reason that rules out a second try is not replaced by a later one.
+constexpr uint8_t mergeReason(const uint8_t kept, const uint8_t incoming) {
+  if (incoming == REASON_ASSOC_LEAVE) return kept;
+  return retryAfterTimeout(kept) ? incoming : kept;
+}
+
 // What one scan gave.
 enum class Scan : uint8_t {
   Ok,      // at least one network
@@ -97,10 +141,12 @@ struct Next {
 // The next step of an automatic join. `scanTries` counts the scans started so far; `candidates`
 // comes from savedInRange() after a scan that listed networks and from blindOrder() otherwise;
 // `attempted` holds the names already tried in this session, one entry per try; `timedOut` the
-// names whose try ended without an answer from the network (not refused, not "no such network").
-// Those get tries up to MAX_JOIN_TRIES, after every candidate had its first.
+// names whose try ended without an answer from the network (not refused, not "no such network",
+// and retryAfterTimeout() of its disconnect reason). Those get tries up to MAX_JOIN_TRIES, after
+// every candidate had its first, and only with `secondTries` (secondTryFits() of the time so far).
 inline Next nextStep(const Scan scan, const int scanTries, const std::vector<std::string>& candidates,
-                     const std::vector<std::string>& attempted, const std::vector<std::string>& timedOut = {}) {
+                     const std::vector<std::string>& attempted, const std::vector<std::string>& timedOut = {},
+                     const bool secondTries = true) {
   Next next;
   if (scan != Scan::Ok && scanTries < MAX_SCAN_TRIES) {
     next.step = Step::Rescan;
@@ -114,7 +160,7 @@ inline Next nextStep(const Scan scan, const int scanTries, const std::vector<std
     }
   }
   for (const auto& ssid : candidates) {
-    if (std::find(timedOut.begin(), timedOut.end(), ssid) != timedOut.end() &&
+    if (secondTries && std::find(timedOut.begin(), timedOut.end(), ssid) != timedOut.end() &&
         std::count(attempted.begin(), attempted.end(), ssid) < MAX_JOIN_TRIES) {
       next.step = Step::Join;
       next.ssid = ssid;

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <set>
 #include <string>
 #include <vector>
@@ -133,7 +134,8 @@ TEST(WifiAutoJoinTest, ANetworkWhoseTryTimedOutIsTriedOnceMore) {
 }
 
 TEST(WifiAutoJoinTest, ARefusedOrMissingNetworkIsNotTriedAgain) {
-  // "Away" answered (wrong password, or no such network): a second try would only cost time.
+  // "Away" ended with "connect failed" or "no such network", so the screen did not put it in
+  // timedOut: a second try would only cost time.
   const auto next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, {"Away", "Home"}, {"Away", "Home"}, {});
   EXPECT_EQ(next.step, wifijoin::Step::List);
   EXPECT_EQ(next.notice, wifijoin::Notice::SavedFailed);
@@ -162,4 +164,88 @@ TEST(WifiAutoJoinTest, ATimedOutUnseenNetworkIsTriedOnceMoreToo) {
 TEST(WifiAutoJoinTest, ATimedOutNameThatIsNoCandidateIsIgnored) {
   const auto next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, {"Home"}, {"Home"}, {"Other"});
   EXPECT_EQ(next.step, wifijoin::Step::List);
+}
+
+TEST(WifiAutoJoinTest, AWrongPasswordThatSatOutTheSevenSecondsIsNotTriedAgain) {
+  // A wrong password can stay at "disconnected" until the limit: the radio's reason tells.
+  for (const uint8_t reason :
+       {wifijoin::REASON_4WAY_HANDSHAKE_TIMEOUT, wifijoin::REASON_HANDSHAKE_TIMEOUT, wifijoin::REASON_AUTH_FAIL,
+        wifijoin::REASON_MIC_FAILURE, wifijoin::REASON_802_1X_AUTH_FAILED, wifijoin::REASON_BAD_CIPHER_OR_AKM,
+        wifijoin::REASON_NO_AP_FOUND, uint8_t{18}, uint8_t{22}}) {
+    EXPECT_FALSE(wifijoin::retryAfterTimeout(reason)) << static_cast<int>(reason);
+  }
+  // No reason, or one that also means the access point did not answer in time.
+  for (const uint8_t reason : {uint8_t{0}, uint8_t{2}, uint8_t{39}, uint8_t{200}, uint8_t{203}}) {
+    EXPECT_TRUE(wifijoin::retryAfterTimeout(reason)) << static_cast<int>(reason);
+  }
+}
+
+TEST(WifiAutoJoinTest, TheReadersOwnLeaveIsNotTheReasonOfATry) {
+  // attemptConnection disconnects first; that event can arrive after the reason was cleared.
+  EXPECT_EQ(wifijoin::mergeReason(0, wifijoin::REASON_ASSOC_LEAVE), 0);
+  EXPECT_EQ(wifijoin::mergeReason(wifijoin::REASON_AUTH_FAIL, wifijoin::REASON_ASSOC_LEAVE),
+            wifijoin::REASON_AUTH_FAIL);
+  EXPECT_EQ(wifijoin::mergeReason(0, 200), 200);
+  EXPECT_EQ(wifijoin::mergeReason(200, 2), 2);
+  // A password reason stays, whatever the radio says while it tries again by itself.
+  EXPECT_EQ(wifijoin::mergeReason(wifijoin::REASON_4WAY_HANDSHAKE_TIMEOUT, 200),
+            wifijoin::REASON_4WAY_HANDSHAKE_TIMEOUT);
+  EXPECT_EQ(wifijoin::mergeReason(2, wifijoin::REASON_AUTH_FAIL), wifijoin::REASON_AUTH_FAIL);
+}
+
+TEST(WifiAutoJoinTest, SecondTriesStopAtTheBudget) {
+  constexpr uint32_t TRY_MS = 7000;  // AUTO_CONNECTION_TIMEOUT_MS
+  // One network: scan 3 s, first try 7 s, so the second starts at 10 s and ends by 17 s.
+  EXPECT_TRUE(wifijoin::secondTryFits(10000, TRY_MS));
+  // The last moment a second try may start: it ends at the 30 s.
+  EXPECT_TRUE(wifijoin::secondTryFits(wifijoin::SECOND_TRY_BUDGET_MS - TRY_MS, TRY_MS));
+  EXPECT_FALSE(wifijoin::secondTryFits(wifijoin::SECOND_TRY_BUDGET_MS - TRY_MS + 1, TRY_MS));
+  // Four networks that all timed out (28 s of first tries): none is tried again.
+  EXPECT_FALSE(wifijoin::secondTryFits(3000 + 4 * TRY_MS, TRY_MS));
+  EXPECT_FALSE(wifijoin::secondTryFits(wifijoin::SECOND_TRY_BUDGET_MS + 1, 0));
+
+  // Without the budget nextStep ends the join where it would have tried again.
+  const Names inRange{"Work", "Home"};
+  auto next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, inRange, {"Work", "Home"}, {"Work", "Home"}, false);
+  EXPECT_EQ(next.step, wifijoin::Step::List);
+  EXPECT_EQ(next.notice, wifijoin::Notice::SavedFailed);
+  // First tries are not cut by it.
+  next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, inRange, {"Work"}, {"Work"}, false);
+  EXPECT_EQ(next.step, wifijoin::Step::Join);
+  EXPECT_EQ(next.ssid, "Home");
+}
+
+TEST(WifiAutoJoinTest, WorstCaseOfSecondTriesIsBounded) {
+  // Walk the join as the screen does, every try timing out after 7 s, for 1 to 5 saved networks.
+  constexpr uint32_t TRY_MS = 7000;
+  constexpr uint32_t SCAN_MS = 3000;
+  for (int count = 1; count <= 5; ++count) {
+    Names inRange;
+    for (int i = 0; i < count; ++i) inRange.push_back("Net" + std::to_string(i));
+    Names attempted;
+    Names timedOut;
+    uint32_t elapsed = SCAN_MS;
+    for (;;) {
+      const auto next = wifijoin::nextStep(wifijoin::Scan::Ok, 1, inRange, attempted, timedOut,
+                                           wifijoin::secondTryFits(elapsed, TRY_MS));
+      if (next.step != wifijoin::Step::Join) break;
+      const bool second = std::find(attempted.begin(), attempted.end(), next.ssid) != attempted.end();
+      if (second) {
+        EXPECT_LE(elapsed + TRY_MS, wifijoin::SECOND_TRY_BUDGET_MS);
+      }
+      attempted.push_back(next.ssid);
+      if (!second) timedOut.push_back(next.ssid);
+      elapsed += TRY_MS;
+      ASSERT_LE(attempted.size(), static_cast<size_t>(count) * wifijoin::MAX_JOIN_TRIES);
+    }
+    // Every network had its first try; the total is the first tries, or 30 s when second tries ran.
+    EXPECT_GE(attempted.size(), static_cast<size_t>(count));
+    EXPECT_LE(elapsed, std::max<uint32_t>(wifijoin::SECOND_TRY_BUDGET_MS, SCAN_MS + count * TRY_MS));
+    if (count == 1) {
+      EXPECT_EQ(elapsed, SCAN_MS + 2 * TRY_MS);
+    }
+    if (count >= 4) {
+      EXPECT_EQ(attempted.size(), static_cast<size_t>(count));
+    }
+  }
 }

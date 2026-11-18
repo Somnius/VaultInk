@@ -128,10 +128,13 @@ void WifiSelectionActivity::onEnter() {
   autoAttemptedSsids.reserve(savedCredentialCount);
   lastDisconnectReason.store(0);
   if (disconnectEventId == 0) {
-    disconnectEventId = static_cast<int>(
-        WiFi.onEvent([](arduino_event_id_t,
-                        arduino_event_info_t info) { lastDisconnectReason.store(info.wifi_sta_disconnected.reason); },
-                     ARDUINO_EVENT_WIFI_STA_DISCONNECTED));
+    disconnectEventId = static_cast<int>(WiFi.onEvent(
+        [](arduino_event_id_t, arduino_event_info_t info) {
+          // Only this handler and the loop's store(0) write it, so load-then-store is enough.
+          lastDisconnectReason.store(
+              wifijoin::mergeReason(lastDisconnectReason.load(), info.wifi_sta_disconnected.reason));
+        },
+        ARDUINO_EVENT_WIFI_STA_DISCONNECTED));
   }
 
   // Read the hardware-derived station MAC directly. WiFi.macAddress() depends
@@ -164,6 +167,7 @@ void WifiSelectionActivity::onEnter() {
   // network list is shown with the reason. The user can interrupt this and
   // show the scan result.
   if (allowAutoConnect && savedCredentialCount != 0) {
+    autoJoinStartTime = millis();
     startWifiScan(true);
     return;
   }
@@ -485,7 +489,8 @@ bool WifiSelectionActivity::tryNextSavedNetworkFromScan() {
   for (;;) {
     // The scans of this join are over here, so a scan is never asked for again.
     const wifijoin::Next next =
-        wifijoin::nextStep(lastScan, wifijoin::MAX_SCAN_TRIES, autoOrder, autoAttemptedSsids, autoTimedOutSsids);
+        wifijoin::nextStep(lastScan, wifijoin::MAX_SCAN_TRIES, autoOrder, autoAttemptedSsids, autoTimedOutSsids,
+                           wifijoin::secondTryFits(millis() - autoJoinStartTime, AUTO_CONNECTION_TIMEOUT_MS));
     if (next.step != wifijoin::Step::Join) {
       listNotice = next.notice;
       LOG_INF("WIFI", "No saved network joined (reason %d: 1 none in range, 2 saved failed, 3 scan failed; %u tries)",
@@ -511,25 +516,23 @@ void WifiSelectionActivity::logJoinGaveUp(const char* why, const int status) con
           autoConnecting ? "automatic" : "by hand");
 }
 
-void WifiSelectionActivity::handleAutoConnectFailure(const bool timedOut) {
-  if (timedOut &&
+void WifiSelectionActivity::handleAutoConnectFailure(const bool retryable) {
+  if (retryable &&
       std::find(autoTimedOutSsids.begin(), autoTimedOutSsids.end(), selectedSSID) == autoTimedOutSsids.end()) {
     autoTimedOutSsids.push_back(selectedSSID);
   }
   WiFi.disconnect();
 
-  if (!networks.empty()) {
-    if (tryNextSavedNetworkFromScan()) {
-      return;
-    }
-    autoConnecting = false;
-    state = WifiSelectionState::NETWORK_LIST;
-    selectedNetworkIndex = 0;
-    requestUpdate();
+  // An automatic try only follows a processed scan, so the order to follow is there, also after a
+  // scan that gave nothing (the unseen tries). No scan is started from here: it would start the
+  // scan count over and drop what this join has tried.
+  if (tryNextSavedNetworkFromScan()) {
     return;
   }
-
-  startWifiScan(true);
+  autoConnecting = false;
+  state = WifiSelectionState::NETWORK_LIST;
+  selectedNetworkIndex = 0;
+  requestUpdate();
 }
 
 void WifiSelectionActivity::showNetworkListFromAutoConnect() {
@@ -676,7 +679,8 @@ void WifiSelectionActivity::checkConnectionStatus() {
     WiFi.disconnect();
     connectionError = tr(STR_ERROR_CONNECTION_TIMEOUT);
     if (autoConnecting) {
-      handleAutoConnectFailure(true);
+      // A wrong password can sit out the limit too: the radio's reason says whether to try again.
+      handleAutoConnectFailure(wifijoin::retryAfterTimeout(lastDisconnectReason.load()));
       return;
     }
     state = WifiSelectionState::CONNECTION_FAILED;
