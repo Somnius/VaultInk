@@ -43,6 +43,16 @@ struct Progress {
     popup = GUI.drawPopup(r, text);
     last = -1;
   }
+  // Sync all: the next vault's popup replaces this one. Popups differ in width with the vault
+  // name, so the old one (with its frame) is wiped first or its edges stay around the new one.
+  void replace(GfxRenderer& r, const char* text) {
+    {
+      RenderLock lock;
+      const int f = UITheme::getInstance().getMetrics().popupFrameThickness;
+      if (popup.width > 0) r.fillRect(popup.x - f, popup.y - f, popup.width + f * 2, popup.height + f * 2, false);
+    }
+    begin(r, text);
+  }
   void set(const int percent) {
     resetTaskWatchdogIfSubscribed();
     if (!renderer || percent == last) return;
@@ -463,6 +473,7 @@ void LiveSyncActivity::syncNow() {
 void LiveSyncActivity::syncAll() {
   const Busy busy(syncing);
   int total = 0, good = 0;
+  bool firstPopup = true;
   std::string onlyResult;
   for (int s = 1; s <= livesyncdev::MAX_PROFILES; ++s) {
     if (!(syncMask & (1u << (s - 1))) || !livesyncdev::hasProfile(s)) continue;
@@ -477,7 +488,13 @@ void LiveSyncActivity::syncAll() {
       onlyResult = text;
       continue;
     }
-    progress.begin(renderer, (std::string(tr(STR_LIVESYNC_SYNCING)) + " " + p.vaultName).c_str());
+    const std::string text = std::string(tr(STR_LIVESYNC_SYNCING)) + " " + p.vaultName;
+    if (firstPopup) {
+      progress.begin(renderer, text.c_str());
+      firstPopup = false;
+    } else {
+      progress.replace(renderer, text.c_str());
+    }
     // The sync before this one closed its HTTPS session, but it may have left the heap in pieces:
     // a new TLS session needs one free block of this size (the limit the downloads use too).
     if (total > 1 && ESP.getMaxAllocHeap() < HttpDownloader::MIN_TLS_MAX_ALLOC) {
