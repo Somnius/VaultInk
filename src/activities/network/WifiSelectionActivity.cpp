@@ -22,6 +22,18 @@
 namespace fui = freeink::ui;
 
 namespace {
+// The channel of scan result i, as the join log shows it; the simulator's WiFi stand-in has none (0).
+int scanChannel(const int i) {
+#ifdef SIMULATOR
+  (void)i;
+  return 0;
+#else
+  return WiFi.channel(i);
+#endif
+}
+}  // namespace
+
+namespace {
 constexpr fui::ActionId ACTION_ROW = 1;
 constexpr fui::ActionId ACTION_SCAN = 2;
 constexpr fui::ActionId ACTION_PROMPT = 3;
@@ -127,6 +139,7 @@ void WifiSelectionActivity::onEnter() {
   const size_t savedCredentialCount = WIFI_STORE.getCredentialCount();
   autoAttemptedSsids.reserve(savedCredentialCount);
   lastDisconnectReason.store(0);
+#ifndef SIMULATOR  // the simulator's WiFi stand-in has no disconnect event: no reason is logged there
   if (disconnectEventId == 0) {
     disconnectEventId = static_cast<int>(WiFi.onEvent(
         [](arduino_event_id_t, arduino_event_info_t info) {
@@ -136,6 +149,7 @@ void WifiSelectionActivity::onEnter() {
         },
         ARDUINO_EVENT_WIFI_STA_DISCONNECTED));
   }
+#endif
 
   // Read the hardware-derived station MAC directly. WiFi.macAddress() depends
   // on the STA netif already existing, but this screen is entered while WiFi
@@ -181,10 +195,12 @@ void WifiSelectionActivity::onExit() {
 
   LOG_DBG("WIFI", "Free heap at onExit start: %d bytes", ESP.getFreeHeap());
 
+#ifndef SIMULATOR
   if (disconnectEventId != 0) {
     WiFi.removeEvent(static_cast<wifi_event_id_t>(disconnectEventId));
     disconnectEventId = 0;
   }
+#endif
 
   // Stop any ongoing WiFi scan
   LOG_DBG("WIFI", "Deleting WiFi scan...");
@@ -275,13 +291,13 @@ void WifiSelectionActivity::processWifiScanResults() {
       WifiNetworkInfo network;
       network.ssid = ssid;
       network.rssi = rssi;
-      network.channel = WiFi.channel(i);
+      network.channel = scanChannel(i);
       network.isEncrypted = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
       network.hasSavedPassword = WIFI_STORE.hasSavedCredential(network.ssid);
       networks.push_back(std::move(network));
     } else if (rssi > it->rssi) {
       it->rssi = rssi;
-      it->channel = WiFi.channel(i);
+      it->channel = scanChannel(i);
       it->isEncrypted = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
     }
   }
