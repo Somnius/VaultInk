@@ -15,6 +15,7 @@ Checked on a real X4 Pro (2026-11-18):
 Tested on a computer only:
 
 - **A saved network that ran out of time gets a second try** before the list is shown, as long as it fits in 30 seconds. A wrong password or a missing network still gets one try. On my reader the timeout ("Saved network didn't join") did not happen again during the test, so the second try itself has not run there yet.
+- **Sync all popups.** In LiveSync's Sync all, each vault's "Syncing..." box now replaces the one before it. Before, a shorter vault name left the edges of the last box around it. Sync all ran fine on my reader with this build, but the reader can't take screenshots during a sync, so I haven't seen the new box itself yet.
 
 ## 0.78.0 (2026-11-18)
 
