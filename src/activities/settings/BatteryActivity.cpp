@@ -28,7 +28,11 @@ bool readCw2017Temperature(int& tenths) {
 #else
   const auto& gauge = BoardConfig::ACTIVE.batteryGauge;
   if (gauge.gaugeAddr == 0 || gauge.gaugeType != BoardConfig::GaugeType::Cw2017) return false;
+#if SOC_I2C_NUM > 1
   TwoWire& wire = gauge.i2cBus == 1 ? Wire1 : Wire;
+#else
+  TwoWire& wire = Wire;  // one I2C bus on this chip (ESP32-C3)
+#endif
   wire.beginTransmission(gauge.gaugeAddr);
   wire.write(static_cast<uint8_t>(0x06));
   if (wire.endTransmission(false) != 0) return false;
