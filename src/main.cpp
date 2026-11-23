@@ -736,6 +736,12 @@ void setupDisplayAndFonts(bool seamless = false) {
   renderer.insertFont(NOTOSANS_12_FONT_ID, notosans12FontFamily);
   renderer.insertFont(NOTOSANS_16_FONT_ID, notosans16FontFamily);
   renderer.insertFont(NOTOSANS_18_FONT_ID, notosans18FontFamily);
+#else
+  // Only 14 pt is built in (the X3 build, to fit its app slot). Screens that draw with a fixed
+  // built-in size (the sleep clock, dice, the slider title) get 14 pt instead of no text.
+  renderer.insertFont(NOTOSANS_12_FONT_ID, notosans14FontFamily);
+  renderer.insertFont(NOTOSANS_16_FONT_ID, notosans14FontFamily);
+  renderer.insertFont(NOTOSANS_18_FONT_ID, notosans14FontFamily);
 #endif  // OMIT_FONTS
   renderer.insertFont(UI_10_FONT_ID, ui10FontFamily);
   renderer.insertFont(UI_12_FONT_ID, ui12FontFamily);
