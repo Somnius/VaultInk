@@ -79,6 +79,8 @@ fi
 # One build after the other, never two at once.
 taskset -c "0-$(( $(nproc) * 3 / 4 - 1 ))" nice -n 10 "$PIO" run -e x4pro-gh_release
 taskset -c "0-$(( $(nproc) * 3 / 4 - 1 ))" nice -n 10 "$PIO" run -e x4pro-dev-user
+# The X3 and X4 (ESP32-C3) image, with the tool-scons detour (see the script).
+PIO="$PIO" scripts/build_c3.sh
 
 # The developer build that goes to users must be the read-only link. The commands of the
 # developer's own builds (keys, touches, SD files, flashing) have this HELP text; it must not be
@@ -107,6 +109,7 @@ for page in debug.html debuglib.js; do
 done
 publish_backup_page "$PAGES"
 cp .pio/build/x4pro-gh_release/firmware.factory.bin "$PAGES/vaultink-x4pro-factory.bin"
+cp .pio/build/gh_release/firmware.factory.bin "$PAGES/vaultink-x3-x4-factory.bin"
 # The developer build's full image, made the same way (firmware.factory.bin of its own env).
 cp .pio/build/x4pro-dev-user/firmware.factory.bin "$PAGES/vaultink-x4pro-dev-factory.bin"
 cat > "$PAGES/manifest-dev.json" <<EOF
@@ -129,7 +132,8 @@ cat > "$PAGES/manifest.json" <<EOF
   "commit": "$(git rev-parse --short HEAD)",
   "new_install_prompt_erase": true,
   "builds": [
-    { "chipFamily": "ESP32-S3", "parts": [ { "path": "vaultink-x4pro-factory.bin", "offset": 0 } ] }
+    { "chipFamily": "ESP32-S3", "parts": [ { "path": "vaultink-x4pro-factory.bin", "offset": 0 } ] },
+    { "chipFamily": "ESP32-C3", "parts": [ { "path": "vaultink-x3-x4-factory.bin", "offset": 0 } ] }
   ]
 }
 EOF
@@ -143,10 +147,14 @@ RELEASE_FILES=(
   "$RELEASE/vaultink-${VERSION}-x4pro-factory.bin"
   "$RELEASE/vaultink-${VERSION}-x4pro.bin"
   "$RELEASE/vaultink-${VERSION}-x4pro-dev-factory.bin"
+  "$RELEASE/vaultink-${VERSION}-x3-x4-factory.bin"
+  "$RELEASE/vaultink-${VERSION}-x3-x4.bin"
 )
 cp .pio/build/x4pro-gh_release/firmware.factory.bin "${RELEASE_FILES[0]}"
 cp .pio/build/x4pro-gh_release/firmware.bin "${RELEASE_FILES[1]}"
 cp .pio/build/x4pro-dev-user/firmware.factory.bin "${RELEASE_FILES[2]}"
+cp .pio/build/gh_release/firmware.factory.bin "${RELEASE_FILES[3]}"
+cp .pio/build/gh_release/firmware.bin "${RELEASE_FILES[4]}"
 
 if [[ "$DRY_RUN" == 1 ]]; then
   echo "Dry run for ${VERSION}: nothing was pushed, tagged or uploaded."

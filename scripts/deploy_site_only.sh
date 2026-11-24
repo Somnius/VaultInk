@@ -48,7 +48,11 @@ gh release download "$VERSION" -p "vaultink-${VERSION}-x4pro-factory.bin" -D "$O
 mv "$OUT/vaultink-${VERSION}-x4pro-factory.bin" "$OUT/vaultink-x4pro-factory.bin"
 # The X3/X4 (ESP32-C3) image, from 0.79.0 on. esp-web-tools picks the build by the chip it finds.
 C3_BUILD=""
-if gh release view "$VERSION" --json assets --jq '.assets[].name' | grep -q -x -F "vaultink-${VERSION}-x3-x4-factory.bin"; then
+if ! RELEASE_ASSETS=$(gh release view "$VERSION" --json assets --jq '.assets[].name'); then
+  echo "Could not list the files of release $VERSION; nothing was published." >&2
+  exit 1
+fi
+if grep -q -x -F "vaultink-${VERSION}-x3-x4-factory.bin" <<<"$RELEASE_ASSETS"; then
   gh release download "$VERSION" -p "vaultink-${VERSION}-x3-x4-factory.bin" -D "$OUT"
   [[ -s "$OUT/vaultink-${VERSION}-x3-x4-factory.bin" ]] || { echo "X3/X4 image download failed; nothing was published." >&2; exit 1; }
   mv "$OUT/vaultink-${VERSION}-x3-x4-factory.bin" "$OUT/vaultink-x3-x4-factory.bin"

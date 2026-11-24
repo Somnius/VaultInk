@@ -141,13 +141,13 @@ and PBKDF2 timing, the hardware checklist. Reading statistics: ✅ 0.51.0 the fi
   assets have no CORS headers). Marked as a test build; the button unlocks after ticking "I
   understand this is untested". ✅ Device picker (0.8.0); X4 Pro steps (0.8.1): back up the
   SD card, put the app bin (not factory) on it, boot mode (Power + both page buttons, from Lef),
-  what erasing wipes; X4/X3 point to CrossPoint, since VaultInk
-  is X4 Pro only.
+  what erasing wipes; X4/X3 pointed to CrossPoint until 0.79.0 (see below).
 * ✅ X3 and X4 (0.79.0): the ESP32-C3 build (`gh_release`, `vaultink-<ver>-x3-x4.bin`) fits after
   `-DOMIT_FONTS` (Noto Sans 14 pt only, 6.31 of 6.55 MB); `Wire1` only where the chip has two I2C
   buses; the install page offers it (ESP32-C3 entry in manifest.json). Not run on an X3 or X4 yet.
-  Building it locally needs `.work/c3build.sh` (platform 55.03.311 wants tool-scons 4.8.1 but
+  Building it locally needs `scripts/build_c3.sh` (platform 55.03.311 wants tool-scons 4.8.1 but
   PlatformIO 6.2 runs 4.11.1, and with custom_sdkconfig the platform deletes it mid-build).
+  Known limit: the host tests are built with all four sizes; the 14 pt-only path has no host test.
 * ✅ Fix: CrossPoint's `release.yml` was still building firmware on GitHub for every published
   release and replacing the locally built OTA file (`--clobber`). Found on 0.8.5; that run was
   cancelled before it uploaded. Removed `release.yml` and `release_candidate.yml`; local builds put
