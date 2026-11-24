@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VaultInk: books and Obsidian vaults on the Xteink X4 Pro</title>
-  <meta name="description" content="Free firmware for the Xteink X4 Pro e-reader: books, comics and Obsidian vaults. Install it from your browser.">
+  <title>VaultInk: books and Obsidian vaults on the Xteink X4 Pro, X4 and X3</title>
+  <meta name="description" content="Free firmware for the Xteink X4 Pro, X4 and X3 e-readers: books, comics and Obsidian vaults. Install it from your browser.">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#F3F1EC" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#161B24" media="(prefers-color-scheme: dark)">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="VaultInk">
-  <meta property="og:title" content="VaultInk: books and Obsidian vaults on the Xteink X4 Pro">
-  <meta property="og:description" content="Free firmware for the Xteink X4 Pro. Install it from your browser.">
+  <meta property="og:title" content="VaultInk: books and Obsidian vaults on the Xteink X4 Pro, X4 and X3">
+  <meta property="og:description" content="Free firmware for the Xteink X4 Pro, X4 and X3. Install it from your browser.">
   <meta property="og:url" content="https://somnius.github.io/VaultInk/">
   <meta property="og:image" content="https://somnius.github.io/VaultInk/og-2.png">
   <meta property="og:image:secure_url" content="https://somnius.github.io/VaultInk/og-2.png">
@@ -312,9 +312,9 @@
 <main>
   <div class="wrap hero">
     <div>
-      <p class="eyebrow sans">Free firmware for the Xteink X4 Pro</p>
+      <p class="eyebrow sans">Free firmware for the Xteink X4 Pro, X4 and X3</p>
       <h1>Your books and your <em>Obsidian vaults</em>, on paper-like ink.</h1>
-      <p class="lead">VaultInk turns the Xteink X4 Pro e-reader into a reader for books, comics and
+      <p class="lead">VaultInk turns the Xteink X4 Pro, X4 and X3 e-readers into readers for books, comics and
         your Obsidian notes. Read notes like book pages, follow their links, search every vault, edit
         a line, and keep them in sync over Wi-Fi.</p>
       <div class="actions">
@@ -362,7 +362,7 @@
           </select>
           <div id="devicePanels" aria-live="polite">
 
-          <div data-device="x4pro">
+          <div data-device="x4pro x4 x3">
             <ol class="steps">
               <li>
                 <h3>Back up your SD card</h3>
@@ -372,16 +372,23 @@
               <li>
                 <h3>Put the update file on the SD card (for later)</h3>
                 <p>From the <a href="https://github.com/Somnius/VaultInk/releases/latest">latest
-                  release</a>, download <code id="appBin">vaultink-&lt;version&gt;-x4pro.bin</code> (the
+                  release</a>, download <code data-device="x4pro" id="appBin">vaultink-&lt;version&gt;-x4pro.bin</code><code data-device="x4 x3" id="appBinC3" hidden>vaultink-&lt;version&gt;-x3-x4.bin</code> (the
                   file <em>without</em> "factory" in its name) and copy it to the root of the SD card.
                   With it there, you can reinstall VaultInk from the reader itself under
                   <kbd>Settings → System → SD Card Firmware Update</kbd>. Don't use the factory file for
                   that; it is only for this page.</p>
               </li>
-              <li>
+              <li data-device="x4pro">
                 <h3>Put the X4 Pro into boot mode</h3>
                 <p>With the reader switched off, press and hold <strong>Power</strong>, then also press
                   and hold <strong>both page-turn buttons</strong>, and keep holding them.</p>
+              </li>
+              <li data-device="x4 x3" hidden>
+                <h3>Get the reader ready</h3>
+                <p>Switch it on and connect it. If the installer doesn't find it, put it into download
+                  mode as in <a href="https://crosspointreader.com/#flash-tools">CrossPoint's flashing
+                  steps</a> for your model. The X4 and X3 share one VaultInk build, which finds out
+                  which of the two it runs on when it starts.</p>
               </li>
               <li>
                 <h3>Connect it to your computer</h3>
@@ -410,17 +417,10 @@
             <p class="version sans" id="version"></p>
           </div>
 
-          <div data-device="x4 x3" hidden>
-            <p><strong>VaultInk doesn't run on the X4 or X3 yet.</strong> They use a smaller chip
-              (ESP32-C3) with less memory, and VaultInk is built for the X4 Pro only for now. The
-              installer would refuse the device anyway.</p>
-            <p>For these readers, use <a href="https://crosspointreader.com/#flash-tools">CrossPoint
-              Reader</a>, the firmware VaultInk is based on.</p>
-          </div>
-
           <div data-device="other" hidden>
-            <p>VaultInk only supports the <strong>Xteink X4 Pro</strong> for now. The model name is on
-              the box and on the back of the reader. If you have an X4 or X3, pick it above.</p>
+            <p>VaultInk supports the <strong>Xteink X4 Pro</strong>, <strong>X4</strong> and
+              <strong>X3</strong>. The model name is on the box and on the back of the reader; pick it
+              above.</p>
           </div>
           </div>
         </div>
@@ -1290,6 +1290,7 @@
   fetch("manifest.json").then(r => r.json()).then(m => {
     document.getElementById("version").textContent = "Version " + m.version + " · built " + (m.built || "");
     document.getElementById("appBin").textContent = "vaultink-" + m.version + "-x4pro.bin";
+    document.getElementById("appBinC3").textContent = "vaultink-" + m.version + "-x3-x4.bin";
     document.getElementById("heroVersion").textContent = "Latest version: " + m.version + ".";
   }).catch(() => {});
 </script>

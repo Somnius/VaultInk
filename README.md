@@ -7,12 +7,12 @@
 
 <h1 align="center">VaultInk</h1>
 
-<p align="center">Books and Obsidian vaults on the Xteink X4 Pro.</p>
+<p align="center">Books and Obsidian vaults on the Xteink X4 Pro, X4 and X3.</p>
 
 <p align="center">
   <a href="https://github.com/Somnius/VaultInk/releases"><img src="https://img.shields.io/github/v/release/Somnius/VaultInk?label=version&sort=semver&cacheSeconds=300" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT licence"></a>
-  <img src="https://img.shields.io/badge/device-Xteink%20X4%20Pro-555" alt="Xteink X4 Pro">
+  <img src="https://img.shields.io/badge/device-Xteink%20X4%20Pro%20%7C%20X4%20%7C%20X3-555" alt="Xteink X4 Pro, X4 and X3">
   <img src="https://img.shields.io/badge/ESP32--S3-E7352C?logo=espressif&logoColor=white" alt="ESP32-S3">
   <img src="https://img.shields.io/badge/C%2B%2B20-00599C?logo=cplusplus&logoColor=white" alt="C++20">
   <img src="https://img.shields.io/badge/PlatformIO-F5822A?logo=platformio&logoColor=white" alt="PlatformIO">
@@ -32,7 +32,7 @@
   <a href="docs/companion.md">Companion guide</a>
 </p>
 
-VaultInk is firmware for the Xteink X4 Pro e-reader. It keeps everything
+VaultInk is firmware for the Xteink X4 Pro, X4 and X3 e-readers. It keeps everything
 [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) does for books, and adds
 a way to carry your [Obsidian](https://obsidian.md) notes with you. You can read them, search them
 and follow their links. Later on you'll be able to edit and sync them too.
@@ -40,13 +40,13 @@ and follow their links. Later on you'll be able to edit and sync them too.
 It's free and open source (my code is MIT; the firmware binaries are GPL-3.0-or-later, see [License](#license)). It is not affiliated with Obsidian, Xteink or CrossPoint.
 
 > [!WARNING]
-> **Still early.** VaultInk is at 0.77.2. Releases from 0.8.2 on have been tested on a real X4 Pro by one
+> **Still early.** VaultInk is at 0.79.0. Releases from 0.8.2 on have been tested on a real X4 Pro by one
 > tester (kos25k, UC8279 screen); the bugs he found are fixed and listed in the release notes. Much of the
 > newest work has been checked on his device up to 0.66.0 (the status bar page number, Hide Status Bar, search,
 > the Library and the battery page among them). Some of it has only run in the simulator so far: MOBI and AZW
 > books, Dice, VaultEUC and the Bluetooth keyboard. Back up your SD card. Most screenshots below come
 > from the simulator; each section says which. From 0.75.0 I can also check things on my own X4 Pro over USB; each release
-> note says what was checked there.
+> note says what was checked there. The X4 and X3 build is new in 0.79.0 and has not run on either reader yet.
 
 ## At a glance
 
@@ -90,6 +90,23 @@ Page background contrast with a preview, Random page!, the Library's format filt
 MOBI and AZW books, the status bar options with the book page number, and Advanced Typography.
 
 More screenshots are in the sections below and in [docs/](docs/).
+
+## New in 0.79.0: the X3 and X4
+
+VaultInk now has a build for the Xteink X3 and the original X4 too. Both use the smaller ESP32-C3 chip, so they share one firmware, which finds out which of the two it runs on when it starts. Install it from the [install page](https://somnius.github.io/VaultInk/) (pick X3 or X4), or put `vaultink-<version>-x3-x4.bin` on the SD card. The update check on the reader picks the right file for its model.
+
+The C3 has less flash and no extra memory (PSRAM), so this build is smaller than the X4 Pro one:
+
+| | X4 Pro | X3 and X4 |
+|---|---|---|
+| Built-in reading font | Noto Sans 12, 14, 16, 18 pt | Noto Sans 14 pt (other sizes and fonts download to the SD card from Manage Fonts) |
+| TTF/OTF fonts | yes | no (`.cpfont` only) |
+| SSH terminal and SFTP | yes | no |
+| USB Drive | yes | no |
+| GitHub certificate check | on | off |
+| Tested on the device | yes | not yet |
+
+Everything else is the same code. What I can't promise yet is how the parts that lean on memory behave on the C3: LiveSync, big PDFs, big pictures. If you have an X3 or X4 and try it, please open an issue with what worked and what didn't; a boot log helps a lot.
 
 ## New in 0.77.1: word gaps and the top swipe
 

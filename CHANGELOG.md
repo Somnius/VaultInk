@@ -2,6 +2,15 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
+## 0.79.0 (2026-11-24)
+
+VaultInk for the Xteink X3 and the original X4.
+
+- **A build for the X3 and X4.** Both use the ESP32-C3 chip and share one firmware, which finds out which of the two it is on when it starts. Install it from the install page (pick X3 or X4) or with `vaultink-0.79.0-x3-x4.bin` on the SD card. The update check on the reader picks the file for its own model.
+- **What's smaller there.** To fit the C3's flash, only Noto Sans 14 pt is built in; other sizes and fonts download to the SD card from Manage Fonts. No TTF/OTF fonts, SSH, SFTP or USB Drive, and the GitHub certificate check is off.
+- **Not tested on a device.** It builds and fits (6.3 of 6.55 MB), but nobody has run it on an X3 or X4 yet. LiveSync, big PDFs and big pictures may run short of memory on the C3. Please report what works.
+- The X4 Pro firmware is the same as 0.78.1, plus the build fixes for the simulator.
+
 ## 0.78.1 (2026-11-18)
 
 Fixes for Wi-Fi, the file browser header and GitHub downloads.

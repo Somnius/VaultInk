@@ -18,7 +18,8 @@ Status words used below: **must** (needed for the phase to be done), **should** 
 4. Fully free. No licences, device lock, accounts or payments. Donations go through a VaultInk page
    on lefteros.com.
 
-Non-goals for now: other devices than the X4 Pro, iOS, Obsidian plugins (Dataview, Excalidraw, Bases),
+Devices: the X4 Pro, and from 0.79.0 the X3 and X4 (one ESP32-C3 build: Noto Sans 14 pt only, no TTF/OTF, SSH, SFTP, USB Drive or GitHub certificate check; not yet run on either reader).
+Non-goals for now: other devices than the X4 Pro, X4 and X3, iOS, Obsidian plugins (Dataview, Excalidraw, Bases),
 graph view, audio, video, writing back canvas files.
 
 ## 2. Target hardware

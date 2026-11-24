@@ -46,6 +46,15 @@ trap 'rm -rf "$OUT"' EXIT
 cp site/* "$OUT/"
 gh release download "$VERSION" -p "vaultink-${VERSION}-x4pro-factory.bin" -D "$OUT"
 mv "$OUT/vaultink-${VERSION}-x4pro-factory.bin" "$OUT/vaultink-x4pro-factory.bin"
+# The X3/X4 (ESP32-C3) image, from 0.79.0 on. esp-web-tools picks the build by the chip it finds.
+C3_BUILD=""
+if gh release view "$VERSION" --json assets --jq '.assets[].name' | grep -q -x -F "vaultink-${VERSION}-x3-x4-factory.bin"; then
+  gh release download "$VERSION" -p "vaultink-${VERSION}-x3-x4-factory.bin" -D "$OUT"
+  [[ -s "$OUT/vaultink-${VERSION}-x3-x4-factory.bin" ]] || { echo "X3/X4 image download failed; nothing was published." >&2; exit 1; }
+  mv "$OUT/vaultink-${VERSION}-x3-x4-factory.bin" "$OUT/vaultink-x3-x4-factory.bin"
+  C3_BUILD=',
+    { "chipFamily": "ESP32-C3", "parts": [ { "path": "vaultink-x3-x4-factory.bin", "offset": 0 } ] }'
+fi
 cat > "$OUT/manifest.json" <<EOT
 {
   "name": "VaultInk",
@@ -54,7 +63,7 @@ cat > "$OUT/manifest.json" <<EOT
   "commit": "$(git rev-parse --short "$VERSION^{commit}")",
   "new_install_prompt_erase": true,
   "builds": [
-    { "chipFamily": "ESP32-S3", "parts": [ { "path": "vaultink-x4pro-factory.bin", "offset": 0 } ] }
+    { "chipFamily": "ESP32-S3", "parts": [ { "path": "vaultink-x4pro-factory.bin", "offset": 0 } ] }${C3_BUILD}
   ]
 }
 EOT

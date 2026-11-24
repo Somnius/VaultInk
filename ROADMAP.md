@@ -143,6 +143,11 @@ and PBKDF2 timing, the hardware checklist. Reading statistics: ✅ 0.51.0 the fi
   SD card, put the app bin (not factory) on it, boot mode (Power + both page buttons, from Lef),
   what erasing wipes; X4/X3 point to CrossPoint, since VaultInk
   is X4 Pro only.
+* ✅ X3 and X4 (0.79.0): the ESP32-C3 build (`gh_release`, `vaultink-<ver>-x3-x4.bin`) fits after
+  `-DOMIT_FONTS` (Noto Sans 14 pt only, 6.31 of 6.55 MB); `Wire1` only where the chip has two I2C
+  buses; the install page offers it (ESP32-C3 entry in manifest.json). Not run on an X3 or X4 yet.
+  Building it locally needs `.work/c3build.sh` (platform 55.03.311 wants tool-scons 4.8.1 but
+  PlatformIO 6.2 runs 4.11.1, and with custom_sdkconfig the platform deletes it mid-build).
 * ✅ Fix: CrossPoint's `release.yml` was still building firmware on GitHub for every published
   release and replacing the locally built OTA file (`--clobber`). Found on 0.8.5; that run was
   cancelled before it uploaded. Removed `release.yml` and `release_candidate.yml`; local builds put
