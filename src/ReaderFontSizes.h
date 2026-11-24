@@ -18,12 +18,20 @@
 
 // The built-in Noto Sans family is compiled in at exactly these
 // point sizes (see the global font objects in main.cpp).
+#ifdef OMIT_FONTS
+inline constexpr uint8_t BUILTIN_READER_POINT_SIZES[] = {14};  // the X3 build has 14 pt only
+#else
 inline constexpr uint8_t BUILTIN_READER_POINT_SIZES[] = {12, 14, 16, 18};
+#endif
 
 // Selects a built-in size without loading it; returns 0 for other font families.
 inline int builtinReaderFontVariant(const int fontId, const float scale) {
   static constexpr int FAMILIES[][std::size(BUILTIN_READER_POINT_SIZES)] = {
+#ifdef OMIT_FONTS
+      {NOTOSANS_14_FONT_ID},
+#else
       {NOTOSANS_12_FONT_ID, NOTOSANS_14_FONT_ID, NOTOSANS_16_FONT_ID, NOTOSANS_18_FONT_ID},
+#endif
   };
   for (const int* family : FAMILIES) {
     const int* end = family + std::size(BUILTIN_READER_POINT_SIZES);
