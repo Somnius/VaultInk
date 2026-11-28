@@ -2,15 +2,21 @@
 
 Every release, newest first. The device shows the new entries once after an update.
 
-## 0.79.1 (unreleased)
+## 0.79.1 (2026-11-28)
 
-Fixes for reading a vault. Tested on a computer only:
+Fixes for reading a vault, for every device.
 
-- **Odd characters in names.** Folder and file names with emoji, or letters the menu font lacks (like a Korean ㅡ), no longer show the diamond. They are left out of the shown name only, so the folder still opens.
+Checked on my X4 Pro (2026-11-28):
+
+- **Odd characters in names.** A folder whose name starts with a letter the menu font lacks (a Korean ㅡ in my vault) showed a diamond. Letters the font can't draw, and emoji, are now left out of the shown name only, so the folder still opens.
 - **Bases and Dataview blocks** show one line, "Obsidian Bases view (open it in Obsidian)" or "Dataview query (open it in Obsidian)", instead of their raw text.
-- **Home in a note** opens the vault's home note: the Homepage plugin's note, else Home.md or index.md. Without one it opens the vault's folder. Back returns to the note.
-- **Continue Reading** on the VaultInk home resumes the vault note you read last, if you read it after any book.
+- **Home in a note** (Go Home in the menu, or the Home gesture) opens the vault's home note: the Homepage plugin's note, else Home.md or index.md, else the vault's folder. Books still go to the Home screen.
+- **Continue Reading** on the Home screen resumes the vault note you read last, on the same page.
+
+Tested on a computer only:
+
 - Reopening a note after ticking a task keeps your page.
+- The X3 and X4 build has the same fixes and still fits (96.4%); it has not run on either reader yet.
 
 ## 0.79.0 (2026-11-24)
 
