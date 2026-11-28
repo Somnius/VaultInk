@@ -2111,4 +2111,8 @@ TEST(JustifiedGap, PathTokenAfterAHyphenatableWord) {
             << " of 66 widths\n";
   RecordProperty("widest_greedy_px", widestGreedy);
   RecordProperty("widest_total_fit_px", widestTotal);
+  // Regression guard: measured 28 px (total-fit) and 144 px (line by line) on 2026-11-28.
+  EXPECT_LE(widestTotal, 32);
+  EXPECT_LT(widestTotal, widestGreedy);
+  EXPECT_EQ(used, 66);
 }
