@@ -1,0 +1,11 @@
+{
+  "name": "VaultInk",
+  "version": "0.79.1",
+  "built": "2026-11-28",
+  "commit": "69a3f0d8",
+  "new_install_prompt_erase": true,
+  "builds": [
+    { "chipFamily": "ESP32-S3", "parts": [ { "path": "vaultink-x4pro-factory.bin", "offset": 0 } ] },
+    { "chipFamily": "ESP32-C3", "parts": [ { "path": "vaultink-x3-x4-factory.bin", "offset": 0 } ] }
+  ]
+}
