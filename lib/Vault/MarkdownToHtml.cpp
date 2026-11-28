@@ -516,6 +516,7 @@ bool MarkdownToHtml::embedNote(std::string_view trimmed) {
   sink.write(html);
   MarkdownToHtml inner(sink);
   inner.imageResolver = imageResolver;
+  inner.queryLabel = queryLabel;
   inner.feed(text);
   inner.finish(false);
   sink.write("</blockquote>\n");
@@ -528,7 +529,7 @@ void MarkdownToHtml::continuation(std::string_view text) {
     inContinuation = true;
     return;
   }
-  if (block == Block::Frontmatter || block == Block::Comment) {
+  if (block == Block::Frontmatter || block == Block::Comment || block == Block::Query) {
     inContinuation = true;
     return;
   }
@@ -743,6 +744,23 @@ void MarkdownToHtml::flushTable(const bool more) {
   sink.write(html);
 }
 
+bool MarkdownToHtml::queryKind(std::string_view info, QueryKind& kind) {
+  info = trim(info);
+  size_t end = 0;
+  while (end < info.size() && info[end] != ' ' && info[end] != '\t' && info[end] != '{') ++end;
+  std::string word(info.substr(0, end));
+  for (char& c : word) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  if (word == "base" || word == "bases") {
+    kind = QueryKind::Bases;
+    return true;
+  }
+  if (word == "dataview" || word == "dataviewjs" || word == "tasks" || word == "query") {
+    kind = QueryKind::Dataview;
+    return true;
+  }
+  return false;
+}
+
 void MarkdownToHtml::line(std::string_view text) {
   currentLine = text;
   if (inContinuation) {
@@ -751,7 +769,7 @@ void MarkdownToHtml::line(std::string_view text) {
     if (block == Block::Code) {
       writeEscaped(text);
       sink.write("\n");
-    } else if (block != Block::Frontmatter && block != Block::Comment) {
+    } else if (block != Block::Frontmatter && block != Block::Comment && block != Block::Query) {
       paragraph += text;
     }
     return;
@@ -780,6 +798,12 @@ void MarkdownToHtml::line(std::string_view text) {
     }
     return;
   }
+  if (block == Block::Query) {
+    if (startsWith(trimmed, fence) && trim(trimmed).find_first_not_of(fence[0]) == std::string_view::npos) {
+      block = Block::None;
+    }
+    return;
+  }
   if (block == Block::Comment) {
     if (text.find("%%") != std::string_view::npos) block = Block::None;
     return;
@@ -792,6 +816,19 @@ void MarkdownToHtml::line(std::string_view text) {
     size_t run = 0;
     while (run < trimmed.size() && trimmed[run] == trimmed[0]) ++run;
     fence.assign(run, trimmed[0]);
+    QueryKind kind;
+    if (queryKind(trimmed.substr(run), kind)) {
+      // Written now, so a fence left open at the end of the note still shows it.
+      std::string html = "<p><i>";
+      appendEscaped(html, queryLabel
+                              ? queryLabel(kind)
+                              : std::string(kind == QueryKind::Bases ? "Obsidian Bases view (open it in Obsidian)"
+                                                                     : "Dataview query (open it in Obsidian)"));
+      html += "</i></p>\n";
+      sink.write(html);
+      block = Block::Query;
+      return;
+    }
     sink.write("<pre>");
     block = Block::Code;
     return;

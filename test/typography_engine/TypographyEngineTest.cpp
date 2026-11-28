@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <string>
@@ -2053,4 +2054,65 @@ TEST(HyphenationLanguageFallback, TheSectionCacheKeyFollowsTheInterfaceLanguageO
     Hyphenator::setFallbackLanguage(tag);
     EXPECT_EQ(Hyphenator::scriptFallbackSignature(""), english) << tag;
   }
+}
+
+// --- A justified line with a huge gap (seen on the reader in a vault note; cause not known yet) ---
+// The shape of that paragraph: an unbreakable path token "Serkan/Sessions/)," right after a word that can be
+// hyphenated. This only measures: the widest gap each breaker leaves, at every width, printed for the report.
+namespace {
+const std::vector<const char*> kPathParagraph{"The",
+                                              "recordings",
+                                              "of",
+                                              "every",
+                                              "game",
+                                              "night",
+                                              "are",
+                                              "kept",
+                                              "with",
+                                              "the",
+                                              "campaign",
+                                              "notes",
+                                              "under",
+                                              "the",
+                                              "players",
+                                              "conversations",
+                                              "Serkan/Sessions/),",
+                                              "and",
+                                              "the",
+                                              "summaries",
+                                              "are",
+                                              "written",
+                                              "afterwards",
+                                              "by",
+                                              "whoever",
+                                              "remembers",
+                                              "the",
+                                              "most",
+                                              "about",
+                                              "it"};
+}  // namespace
+
+TEST(JustifiedGap, PathTokenAfterAHyphenatableWord) {
+  Engine engine(Config{});
+  Hyphenator::setPreferredLanguage("en");
+  int widestGreedy = 0, widestTotal = 0, greedyWidth = 0, totalWidth = 0, used = 0;
+  for (uint16_t width = 160; width <= 420; width += 4) {
+    const Fitted f = fitted(kPathParagraph, width);
+    EXPECT_TRUE(keepsTheText(f.total, kPathParagraph)) << width;
+    for (const auto& line : f.total) EXPECT_LE(line.right, width) << width;
+    used += f.usedTotalFit ? 1 : 0;
+    const int g = worstStretch(f.greedy);
+    const int t = worstStretch(f.total);
+    if (g > widestGreedy) widestGreedy = g, greedyWidth = width;
+    if (t > widestTotal) widestTotal = t, totalWidth = width;
+  }
+  std::cout << "[ JUSTIFIED GAP ] widest gap growth: greedy " << widestGreedy << " px (at " << greedyWidth
+            << " px), total-fit " << widestTotal << " px (at " << totalWidth << " px); total-fit used at " << used
+            << " of 66 widths\n";
+  RecordProperty("widest_greedy_px", widestGreedy);
+  RecordProperty("widest_total_fit_px", widestTotal);
+  // Regression guard: measured 28 px (total-fit) and 144 px (line by line) on 2026-11-28.
+  EXPECT_LE(widestTotal, 32);
+  EXPECT_LT(widestTotal, widestGreedy);
+  EXPECT_EQ(used, 66);
 }

@@ -265,3 +265,55 @@ TEST(VaultMarkdown, EmbedSections) {
   EXPECT_EQ(MarkdownToHtml::section("first\n-still ^d\n", "^d"), "first\n-still ^d");
   EXPECT_EQ(MarkdownToHtml::section("1. one ^e\n", "^e"), "1. one ^e");
 }
+
+// Obsidian Bases / Dataview / Tasks / Query blocks become one placeholder line (the reader can't run them).
+TEST(MarkdownToHtml, QueryBlocksBecomeAPlaceholder) {
+  const std::string bases = "<p><i>Obsidian Bases view (open it in Obsidian)</i></p>\n";
+  const std::string dataview = "<p><i>Dataview query (open it in Obsidian)</i></p>\n";
+  EXPECT_EQ(body("```base\nviews:\n  - type: table\n```\n"), bases);
+  EXPECT_EQ(body("```Base\nfilters: x\n```\n"), bases);
+  EXPECT_EQ(body("```dataview\nLIST FROM #x\n```\n"), dataview);
+  EXPECT_EQ(body("```dataviewjs\ndv.list([1])\n```\n"), dataview);
+  EXPECT_EQ(body("```tasks\nnot done\n```\n"), dataview);
+  EXPECT_EQ(body("```query\ntag:#x\n```\n"), dataview);
+  EXPECT_EQ(body("~~~dataview\nLIST\n~~~\n"), dataview);
+  EXPECT_EQ(body("``` dataview TABLE file.mtime\nFROM \"x\"\n```\n"), dataview);
+  EXPECT_EQ(body("```dataview TABLE a, b\n```\n"), dataview);
+  // The text after the block is kept.
+  EXPECT_EQ(body("```base\nviews: []\n```\nafter\n"), bases + "<p>after</p>\n");
+  // A backtick line inside a ~~~ block doesn't close it.
+  EXPECT_EQ(body("~~~base\n```\n~~~\nafter\n"), bases + "<p>after</p>\n");
+}
+
+TEST(MarkdownToHtml, UnclosedQueryBlockAtEndOfNote) {
+  EXPECT_EQ(body("text\n\n```dataview\nLIST\nFROM x"),
+            "<p>text</p>\n<p><i>Dataview query (open it in Obsidian)</i></p>\n");
+}
+
+TEST(MarkdownToHtml, OtherFencesStayCode) {
+  EXPECT_EQ(body("```mermaid\ngraph TD\n```\n"), "<pre>graph TD\n</pre>\n");
+  EXPECT_EQ(body("```database\nx\n```\n"), "<pre>x\n</pre>\n");
+  EXPECT_EQ(body("```\nbase\n```\n"), "<pre>base\n</pre>\n");
+}
+
+TEST(MarkdownToHtml, QueryLabelFromTheApp) {
+  struct S : MarkdownToHtml::Sink {
+    std::string out;
+    void write(std::string_view t) override { out += t; }
+  } sink;
+  MarkdownToHtml c(sink);
+  c.setQueryLabel(
+      [](MarkdownToHtml::QueryKind k) { return std::string(k == MarkdownToHtml::QueryKind::Bases ? "B<x>" : "D"); });
+  c.begin("t");
+  c.feed("```base\nx\n```\n");
+  c.finish();
+  EXPECT_NE(sink.out.find("<p><i>B&lt;x&gt;</i></p>"), std::string::npos);
+}
+
+TEST(MarkdownToHtml, QueryBlockSurvivesChunking) {
+  const std::string md = "a\n\n```dataview\nTABLE x\n" + std::string(MarkdownToHtml::MAX_LINE + 10, 'y') + "\n```\nb\n";
+  const std::string whole = convert(md);
+  for (const size_t chunk : {1u, 7u, 64u}) EXPECT_EQ(convert(md, chunk), whole) << "chunk " << chunk;
+  EXPECT_EQ(whole.find("yyy"), std::string::npos);
+  EXPECT_NE(whole.find("<p>b</p>"), std::string::npos);
+}

@@ -9,6 +9,8 @@
 #include <cstring>
 #include <memory>
 
+#include "LastRead.h"
+
 namespace vaultfiles {
 namespace {
 
@@ -86,6 +88,7 @@ void rememberLastNote(const std::string& notePath) {
   Storage.ensureDirectoryExists(file.substr(0, file.find_last_of('/')).c_str());
   if (!Storage.writeFile(file.c_str(), String(notePath.c_str()))) LOG_ERR("VLT", "Could not save last note");
   if (!isMarkdown(notePath)) return;  // a canvas is the vault's last note, not a recent note
+  lastread::remember(notePath);       // the Home card resumes the note
   auto notes = readRecentNotes();
   if (!notes.empty() && notes.front() == notePath) return;
   vaultpaths::pushRecent(notes, notePath, MAX_RECENT_NOTES);

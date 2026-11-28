@@ -228,6 +228,7 @@ class EpubReaderActivity final : public ReaderActivity {
   bool saveProgress(int spineIndex, int currentPage, int pageCount);
   // Notes (Phase 4a): tick a task box, new / rename / delete the note.
   void reopenNote(const std::string& path);
+  void goHome();
   void toggleTask(const std::string& href);
   void askNoteTitle(bool rename);
   void confirmDeleteNote();

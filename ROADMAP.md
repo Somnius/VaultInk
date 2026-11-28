@@ -142,6 +142,7 @@ and PBKDF2 timing, the hardware checklist. Reading statistics: ✅ 0.51.0 the fi
   understand this is untested". ✅ Device picker (0.8.0); X4 Pro steps (0.8.1): back up the
   SD card, put the app bin (not factory) on it, boot mode (Power + both page buttons, from Lef),
   what erasing wipes; X4/X3 pointed to CrossPoint until 0.79.0 (see below).
+* ✅ (0.79.1, computer tests and builds only, not tried on a device) Vault fixes: emoji left out of shown names (no diamond), Bases/Dataview blocks as one placeholder line, Home in a note opens the vault's home note (Homepage plugin, Home.md, index.md, else the vault folder), the VaultInk Continue Reading card resumes the last note, reopening a note keeps its page. Open: the huge justified gap seen in a note; a host test with the same shape shows total-fit keeps it small (28 px against 144 px line by line), so the cause on the reader is still unknown. Known limits: a Bases/Dataview block inside a quote or callout still shows as code, an unclosed one hides the rest of the note (as in Obsidian); the placeholder's language is cached with the note until it rebuilds; drop caps don't skip emoji format marks.
 * ✅ X3 and X4 (0.79.0): the ESP32-C3 build (`gh_release`, `vaultink-<ver>-x3-x4.bin`) fits after
   `-DOMIT_FONTS` (Noto Sans 14 pt only, 6.31 of 6.55 MB); `Wire1` only where the chip has two I2C
   buses; the install page offers it (ESP32-C3 entry in manifest.json). Not run on an X3 or X4 yet.

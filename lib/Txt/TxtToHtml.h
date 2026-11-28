@@ -37,6 +37,8 @@ class TxtToHtml {
   // as control bytes (lib/Pdf/PdfText.cpp). Styled turns them into tags, plain drops them. Part of the cache tag, so
   // switching Style rebuilds the book's HTML (kos25k #29, Txt::syncPdfStyle).
   static void setPdfStyled(bool on) { pdfStyled = on; }
+  // The placeholder line for Obsidian Bases / Dataview blocks, in the UI language (src fills it from I18n).
+  static void setQueryLabel(MarkdownToHtml::QueryLabel label) { queryLabel = std::move(label); }
   static bool isPdfText(std::string_view filename);
 
  private:
@@ -57,4 +59,5 @@ class TxtToHtml {
  private:
   static inline bool taskBoxes = false;
   static inline bool pdfStyled = true;
+  static inline MarkdownToHtml::QueryLabel queryLabel;
 };

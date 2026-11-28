@@ -161,3 +161,52 @@ TEST(Utf8ComposeNfcInPlace, PreservesMalformedAndTruncatedBytes) {
   utf8ComposeNfcInPlace(buffer);
   EXPECT_STREQ(buffer, "\xFF\xC3\xA9\xE1\x84");
 }
+
+// File and folder names for display: emoji and their format marks left out, the leftover spaces trimmed.
+TEST(Utf8DisplayName, DropsEmoji) {
+  EXPECT_EQ(utf8DisplayName("\xF0\x9F\x93\x81 Projects"), "Projects");                    // U+1F4C1
+  EXPECT_EQ(utf8DisplayName("\xE2\x9A\x94\xEF\xB8\x8F Combat"), "Combat");                // U+2694 U+FE0F
+  EXPECT_EQ(utf8DisplayName("Notes \xF0\x9F\x8E\xB2"), "Notes");                          // trailing U+1F3B2
+  EXPECT_EQ(utf8DisplayName("A \xF0\x9F\x91\x8D\xF0\x9F\x8F\xBD B"), "A  B");             // U+1F44D + skin tone
+  EXPECT_EQ(utf8DisplayName("\xF0\x9F\x91\xA8\xE2\x80\x8D\xF0\x9F\x92\xBB Dev"), "Dev");  // ZWJ sequence
+}
+
+TEST(Utf8DisplayName, KeepsOtherNames) {
+  const std::string greek = "\xCE\x92\xCE\xB9\xCE\xB2\xCE\xBB\xCE\xAF\xCE\xB1";
+  EXPECT_EQ(utf8DisplayName("Plain name"), "Plain name");
+  EXPECT_EQ(utf8DisplayName(" leading space kept"), " leading space kept");  // nothing dropped: unchanged
+  EXPECT_EQ(utf8DisplayName(greek), greek);
+  EXPECT_EQ(utf8DisplayName(""), "");
+  // Plain symbols without U+FE0F stay (the fonts may have them), and so does CJK Extension B.
+  EXPECT_EQ(utf8DisplayName("\xE2\x98\x85 Starred"), "\xE2\x98\x85 Starred");    // U+2605
+  EXPECT_EQ(utf8DisplayName("Done \xE2\x9C\x93"), "Done \xE2\x9C\x93");          // U+2713
+  EXPECT_EQ(utf8DisplayName("\xF0\xA0\x80\x8B Note"), "\xF0\xA0\x80\x8B Note");  // U+2000B
+  EXPECT_EQ(utf8DisplayName("\xF3\xA0\x80\x81x"), "\xF3\xA0\x80\x81x");          // U+E0001 is no emoji
+  // Only emoji: the name itself (something to show beats an empty row).
+  EXPECT_EQ(utf8DisplayName("\xF0\x9F\x8E\xB2"), "\xF0\x9F\x8E\xB2");
+}
+
+// With a font check: characters the UI font can't draw are left out too (the reader showed "ㅡ Vault").
+namespace {
+bool latinAndGreekOnly(const uint32_t cp, const void*) { return cp < 0x250 || (cp >= 0x370 && cp <= 0x3FF); }
+bool drawsEverything(const uint32_t, const void*) { return true; }
+bool countsCalls(const uint32_t, const void* c) {
+  ++*static_cast<int*>(const_cast<void*>(c));
+  return false;
+}
+}  // namespace
+
+TEST(Utf8DisplayName, DropsWhatTheFontCannotDraw) {
+  const std::string eu = "\xE3\x85\xA1";  // U+3161 HANGUL LETTER EU
+  EXPECT_EQ(utf8DisplayName(eu + " Vault", latinAndGreekOnly), "Vault");
+  EXPECT_EQ(utf8DisplayName("Caf\xC3\xA9 " + eu, latinAndGreekOnly), "Caf\xC3\xA9");
+  EXPECT_EQ(utf8DisplayName("\xCE\x92\xCE\xB9\xCE\xB2", latinAndGreekOnly), "\xCE\x92\xCE\xB9\xCE\xB2");
+  // Without the check the letter stays; with nothing readable left, the name is shown as it is.
+  EXPECT_EQ(utf8DisplayName(eu + " Vault"), eu + " Vault");
+  EXPECT_EQ(utf8DisplayName(eu + eu, latinAndGreekOnly), eu + eu);
+  // The emoji rules still apply with a check that draws everything.
+  EXPECT_EQ(utf8DisplayName("\xF0\x9F\x93\x81 A", drawsEverything), "A");
+  int calls = 0;
+  EXPECT_EQ(utf8DisplayName("plain ascii", countsCalls, &calls), "plain ascii");
+  EXPECT_EQ(calls, 0);  // ASCII is never checked
+}

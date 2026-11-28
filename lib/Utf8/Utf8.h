@@ -115,6 +115,24 @@ inline uint32_t utf8SmallCapsUpper(const uint32_t cp) {
   return cp;
 }
 
+// Zero-width format marks that only shape the character before them (emoji variation selectors U+FE00-FE0F, the
+// zero-width joiner U+200D, skin-tone modifiers U+1F3FB-1F3FF, tag characters U+E0020-E007F). No font here draws
+// them, so drawing and measuring both skip them instead of showing the missing-glyph box.
+inline bool utf8IsInvisibleFormat(const uint32_t cp) {
+  return (cp >= 0xFE00 && cp <= 0xFE0F) || cp == 0x200D || (cp >= 0x1F3FB && cp <= 0x1F3FF) ||
+         (cp >= 0xE0020 && cp <= 0xE007F);
+}
+
+// The emoji blocks (U+1F000-1FAFF): none of the device fonts has them. Symbols in U+2600-27BF (★, ✓) are
+// emoji only with U+FE0F after them (utf8DisplayName checks that); CJK Extension B and up is not emoji.
+inline bool utf8IsEmoji(const uint32_t cp) { return cp >= 0x1F000 && cp <= 0x1FAFF; }
+
+// A file or folder name for display: emoji, format marks and (with `canDraw`) every non-ASCII codepoint the UI font
+// can't draw are dropped, then the spaces left at either end. The name itself is returned when nothing else is left.
+// The stored name never changes: opening the entry uses it.
+using Utf8CanDraw = bool (*)(uint32_t cp, const void* ctx);
+std::string utf8DisplayName(const std::string& name, Utf8CanDraw canDraw = nullptr, const void* ctx = nullptr);
+
 // Returns true for Unicode combining diacritical marks that should not advance the cursor.
 inline bool utf8IsCombiningMark(const uint32_t cp) {
   return (cp >= 0x0300 && cp <= 0x036F)      // Combining Diacritical Marks

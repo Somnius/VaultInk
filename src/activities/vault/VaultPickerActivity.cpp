@@ -4,6 +4,7 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <Utf8.h>
 
 #include <algorithm>
 #include <cstring>
@@ -15,6 +16,7 @@
 #include "activities/ActivityManager.h"
 #include "components/UITheme.h"
 #include "components/UiAppHelpers.h"
+#include "util/DisplayName.h"
 #include "util/VaultFiles.h"
 
 namespace fui = freeink::ui;
@@ -27,8 +29,9 @@ const char* VaultPickerActivity::headerTitle() const { return tr(STR_VAULTS); }
 void VaultPickerActivity::findVaults() {
   vaults.clear();
   auto found = vaultfiles::findVaults();
-  std::transform(found.begin(), found.end(), std::back_inserter(vaults),
-                 [](vaultfiles::Vault& v) { return Vault{std::move(v.name), std::move(v.path), {}, {}}; });
+  std::transform(found.begin(), found.end(), std::back_inserter(vaults), [this](vaultfiles::Vault& v) {
+    return Vault{displayName(renderer, v.name), std::move(v.path), {}, {}};
+  });
   for (auto& v : vaults) {
     v.last = vaultfiles::lastNote(v.path);
     if (v.last.empty()) {
@@ -36,7 +39,7 @@ void VaultPickerActivity::findVaults() {
     } else {
       std::string title = v.last.substr(v.last.find_last_of('/') + 1);
       if (title.size() > 3 && title.compare(title.size() - 3, 3, ".md") == 0) title.resize(title.size() - 3);
-      v.subtitle = std::string(tr(STR_VAULT_LAST_NOTE)) + ": " + title;
+      v.subtitle = std::string(tr(STR_VAULT_LAST_NOTE)) + ": " + displayName(renderer, title);
     }
   }
   LOG_DBG("VLT", "Found %u vaults", static_cast<unsigned>(vaults.size()));
@@ -52,7 +55,7 @@ void VaultPickerActivity::findRecentNotes() {
     if (inside == vaults.end() || path.size() < 4) continue;  // only notes of a vault that is still there
     std::string title = path.substr(path.find_last_of('/') + 1);
     title.resize(title.size() - 3);  // ".md"
-    recentNotes.push_back({std::move(title), std::move(path), inside->name});
+    recentNotes.push_back({displayName(renderer, title), std::move(path), inside->name});
   }
 }
 

@@ -37,7 +37,16 @@ class MarkdownToHtml {
   static constexpr size_t MAX_EMBED = 32 * 1024;
   static const char* const CALLOUT_OPEN;  // the <blockquote> that starts a callout box
 
+  // Query blocks Obsidian plugins render live (Bases, Dataview, Tasks, Query). The reader can't run
+  // them, so the whole fenced block becomes one placeholder line.
+  enum class QueryKind { Bases, Dataview };
+  // The placeholder text for a kind (the app fills it from I18n); English when not set.
+  using QueryLabel = std::function<std::string(QueryKind kind)>;
+  // The kind for a fence's info string ("base", "dataview TABLE ..."); false for code languages.
+  static bool queryKind(std::string_view info, QueryKind& kind);
+
   explicit MarkdownToHtml(Sink& sink) : sink(sink) {}
+  void setQueryLabel(QueryLabel label) { queryLabel = std::move(label); }
   void setImageResolver(ImageResolver resolver) { imageResolver = std::move(resolver); }
   void setNoteLoader(NoteLoader loader) { noteLoader = std::move(loader); }
   // Task boxes become "task:<line>:<hash>" links (TaskToggle.h) the reader can tick. Only for the
@@ -64,7 +73,7 @@ class MarkdownToHtml {
   static std::string_view section(std::string_view note, std::string_view anchor);
 
  private:
-  enum class Block { None, Paragraph, Code, Quote, Comment, Frontmatter, Table };
+  enum class Block { None, Paragraph, Code, Quote, Comment, Frontmatter, Table, Query };
   struct ListLevel {
     bool ordered;
     int indent;
@@ -88,6 +97,7 @@ class MarkdownToHtml {
   Sink& sink;
   ImageResolver imageResolver;
   NoteLoader noteLoader;
+  QueryLabel queryLabel;
   const ImageResolver* images() const { return imageResolver ? &imageResolver : nullptr; }
   std::string pendingLine;
   std::string paragraph;
