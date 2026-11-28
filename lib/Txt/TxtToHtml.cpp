@@ -13,7 +13,7 @@ const char* TxtToHtml::cacheVersionTag(std::string_view filename) {
   if (FsHelpers::hasMobiExtension(filename)) return mobi::CACHE_VERSION_TAG;
   if (isPdfText(filename)) return "<!-- TXT_CACHE_VERSION: 2 -->";  // the Style setting: Txt::syncPdfStyle
   if (!FsHelpers::hasMarkdownExtension(filename)) return "<!-- TXT_CACHE_VERSION: 1 -->";
-  return taskBoxes ? "<!-- MD_CACHE_VERSION: 8 boxes -->" : "<!-- MD_CACHE_VERSION: 8 -->";
+  return taskBoxes ? "<!-- MD_CACHE_VERSION: 9 boxes -->" : "<!-- MD_CACHE_VERSION: 9 -->";
 }
 
 bool TxtToHtml::isPdfText(const std::string_view filename) {
@@ -252,6 +252,7 @@ bool TxtToHtml::streamMarkdown(std::string_view filename, void* readerCtx,
   if (notes) converter.setNoteLoader(*notes);
   converter.setTaskLinks(true);
   converter.setTaskBoxes(taskBoxes);
+  if (queryLabel) converter.setQueryLabel(queryLabel);
   converter.begin(FsHelpers::getFileNameWithoutExtension(filename), cacheVersionTag(filename));
   bool first = true;
   int bytesRead = 0;

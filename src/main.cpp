@@ -23,6 +23,7 @@
 #include <SPI.h>
 #include <SunTimes.h>
 #include <TrustedTime.h>
+#include <TxtToHtml.h>
 #ifndef SIMULATOR
 #include <esp_sleep.h>
 #include <esp_system.h>
@@ -755,6 +756,10 @@ void setupDisplayAndFonts(bool seamless = false) {
 
 void setup() {
   BoardConfig::holdPowerRails();
+  TxtToHtml::setQueryLabel([](MarkdownToHtml::QueryKind kind) {
+    return std::string(kind == MarkdownToHtml::QueryKind::Bases ? tr(STR_VAULT_BASES_BLOCK)
+                                                                : tr(STR_VAULT_DATAVIEW_BLOCK));
+  });
 
 #ifdef ENABLE_SERIAL_LOG
 #ifdef CROSSPOINT_WAIT_FOR_USB_SERIAL
