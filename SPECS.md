@@ -370,12 +370,25 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 | Comments `%%...%%` | must | hidden |
 | HTML | later | tags stripped, text kept |
 | Math, Mermaid | later | shown as code |
+| Bases / Dataview / Tasks / Query blocks | placeholder | 0.79.1: a fence whose info string starts with `base`, `dataview`, `dataviewjs`, `tasks` or `query` (any case, words after it allowed) becomes one italic line, text from I18n (`STR_VAULT_BASES_BLOCK`, `STR_VAULT_DATAVIEW_BLOCK`) through `TxtToHtml::setQueryLabel`; `MD_CACHE_VERSION: 9` |
 
 ### 5.2 Note screens
 
 - Vault picker, folder browser (folders first, sorted by name with Greek collation), recent notes.
 - Note reader: paged, same fonts and settings as the book reader. Saves position per note.
 - Link following: tap a link (touch) or select it with buttons. A back stack of at least 16 notes.
+- Home in a note (0.79.1): `vaulthome::resolve` (lib/Vault/VaultHome) picks the Homepage plugin's note
+  (`homepages.*.value` with kind File or none, or the old `defaultNote`, resolved like a wiki link), else
+  `Home.md` / `index.md` at the vault root (any case); none, or the note already open, opens the vault
+  folder. Opened through `vaultnav::openFrom`, so Back returns. Any `.md` (`isVaultNote`); outside
+  `/Vaults` the root is the note's folder.
+- Continue Reading (0.79.1): `/.vaultink/last-read.txt` (src/util/LastRead) holds the last path opened,
+  written by `RecentBooksStore::addBook` and `vaultfiles::rememberLastNote`. When it names an existing
+  note in `/Vaults`, the VaultInk home card shows it (name, no cover, no percent, no star or info).
+- Names with emoji (0.79.1): `utf8DisplayName` drops emoji (U+1F000 and up, U+2600-27BF) from the
+  shown name in Browse Files, its path band, the Vaults list and the card; `utf8IsInvisibleFormat`
+  marks (U+FE00-FE0F, 200D, 1F3FB-1F3FF, E0020-E007F) are skipped by drawing and measuring.
+  `SECTION_FILE_VERSION` 80.
 - Unresolved links are drawn differently and say "note not found".
 - Search (done), backlinks for the current note (done: More → Backlinks), tag list, outgoing links.
 - Attachments other than images (PDF, docx, audio) are listed but not opened until their phase.

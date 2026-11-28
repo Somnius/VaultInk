@@ -91,6 +91,17 @@ MOBI and AZW books, the status bar options with the book page number, and Advanc
 
 More screenshots are in the sections below and in [docs/](docs/).
 
+## New in 0.79.1: fixes for reading a vault
+
+I found a few things while reading my own vault on the X4 Pro, and this fixes them:
+
+- Folders with an emoji in the name showed a diamond. Now the emoji are just left out of the name you see. The folder itself keeps its name, so it still opens.
+- Obsidian Bases and Dataview blocks showed up as raw text in the note. The reader can't run them, so each one is now a single line saying it's a Bases view or a Dataview query, to open in Obsidian.
+- Home inside a note took me to the device's home screen. Now it opens the vault's home note: the one set in the Homepage plugin, or else Home.md or index.md at the top of the vault. If there's none, it opens the vault's folder. Back takes you to the note you were on.
+- Continue Reading on the home screen never brought me back to a note. Now, with the VaultInk home layout, the card shows the note you read last (if you read it after any book) and opens it on the same page. The Books list stays books only.
+
+All of this is tested on a computer only, not on a reader yet.
+
 ## New in 0.79.0: the X3 and X4
 
 VaultInk now has a build for the Xteink X3 and the original X4 too. Both use the smaller ESP32-C3 chip, so they share one firmware, which finds out which of the two it runs on when it starts. Install it from the [install page](https://somnius.github.io/VaultInk/) (pick X3 or X4), or put `vaultink-<version>-x3-x4.bin` on the SD card. The update check on the reader picks the right file for its model.

@@ -470,6 +470,26 @@ on the Continue Reading card, in Recent, in Favourites or in Random page!. Only 
 are vaults; a folder with `.obsidian` anywhere else is an ordinary folder. (0.77.0; checked
 with tests on a computer, not on a device.)
 
+Since 0.79.1 there's one exception on the **VaultInk** home layout: when the last thing you opened
+was a vault note (after any book), the Continue Reading card shows that note, with its name, no cover
+and no percent, and opens it on the page you left. It is still not added to Recent or Favourites.
+(Tested on a computer only.)
+
+### Notes in a vault (0.79.1)
+
+- **Home** (the menu entry or the Home gesture) inside a vault note opens the vault's home note
+  instead of the device's home screen: the note set in the Homepage plugin
+  (`.obsidian/plugins/homepage/data.json`), else `Home.md` or `index.md` at the top of the vault.
+  When there's none, or you're already on it, it opens the vault's folder. Back returns to the note.
+  Books still go to the home screen.
+- **Bases and Dataview blocks** (code blocks of type `base`, `dataview`, `dataviewjs`, `tasks` or
+  `query`) can't run on the reader, so each shows as one line: "Obsidian Bases view (open it in
+  Obsidian)" or "Dataview query (open it in Obsidian)". Other code blocks, Mermaid too, still show as code.
+- **Emoji in names**: file and folder names show without their emoji (the fonts don't have them); the
+  real name is kept, so everything still opens.
+
+(Tested on a computer only.)
+
 Under the Library's tabs there's a switch, **All** | **Books only**. Books only leaves the notes
 and text files that are not in a vault (and canvases) out of Recent, Title and Author, so the list is just your books. Search still
 works with it on, and finds only books. The choice is remembered. Favourites only ever hold books,
