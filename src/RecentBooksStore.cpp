@@ -45,9 +45,10 @@ void RecentBooksStore::addBook(const std::string& path, const std::string& title
                                const std::string& coverBmpPath) {
   // VaultInk's own notes (What's New, a canvas card) are not books to come back to; a PDF's text is.
   if (path.rfind("/.vaultink/", 0) == 0 && path.rfind("/.vaultink/pdf/", 0) != 0) return;
-  // Nor is anything in an Obsidian vault: not in the recent list, so not on the Home card either.
+  // The last thing read, also a book or note kept in a vault (lastread decides what the Home card shows).
+  lastread::remember(path);
+  // Nothing in an Obsidian vault goes in the recent list, so not in the Books list either.
   if (vaultpaths::isUnderVaults(path)) return;
-  lastread::remember(path);  // a book read after a note takes the Home card back
   // Drop stale entries first so a new add can't evict a valid book in their stead.
   pruneMissing();
 
