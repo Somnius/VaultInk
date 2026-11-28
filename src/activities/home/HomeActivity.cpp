@@ -11,7 +11,7 @@
 #include <LibraryFormats.h>
 #include <LibraryIndexFile.h>
 #include <Memory.h>
-#include <Utf8.h>
+#include <VaultPaths.h>
 #include <Xtc.h>
 
 #include <algorithm>
@@ -31,6 +31,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/CbzCover.h"
+#include "util/LastRead.h"
 #include "util/RandomPage.h"
 #include "util/VaultFiles.h"
 
@@ -163,6 +164,7 @@ void HomeActivity::resolveGridCoverPaths() {
 }
 
 void HomeActivity::loadGridCover(RecentBook& book, int height, bool& showingLoading, Rect& popupRect) {
+  if (vaultpaths::isUnderVaults(book.path)) return;  // a note on the card: no cover, the card's fallback
   if (!book.coverBmpPath.empty() && Storage.exists(UITheme::getCoverThumbPath(book.coverBmpPath, height).c_str()))
     return;
   // Only one parser lives at a time; EPUB/XTC objects exceed the stack budget.
@@ -326,9 +328,15 @@ void HomeActivity::setupHome() {
   }
   if (vaultInkUi) {
     loadRecentBooks(1);
+    // A vault note read after every book takes the card (it is never in the Books list): its name, no cover.
+    if (std::string note = lastread::note(); !note.empty()) {
+      recentBooks.clear();
+      recentBooks.push_back({note, FsHelpers::getFileNameWithoutExtension(note), "", ""});
+    }
     hasContinueReading = !recentBooks.empty();
+    const bool noteCard = hasContinueReading && isNoteCard();
     vaultInkUi->begin(recentBooks, hasContinueReading, hasLibrarySlot(), hasPlugins);
-    vaultInkUi->setFavourite(hasContinueReading && FAVOURITES.contains(recentBooks.front().path));
+    vaultInkUi->setFavourite(hasContinueReading && !noteCard && FAVOURITES.contains(recentBooks.front().path));
     {
       // Only an index that already exists: home never waits for a library rebuild.
       auto index = makeUniqueNoThrow<library::LibraryIndexFile>();
@@ -790,7 +798,7 @@ void HomeActivity::activateVaultInkItem(const int index) {
 void HomeActivity::loopVaultInkHome() {
   const int count = vaultInkUi->itemCount();
   const int touched = vaultInkUi->selectedAction(mappedInput);
-  if (vaultInkUi->takeInfoRequest() && !recentBooks.empty()) {
+  if (vaultInkUi->takeInfoRequest() && !recentBooks.empty() && !isNoteCard()) {
     startActivityForResult(std::make_unique<BookInfoActivity>(renderer, mappedInput, recentBooks[0].path),
                            [this](const ActivityResult&) { requestUpdate(); });
     return;

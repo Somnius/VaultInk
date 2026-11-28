@@ -1,4 +1,6 @@
 #pragma once
+#include <VaultPaths.h>
+
 #include <functional>
 #include <vector>
 
@@ -24,6 +26,8 @@ class HomeActivity final : public Activity {
   // The home "library" slot (index 2) shows Plugins when any plugin is
   // installed, otherwise OPDS. The index converters gate on its presence.
   bool hasLibrarySlot() const { return hasPlugins || hasOpdsServers; }
+  // The Continue Reading card holds a vault note (lastread::note), not a book.
+  bool isNoteCard() const { return !recentBooks.empty() && vaultpaths::isUnderVaults(recentBooks.front().path); }
   bool hasContinueReading = false;
   bool coverRendered = false;      // Track if cover has been rendered once
   bool coverBufferStored = false;  // Track if cover buffer is stored

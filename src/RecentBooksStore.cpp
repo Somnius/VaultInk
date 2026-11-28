@@ -6,6 +6,8 @@
 
 #include <algorithm>
 
+#include "util/LastRead.h"
+
 void RecentBooksStore::toJson(JsonDocument& doc) const {
   JsonArray arr = doc["books"].to<JsonArray>();
   for (const auto& book : recentBooks) {
@@ -45,6 +47,7 @@ void RecentBooksStore::addBook(const std::string& path, const std::string& title
   if (path.rfind("/.vaultink/", 0) == 0 && path.rfind("/.vaultink/pdf/", 0) != 0) return;
   // Nor is anything in an Obsidian vault: not in the recent list, so not on the Home card either.
   if (vaultpaths::isUnderVaults(path)) return;
+  lastread::remember(path);  // a book read after a note takes the Home card back
   // Drop stale entries first so a new add can't evict a valid book in their stead.
   pruneMissing();
 

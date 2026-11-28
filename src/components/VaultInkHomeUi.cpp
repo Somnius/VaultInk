@@ -5,6 +5,7 @@
 #include <GfxRenderer.h>
 #include <HalGPIO.h>
 #include <I18n.h>
+#include <VaultPaths.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -62,7 +63,10 @@ void VaultInkHomeUi::begin(const std::vector<RecentBook>& recent, const bool con
   app.on(CARD_INFO, &VaultInkHomeUi::onCardInfo, this);
   app.setScreen(&VaultInkHomeUi::screenFn, this);
   refreshCoverPath();
-  progress = hasContinueReading ? loadBookProgress(books->front().path) : -1;
+  // A vault note on the card shows no percent.
+  progress = hasContinueReading && !vaultpaths::isUnderVaults(books->front().path)
+                 ? loadBookProgress(books->front().path)
+                 : -1;
   if (progress >= 0) snprintf(progressText, sizeof(progressText), "%d%%", progress);
 }
 
