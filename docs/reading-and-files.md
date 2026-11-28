@@ -477,16 +477,21 @@ and no percent, and opens it on the page you left. It is still not added to Rece
 
 ### Notes in a vault (0.79.1)
 
-- **Home** (the menu entry or the Home gesture) inside a vault note opens the vault's home note
+- **Home** (the menu entry or the Home gesture) inside a note in `/Vaults` opens the vault's home note
   instead of the device's home screen: the note set in the Homepage plugin
-  (`.obsidian/plugins/homepage/data.json`), else `Home.md` or `index.md` at the top of the vault.
-  When there's none, or you're already on it, it opens the vault's folder. Back returns to the note.
-  Books still go to the home screen.
+  (`.obsidian/plugins/homepage/data.json`, its path from the top of the vault; a path that leads out
+  of the vault is ignored), else `Home.md` or `index.md` at the top of the vault. When there's none,
+  or you're already on it, it opens the vault's folder. Back from the home note returns to your note;
+  Back from the folder doesn't. Books and notes outside `/Vaults` still go to the home screen.
 - **Bases and Dataview blocks** (code blocks of type `base`, `dataview`, `dataviewjs`, `tasks` or
   `query`) can't run on the reader, so each shows as one line: "Obsidian Bases view (open it in
   Obsidian)" or "Dataview query (open it in Obsidian)". Other code blocks, Mermaid too, still show as code.
-- **Emoji in names**: file and folder names show without their emoji (the fonts don't have them); the
-  real name is kept, so everything still opens.
+  Known limits: such a block inside a quote or callout still shows as code; a block that is never
+  closed hides the rest of the note (Obsidian does the same); the line keeps the language the note was
+  first shown in until the note is rebuilt.
+- **Emoji in names**: file and folder names show without their emoji (U+1F000-1FAFF, and symbols such
+  as ⚔ only when written as emoji); plain symbols like ★ and ✓ stay. The real name is kept, so
+  everything still opens. Known limit: a drop cap doesn't skip the invisible emoji marks.
 
 (Tested on a computer only.)
 

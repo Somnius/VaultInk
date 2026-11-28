@@ -378,17 +378,21 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Note reader: paged, same fonts and settings as the book reader. Saves position per note.
 - Link following: tap a link (touch) or select it with buttons. A back stack of at least 16 notes.
 - Home in a note (0.79.1): `vaulthome::resolve` (lib/Vault/VaultHome) picks the Homepage plugin's note
-  (`homepages.*.value` with kind File or none, or the old `defaultNote`, resolved like a wiki link), else
+  (`homepages.*.value` with kind File or none, or the old `defaultNote`), else
   `Home.md` / `index.md` at the vault root (any case); none, or the note already open, opens the vault
-  folder. Opened through `vaultnav::openFrom`, so Back returns. Any `.md` (`isVaultNote`); outside
-  `/Vaults` the root is the note's folder.
+  folder. Opened through `vaultnav::openFrom`, so Back returns (not from the folder fallback). Only notes
+  in `/Vaults`; others go to the Home screen. The plugin value is a path from the vault root, checked
+  with one `exists()` (no vault walk); `vaulthome::safeNotePath` rejects absolute paths, `\` and `..`.
+  The comparison with the open note ignores case.
 - Continue Reading (0.79.1): `/.vaultink/last-read.txt` (src/util/LastRead) holds the last path opened,
   written by `RecentBooksStore::addBook` and `vaultfiles::rememberLastNote`. When it names an existing
   note in `/Vaults`, the VaultInk home card shows it (name, no cover, no percent, no star or info).
-- Names with emoji (0.79.1): `utf8DisplayName` drops emoji (U+1F000 and up, U+2600-27BF) from the
+- Names with emoji (0.79.1): `utf8DisplayName` drops emoji (U+1F000-1FAFF; U+2600-27BF only before U+FE0F) from the
   shown name in Browse Files, its path band, the Vaults list and the card; `utf8IsInvisibleFormat`
   marks (U+FE00-FE0F, 200D, 1F3FB-1F3FF, E0020-E007F) are skipped by drawing and measuring.
-  `SECTION_FILE_VERSION` 80.
+  `SECTION_FILE_VERSION` 80. Known limits: query fences in quotes/callouts stay code, an unclosed one
+  hides the rest of the note, the placeholder language is cached with the note, drop caps don't skip the
+  format marks. `last-read.txt` is also written for a book kept in `/Vaults`.
 - Unresolved links are drawn differently and say "note not found".
 - Search (done), backlinks for the current note (done: More → Backlinks), tag list, outgoing links.
 - Attachments other than images (PDF, docx, audio) are listed but not opened until their phase.
