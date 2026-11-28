@@ -19,6 +19,9 @@
 #include <TrustedTime.h>
 #include <Txt.h>
 #include <TxtToHtml.h>
+#include <VaultHome.h>
+#include <VaultLink.h>
+#include <VaultSdFs.h>
 #include <WiFi.h>
 #include <Wikipedia.h>
 #include <WordSearch.h>
@@ -1571,7 +1574,7 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       break;
     }
     case EpubReaderMenuActivity::MenuAction::GO_HOME: {
-      onGoHome();
+      goHome();
       return;
     }
     case EpubReaderMenuActivity::MenuAction::DELETE_CACHE: {
@@ -4734,7 +4737,7 @@ bool EpubReaderActivity::runReaderAction(const gestures::Action action) {
       requestUpdate();
       return true;
     case gestures::GoHome:
-      onGoHome();
+      goHome();
       return true;
     case gestures::Screenshot: {
       {
@@ -4791,9 +4794,41 @@ void EpubReaderActivity::reopenNote(const std::string& path) {
       }
       section.reset();
     }
-    if (epub) epub->clearCache();
+    if (epub) {
+      // clearCache() removes the whole cache folder, progress.bin with it: keep the place just saved.
+      const std::string progressPath = epub->getCachePath() + "/progress.bin";
+      std::string progress;
+      const bool kept = Storage.exists(progressPath.c_str()) &&
+                        Storage.readFileToString("ERS", progressPath, 64, progress) && !progress.empty();
+      epub->clearCache();
+      if (kept) {
+        epub->setupCacheDir();
+        HalFile f;
+        if (!Storage.openFileForWrite("ERS", progressPath, f) ||
+            f.write(reinterpret_cast<const uint8_t*>(progress.data()), progress.size()) != progress.size()) {
+          LOG_ERR("ERS", "Failed to keep the note's place");
+        }
+      }
+    }
   }
   activityManager.goToReader(path);
+}
+
+// Home in a vault note opens the vault's home note (Homepage plugin, Home.md or index.md), or its top
+// folder when there is none or it is open already. Books, and notes outside a vault, go to the Home screen.
+void EpubReaderActivity::goHome() {
+  if (!isVaultNote()) {
+    onGoHome();
+    return;
+  }
+  const auto fs = vaultsd::fs();
+  const std::string root = vaultlink::vaultRoot(bookPath, fs);
+  const std::string home = vaulthome::resolve(root, fs);
+  if (!home.empty() && home != bookPath) {
+    vaultnav::openFrom(bookPath, home);  // Back returns to this note
+    return;
+  }
+  activityManager.goToFileBrowser(root);
 }
 
 void EpubReaderActivity::toggleTask(const std::string& href) {
