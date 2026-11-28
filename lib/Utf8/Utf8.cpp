@@ -232,7 +232,9 @@ std::string utf8DisplayName(const std::string& name) {
   while (*ptr) {
     const uint32_t cp = utf8NextCodepoint(&ptr);
     if (cp == 0) break;
-    if (utf8IsEmoji(cp) || utf8IsInvisibleFormat(cp)) {
+    const unsigned char* next = ptr;
+    const bool emojiSymbol = cp >= 0x2600 && cp <= 0x27BF && utf8NextCodepoint(&next) == 0xFE0F;
+    if (utf8IsEmoji(cp) || emojiSymbol || utf8IsInvisibleFormat(cp)) {
       dropped = true;
       continue;
     }

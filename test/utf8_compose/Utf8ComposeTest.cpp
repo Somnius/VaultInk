@@ -177,6 +177,11 @@ TEST(Utf8DisplayName, KeepsOtherNames) {
   EXPECT_EQ(utf8DisplayName(" leading space kept"), " leading space kept");  // nothing dropped: unchanged
   EXPECT_EQ(utf8DisplayName(greek), greek);
   EXPECT_EQ(utf8DisplayName(""), "");
+  // Plain symbols without U+FE0F stay (the fonts may have them), and so does CJK Extension B.
+  EXPECT_EQ(utf8DisplayName("\xE2\x98\x85 Starred"), "\xE2\x98\x85 Starred");    // U+2605
+  EXPECT_EQ(utf8DisplayName("Done \xE2\x9C\x93"), "Done \xE2\x9C\x93");          // U+2713
+  EXPECT_EQ(utf8DisplayName("\xF0\xA0\x80\x8B Note"), "\xF0\xA0\x80\x8B Note");  // U+2000B
+  EXPECT_EQ(utf8DisplayName("\xF3\xA0\x80\x81x"), "\xF3\xA0\x80\x81x");          // U+E0001 is no emoji
   // Only emoji: the name itself (something to show beats an empty row).
   EXPECT_EQ(utf8DisplayName("\xF0\x9F\x8E\xB2"), "\xF0\x9F\x8E\xB2");
 }

@@ -123,8 +123,9 @@ inline bool utf8IsInvisibleFormat(const uint32_t cp) {
          (cp >= 0xE0020 && cp <= 0xE007F);
 }
 
-// Emoji and pictographs (U+1F000 and up, U+2600-27BF): none of the device fonts has them.
-inline bool utf8IsEmoji(const uint32_t cp) { return cp >= 0x1F000 || (cp >= 0x2600 && cp <= 0x27BF); }
+// The emoji blocks (U+1F000-1FAFF): none of the device fonts has them. Symbols in U+2600-27BF (★, ✓) are
+// emoji only with U+FE0F after them (utf8DisplayName checks that); CJK Extension B and up is not emoji.
+inline bool utf8IsEmoji(const uint32_t cp) { return cp >= 0x1F000 && cp <= 0x1FAFF; }
 
 // A file or folder name for display: emoji and format marks dropped, then the spaces left at either end. The
 // name itself is returned when nothing else is left (a name made only of emoji).
