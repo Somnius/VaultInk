@@ -95,7 +95,7 @@ More screenshots are in the sections below and in [docs/](docs/).
 
 I found a few things while reading my own vault on the X4 Pro, and this fixes them:
 
-- Folders with an emoji in the name showed a diamond. Now the emoji are just left out of the name you see. The folder itself keeps its name, so it still opens.
+- A folder of mine showed a diamond in its name. It was a Korean letter (ㅡ) the menu font doesn't have. Now letters the font can't draw, and emoji, are just left out of the name you see. The folder itself keeps its name, so it still opens.
 - Obsidian Bases and Dataview blocks showed up as raw text in the note. The reader can't run them, so each one is now a single line saying it's a Bases view or a Dataview query, to open in Obsidian.
 - Home inside a note took me to the device's home screen. Now it opens the vault's home note: the one set in the Homepage plugin, or else Home.md or index.md at the top of the vault. If there's none, it opens the vault's folder. Back takes you to the note you were on.
 - Continue Reading on the home screen never brought me back to a note. Now, with the VaultInk home layout, the card shows the note you read last (if you read it after any book) and opens it on the same page. The Books list stays books only.

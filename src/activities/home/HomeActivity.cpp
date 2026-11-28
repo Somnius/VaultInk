@@ -32,6 +32,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/CbzCover.h"
+#include "util/DisplayName.h"
 #include "util/LastRead.h"
 #include "util/RandomPage.h"
 #include "util/VaultFiles.h"
@@ -332,7 +333,7 @@ void HomeActivity::setupHome() {
     // A vault note read after every book takes the card (it is never in the Books list): its name, no cover.
     if (std::string note = lastread::note(); !note.empty()) {
       recentBooks.clear();
-      recentBooks.push_back({note, utf8DisplayName(FsHelpers::getFileNameWithoutExtension(note)), "", ""});
+      recentBooks.push_back({note, displayName(renderer, FsHelpers::getFileNameWithoutExtension(note)), "", ""});
     }
     hasContinueReading = !recentBooks.empty();
     const bool noteCard = hasContinueReading && isNoteCard();

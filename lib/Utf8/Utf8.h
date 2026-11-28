@@ -127,9 +127,11 @@ inline bool utf8IsInvisibleFormat(const uint32_t cp) {
 // emoji only with U+FE0F after them (utf8DisplayName checks that); CJK Extension B and up is not emoji.
 inline bool utf8IsEmoji(const uint32_t cp) { return cp >= 0x1F000 && cp <= 0x1FAFF; }
 
-// A file or folder name for display: emoji and format marks dropped, then the spaces left at either end. The
-// name itself is returned when nothing else is left (a name made only of emoji).
-std::string utf8DisplayName(const std::string& name);
+// A file or folder name for display: emoji, format marks and (with `canDraw`) every non-ASCII codepoint the UI font
+// can't draw are dropped, then the spaces left at either end. The name itself is returned when nothing else is left.
+// The stored name never changes: opening the entry uses it.
+using Utf8CanDraw = bool (*)(uint32_t cp, const void* ctx);
+std::string utf8DisplayName(const std::string& name, Utf8CanDraw canDraw = nullptr, const void* ctx = nullptr);
 
 // Returns true for Unicode combining diacritical marks that should not advance the cursor.
 inline bool utf8IsCombiningMark(const uint32_t cp) {

@@ -224,7 +224,7 @@ void utf8TruncateChars(std::string& str, const size_t numChars) {
   }
 }
 
-std::string utf8DisplayName(const std::string& name) {
+std::string utf8DisplayName(const std::string& name, const Utf8CanDraw canDraw, const void* ctx) {
   std::string out;
   out.reserve(name.size());
   const auto* ptr = reinterpret_cast<const unsigned char*>(name.c_str());
@@ -234,7 +234,7 @@ std::string utf8DisplayName(const std::string& name) {
     if (cp == 0) break;
     const unsigned char* next = ptr;
     const bool emojiSymbol = cp >= 0x2600 && cp <= 0x27BF && utf8NextCodepoint(&next) == 0xFE0F;
-    if (utf8IsEmoji(cp) || emojiSymbol || utf8IsInvisibleFormat(cp)) {
+    if (utf8IsEmoji(cp) || emojiSymbol || utf8IsInvisibleFormat(cp) || (cp >= 0x80 && canDraw && !canDraw(cp, ctx))) {
       dropped = true;
       continue;
     }

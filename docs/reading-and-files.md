@@ -490,7 +490,8 @@ and no percent, and opens it on the page you left. It is still not added to Rece
   closed hides the rest of the note (Obsidian does the same); the line keeps the language the note was
   first shown in until the note is rebuilt.
 - **Emoji in names**: file and folder names show without their emoji (U+1F000-1FAFF, and symbols such
-  as ⚔ only when written as emoji); plain symbols like ★ and ✓ stay. The real name is kept, so
+  as ⚔ only when written as emoji) and without letters the menu font can't draw (a Korean ㅡ, for
+  example); plain symbols like ★ and ✓ stay. The real name is kept, so
   everything still opens. Known limit: a drop cap doesn't skip the invisible emoji marks.
 
 (Tested on a computer only.)

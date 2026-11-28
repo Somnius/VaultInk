@@ -32,6 +32,7 @@
 #include "util/BookCacheUtils.h"
 #include "util/BookInfo.h"
 #include "util/BookmarkUtil.h"
+#include "util/DisplayName.h"
 #include "util/FileOps.h"
 #include "util/FileTime.h"
 #include "util/FileTypeIcons.h"
@@ -52,7 +53,7 @@ constexpr const char* HERE_ENTRY = "./";
 
 std::string getFileExtension(const std::string& filename);
 
-void formatFileName(const std::string& filename, char* buffer, const size_t bufferSize) {
+void formatFileName(const GfxRenderer& renderer, const std::string& filename, char* buffer, const size_t bufferSize) {
   if (filename.empty()) {
     buffer[0] = '\0';
     return;
@@ -60,7 +61,7 @@ void formatFileName(const std::string& filename, char* buffer, const size_t buff
   const bool isDirectory = filename.back() == '/';
   const size_t dot = isDirectory ? filename.size() - 1 : filename.rfind('.');
   // Emoji are left out of the shown name only (no font has them); opening the entry uses the stored name.
-  const std::string shown = utf8DisplayName(filename.substr(0, dot == std::string::npos ? filename.size() : dot));
+  const std::string shown = displayName(renderer, filename.substr(0, dot == std::string::npos ? filename.size() : dot));
   const char* format = isDirectory && !UITheme::getInstance().getTheme().showsFileIcons() ? "[%s]" : "%s";
   snprintf(buffer, bufferSize, format, shown.c_str());
   // Compose only the display copy; filesystem lookup needs the raw entry bytes.
@@ -178,7 +179,7 @@ void FileBrowserActivity::provideRow(void* ctx, const uint16_t index, fui::ListI
     item.actionValue = static_cast<int16_t>(index);
     return;
   }
-  formatFileName(entry, self->rowNameBuf, sizeof(self->rowNameBuf));
+  formatFileName(self->renderer, entry, self->rowNameBuf, sizeof(self->rowNameBuf));
   item.label = self->rowNameBuf;
   formatFileExtension(entry, self->rowExtBuf, sizeof(self->rowExtBuf));
   if (!entry.empty() && entry.back() != '/') {
@@ -227,7 +228,8 @@ void FileBrowserActivity::prewarmRowGlyphs(const int start) {
       [](const void* ctx, uint32_t i) -> const char* {
         auto* c = const_cast<PrewarmCtx*>(static_cast<const PrewarmCtx*>(ctx));
         if (i < static_cast<uint32_t>(c->count)) {
-          formatFileName(c->self->files[c->first + i], c->self->rowNameBuf, sizeof(c->self->rowNameBuf));
+          formatFileName(c->self->renderer, c->self->files[c->first + i], c->self->rowNameBuf,
+                         sizeof(c->self->rowNameBuf));
           return c->self->rowNameBuf;
         }
         return c->self->basepath.c_str();
@@ -910,7 +912,7 @@ void FileBrowserActivity::buildScreen(UiScreen& screen) {
       size_t slash = basepath.find('/', start);
       if (slash == std::string::npos) slash = basepath.size();
       if (start > 0) shownPath += '/';
-      shownPath += utf8DisplayName(basepath.substr(start, slash - start));
+      shownPath += displayName(renderer, basepath.substr(start, slash - start), SMALL_FONT_ID);
       start = slash + 1;
     }
     const char* pathStr = shownPath.c_str();

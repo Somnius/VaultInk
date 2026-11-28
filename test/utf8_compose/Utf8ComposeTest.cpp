@@ -185,3 +185,28 @@ TEST(Utf8DisplayName, KeepsOtherNames) {
   // Only emoji: the name itself (something to show beats an empty row).
   EXPECT_EQ(utf8DisplayName("\xF0\x9F\x8E\xB2"), "\xF0\x9F\x8E\xB2");
 }
+
+// With a font check: characters the UI font can't draw are left out too (the reader showed "ㅡ Vault").
+namespace {
+bool latinAndGreekOnly(const uint32_t cp, const void*) { return cp < 0x250 || (cp >= 0x370 && cp <= 0x3FF); }
+bool drawsEverything(const uint32_t, const void*) { return true; }
+bool countsCalls(const uint32_t, const void* c) {
+  ++*static_cast<int*>(const_cast<void*>(c));
+  return false;
+}
+}  // namespace
+
+TEST(Utf8DisplayName, DropsWhatTheFontCannotDraw) {
+  const std::string eu = "\xE3\x85\xA1";  // U+3161 HANGUL LETTER EU
+  EXPECT_EQ(utf8DisplayName(eu + " Vault", latinAndGreekOnly), "Vault");
+  EXPECT_EQ(utf8DisplayName("Caf\xC3\xA9 " + eu, latinAndGreekOnly), "Caf\xC3\xA9");
+  EXPECT_EQ(utf8DisplayName("\xCE\x92\xCE\xB9\xCE\xB2", latinAndGreekOnly), "\xCE\x92\xCE\xB9\xCE\xB2");
+  // Without the check the letter stays; with nothing readable left, the name is shown as it is.
+  EXPECT_EQ(utf8DisplayName(eu + " Vault"), eu + " Vault");
+  EXPECT_EQ(utf8DisplayName(eu + eu, latinAndGreekOnly), eu + eu);
+  // The emoji rules still apply with a check that draws everything.
+  EXPECT_EQ(utf8DisplayName("\xF0\x9F\x93\x81 A", drawsEverything), "A");
+  int calls = 0;
+  EXPECT_EQ(utf8DisplayName("plain ascii", countsCalls, &calls), "plain ascii");
+  EXPECT_EQ(calls, 0);  // ASCII is never checked
+}

@@ -387,7 +387,7 @@ Approved design: `docs/design/` (home, quick settings, reading menu, settings; d
 - Continue Reading (0.79.1): `/.vaultink/last-read.txt` (src/util/LastRead) holds the last path opened,
   written by `RecentBooksStore::addBook` and `vaultfiles::rememberLastNote`. When it names an existing
   note in `/Vaults`, the VaultInk home card shows it (name, no cover, no percent, no star or info).
-- Names with emoji (0.79.1): `utf8DisplayName` drops emoji (U+1F000-1FAFF; U+2600-27BF only before U+FE0F) from the
+- Names with emoji (0.79.1): `utf8DisplayName` drops emoji (U+1F000-1FAFF; U+2600-27BF only before U+FE0F) and, through `displayName` (src/util/DisplayName.h, `GfxRenderer::canDrawCodepoint`), any codepoint the UI font and its fallback can't draw, from the
   shown name in Browse Files, its path band, the Vaults list and the card; `utf8IsInvisibleFormat`
   marks (U+FE00-FE0F, 200D, 1F3FB-1F3FF, E0020-E007F) are skipped by drawing and measuring.
   `SECTION_FILE_VERSION` 80. Known limits: query fences in quotes/callouts stay code, an unclosed one
