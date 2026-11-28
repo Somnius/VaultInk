@@ -105,8 +105,10 @@ struct Json {
   // Skips any value; false on broken JSON or nesting deeper than MAX_DEPTH.
   bool skip() {
     space();
-    std::string ignored;
-    if (peek() == '"') return string(ignored);
+    if (peek() == '"') {
+      std::string ignored;
+      return string(ignored);
+    }
     if (peek() == '{') return object([this](const std::string&) { return skip(); });
     if (peek() == '[') {
       if (++depth > MAX_DEPTH) return false;

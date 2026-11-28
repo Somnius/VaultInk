@@ -749,7 +749,8 @@ bool MarkdownToHtml::queryKind(std::string_view info, QueryKind& kind) {
   size_t end = 0;
   while (end < info.size() && info[end] != ' ' && info[end] != '\t' && info[end] != '{') ++end;
   std::string word(info.substr(0, end));
-  for (char& c : word) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  std::transform(word.begin(), word.end(), word.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   if (word == "base" || word == "bases") {
     kind = QueryKind::Bases;
     return true;
