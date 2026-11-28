@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "lib/EpdFont/EpdFontData.h"
+#include "lib/Utf8/Utf8.h"
 
 // ============================================================================
 // Anchor selection and placement for combining marks without GPOS tables.
@@ -70,4 +71,26 @@ TEST(RaiseAboveBase, CentreRaisedBehaviourUnchanged) {
   EXPECT_EQ(raiseAboveBase(Anchor::CenterRaised, 16, 3, 12), 0);
   // Below-baseline mark (kasra, cedilla): stays at font-native position.
   EXPECT_EQ(raiseAboveBase(Anchor::CenterRaised, 2, 4, 12), 0);
+}
+
+// Emoji format marks are skipped by drawing and measuring alike (no font draws them).
+TEST(InvisibleFormat, EmojiFormatMarks) {
+  EXPECT_TRUE(utf8IsInvisibleFormat(0xFE0F));   // emoji presentation selector
+  EXPECT_TRUE(utf8IsInvisibleFormat(0xFE00));   // variation selector 1
+  EXPECT_TRUE(utf8IsInvisibleFormat(0x200D));   // zero-width joiner
+  EXPECT_TRUE(utf8IsInvisibleFormat(0x1F3FB));  // skin tone, lightest
+  EXPECT_TRUE(utf8IsInvisibleFormat(0x1F3FF));  // skin tone, darkest
+  EXPECT_TRUE(utf8IsInvisibleFormat(0xE0067));  // tag letter g (flag sequences)
+  EXPECT_TRUE(utf8IsInvisibleFormat(0xE007F));  // cancel tag
+}
+
+TEST(InvisibleFormat, VisibleCharactersAndMarksAreNot) {
+  EXPECT_FALSE(utf8IsInvisibleFormat('a'));
+  EXPECT_FALSE(utf8IsInvisibleFormat(0x0301));   // combining acute: drawn as a mark
+  EXPECT_FALSE(utf8IsInvisibleFormat(0x200C));   // zero-width non-joiner: left to the text code
+  EXPECT_FALSE(utf8IsInvisibleFormat(0xFE20));   // combining half mark
+  EXPECT_FALSE(utf8IsInvisibleFormat(0x1F600));  // an emoji itself
+  EXPECT_FALSE(utf8IsInvisibleFormat(0x1F3FA));
+  EXPECT_FALSE(utf8IsInvisibleFormat(0xE0080));
+  EXPECT_FALSE(utf8IsCombiningMark(0xFE0F));
 }

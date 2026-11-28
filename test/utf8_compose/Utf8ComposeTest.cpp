@@ -161,3 +161,22 @@ TEST(Utf8ComposeNfcInPlace, PreservesMalformedAndTruncatedBytes) {
   utf8ComposeNfcInPlace(buffer);
   EXPECT_STREQ(buffer, "\xFF\xC3\xA9\xE1\x84");
 }
+
+// File and folder names for display: emoji and their format marks left out, the leftover spaces trimmed.
+TEST(Utf8DisplayName, DropsEmoji) {
+  EXPECT_EQ(utf8DisplayName("\xF0\x9F\x93\x81 Projects"), "Projects");                    // U+1F4C1
+  EXPECT_EQ(utf8DisplayName("\xE2\x9A\x94\xEF\xB8\x8F Combat"), "Combat");                // U+2694 U+FE0F
+  EXPECT_EQ(utf8DisplayName("Notes \xF0\x9F\x8E\xB2"), "Notes");                          // trailing U+1F3B2
+  EXPECT_EQ(utf8DisplayName("A \xF0\x9F\x91\x8D\xF0\x9F\x8F\xBD B"), "A  B");             // U+1F44D + skin tone
+  EXPECT_EQ(utf8DisplayName("\xF0\x9F\x91\xA8\xE2\x80\x8D\xF0\x9F\x92\xBB Dev"), "Dev");  // ZWJ sequence
+}
+
+TEST(Utf8DisplayName, KeepsOtherNames) {
+  const std::string greek = "\xCE\x92\xCE\xB9\xCE\xB2\xCE\xBB\xCE\xAF\xCE\xB1";
+  EXPECT_EQ(utf8DisplayName("Plain name"), "Plain name");
+  EXPECT_EQ(utf8DisplayName(" leading space kept"), " leading space kept");  // nothing dropped: unchanged
+  EXPECT_EQ(utf8DisplayName(greek), greek);
+  EXPECT_EQ(utf8DisplayName(""), "");
+  // Only emoji: the name itself (something to show beats an empty row).
+  EXPECT_EQ(utf8DisplayName("\xF0\x9F\x8E\xB2"), "\xF0\x9F\x8E\xB2");
+}

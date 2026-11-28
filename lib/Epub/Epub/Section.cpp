@@ -81,7 +81,7 @@ namespace {
 // v71: the built-in reading fonts gained Greek, so Greek words change width.
 // 79: layout key in the header (total-fit line breaking); 77: Typography Engine word; 76: text features; 75: even
 // word gaps
-constexpr uint8_t SECTION_FILE_VERSION = 79;
+constexpr uint8_t SECTION_FILE_VERSION = 80;
 // Written into the version field while a build is in progress; patched to
 // SECTION_FILE_VERSION only when the build is finalized. An abandoned /
 // crash-interrupted .bin therefore carries version 0, which loadSectionFile rejects

@@ -223,3 +223,25 @@ void utf8TruncateChars(std::string& str, const size_t numChars) {
     utf8RemoveLastChar(str);
   }
 }
+
+std::string utf8DisplayName(const std::string& name) {
+  std::string out;
+  out.reserve(name.size());
+  const auto* ptr = reinterpret_cast<const unsigned char*>(name.c_str());
+  bool dropped = false;
+  while (*ptr) {
+    const uint32_t cp = utf8NextCodepoint(&ptr);
+    if (cp == 0) break;
+    if (utf8IsEmoji(cp) || utf8IsInvisibleFormat(cp)) {
+      dropped = true;
+      continue;
+    }
+    utf8AppendCodepoint(cp, out);
+  }
+  if (!dropped) return name;
+  const size_t first = out.find_first_not_of(' ');
+  if (first == std::string::npos) return name;
+  out.erase(0, first);
+  out.erase(out.find_last_not_of(' ') + 1);
+  return out;
+}
