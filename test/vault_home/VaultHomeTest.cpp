@@ -73,15 +73,34 @@ TEST(VaultHome, BrokenSettings) {
   EXPECT_EQ(vaulthome::homepageSetting(std::string(100, '{')), "");
 }
 
-TEST(VaultHome, PluginNoteResolvedLikeALink) {
+TEST(VaultHome, PluginNoteIsAPathFromTheRoot) {
   FakeFs card;
-  card.files[SETTINGS] = R"({"homepages":{"Main Homepage":{"value":"Dashboard","kind":"File"}}})";
+  card.files[SETTINGS] = R"({"homepages":{"Main Homepage":{"value":"Meta/Dashboard","kind":"File"}}})";
   card.files[ROOT + "/Home.md"] = "";
   card.files[ROOT + "/Meta/Dashboard.md"] = "";
   EXPECT_EQ(vaulthome::resolve(ROOT, card.fs()), ROOT + "/Meta/Dashboard.md");
   // A path with ".md" already.
   card.files[SETTINGS] = R"({"defaultNote":"Meta/Dashboard.md"})";
   EXPECT_EQ(vaulthome::resolve(ROOT, card.fs()), ROOT + "/Meta/Dashboard.md");
+  // A bare name is not searched for through the vault: Home.md instead.
+  card.files[SETTINGS] = R"({"defaultNote":"Dashboard"})";
+  EXPECT_EQ(vaulthome::resolve(ROOT, card.fs()), ROOT + "/Home.md");
+}
+
+TEST(VaultHome, PluginNoteMayNotLeaveTheVault) {
+  EXPECT_FALSE(vaulthome::safeNotePath("../Other/Secret"));
+  EXPECT_FALSE(vaulthome::safeNotePath("Meta/../../x"));
+  EXPECT_FALSE(vaulthome::safeNotePath(".."));
+  EXPECT_FALSE(vaulthome::safeNotePath("/Vaults/Other/Home"));
+  EXPECT_FALSE(vaulthome::safeNotePath("Meta\\Home"));
+  EXPECT_FALSE(vaulthome::safeNotePath(""));
+  EXPECT_TRUE(vaulthome::safeNotePath("Meta/..Notes/Home"));
+  EXPECT_TRUE(vaulthome::safeNotePath("Start Here"));
+  FakeFs card;
+  card.files["/Vaults/Other/Secret.md"] = "";
+  card.files[ROOT + "/index.md"] = "";
+  card.files[SETTINGS] = R"({"defaultNote":"../Other/Secret"})";
+  EXPECT_EQ(vaulthome::resolve(ROOT, card.fs()), ROOT + "/index.md");
 }
 
 TEST(VaultHome, MissingPluginNoteFallsBackToHome) {

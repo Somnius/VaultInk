@@ -147,6 +147,17 @@ struct Json {
 
 }  // namespace
 
+bool safeNotePath(const std::string_view note) {
+  if (note.empty() || note.front() == '/' || note.find('\\') != std::string_view::npos) return false;
+  for (size_t start = 0; start <= note.size();) {
+    size_t slash = note.find('/', start);
+    if (slash == std::string_view::npos) slash = note.size();
+    if (note.substr(start, slash - start) == "..") return false;
+    start = slash + 1;
+  }
+  return true;
+}
+
 std::string homepageSetting(const std::string_view json) {
   Json j{json};
   std::string homepage;     // the first homepage that is a note (kind "File", or no kind)
@@ -176,12 +187,13 @@ std::string homepageSetting(const std::string_view json) {
 std::string resolve(const std::string& root, const vaultindex::IndexFs& fs) {
   std::string json;
   if (fs.read && fs.read(root + "/.obsidian/plugins/homepage/data.json", MAX_SETTINGS, json)) {
-    vaultlink::Target target;
-    target.note = homepageSetting(json);
-    if (!target.note.empty()) {
-      // Like a wiki link from the vault root; ".md" is added when the name has none.
-      const std::string path = vaultlink::resolve(root, root, target, fs);
-      if (!path.empty()) return path;
+    std::string note = homepageSetting(json);
+    if (safeNotePath(note)) {
+      // The path from the vault root, as the plugin stores it; ".md" added when missing. No vault-wide search:
+      // Home is pressed often and a big vault takes long to walk.
+      if (note.size() < 3 || !vaultlink::sameName(std::string_view(note).substr(note.size() - 3), ".md")) note += ".md";
+      const std::string path = (!root.empty() && root.back() == '/' ? root : root + "/") + note;
+      if (fs.exists && fs.exists(path)) return path;
     }
   }
   std::string home;

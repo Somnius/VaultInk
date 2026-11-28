@@ -12,7 +12,10 @@ namespace vaulthome {
 // "kind": "File"}} or the older top-level "defaultNote"); "" when there is none or it isn't a note.
 std::string homepageSetting(std::string_view json);
 
-// The vault's home note: the Homepage plugin's note (resolved like a wiki link), else Home.md or
+// False for a Homepage value that could leave the vault: empty, absolute, a backslash or a ".." part.
+bool safeNotePath(std::string_view note);
+
+// The vault's home note: the Homepage plugin's note (its path from the vault root, checked directly), else Home.md or
 // index.md at the vault root (any case), else "".
 std::string resolve(const std::string& root, const vaultindex::IndexFs& fs);
 

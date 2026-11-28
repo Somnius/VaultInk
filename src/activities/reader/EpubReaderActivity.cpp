@@ -21,6 +21,7 @@
 #include <TxtToHtml.h>
 #include <VaultHome.h>
 #include <VaultLink.h>
+#include <VaultPaths.h>
 #include <VaultSdFs.h>
 #include <WiFi.h>
 #include <Wikipedia.h>
@@ -4817,14 +4818,14 @@ void EpubReaderActivity::reopenNote(const std::string& path) {
 // Home in a vault note opens the vault's home note (Homepage plugin, Home.md or index.md), or its top
 // folder when there is none or it is open already. Books, and notes outside a vault, go to the Home screen.
 void EpubReaderActivity::goHome() {
-  if (!isVaultNote()) {
+  if (!isVaultNote() || !vaultpaths::isUnderVaults(bookPath)) {
     onGoHome();
     return;
   }
   const auto fs = vaultsd::fs();
   const std::string root = vaultlink::vaultRoot(bookPath, fs);
   const std::string home = vaulthome::resolve(root, fs);
-  if (!home.empty() && home != bookPath) {
+  if (!home.empty() && !vaultlink::sameName(home, bookPath)) {
     vaultnav::openFrom(bookPath, home);  // Back returns to this note
     return;
   }
